@@ -1,7 +1,7 @@
-import { AbsoluteFill, Audio, Sequence, staticFile, useVideoConfig } from "remotion";
+﻿import { AbsoluteFill, Audio, Sequence, staticFile, useVideoConfig } from "remotion";
 import { Cartao } from "./cenas/Cartao";
 import { Dialogo } from "./cenas/Dialogo";
-import { Grade } from "./cenas/Grade";
+import { Capa } from "./cenas/Capa";
 import { Recorte } from "./cenas/Recorte";
 import { TelaCheia } from "./cenas/TelaCheia";
 import { folgaDeCorte, quadroDaPalavra } from "./tempo";
@@ -46,8 +46,8 @@ const CenaPorTipo: React.FC<{
   secao: Trecho["secao"];
 }> = ({ cena, trecho, quadro, duracao, secao }) => {
   switch (cena.tipo) {
-    case "grade":
-      return <Grade cena={cena} duracao={duracao} />;
+    case "capa":
+      return <Capa cena={cena} duracao={duracao} />;
     case "cartao":
       return <Cartao cena={cena} secao={secao} quadro={quadro} duracao={duracao} />;
     case "telacheia":

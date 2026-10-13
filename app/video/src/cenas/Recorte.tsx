@@ -1,5 +1,6 @@
-import { AbsoluteFill, Img, spring, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { CabecalhoSecao, Legenda } from "../componentes/CabecalhoSecao";
+import { estiloEntradaImagem } from "../efeitos";
 import { cor } from "../estilo";
 import type { CenaRecorte, Secao } from "../tipos";
 import { variar } from "../tempo";
@@ -12,26 +13,24 @@ export const Recorte: React.FC<{
 }> = ({ cena, secao, quadro }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
-  const entrada = spring({ frame, fps, config: { damping: 15, stiffness: 160 } });
-  const quandoLegenda = quadro(cena.legenda_em);
-  const pop = spring({ frame: frame - quandoLegenda, fps, config: { damping: 10, stiffness: 260 } });
   const altura = 760;
   const largura = (cena.midia.w / cena.midia.h) * altura;
   const lado = variar(cena.semente ?? "rec", -260, 260); // não fica sempre no mesmo lugar
   return (
     <AbsoluteFill style={{ background: cor.fundo }}>
-      <Img
-        src={staticFile(cena.midia.arquivo)}
+      <div
         style={{
           position: "absolute",
           height: altura,
           width: largura,
           left: (1920 - largura) / 2 + lado,
-          top: 160 + (1 - entrada) * 80,
-          opacity: entrada,
+          top: 160,
+          ...estiloEntradaImagem(frame, fps, 0, cena.entrada_img),
         }}
-      />
-      {frame >= quandoLegenda && <Legenda texto={cena.legenda} escala={0.8 + 0.2 * pop} />}
+      >
+        <Img src={staticFile(cena.midia.arquivo)} style={{ width: "100%", height: "100%" }} />
+      </div>
+      <Legenda texto={cena.legenda} desde={quadro(cena.legenda_em)} entrada={cena.entrada_legenda} />
       {secao && <CabecalhoSecao secao={secao} />}
     </AbsoluteFill>
   );

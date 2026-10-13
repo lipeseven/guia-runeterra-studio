@@ -1,4 +1,5 @@
 import { AbsoluteFill } from "remotion";
+import { EntradaTexto, type EfeitoTexto, type Entrada } from "../efeitos";
 import { cor, fonte } from "../estilo";
 import type { Secao } from "../tipos";
 import { Icone } from "./Icone";
@@ -27,21 +28,18 @@ export const CabecalhoSecao: React.FC<{ secao: Secao }> = ({ secao }) => (
   </AbsoluteFill>
 );
 
-/** Legenda grande embaixo da imagem, com um "pop" curto na entrada. */
-export const Legenda: React.FC<{ texto: string; escala: number }> = ({ texto, escala }) => (
-  <div
-    style={{
-      position: "absolute",
-      top: 940,
-      width: "100%",
-      textAlign: "center",
-      fontFamily: fonte.rotulo,
-      fontWeight: 700,
-      fontSize: 92,
-      color: cor.texto,
-      transform: `scale(${escala})`,
-    }}
-  >
-    {texto}
+/** Legenda grande embaixo da imagem; o efeito de entrada vem da direção. */
+export const Legenda: React.FC<{ texto: string; desde: number; entrada?: Entrada<EfeitoTexto> }> = ({
+  texto,
+  desde,
+  entrada,
+}) => (
+  <div style={{ position: "absolute", top: 940, width: "100%", display: "flex", justifyContent: "center" }}>
+    <EntradaTexto
+      texto={texto}
+      desde={desde}
+      entrada={entrada}
+      style={{ fontFamily: fonte.rotulo, fontWeight: 700, fontSize: 92, color: cor.texto, whiteSpace: "nowrap" }}
+    />
   </div>
 );

@@ -19,7 +19,9 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from capa import detectar as detectar_circulos  # noqa: E402
 from comum import BANCO_ACERVO, PASTA_ACERVO, RAIZ, preparar_ffmpeg  # noqa: E402
+from direcao.variacao import Variador  # noqa: E402
 
 VIDEO = RAIZ / "recursos de vídeo para aprender" / "Todos os DEMÔNIOS de League of Legends Explicados em 22 minutos.mp4"
 TRANSCRICAO = RAIZ / "dados/analise_referencias/todos-os-demonios-de-league-of-legends-explicados-em-22-minutos/transcricao.json"
@@ -29,19 +31,11 @@ SAIDA = RAIZ / "app/video/src/dados/prototipo.json"
 # Glossário mínimo: o que o Whisper ouviu -> grafia correta.
 GLOSSARIO = {"asacanas": "Azakanas", "asacana": "Azakana", "ione": "Yone"}
 
-# Ícones da grade: id no acervo, nome, foco (cx, cy em fração da imagem) e diâmetro (fração do menor lado).
-GRADE = [
-    (118, "Azakana", 0.43, 0.14, 0.26),
-    (633, "Nocturne", 0.68, 0.30, 0.60),
-    (861, "Tahm Kench", 0.40, 0.45, 0.80),
-    (299, "Evelynn", 0.55, 0.30, 0.55),
-    (840, "Raum", 0.60, 0.55, 0.50),
-    (199, "Camphor", 0.57, 0.35, 0.60),
-    (901, "Tybaulk", 0.45, 0.45, 0.70),
-    (104, "Atakhan", 0.50, 0.60, 0.80),
-    (76, "Ashlesh", 0.45, 0.45, 0.90),
-    (326, "Fiddlesticks", 0.35, 0.30, 0.60),
-]
+# Capa feita pelo Felipe (grade de ícones): vira a cena de abertura e a fonte dos ícones das seções.
+# Os círculos são detectados automaticamente; os nomes seguem a ordem de leitura da capa.
+CAPA = 209
+NOMES_CAPA = ["Azakana", "Nocturne", "Tahm Kench", "Evelynn", "Raum",
+              "Camphor", "Tybaulk", "Atakhan", "Ashlesh", "Fiddlesticks"]
 
 TRECHOS = {
     # nome: (início s, fim s) no vídeo original
@@ -99,10 +93,21 @@ def main() -> None:
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(ini), "-to", str(fim), "-i", str(VIDEO),
                         "-vn", "-ac", "2", "-ar", "48000", str(PUBLICO / f"{nome}.wav")], check=True)
 
+    # ---------- Capa do vídeo: abertura + ícones das seções ----------
+    capa = midia(con, CAPA)
+    circulos, _ = detectar_circulos(str(PUBLICO / Path(capa["arquivo"]).name))
+    for c, nome in zip(circulos, NOMES_CAPA):
+        c["nome"] = nome
+
+    def icone_capa(nome: str) -> dict:
+        c = next(c for c in circulos if c["nome"] == nome)
+        return {"nome": nome, "midia": capa, "foco": [c["cx"], c["cy"]], "diametro": 2 * c["r"] * 0.93}
+
+    var = Variador(semente="demonios-prototipo")
+
     # ---------- Trecho 1: abertura ----------
     pa = palavras_do_trecho(*TRECHOS["abertura"])
-    icones = [{"nome": n, "midia": midia(con, i), "foco": [cx, cy], "diametro": d} for i, n, cx, cy, d in GRADE]
-    icone_secao = icones[0]
+    icone_secao = icone_capa("Azakana")
     w_runeterra = achar(pa, "Runeterra")
     w_entidades = achar(pa, "entidades")
     w_nem = achar(pa, "nem")
@@ -116,18 +121,23 @@ def main() -> None:
         "palavras": pa,
         "secao": {"titulo": "Azakanas", "icone": icone_secao},
         "cenas": [
-            {"tipo": "grade", "de": 0, "ate": w_runeterra - 1, "icones": icones, "destaque": 0},
-            {"tipo": "cartao", "de": w_runeterra - 1, "ate": w_nem - 1, "semente": 11, "itens": [
-                {"de": w_runeterra - 1, "midia": midia(con, 757), "legenda": "Runeterra"},
-                {"de": w_entidades, "midia": midia(con, 268), "legenda": "entidades primordiais"},
+            {"tipo": "capa", "de": 0, "ate": w_runeterra - 1, "midia": capa, "circulos": circulos,
+             "destaque": NOMES_CAPA.index("Azakana"), "zoom": 2.6},
+            {"tipo": "cartao", "de": w_runeterra - 1, "ate": w_nem - 1, "itens": [
+                {"de": w_runeterra - 1, "midia": midia(con, 757), "legenda": "Runeterra",
+                 "entrada_img": var.imagem(), "entrada_legenda": var.texto(), "movimento": var.movimento()},
+                {"de": w_entidades, "midia": midia(con, 268), "legenda": "entidades primordiais",
+                 "entrada_img": var.imagem(), "entrada_legenda": var.texto(), "movimento": var.movimento()},
             ]},
             {"tipo": "telacheia", "de": w_nem, "ate": w_nas - 1, "midia": midia(con, 116),
-             "zoom": [1.0, 1.12], "foco": [0.5, 0.45], "semente": 3},
-            {"tipo": "cartao", "de": w_nas, "ate": w_eles - 1, "semente": 7, "itens": [
-                {"de": w_nas, "midia": midia(con, 414), "legenda": "Ionia", "legenda_em": w_ionia},
+             "foco": [0.5, 0.45], "movimento": var.movimento(), "entrada_img": var.imagem()},
+            {"tipo": "cartao", "de": w_nas, "ate": w_eles - 1, "itens": [
+                {"de": w_nas, "midia": midia(con, 414), "legenda": "Ionia", "legenda_em": w_ionia,
+                 "entrada_img": var.imagem(), "entrada_legenda": var.texto(), "movimento": var.movimento()},
             ]},
             {"tipo": "recorte", "de": w_eles, "ate": len(pa) - 1, "midia": midia(con, 118),
-             "legenda": "manifestação espiritual", "legenda_em": w_manif, "semente": 5},
+             "legenda": "manifestação espiritual", "legenda_em": w_manif, "semente": 5,
+             "entrada_img": var.imagem(), "entrada_legenda": var.texto()},
         ],
     }
 
@@ -139,15 +149,20 @@ def main() -> None:
         "cenas": [
             {"tipo": "dialogo", "de": 0, "ate": len(py) - 1,
              "esquerda": {"nome": "Yone", "midia": midia(con, 979), "foco": [0.12, 0.38], "diametro": 0.35},
-             "direita": {"nome": "Azakana", "midia": midia(con, 116), "foco": [0.5, 0.5], "diametro": 0.9},
+             "direita": icone_capa("Azakana"),
              "destaques": [achar(py, "tristeza"), achar(py, "fome")]},
         ],
         "citacao": {"autor": "Yone", "fundo": midia(con, 979), "foco": [0.6, 0.5],
                     "destaques": [achar(py, "tristeza"), achar(py, "fome")]},
     }
 
-    SAIDA.write_text(json.dumps({"fps": 60, "abertura": abertura, "yone": yone},
+    mostruario = {"imagem": midia(con, 414), "arte": midia(con, 116)}
+    SAIDA.write_text(json.dumps({"fps": 60, "abertura": abertura, "yone": yone, "mostruario": mostruario},
                                 ensure_ascii=False, indent=1), encoding="utf-8")
+    for cena in abertura["cenas"]:
+        for item in cena.get("itens", [cena]):
+            print(f'  {cena["tipo"]:9} {item.get("legenda", ""):22} img={item.get("entrada_img", {}).get("efeito", "-"):13} '
+                  f'texto={item.get("entrada_legenda", {}).get("efeito", "-"):9} mov={item.get("movimento", {}).get("tipo", "-")}')
     print(f"ok: {len(pa)} palavras na abertura, {len(py)} no trecho do Yone -> {SAIDA}")
     print("abertura:", " ".join(p["t"] for p in pa))
     print("yone:", " ".join(p["t"] for p in py))

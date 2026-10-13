@@ -1,5 +1,6 @@
 import { AbsoluteFill, Audio, Composition, staticFile } from "remotion";
 import { Citacao } from "./cenas/Citacao";
+import { Mostruario, POR_EFEITO, totalMostruario } from "./cenas/Mostruario";
 import dados from "./dados/prototipo.json";
 import { ALTURA, LARGURA } from "./estilo";
 import { Montagem, duracaoDoTrecho } from "./Montagem";
@@ -38,6 +39,15 @@ export const Root: React.FC = () => (
       component={Montagem}
       defaultProps={{ trecho: yone }}
       durationInFrames={duracaoDoTrecho(yone, fps)}
+      fps={fps}
+      width={LARGURA}
+      height={ALTURA}
+    />
+    <Composition
+      id="Mostruario"
+      component={Mostruario}
+      defaultProps={dados.mostruario}
+      durationInFrames={totalMostruario * POR_EFEITO}
       fps={fps}
       width={LARGURA}
       height={ALTURA}
