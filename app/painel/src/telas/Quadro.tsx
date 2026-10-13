@@ -110,16 +110,13 @@ function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: Vid
 function ArrastavelVideo({ video, aoMudar }: { video: VideoResumo; aoMudar: () => void }) {
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: String(video.id), disabled: Boolean(video.travado) })
   return (
-    <div ref={setNodeRef} {...listeners} {...attributes} className={`relative ${isDragging ? 'opacity-30' : ''}`}>
-      <CardVideo video={video} />
-      <div className="absolute top-2 right-2">
-        <MenuCard video={video} aoMudar={aoMudar} />
-      </div>
+    <div ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? 'opacity-30' : ''}>
+      <CardVideo video={video} menu={<MenuCard video={video} aoMudar={aoMudar} />} />
     </div>
   )
 }
 
-function CardVideo({ video, flutuando }: { video: VideoResumo; flutuando?: boolean }) {
+function CardVideo({ video, flutuando, menu }: { video: VideoResumo; flutuando?: boolean; menu?: React.ReactNode }) {
   const segmentos = ORDEM_STATUS.flatMap((s) => Array(video.progresso[s] ?? 0).fill(s) as Status[])
   return (
     <a
@@ -135,10 +132,14 @@ function CardVideo({ video, flutuando }: { video: VideoResumo; flutuando?: boole
         <img src={arquivo(video.capa)} alt="" className="aspect-video w-full object-cover opacity-90" draggable={false} />
       )}
       <div className="p-3">
-        <h3 className="pr-7 text-sm leading-snug font-medium">
-          {video.travado ? <Lock className="mr-1.5 mb-0.5 inline size-3.5 text-ouro" /> : null}
-          {video.titulo}
-        </h3>
+        {/* menu na linha do título (fora da imagem da capa, sempre visível) */}
+        <div className="flex items-start gap-2">
+          <h3 className="min-w-0 flex-1 text-sm leading-snug font-medium">
+            {video.travado ? <Lock className="mr-1.5 mb-0.5 inline size-3.5 text-ouro" /> : null}
+            {video.titulo}
+          </h3>
+          {menu && <div className="-mt-0.5 -mr-1 shrink-0">{menu}</div>}
+        </div>
         <div className="mt-2.5 flex gap-0.5">
           {segmentos.map((s, k) => (
             <span key={k} className={`h-1 flex-1 rounded-full ${FUNDO[s]}`} />

@@ -24,7 +24,7 @@ export function MenuCard({ video, aoMudar, aoExcluir }: { video: Pick<VideoResum
             onPointerDown={(e) => e.stopPropagation()}
             onClick={parar}
             aria-label="Opções do vídeo"
-            className="grid size-7 place-items-center rounded-md bg-fundo/70 text-suave backdrop-blur hover:bg-painel-2 hover:text-texto"
+            className="grid size-7 place-items-center rounded-md border border-borda-forte bg-painel text-suave hover:border-suave hover:text-texto"
           >
             <MoreHorizontal className="size-4" />
           </button>
