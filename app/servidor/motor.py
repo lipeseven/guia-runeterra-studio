@@ -42,15 +42,38 @@ def fechar_pendencia(con, vid: int, chave: str) -> None:
 
 
 # ---------------------------------------------------------------- gatilhos
+PENDENCIAS_DO_ROTEIRO = ("enviar_roteiro", "aprovar_roteiro")
+
+
 def ao_mover(con, vid: int, para: str) -> None:
     v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
-    if para == "roteiro":
+    etapa = con.execute("SELECT status, resumo FROM etapas WHERE video_id=? AND chave='roteiro'", (vid,)).fetchone()
+    tem_roteiro = (PASTA_PROJETOS / v["slug"] / "direcao" / "roteiro.txt").exists()
+
+    if para == "ideia":
+        # Ideia = estacionado: nada cobra ação do Felipe. O roteiro enviado continua guardado.
+        abertas = con.execute("SELECT COUNT(*) FROM pendencias WHERE video_id=? AND resolvida=0 AND chave IN (?,?)",
+                              (vid, *PENDENCIAS_DO_ROTEIRO)).fetchone()[0]
+        for chave in PENDENCIAS_DO_ROTEIRO:
+            fechar_pendencia(con, vid, chave)
+        if etapa["status"] == "atencao":
+            con.execute("UPDATE etapas SET status='pendente', resumo=?, detalhe=?, atualizado_em=? WHERE video_id=? AND chave='roteiro'",
+                        (etapa["resumo"] if tem_roteiro else None, "estacionado em Ideia" if tem_roteiro else None, agora(), vid))
+        if abertas:
+            registrar(con, vid, "Estacionado em Ideia: pendências recolhidas", "info")
+
+    elif para == "roteiro" and etapa["status"] != "concluido":
         pasta_do_video(v["slug"])
-        if not (PASTA_PROJETOS / v["slug"] / "direcao" / "roteiro.txt").exists():
+        if not tem_roteiro:
             atualizar_etapa(con, vid, "roteiro", "atencao", "aguardando roteiro", "envie o .txt")
             abrir_pendencia(con, vid, "enviar_roteiro", "roteiro", "Envie o roteiro",
                             "Arraste o .txt do roteiro no painel “Roteiro”, logo abaixo.")
-            registrar(con, vid, "Pasta do vídeo criada; aguardando roteiro", "info")
+            registrar(con, vid, "Pasta do vídeo pronta; aguardando roteiro", "info")
+        else:  # voltou de Ideia com roteiro já enviado, mas não aprovado
+            con.execute("UPDATE etapas SET status='atencao', detalhe=?, atualizado_em=? WHERE video_id=? AND chave='roteiro'",
+                        ("aguardando aprovação", agora(), vid))
+            abrir_pendencia(con, vid, "aprovar_roteiro", "roteiro", "Aprove o roteiro",
+                            "Confira o texto no painel “Roteiro” e clique em “Aprovar roteiro”.")
 
 
 def estatisticas(texto: str) -> dict:
