@@ -6,7 +6,7 @@ import { Moldura } from '../componentes/Moldura'
 import { PainelRoteiro } from '../componentes/PainelRoteiro'
 
 export function Video({ id }: { id: number }) {
-  const { dados: v, recarregar } = useAoVivo<TVideo>(`/videos/${id}`, 3000)
+  const { dados: v, erro, recarregar } = useAoVivo<TVideo>(`/videos/${id}`, 3000)
   const { dados: rec } = useAoVivo<Recursos>('/recursos', 4000)
 
   const trilha = (
@@ -16,6 +16,15 @@ export function Video({ id }: { id: number }) {
       <span className="truncate text-texto">{v?.titulo ?? '…'}</span>
     </>
   )
+  if (erro?.startsWith('Error: 404'))
+    return (
+      <Moldura trilha={trilha}>
+        <div className="p-6">
+          <p className="text-sm">Este vídeo não existe mais (foi excluído).</p>
+          <a href="#/" className="mt-2 inline-block text-sm text-ouro underline">Voltar ao quadro</a>
+        </div>
+      </Moldura>
+    )
   if (!v) return <Moldura trilha={trilha}><p className="p-6 text-suave">Carregando…</p></Moldura>
 
   const concluidas = v.etapas.filter((e) => e.status === 'concluido').length
