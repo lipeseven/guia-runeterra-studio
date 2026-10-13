@@ -1,0 +1,12 @@
+# Segredos — nunca vão para o GitHub
+.env
+
+# Ambiente e dependências
+.venv/
+node_modules/
+__pycache__/
+
+# Dados gerados (banco, miniaturas, análises, renders) e vídeos de referência
+dados/
+recursos de vídeo para aprender/
+*.mp4

@@ -1,0 +1,12 @@
+# Configuração central do Guia de Runeterra — caminhos e parâmetros usados pelas ferramentas.
+
+[pastas]
+# Acervo local de imagens/clipes. Os arquivos originais nunca são movidos nem alterados.
+acervo = 'C:\Users\Felipe\Downloads\catálogo sequencial LOL'
+# Dados gerados pelo sistema (banco, miniaturas, embeddings), relativo à raiz do projeto.
+dados = 'dados'
+
+[acervo]
+banco = 'dados/acervo.db'
+miniaturas = 'dados/acervo/miniaturas'
+largura_miniatura = 384
