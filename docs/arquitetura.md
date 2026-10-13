@@ -67,10 +67,12 @@ Documentos relacionados: [guia_de_estilo.md](guia_de_estilo.md).
 | **Voz guia** | Fish Audio `s2.1-pro-free` → reserva Edge TTS | Só para rascunho |
 | **Áudio** | DeepFilterNet / RNNoise + FFmpeg | Limpeza, cortes, normalização (-14 LUFS), ducking dos efeitos |
 | **Busca no acervo** | CLIP ViT-L-14 (GPU) + etiquetas | Busca por significado e por personagem/uso |
+| **Índice de tomadas** | FFmpeg (detecção de cortes) + CLIP | Clipes/cinemáticas divididos em tomadas pesquisáveis; o diretor escolhe o trecho exato |
+| **Variedade** | `tools/direcao/variacao.py` + `app/video/src/efeitos.tsx` | Efeitos de entrada, movimentos e layouts de mosaico sem repetição |
 | **Coleta na internet** | APIs: Data Dragon/CommunityDragon, wiki (MediaWiki), Reddit, museus; `yt-dlp` | Imagens, HQs, cinemáticas, transcrições da referência |
 | **Imagens por IA** | Z-Image-Turbo no ComfyUI local | Só lacunas |
 | **Efeitos sonoros** | Stable Audio Open (catálogo gerado uma vez) | Whooshes, impactos, ambiências por etiqueta |
-| **Cartões animados** | Remotion | Grade de ícones, cartão emoldurado, diálogo, citação, título, colagem, gameplay |
+| **Cartões animados** | Remotion | Capa (abertura), cartão emoldurado, recorte, diálogo, citação, mosaico, clipe, título, gameplay |
 | **Render final** | FFmpeg + NVENC | Arte em tela cheia (Ken Burns), clipes, mixagem, codificação |
 | **Recortes/ícones** | rembg (local) + Pillow | Remover fundo, gerar ícones redondos |
 

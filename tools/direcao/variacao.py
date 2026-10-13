@@ -32,12 +32,14 @@ DURACAO_PADRAO = (7, 18)
 class Variador:
     def __init__(self, semente: int | str, memoria: int = 3):
         self.rng = random.Random(semente)
-        self.recentes = {k: deque(maxlen=memoria) for k in ("texto", "imagem", "movimento")}
+        self.recentes = {k: deque(maxlen=memoria) for k in ("texto", "imagem", "movimento", "mosaico")}
 
     def _escolher(self, categoria: str, pesos: dict[str, int]) -> str:
         recentes = self.recentes[categoria]
         ajustados = {}
         for nome, peso in pesos.items():
+            if peso <= 0:
+                continue
             if recentes and nome == recentes[-1]:
                 continue  # nunca repete o anterior
             if nome in recentes:
@@ -58,6 +60,44 @@ class Variador:
     def imagem(self) -> dict:
         e = self._escolher("imagem", PESOS_IMAGEM)
         return {"efeito": e, "quadros": self._duracao(e)}
+
+    def mosaico(self, aspectos: list[float]) -> tuple[list[dict], int]:
+        """Posições das peças de um mosaico (centro x/y, largura, rotação, lado de entrada) + borda.
+        `aspectos` = largura/altura de cada peça. Layout também não repete o anterior."""
+        n = len(aspectos)
+        layout = self._escolher("mosaico", {"faixa": 10, "lateral": 8, "espalhado": 10, "grade": 6 if n == 4 else 0})
+        r = self.rng
+        pecas = []
+        if layout == "faixa":
+            largura = min(520, 1760 / n - 40)
+            lado = r.choice(["baixo", "alternado"])
+            for k in range(n):
+                pecas.append({"x": 960 + (k - (n - 1) / 2) * (largura + 40), "y": r.uniform(760, 820),
+                              "largura": largura, "rotacao": r.uniform(-2, 2),
+                              "de_onde": "baixo" if lado == "baixo" else ("esq" if k % 2 == 0 else "dir")})
+        elif layout == "lateral":
+            x = r.choice([360, 1560])
+            largura = min(560, 900 / max(1, n) * aspectos[0])
+            for k in range(n):
+                pecas.append({"x": x, "y": 540 + (k - (n - 1) / 2) * (largura / aspectos[k] + 30),
+                              "largura": largura, "rotacao": r.uniform(-1.5, 1.5),
+                              "de_onde": "esq" if x < 960 else "dir"})
+        elif layout == "espalhado":
+            ancoras = [(430, 300), (1490, 300), (430, 780), (1490, 780), (960, 540), (960, 300), (960, 780)]
+            r.shuffle(ancoras)
+            for k in range(n):
+                x, y = ancoras[k]
+                lado = "esq" if x < 700 else "dir" if x > 1220 else ("cima" if y < 540 else "baixo")
+                pecas.append({"x": x + r.uniform(-60, 60), "y": y + r.uniform(-40, 40),
+                              "largura": r.uniform(460, 600), "rotacao": r.uniform(-7, 7), "de_onde": lado})
+        else:  # grade 2x2
+            for k, (x, y) in enumerate([(500, 290), (1420, 290), (500, 790), (1420, 790)]):
+                pecas.append({"x": x, "y": y, "largura": 820, "rotacao": 0,
+                              "de_onde": "esq" if x < 960 else "dir"})
+        for p in pecas:
+            p["quadros"] = r.randint(12, 22)
+            p.update({k: round(v, 1) for k, v in p.items() if isinstance(v, float)})
+        return pecas, r.choice([0, 6, 10])
 
     def movimento(self) -> dict:
         m = self._escolher("movimento", PESOS_MOVIMENTO)

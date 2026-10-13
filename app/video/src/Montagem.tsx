@@ -1,5 +1,7 @@
 ﻿import { AbsoluteFill, Audio, Sequence, staticFile, useVideoConfig } from "remotion";
 import { Cartao } from "./cenas/Cartao";
+import { Clipe } from "./cenas/Clipe";
+import { Mosaico } from "./cenas/Mosaico";
 import { Dialogo } from "./cenas/Dialogo";
 import { Capa } from "./cenas/Capa";
 import { Recorte } from "./cenas/Recorte";
@@ -56,5 +58,9 @@ const CenaPorTipo: React.FC<{
       return <Recorte cena={cena} secao={secao} quadro={quadro} />;
     case "dialogo":
       return <Dialogo cena={cena} palavras={trecho.palavras} quadro={quadro} />;
+    case "clipe":
+      return <Clipe cena={cena} duracao={duracao} />;
+    case "mosaico":
+      return <Mosaico cena={cena} quadro={quadro} duracao={duracao} />;
   }
 };

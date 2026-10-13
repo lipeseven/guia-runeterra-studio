@@ -83,6 +83,31 @@ def achar(palavras: list[dict], alvo: str, depois: int = 0) -> int:
     raise ValueError(f"palavra '{alvo}' não encontrada")
 
 
+TOMADA_AZAKANA = 485  # tomadas: Azakana x espadachim na cinemática do Yone (achada pela busca CLIP)
+
+
+def clipe_cena(con: sqlite3.Connection, var: Variador, tomada: int, de: int, ate: int) -> dict:
+    """Recorta a tomada do clipe original (sem áudio) e monta a cena de clipe."""
+    mid, ini, fim = con.execute("SELECT midia_id, inicio, fim FROM tomadas WHERE id=?", (tomada,)).fetchone()
+    origem = PASTA_ACERVO / con.execute("SELECT caminho FROM midias WHERE id=?", (mid,)).fetchone()[0]
+    destino = PUBLICO / f"t{tomada}.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(ini), "-to", str(fim), "-i", str(origem), "-an",
+                    "-vf", "scale=1920:-2", "-c:v", "h264_nvenc", "-cq", "20", str(destino)], check=True)
+    return {"tipo": "clipe", "de": de, "ate": ate, "arquivo": f"prototipo/{destino.name}",
+            "duracao_tomada": round(fim - ini, 3), "movimento": var.movimento(), "entrada_img": var.imagem()}
+
+
+def mosaico_cena(con: sqlite3.Connection, var: Variador, pa: list[dict], de: int, ate: int,
+                 fundo: int, pecas: list[tuple[str, int]]) -> dict:
+    """Fundo em tela cheia + peças que entram quando a palavra-gatilho é falada."""
+    midias = [midia(con, m) for _, m in pecas]
+    layout, borda = var.mosaico([m["w"] / m["h"] for m in midias])
+    return {"tipo": "mosaico", "de": de, "ate": ate, "fundo": midia(con, fundo), "movimento": var.movimento(),
+            "borda": borda,
+            "pecas": [{**pos, "de": achar(pa, palavra, de), "midia": m}
+                      for (palavra, _), m, pos in zip(pecas, midias, layout)]}
+
+
 def main() -> None:
     preparar_ffmpeg()
     PUBLICO.mkdir(parents=True, exist_ok=True)
@@ -115,6 +140,7 @@ def main() -> None:
     w_ionia = achar(pa, "Ionia")
     w_eles = achar(pa, "Eles")
     w_manif = achar(pa, "manifestação")
+    w_mas = achar(pa, "mas", w_eles)
 
     abertura = {
         "audio": "prototipo/abertura.wav",
@@ -129,13 +155,14 @@ def main() -> None:
                 {"de": w_entidades, "midia": midia(con, 268), "legenda": "entidades primordiais",
                  "entrada_img": var.imagem(), "entrada_legenda": var.texto(), "movimento": var.movimento()},
             ]},
-            {"tipo": "telacheia", "de": w_nem, "ate": w_nas - 1, "midia": midia(con, 116),
-             "foco": [0.5, 0.45], "movimento": var.movimento(), "entrada_img": var.imagem()},
+            mosaico_cena(con, var, pa, de=w_nem, ate=w_nas - 1, fundo=116,
+                         pecas=[("horror", 633), ("devorar", 866), ("nações", 381)]),
             {"tipo": "cartao", "de": w_nas, "ate": w_eles - 1, "itens": [
                 {"de": w_nas, "midia": midia(con, 414), "legenda": "Ionia", "legenda_em": w_ionia,
                  "entrada_img": var.imagem(), "entrada_legenda": var.texto(), "movimento": var.movimento()},
             ]},
-            {"tipo": "recorte", "de": w_eles, "ate": len(pa) - 1, "midia": midia(con, 118),
+            clipe_cena(con, var, TOMADA_AZAKANA, de=w_eles, ate=w_mas - 1),
+            {"tipo": "recorte", "de": w_mas, "ate": len(pa) - 1, "midia": midia(con, 118),
              "legenda": "manifestação espiritual", "legenda_em": w_manif, "semente": 5,
              "entrada_img": var.imagem(), "entrada_legenda": var.texto()},
         ],

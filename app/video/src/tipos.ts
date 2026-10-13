@@ -57,7 +57,34 @@ export type CenaDialogo = Base & {
   destaques: number[];
 };
 
-export type Cena = CenaCapa | CenaCartao | CenaTelaCheia | CenaRecorte | CenaDialogo;
+export type CenaClipe = Base & {
+  tipo: "clipe";
+  arquivo: string; // tomada já recortada do clipe original
+  duracao_tomada: number; // segundos
+  volume?: number; // 0 = mudo (padrão)
+  movimento?: Movimento;
+  entrada_img?: Entrada<EfeitoImagem>;
+};
+
+export type PecaMosaico = {
+  de: number; // palavra em que a peça entra
+  midia: Midia;
+  x: number; // centro, em px (tela 1920x1080)
+  y: number;
+  largura: number;
+  rotacao: number;
+  de_onde: "esq" | "dir" | "cima" | "baixo";
+  quadros: number;
+};
+export type CenaMosaico = Base & {
+  tipo: "mosaico";
+  fundo: Midia;
+  movimento?: Movimento;
+  pecas: PecaMosaico[];
+  borda: number;
+};
+
+export type Cena = CenaCapa | CenaCartao | CenaTelaCheia | CenaRecorte | CenaDialogo | CenaClipe | CenaMosaico;
 
 export type Secao = { titulo: string; icone: Icone };
 
