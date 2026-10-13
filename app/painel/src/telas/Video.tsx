@@ -200,7 +200,7 @@ function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; 
         aoMudar()
       }}
     >
-      Está ok
+      {chave?.startsWith('erro_') ? 'Tentar de novo' : chave === 'ver_rascunho' ? 'Rascunho aprovado' : 'Está ok'}
     </button>
   )
 }

@@ -31,7 +31,7 @@ export const Montagem: React.FC<{ trecho: Trecho }> = ({ trecho }) => {
         const quadro = (palavra: number) => quadroDaPalavra(palavras, palavra, fps) - de;
         return (
           <Sequence key={k} from={de} durationInFrames={Math.max(1, ate - de)} name={`${k + 1}. ${cena.tipo}`}>
-            <CenaPorTipo cena={cena} trecho={trecho} quadro={quadro} duracao={ate - de} secao={secao} />
+            <CenaPorTipo cena={cena} trecho={trecho} quadro={quadro} duracao={ate - de} secao={cena.secao ?? secao} />
           </Sequence>
         );
       })}

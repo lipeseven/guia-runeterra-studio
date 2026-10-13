@@ -224,6 +224,10 @@ def resolver(pid: int):
             raise HTTPException(404)
         con.execute("UPDATE pendencias SET resolvida=1 WHERE id=?", (pid,))
         registrar(con, p["video_id"], f"Resolvido: {p['titulo']}", "ok")
+        if (p["chave"] or "").startswith("erro_"):
+            motor.tentar_de_novo(con, p["video_id"], p["chave"][5:])
+            con.commit()
+            return {"ok": True}
         # Sem mais pendências abertas na etapa, ela deixa de "precisar de você".
         if p["etapa"] and not con.execute(
                 "SELECT 1 FROM pendencias WHERE video_id=? AND etapa=? AND resolvida=0", (p["video_id"], p["etapa"])).fetchone():

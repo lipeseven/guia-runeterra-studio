@@ -161,6 +161,8 @@ def verificar_direcao(con, vid: int) -> None:
         return
     if "direcao" in TAREFAS:
         if con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='direcao'", (vid,)).fetchone()["status"] == "pendente":
+            atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "aguardando a vez na GPU")  # evita entrar 2x
+            registrar(con, vid, "Direção na fila", "info")
             FILA.put((vid, "direcao"))
     else:  # diretor ainda em construção: avisa sem fingir que está trabalhando
         atualizar_etapa(con, vid, "direcao", "pendente", "pronto para dirigir", "diretor em construção")
@@ -192,7 +194,80 @@ def tarefa_voz_guia(vid: int) -> None:
         con.commit()
 
 
-TAREFAS = {"voz_guia": tarefa_voz_guia}
+def tarefa_direcao(vid: int) -> None:
+    """Diretor completo: tempos -> plano (Claude) -> candidatos (local) -> escolha (Claude, imagens) -> montagem -> rascunho."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from candidatos import preparar
+    from capa import detectar
+    from claude_cli import chamar_json
+    from escolher import escolher
+    from montar import montar, renderizar
+    from planejar import frases_do_roteiro, planejar
+    from tempos import tempos_da_narracao
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    pasta = PASTA_PROJETOS / slug
+    dirc, trab = pasta / "direcao", pasta / "trabalho"
+
+    def passo(n: int, texto: str) -> None:
+        with conectar() as con:
+            atualizar_etapa(con, vid, "direcao", "andamento", f"{n}/5 · {texto}", "diretor trabalhando")
+            registrar(con, vid, f"Direção {n}/5: {texto}", "info")
+            con.commit()
+
+    roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
+    passo(1, "medindo tempos da voz guia")
+    palavras = tempos_da_narracao(trab / "voz_guia.wav", roteiro, dirc / "tempos_guia.json")
+
+    capa = next(iter(sorted(dirc.glob("capa.*"))))
+    circulos, _ = detectar(str(capa))
+    nomes = chamar_json("Esta é a capa do vídeo: ícones redondos de personagens com o nome embaixo. Liste os nomes na "
+                        'ordem de leitura (linha a linha, da esquerda para a direita). Responda só JSON: {"nomes": [...]}',
+                        "Você lê imagens com precisão.", modelo="sonnet", imagens=[capa], etiqueta="capa-nomes")["nomes"]
+    for c, n in zip(circulos, nomes):
+        c["nome"] = n
+    (dirc / "capa_circulos.json").write_text(json.dumps(circulos, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    passo(2, "planejando as cenas (Claude)")
+    plano, frases = planejar(roteiro, palavras, nomes)
+    (dirc / "plano.json").write_text(json.dumps(plano, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    passo(3, "buscando mídias no acervo")
+    necs, folhas = preparar(plano, frases, trab)
+    (dirc / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    passo(4, "escolhendo as imagens (Claude)")
+    escolhas = escolher(necs, folhas)
+    (dirc / "escolhas.json").write_text(json.dumps(escolhas, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    passo(5, "renderizando o rascunho")
+    trecho, pendencias = montar(slug, roteiro, palavras, frases, plano, necs, escolhas, capa, circulos, trab / "voz_guia.wav")
+    (dirc / "direcao.json").write_text(json.dumps(trecho, ensure_ascii=False, indent=1), encoding="utf-8")
+    segundos = renderizar(trecho, trab / "props.json", trab / "rascunho.mp4")
+
+    with conectar() as con:
+        tipos = {}
+        for c in trecho["cenas"]:
+            tipos[c["tipo"]] = tipos.get(c["tipo"], 0) + 1
+        resumo_tipos = " · ".join(f"{n} {t}" for t, n in sorted(tipos.items(), key=lambda x: -x[1]))
+        atualizar_etapa(con, vid, "direcao", "concluido", f"{len(trecho['cenas'])} cenas", resumo_tipos,
+                        {"tipos": tipos, "observacoes": plano.get("observacoes")})
+        dur = palavras[-1]["f"]
+        atualizar_etapa(con, vid, "rascunho", "atencao", f"{mmss(dur)} · {len(trecho['cenas'])} cenas",
+                        f"render em {mmss(segundos)}", {"video": f"projetos/{slug}/trabalho/rascunho.mp4"})
+        for p in pendencias:
+            con.execute("INSERT INTO pendencias (video_id, etapa, chave, titulo, texto, criada_em) VALUES (?,?,?,?,?,?)",
+                        (vid, "midias", "cena_sem_imagem", p["titulo"], p["texto"], agora()))
+        if plano.get("observacoes"):
+            abrir_pendencia(con, vid, "obs_diretor", "direcao", "Observações do diretor", plano["observacoes"])
+        abrir_pendencia(con, vid, "ver_rascunho", "rascunho", "Assista o rascunho",
+                        "O rascunho (com a voz guia) está na Prévia. Veja se o ritmo, as imagens e as legendas estão do seu jeito.")
+        registrar(con, vid, f"Rascunho pronto: {len(trecho['cenas'])} cenas, render em {mmss(segundos)}", "ok")
+        con.commit()
+
+
+TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 
@@ -215,8 +290,23 @@ def _trabalhador() -> None:
             FILA.task_done()
 
 
+def tentar_de_novo(con, vid: int, etapa: str) -> None:
+    """Pendência de erro resolvida = refazer a etapa que falhou."""
+    con.execute("UPDATE etapas SET status='pendente', atualizado_em=? WHERE video_id=? AND chave=?", (agora(), vid, etapa))
+    registrar(con, vid, f"Tentando de novo: {etapa}", "info")
+    if etapa == "direcao":
+        verificar_direcao(con, vid)
+    elif etapa in TAREFAS:
+        FILA.put((vid, etapa))
+
+
 def iniciar() -> None:
     threading.Thread(target=_trabalhador, daemon=True, name="motor").start()
+    # Vídeos que ficaram "prontos para dirigir" enquanto o diretor não existia (ou o servidor estava desligado).
+    with conectar() as con:
+        for v in con.execute("SELECT id FROM videos").fetchall():
+            verificar_direcao(con, v["id"])
+        con.commit()
 
 
 def situacao() -> dict:
