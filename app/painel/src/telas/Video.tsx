@@ -62,8 +62,9 @@ export function Video({ id }: { id: number }) {
           <div className="flex min-w-0 flex-col gap-5">
             {(v.coluna !== 'ideia' || roteiro.status !== 'pendente') && (
               <>
+                <ProximoPasso c={v.condicoes_direcao} direcao={v.etapas.find((e) => e.chave === 'direcao')!} />
                 <PainelRoteiro videoId={v.id} etapa={roteiro} aoMudar={recarregar} />
-                <PainelCapa videoId={v.id} aoMudar={recarregar} />
+                <PainelCapa videoId={v.id} aprovada={Boolean(v.capa_aprovada)} aoMudar={recarregar} />
               </>
             )}
             <Painel titulo="Precisa de você" lateral="revisão por exceção · o resto segue sozinho">
@@ -127,6 +128,37 @@ export function Video({ id }: { id: number }) {
   )
 }
 
+/** Diz em linguagem simples o que falta para o sistema seguir sozinho. */
+function ProximoPasso({ c, direcao }: { c: TVideo['condicoes_direcao']; direcao: Etapa }) {
+  const itens = [
+    { ok: c.roteiro_aprovado, texto: 'roteiro aprovado' },
+    { ok: c.voz_guia_pronta, texto: 'voz guia pronta' },
+    { ok: c.capa_aprovada, texto: 'capa aprovada' },
+  ]
+  const tudo = itens.every((i) => i.ok)
+  if (direcao.status === 'concluido' || direcao.status === 'andamento') return null
+  return (
+    <section className={`rounded-xl border p-4 ${tudo ? 'border-ok/40 bg-ok/5' : 'border-borda bg-painel'}`}>
+      <h2 className="text-sm font-semibold">Próximo passo: Direção</h2>
+      <p className="mt-1 text-sm text-suave">
+        {tudo
+          ? direcao.detalhe === 'diretor em construção'
+            ? 'Tudo pronto. A direção vai começar sozinha assim que o diretor estiver construído.'
+            : 'Tudo pronto: a direção começa sozinha.'
+          : 'A direção começa sozinha quando estes três itens estiverem prontos — não precisa dar nenhum comando:'}
+      </p>
+      <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-1">
+        {itens.map((i) => (
+          <li key={i.texto} className={`flex items-center gap-1.5 text-sm ${i.ok ? 'text-ok' : 'text-suave'}`}>
+            {i.ok ? <CheckCircle2 className="size-4" /> : <span className="size-3.5 rounded-full border border-current" />}
+            {i.texto}
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
 /** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
 function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; id: number; videoId: number; aoMudar: () => void }) {
   const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
@@ -134,6 +166,18 @@ function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; 
     return (
       <button className={estilo} onClick={() => document.getElementById('roteiro')?.scrollIntoView({ behavior: 'smooth' })}>
         Ir para o roteiro
+      </button>
+    )
+  if (chave === 'aprovar_capa')
+    return (
+      <button
+        className="shrink-0 rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
+        onClick={async () => {
+          await api(`/videos/${videoId}/capa/aprovar`, { method: 'POST' })
+          aoMudar()
+        }}
+      >
+        Aprovar capa
       </button>
     )
   if (chave === 'aprovar_roteiro')

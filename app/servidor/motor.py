@@ -123,7 +123,10 @@ def receber_capa(con, vid: int, conteudo: bytes, ext: str) -> dict:
     arquivo.write_bytes(conteudo)
     circulos, _ = detectar(str(arquivo))
     rel = f"projetos/{v['slug']}/direcao/{arquivo.name}"
-    con.execute("UPDATE videos SET capa=?, atualizado_em=? WHERE id=?", (rel, agora(), vid))
+    # capa nova precisa de nova aprovação (o Felipe confere os círculos detectados)
+    con.execute("UPDATE videos SET capa=?, capa_aprovada=0, atualizado_em=? WHERE id=?", (rel, agora(), vid))
+    abrir_pendencia(con, vid, "aprovar_capa", "direcao", "Aprove a capa",
+                    f"{len(circulos)} ícones detectados. Confira os círculos numerados no painel “Capa” e clique em “Aprovar capa”.")
     (pasta / "capa_circulos.json").write_text(json.dumps(circulos, indent=1), encoding="utf-8")
     registrar(con, vid, f"Capa recebida: {len(circulos)} ícones detectados", "ok" if circulos else "alerta")
     return {"capa": rel, "icones": len(circulos)}
@@ -134,6 +137,34 @@ def aprovar_roteiro(con, vid: int) -> None:
     fechar_pendencia(con, vid, "aprovar_roteiro")
     registrar(con, vid, "Roteiro aprovado", "ok")
     FILA.put((vid, "voz_guia"))
+
+
+def aprovar_capa(con, vid: int) -> None:
+    con.execute("UPDATE videos SET capa_aprovada=1, atualizado_em=? WHERE id=?", (agora(), vid))
+    fechar_pendencia(con, vid, "aprovar_capa")
+    registrar(con, vid, "Capa aprovada", "ok")
+    verificar_direcao(con, vid)
+
+
+def condicoes_direcao(con, vid: int) -> dict:
+    """O que a Direção precisa para começar sozinha (mostrado no quadro "Próximo passo")."""
+    st = {r["chave"]: r["status"] for r in con.execute("SELECT chave, status FROM etapas WHERE video_id=?", (vid,))}
+    v = con.execute("SELECT capa, capa_aprovada FROM videos WHERE id=?", (vid,)).fetchone()
+    return {"roteiro_aprovado": st.get("roteiro") == "concluido",
+            "voz_guia_pronta": st.get("voz_guia") == "concluido",
+            "capa_aprovada": bool(v["capa"] and v["capa_aprovada"])}
+
+
+def verificar_direcao(con, vid: int) -> None:
+    """Chamado sempre que uma condição muda: se todas estão ok, a Direção começa sozinha."""
+    if not all(condicoes_direcao(con, vid).values()):
+        return
+    if "direcao" in TAREFAS:
+        if con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='direcao'", (vid,)).fetchone()["status"] == "pendente":
+            FILA.put((vid, "direcao"))
+    else:  # diretor ainda em construção: avisa sem fingir que está trabalhando
+        atualizar_etapa(con, vid, "direcao", "pendente", "pronto para dirigir", "diretor em construção")
+        registrar(con, vid, "Tudo pronto para a direção (diretor em construção)", "info")
 
 
 def atualizar_etapa_status(con, vid: int, chave: str, status: str) -> None:
@@ -157,6 +188,7 @@ def tarefa_voz_guia(vid: int) -> None:
                         f"{info['ppm_original']} → {PPM_FELIPE} palavras/min",
                         {**info, "audio": f"projetos/{slug}/trabalho/voz_guia.wav"})
         registrar(con, vid, f"Voz guia pronta ({mmss(info['duracao'])})", "ok")
+        verificar_direcao(con, vid)
         con.commit()
 
 

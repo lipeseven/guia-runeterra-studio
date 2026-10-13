@@ -45,7 +45,8 @@ def _video(con, vid: int) -> dict:
         "SELECT * FROM pendencias WHERE video_id=? AND resolvida=0 ORDER BY criada_em", (vid,))]
     ativ = [dict(r) for r in con.execute(
         "SELECT * FROM atividade WHERE video_id=? ORDER BY quando DESC, id DESC LIMIT 40", (vid,))]
-    return {**dict(v), "etapas": lista, "pendencias": pend, "atividade": ativ}
+    return {**dict(v), "etapas": lista, "pendencias": pend, "atividade": ativ,
+            "condicoes_direcao": motor.condicoes_direcao(con, vid)}
 
 
 @app.get("/api/quadro")
@@ -163,6 +164,17 @@ def enviar_capa(vid: int, corpo: Capa):
         info = motor.receber_capa(con, vid, base64.b64decode(corpo.dados_base64), ext)
         con.commit()
     return info
+
+
+@app.post("/api/videos/{vid}/capa/aprovar")
+def aprovar_capa(vid: int):
+    with conectar() as con:
+        v = con.execute("SELECT capa FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v or not v["capa"]:
+            raise HTTPException(400, "não há capa para aprovar")
+        motor.aprovar_capa(con, vid)
+        con.commit()
+    return {"ok": True}
 
 
 @app.get("/api/motor")

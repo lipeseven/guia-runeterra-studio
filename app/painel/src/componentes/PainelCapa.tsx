@@ -1,4 +1,4 @@
-import { ImagePlus } from 'lucide-react'
+import { CheckCircle2, ImagePlus } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, arquivo } from '../api'
 
@@ -14,7 +14,7 @@ const paraBase64 = (f: File) =>
   })
 
 /** Capa do vídeo (grade de personagens): vira a abertura e a fonte dos ícones das seções. */
-export function PainelCapa({ videoId, aoMudar }: { videoId: number; aoMudar: () => void }) {
+export function PainelCapa({ videoId, aprovada, aoMudar }: { videoId: number; aprovada: boolean; aoMudar: () => void }) {
   const [dados, setDados] = useState<DadosCapa | null>(null)
   const [arrastando, setArrastando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
@@ -49,9 +49,26 @@ export function PainelCapa({ videoId, aoMudar }: { videoId: number; aoMudar: () 
           </span>
         )}
         {dados?.capa && (
-          <button onClick={() => seletor.current?.click()} className="ml-auto rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:bg-painel-2">
-            Substituir
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => seletor.current?.click()} className="rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:bg-painel-2">
+              Substituir
+            </button>
+            {aprovada ? (
+              <span className="flex items-center gap-1.5 text-xs text-ok">
+                <CheckCircle2 className="size-4" /> Aprovada
+              </span>
+            ) : (
+              <button
+                onClick={async () => {
+                  await api(`/videos/${videoId}/capa/aprovar`, { method: 'POST' })
+                  aoMudar()
+                }}
+                className="rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
+              >
+                Aprovar capa
+              </button>
+            )}
+          </div>
         )}
       </header>
       <input ref={seletor} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(e) => enviar(e.target.files?.[0])} />

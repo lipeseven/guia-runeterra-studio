@@ -33,7 +33,13 @@ export type Etapa = {
 export type Pendencia = { id: number; etapa: string | null; chave: string | null; titulo: string; texto: string; criada_em: string }
 export type Atividade = { id: number; texto: string; tipo: 'info' | 'ok' | 'alerta'; quando: string }
 
-export type Video = VideoResumo & { etapas: Etapa[]; pendencias: Pendencia[]; atividade: Atividade[] }
+export type Video = VideoResumo & {
+  etapas: Etapa[]
+  pendencias: Pendencia[]
+  atividade: Atividade[]
+  capa_aprovada: number
+  condicoes_direcao: { roteiro_aprovado: boolean; voz_guia_pronta: boolean; capa_aprovada: boolean }
+}
 
 export type Recursos = {
   gpu: { ok: boolean; nome?: string; uso?: number; vram_usada?: number; vram_total?: number; temperatura?: number; estado?: string }
