@@ -106,6 +106,10 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         e = escolhas.get(nec_id) or {}
         if not n or not e.get("escolha"):
             return None
+        if e.get("fixa"):  # escolhida pelo Felipe no storyboard: vale mesmo se repetir
+            cand = n["candidatos"][e["escolha"] - 1]
+            usados.add((cand["tipo"], cand["id"]))
+            return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         ordem = [e["escolha"] - 1] + [i for i in range(len(n["candidatos"])) if i != e["escolha"] - 1]
         for i in ordem:
             cand = n["candidatos"][i]
@@ -117,10 +121,12 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
 
     cenas = []
     for k, c in enumerate(plano["cenas"]):
+        if c.get("removida"):
+            continue
         f = frases[c["frase"]]
         de = indice_na_frase(f, toks, c.get("comeca_na_palavra")) or f["de"]
         legenda_em = indice_na_frase(f, toks, c.get("legenda_na_palavra"))
-        base = {"de": de, "ate": de, "semente": k, "secao": secao_da_frase(c["frase"])}
+        base = {"k": k, "de": de, "ate": de, "semente": k, "secao": secao_da_frase(c["frase"])}
         tipo = c["tipo"]
 
         if tipo == "capa":

@@ -13,8 +13,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import motor, recursos
-from .banco import RAIZ, agora, conectar, criar_video, registrar
+from . import motor, recursos, storyboard
+from .banco import RAIZ, agora, atualizar_etapa, conectar, criar_video, registrar
 from .etapas import COLUNAS, ETAPAS
 app = FastAPI(title="Guia de Runeterra Studio")
 motor.iniciar()
@@ -174,6 +174,50 @@ def aprovar_capa(vid: int):
             raise HTTPException(400, "não há capa para aprovar")
         motor.aprovar_capa(con, vid)
         con.commit()
+    return {"ok": True}
+
+
+def _pasta(con, vid: int) -> Path:
+    v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+    if not v:
+        raise HTTPException(404)
+    return motor.PASTA_PROJETOS / v["slug"]
+
+
+@app.get("/api/videos/{vid}/storyboard")
+def ver_storyboard(vid: int):
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    return {"cenas": storyboard.cenas(pasta), "tipos": storyboard.TIPOS,
+            "pedidos_pendentes": len(storyboard.pendentes_para_o_diretor(storyboard.carregar(pasta)["ajustes"])),
+            "ajustes": len(storyboard.carregar(pasta)["ajustes"])}
+
+
+@app.post("/api/videos/{vid}/storyboard/{k}")
+def ajustar_cena(vid: int, k: int, acao: dict):
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    try:
+        return storyboard.ajustar(pasta, k, acao)
+    except (ValueError, KeyError) as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/acervo/buscar")
+def buscar_acervo(q: str):
+    return storyboard.buscar_no_acervo(q)
+
+
+@app.post("/api/videos/{vid}/rascunho/refazer")
+def refazer_rascunho(vid: int):
+    with conectar() as con:
+        _pasta(con, vid)
+        if con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='direcao'", (vid,)).fetchone()["status"] == "andamento":
+            raise HTTPException(409, "a direção já está trabalhando")
+        atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "novo rascunho")
+        registrar(con, vid, "Novo rascunho pedido (storyboard)", "info")
+        con.commit()
+    motor.FILA.put((vid, "rascunho"))
     return {"ok": True}
 
 

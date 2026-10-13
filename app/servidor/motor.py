@@ -212,7 +212,6 @@ def tarefa_direcao(vid: int) -> None:
     from capa import detectar
     from claude_cli import chamar_json
     from escolher import escolher
-    from montar import montar, renderizar
     from planejar import frases_do_roteiro, planejar
     from tempos import tempos_da_narracao
 
@@ -270,7 +269,23 @@ def tarefa_direcao(vid: int) -> None:
         arq_esc.write_text(json.dumps(escolhas, ensure_ascii=False, indent=1), encoding="utf-8")
 
     passo(5, "renderizando o rascunho")
-    trecho, pendencias = montar(slug, roteiro, palavras, frases, plano, necs, escolhas, capa, circulos, trab / "voz_guia.wav")
+    montar_e_renderizar(vid, slug, palavras, frases, plano, necs, escolhas, capa, circulos, primeira_vez=True)
+
+
+def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, escolhas, capa, circulos,
+                        primeira_vez: bool) -> None:
+    """Aplica os ajustes do storyboard, monta a direção, renderiza o rascunho e atualiza o painel."""
+    from montar import montar, renderizar
+
+    from .storyboard import aplicar
+
+    pasta = PASTA_PROJETOS / slug
+    dirc, trab = pasta / "direcao", pasta / "trabalho"
+    ajustes = json.loads((dirc / "ajustes.json").read_text(encoding="utf-8")) if (dirc / "ajustes.json").exists() else {}
+    plano_final, escolhas_finais = aplicar(plano, escolhas, ajustes)
+    roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
+    trecho, pendencias = montar(slug, roteiro, palavras, frases, plano_final, necs, escolhas_finais, capa, circulos,
+                                trab / "voz_guia.wav")
     (dirc / "direcao.json").write_text(json.dumps(trecho, ensure_ascii=False, indent=1), encoding="utf-8")
     segundos = renderizar(trecho, trab / "props.json", trab / "rascunho.mp4")
 
@@ -281,21 +296,70 @@ def tarefa_direcao(vid: int) -> None:
         resumo_tipos = " · ".join(f"{n} {t}" for t, n in sorted(tipos.items(), key=lambda x: -x[1]))
         atualizar_etapa(con, vid, "direcao", "concluido", f"{len(trecho['cenas'])} cenas", resumo_tipos,
                         {"tipos": tipos, "observacoes": plano.get("observacoes")})
-        dur = palavras[-1]["f"]
-        atualizar_etapa(con, vid, "rascunho", "atencao", f"{mmss(dur)} · {len(trecho['cenas'])} cenas",
-                        f"render em {mmss(segundos)}", {"video": f"projetos/{slug}/trabalho/rascunho.mp4"})
+        versao = 1 if primeira_vez else len(list(trab.glob("rascunho_v*.mp4"))) + 1  # anteriores ficam como _vN
+        atualizar_etapa(con, vid, "rascunho", "atencao", f"{mmss(palavras[-1]['f'])} · {len(trecho['cenas'])} cenas",
+                        f"v{versao} · render em {mmss(segundos)}",
+                        {"video": f"projetos/{slug}/trabalho/rascunho.mp4", "versao": versao})
+        con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND chave='cena_sem_imagem' AND resolvida=0", (vid,))
         for p in pendencias:
             con.execute("INSERT INTO pendencias (video_id, etapa, chave, titulo, texto, criada_em) VALUES (?,?,?,?,?,?)",
                         (vid, "midias", "cena_sem_imagem", p["titulo"], p["texto"], agora()))
-        if plano.get("observacoes"):
+        if primeira_vez and plano.get("observacoes"):
             abrir_pendencia(con, vid, "obs_diretor", "direcao", "Observações do diretor", plano["observacoes"])
         abrir_pendencia(con, vid, "ver_rascunho", "rascunho", "Assista o rascunho",
-                        "O rascunho (com a voz guia) está na Prévia. Veja se o ritmo, as imagens e as legendas estão do seu jeito.")
-        registrar(con, vid, f"Rascunho pronto: {len(trecho['cenas'])} cenas, render em {mmss(segundos)}", "ok")
+                        "O rascunho (com a voz guia) está na Prévia. Para trocar imagens, legendas ou pedir mudanças, "
+                        "abra o storyboard. Se estiver tudo certo, aprove.")
+        registrar(con, vid, f"Rascunho v{versao} pronto: {len(trecho['cenas'])} cenas, render em {mmss(segundos)}", "ok")
         con.commit()
 
 
-TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao}
+def tarefa_rascunho(vid: int) -> None:
+    """Refaz o rascunho com os ajustes do storyboard. Só chama o Claude se houver pedidos ao diretor."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from planejar import frases_do_roteiro
+    from revisar import revisar
+
+    from .storyboard import pendentes_para_o_diretor
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    pasta = PASTA_PROJETOS / slug
+    dirc, trab = pasta / "direcao", pasta / "trabalho"
+    ler = lambda nome: json.loads((dirc / nome).read_text(encoding="utf-8"))  # noqa: E731
+    roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
+    palavras, plano, necs, escolhas = ler("tempos_guia.json"), ler("plano.json"), ler("candidatos.json"), ler("escolhas.json")
+    ajustes = ler("ajustes.json") if (dirc / "ajustes.json").exists() else {}
+    frases = frases_do_roteiro(roteiro, palavras)
+    capa = next(iter(sorted(dirc.glob("capa.*"))))
+    circulos = ler("capa_circulos.json") if (dirc / "capa_circulos.json").exists() else []
+    if not circulos or not all(c.get("nome") for c in circulos):
+        from capa import detectar
+        from claude_cli import chamar_json
+        circulos, _ = ler_nomes_da_capa(capa, detectar, chamar_json)
+        (dirc / "capa_circulos.json").write_text(json.dumps(circulos, ensure_ascii=False, indent=1), encoding="utf-8")
+    # guarda a versão anterior do rascunho
+    if (trab / "rascunho.mp4").exists():
+        n = len(list(trab.glob("rascunho_v*.mp4"))) + 1
+        (trab / "rascunho.mp4").replace(trab / f"rascunho_v{n}.mp4")
+
+    ks = pendentes_para_o_diretor(ajustes)
+    with conectar() as con:
+        atualizar_etapa(con, vid, "direcao", "andamento",
+                        f"refazendo {len(ks)} cena(s) (Claude)" if ks else "aplicando seus ajustes", "storyboard")
+        fechar_pendencia(con, vid, "ver_rascunho")
+        con.commit()
+    if ks:
+        revisar(plano, frases, necs, escolhas, ajustes, ks, trab, [c.get("nome", "") for c in circulos])
+        for nome, dado in (("plano.json", plano), ("candidatos.json", necs), ("escolhas.json", escolhas),
+                           ("ajustes.json", ajustes)):
+            (dirc / nome).write_text(json.dumps(dado, ensure_ascii=False, indent=1), encoding="utf-8")
+    with conectar() as con:
+        atualizar_etapa(con, vid, "direcao", "andamento", "renderizando o novo rascunho", "storyboard")
+        con.commit()
+    montar_e_renderizar(vid, slug, palavras, frases, plano, necs, escolhas, capa, circulos, primeira_vez=False)
+
+
+TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 

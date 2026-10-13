@@ -42,13 +42,22 @@ export function Video({ id }: { id: number }) {
               {concluidas}/{v.etapas.length} etapas · {v.pendencias.length} pendência{v.pendencias.length === 1 ? '' : 's'} · atualizado {quando(v.atualizado_em)}
             </p>
           </div>
-          <button
-            disabled
-            title="Em breve: revisão cena a cena com o player do Remotion"
-            className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-borda-forte px-4 py-2 text-sm text-suave"
-          >
-            <LayoutPanelTop className="size-4" /> Abrir storyboard
-          </button>
+          {v.etapas.some((e) => e.chave === 'rascunho' && typeof e.dados.video === 'string') ? (
+            <a
+              href={`#/video/${v.id}/storyboard`}
+              className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-ouro/60 px-4 py-2 text-sm text-ouro hover:bg-ouro/10"
+            >
+              <LayoutPanelTop className="size-4" /> Abrir storyboard
+            </a>
+          ) : (
+            <button
+              disabled
+              title="O storyboard abre quando o primeiro rascunho estiver pronto"
+              className="ml-auto flex shrink-0 items-center gap-2 rounded-lg border border-borda-forte px-4 py-2 text-sm text-apagado"
+            >
+              <LayoutPanelTop className="size-4" /> Abrir storyboard
+            </button>
+          )}
         </div>
 
         {/* Trilha de etapas */}
@@ -167,6 +176,23 @@ function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; 
       <button className={estilo} onClick={() => document.getElementById('roteiro')?.scrollIntoView({ behavior: 'smooth' })}>
         Ir para o roteiro
       </button>
+    )
+  if (chave === 'ver_rascunho')
+    return (
+      <div className="flex shrink-0 flex-col gap-1.5">
+        <a href={`#/video/${videoId}/storyboard`} className="rounded-md border border-ouro/60 px-3 py-1.5 text-center text-xs text-ouro hover:bg-ouro/10">
+          Abrir storyboard
+        </a>
+        <button
+          className={estilo}
+          onClick={async () => {
+            await api(`/pendencias/${id}/resolver`, { method: 'POST' })
+            aoMudar()
+          }}
+        >
+          Rascunho aprovado
+        </button>
+      </div>
     )
   if (chave === 'aprovar_capa')
     return (
