@@ -47,5 +47,8 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   → capa → aprovar → Direção automática (retoma de onde parou) → rascunho → storyboard (ajustes/pedidos) → novo rascunho.
 - 2026-10-13: sistema zerado para o Felipe testar "como se estivesse pronto" e anotar bugs (banco, projetos e testes
   foram para a Lixeira; acervo catalogado mantido).
-- **Ainda não construído:** card Gravação no painel (limpeza/ressincronização já existem em tools/audio), render final,
-  Publicação, Pesquisa, Mídias (internet), efeitos sonoros, limpeza de arquivos.
+- Card Gravação ✅ — mover p/ Gravação aceita o rascunho e pede o arquivo (upload com progresso ou pasta entrada/ +
+  "Já coloquei na pasta"); motor: limpar → alinhar → montar com a voz real → saida/final_vN.mp4 → card vai p/ Revisão.
+  Rascunhos e finais: cada versão em arquivo próprio (nunca renomear arquivo que pode estar aberto no player).
+- **Ainda não construído:** Publicação (título/descrição/créditos/thumbnail), Pesquisa, Mídias (internet),
+  efeitos sonoros, limpeza de arquivos de vídeos publicados.

@@ -20,7 +20,7 @@ import json
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -251,6 +251,53 @@ def refazer_rascunho(vid: int):
         con.commit()
     motor.FILA.put((vid, "rascunho"))
     return {"ok": True}
+
+
+@app.post("/api/videos/{vid}/gravacao")
+async def enviar_gravacao(vid: int, arquivo: UploadFile):
+    """Recebe a gravação em pedaços (arquivos grandes não passam inteiros pela memória)."""
+    ext = Path(arquivo.filename or "").suffix.lower()
+    if ext not in motor.EXT_GRAVACAO:
+        raise HTTPException(400, f"formato não aceito ({ext or 'sem extensão'}); use wav, mp3, m4a, flac, ogg, mp4, mkv, mov…")
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    entrada = pasta / "entrada"
+    entrada.mkdir(parents=True, exist_ok=True)
+    destino = entrada / f"gravacao_{agora().replace(':', '-')}{ext}"
+    with destino.open("wb") as f:
+        while bloco := await arquivo.read(8 * 1024 * 1024):
+            f.write(bloco)
+    with conectar() as con:
+        motor.receber_gravacao(con, vid, destino)
+        con.commit()
+    return {"ok": True, "arquivo": destino.name}
+
+
+@app.post("/api/videos/{vid}/gravacao/da-pasta")
+def gravacao_da_pasta(vid: int):
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v:
+            raise HTTPException(404)
+        motor.pasta_do_video(v["slug"])
+        arquivo = motor.gravacao_na_pasta(v["slug"])
+        if arquivo is None:
+            raise HTTPException(400, f"nenhum áudio/vídeo encontrado em projetos/{v['slug']}/entrada/")
+        motor.receber_gravacao(con, vid, arquivo)
+        con.commit()
+    return {"ok": True, "arquivo": arquivo.name}
+
+
+@app.post("/api/videos/{vid}/abrir-pasta-entrada")
+def abrir_pasta_entrada(vid: int):
+    """Abre o Explorador do Windows na pasta entrada/ do vídeo (o servidor roda no próprio PC do Felipe)."""
+    import subprocess
+
+    with conectar() as con:
+        pasta = _pasta(con, vid) / "entrada"
+    pasta.mkdir(parents=True, exist_ok=True)
+    subprocess.Popen(["explorer", str(pasta.resolve())])
+    return {"caminho": str(pasta.resolve())}
 
 
 @app.get("/api/motor")

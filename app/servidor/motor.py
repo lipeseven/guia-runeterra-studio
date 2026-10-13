@@ -76,6 +76,22 @@ def ao_mover(con, vid: int, para: str) -> None:
             abrir_pendencia(con, vid, "aprovar_roteiro", "roteiro", "Aprove o roteiro",
                             "Confira o texto no painel “Roteiro” e clique em “Aprovar roteiro”.")
 
+    if para == "gravacao":
+        pasta_do_video(v["slug"])
+        st = {r["chave"]: r["status"] for r in con.execute("SELECT chave, status FROM etapas WHERE video_id=?", (vid,))}
+        if st.get("rascunho") == "atencao":  # mover para Gravação = rascunho aceito
+            con.execute("UPDATE etapas SET status='concluido', atualizado_em=? WHERE video_id=? AND chave='rascunho'", (agora(), vid))
+            fechar_pendencia(con, vid, "ver_rascunho")
+            registrar(con, vid, "Rascunho aceito (card movido para Gravação)", "ok")
+        if st.get("gravacao") not in ("andamento", "concluido"):
+            atualizar_etapa(con, vid, "gravacao", "atencao", "aguardando gravação", "envie o áudio ou vídeo")
+            abrir_pendencia(con, vid, "enviar_gravacao", "gravacao", "Envie sua gravação",
+                            "Arraste o arquivo (áudio ou vídeo) no painel “Gravação”, ou coloque-o na pasta entrada/ "
+                            "do vídeo e clique em “Já coloquei na pasta”.")
+            registrar(con, vid, "Aguardando a gravação", "info")
+    else:
+        fechar_pendencia(con, vid, "enviar_gravacao")  # saiu da coluna Gravação: não cobra mais
+
 
 def estatisticas(texto: str) -> dict:
     pars = [p for p in re.split(r"\n\s*\n", texto) if p.strip()]
@@ -272,10 +288,10 @@ def tarefa_direcao(vid: int) -> None:
     montar_e_renderizar(vid, slug, palavras, frases, plano, necs, escolhas, capa, circulos, primeira_vez=True)
 
 
-def proxima_versao(trab: Path) -> int:
-    """Número da próxima versão do rascunho (rascunho_v1.mp4, v2, …; o antigo rascunho.mp4 conta como v1)."""
-    nums = [int(p.stem.split("_v")[1]) for p in trab.glob("rascunho_v*.mp4") if p.stem.split("_v")[1].isdigit()]
-    if (trab / "rascunho.mp4").exists():
+def proxima_versao(pasta: Path, prefixo: str = "rascunho") -> int:
+    """Número da próxima versão (rascunho_v1.mp4, v2, … ou final_v1.mp4…; o antigo rascunho.mp4 conta como v1)."""
+    nums = [int(p.stem.split("_v")[1]) for p in pasta.glob(f"{prefixo}_v*.mp4") if p.stem.split("_v")[1].isdigit()]
+    if (pasta / f"{prefixo}.mp4").exists():
         nums.append(1)
     return max(nums, default=0) + 1
 
@@ -326,6 +342,99 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
         con.commit()
 
 
+# ---------------------------------------------------------------- gravação
+EXT_GRAVACAO = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac", ".mp4", ".mkv", ".mov", ".webm"}
+
+
+def gravacao_na_pasta(slug: str) -> Path | None:
+    """Arquivo de gravação mais recente na pasta entrada/ do vídeo."""
+    entrada = PASTA_PROJETOS / slug / "entrada"
+    arquivos = [p for p in entrada.glob("*") if p.is_file() and p.suffix.lower() in EXT_GRAVACAO] if entrada.exists() else []
+    return max(arquivos, key=lambda p: p.stat().st_mtime) if arquivos else None
+
+
+def receber_gravacao(con, vid: int, arquivo: Path) -> None:
+    fechar_pendencia(con, vid, "enviar_gravacao")
+    atualizar_etapa(con, vid, "gravacao", "andamento", "na fila", arquivo.name)
+    registrar(con, vid, f"Gravação recebida: {arquivo.name} ({arquivo.stat().st_size / 1e6:.0f} MB)", "info")
+    FILA.put((vid, "gravacao"))
+
+
+def tarefa_gravacao(vid: int) -> None:
+    """Limpa a gravação, realinha a direção aprovada à voz do Felipe e renderiza o vídeo com a narração real."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from alinhar import alinhar
+    from limpar_gravacao import limpar
+    from montar import montar, renderizar
+    from planejar import frases_do_roteiro
+
+    from .storyboard import aplicar
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    pasta = PASTA_PROJETOS / slug
+    dirc, trab, saida = pasta / "direcao", pasta / "trabalho", pasta / "saida"
+    original = gravacao_na_pasta(slug)
+    if original is None:
+        raise RuntimeError("nenhuma gravação encontrada na pasta entrada/ do vídeo")
+    roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
+
+    def etapa(chave: str, status: str, resumo: str, detalhe: str, dados: dict | None = None) -> None:
+        with conectar() as con:
+            atualizar_etapa(con, vid, chave, status, resumo, detalhe, dados)
+            con.commit()
+
+    # 1) limpeza: regravações, falas fora do roteiro, pausas, volume (timbre intocado)
+    etapa("gravacao", "andamento", "limpando a gravação…", original.name)
+    rel = limpar(original, trab / "gravacao", roteiro)
+    rel_orig = f"projetos/{slug}/entrada/{original.name}"
+    rel_limpa = f"projetos/{slug}/trabalho/gravacao/limpa.wav"
+    divergencias = rel.get("divergencias_do_roteiro", [])
+    with conectar() as con:
+        atualizar_etapa(con, vid, "gravacao", "atencao" if divergencias else "concluido",
+                        f"{mmss(rel['duracao_original'])} → {mmss(rel['duracao_limpa'])} · {len(rel['removidos'])} cortes",
+                        f"{len(rel.get('pausas_encurtadas', []))} pausas encurtadas · -14 LUFS",
+                        {"original": rel_orig, "audio": rel_limpa, "relatorio": rel})
+        if divergencias:
+            abrir_pendencia(con, vid, "leitura_diferente", "gravacao", "Leitura diferente do roteiro",
+                            " · ".join(f"“{d['roteiro']}” → “{d['lido']}”" for d in divergencias[:12])
+                            + ". Nada foi cortado por isso; confirme se pode ficar assim.")
+        registrar(con, vid, f"Gravação limpa: {len(rel['removidos'])} cortes, {rel['duracao_original']}s → {rel['duracao_limpa']}s", "ok")
+        con.commit()
+
+    # 2) ressincronização: a direção aponta para palavras do roteiro; só trocam os tempos
+    etapa("ressincronizacao", "andamento", "alinhando à sua voz…", "palavras do roteiro")
+    palavras = alinhar(roteiro, json.loads((trab / "gravacao" / "palavras.json").read_text(encoding="utf-8")))
+    (dirc / "tempos_gravacao.json").write_text(json.dumps(palavras, ensure_ascii=False, indent=1), encoding="utf-8")
+    estimadas = sum(1 for w in palavras if w.get("estimado"))
+
+    # 3) render com a narração real (mesma direção aprovada no storyboard)
+    ler = lambda nome: json.loads((dirc / nome).read_text(encoding="utf-8"))  # noqa: E731
+    ajustes = ler("ajustes.json") if (dirc / "ajustes.json").exists() else {}
+    plano, escolhas = aplicar(ler("plano.json"), ler("escolhas.json"), ajustes)
+    capa = next(iter(sorted(dirc.glob("capa.*"))))
+    frases = frases_do_roteiro(roteiro, palavras)
+    trecho, _ = montar(slug, roteiro, palavras, frases, plano, ler("candidatos.json"), escolhas, capa,
+                       ler("capa_circulos.json"), trab / "gravacao" / "limpa.wav")
+    (dirc / "direcao_final.json").write_text(json.dumps(trecho, ensure_ascii=False, indent=1), encoding="utf-8")
+    etapa("ressincronizacao", "concluido", f"{len(trecho['cenas'])} cenas realinhadas",
+          f"{estimadas} palavras com tempo estimado" if estimadas else "todas as palavras encontradas")
+    etapa("render", "andamento", "renderizando com a sua voz…", "Remotion + NVENC")
+    versao = proxima_versao(saida, "final")
+    arquivo = saida / f"final_v{versao}.mp4"
+    segundos = renderizar(trecho, trab / "props_final.json", arquivo)
+
+    with conectar() as con:
+        atualizar_etapa(con, vid, "render", "atencao", f"{mmss(palavras[-1]['f'])} · v{versao}",
+                        f"render em {mmss(segundos)}", {"video": f"projetos/{slug}/saida/{arquivo.name}", "versao": versao})
+        abrir_pendencia(con, vid, "ver_final", "render", "Assista o vídeo com a sua voz",
+                        "O vídeo foi montado com a sua narração (limpa) e a direção aprovada no storyboard. "
+                        "Confira na Prévia. Se precisar trocar algo, use o storyboard e gere de novo.")
+        con.execute("UPDATE videos SET coluna='revisao', atualizado_em=? WHERE id=?", (agora(), vid))
+        registrar(con, vid, f"Vídeo com a sua voz pronto (v{versao}, render em {mmss(segundos)}) → Revisão", "ok")
+        con.commit()
+
+
 def tarefa_rascunho(vid: int) -> None:
     """Refaz o rascunho com os ajustes do storyboard. Só chama o Claude se houver pedidos ao diretor."""
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
@@ -369,7 +478,8 @@ def tarefa_rascunho(vid: int) -> None:
     montar_e_renderizar(vid, slug, palavras, frases, plano, necs, escolhas, capa, circulos, primeira_vez=False)
 
 
-TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho}
+TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
+           "gravacao": tarefa_gravacao}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 

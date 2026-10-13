@@ -5,6 +5,7 @@ import { CirculoEstado, COR, RotuloEstado } from '../componentes/Estado'
 import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
 import { PainelCapa } from '../componentes/PainelCapa'
+import { PainelGravacao } from '../componentes/PainelGravacao'
 import { PainelRoteiro } from '../componentes/PainelRoteiro'
 
 export function Video({ id }: { id: number }) {
@@ -32,6 +33,7 @@ export function Video({ id }: { id: number }) {
   const concluidas = v.etapas.filter((e) => e.status === 'concluido').length
   const previa = [...v.etapas].reverse().find((e) => typeof e.dados.video === 'string' || typeof e.dados.audio === 'string')
   const roteiro = v.etapas.find((e) => e.chave === 'roteiro')!
+  const gravacao = v.etapas.find((e) => e.chave === 'gravacao')!
 
   return (
     <Moldura trilha={trilha}>
@@ -109,6 +111,9 @@ export function Video({ id }: { id: number }) {
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-w-0 flex-col gap-5">
+            {(['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente') && (
+              <PainelGravacao videoId={v.id} etapa={gravacao} aoMudar={recarregar} />
+            )}
             {(v.coluna !== 'ideia' || roteiro.status !== 'pendente') && (
               <>
                 <ProximoPasso c={v.condicoes_direcao} direcao={v.etapas.find((e) => e.chave === 'direcao')!} />
@@ -186,6 +191,12 @@ function ProximoPasso({ c, direcao }: { c: TVideo['condicoes_direcao']; direcao:
 /** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
 function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; id: number; videoId: number; aoMudar: () => void }) {
   const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
+  if (chave === 'enviar_gravacao')
+    return (
+      <button className={estilo} onClick={() => document.getElementById('gravacao')?.scrollIntoView({ behavior: 'smooth' })}>
+        Ir para a gravação
+      </button>
+    )
   if (chave === 'enviar_roteiro')
     return (
       <button className={estilo} onClick={() => document.getElementById('roteiro')?.scrollIntoView({ behavior: 'smooth' })}>
@@ -241,7 +252,7 @@ function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; 
         aoMudar()
       }}
     >
-      {chave?.startsWith('erro_') ? 'Tentar de novo' : chave === 'ver_rascunho' ? 'Rascunho aprovado' : 'Está ok'}
+      {chave?.startsWith('erro_') ? 'Tentar de novo' : chave === 'ver_final' ? 'Vídeo aprovado' : 'Está ok'}
     </button>
   )
 }
