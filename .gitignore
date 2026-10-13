@@ -10,3 +10,7 @@ __pycache__/
 dados/
 recursos de vídeo para aprender/
 *.mp4
+
+# Mídias copiadas para o Remotion (vêm do acervo / gravações)
+app/video/public/
+
