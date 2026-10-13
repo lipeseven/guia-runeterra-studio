@@ -19,6 +19,16 @@ from .etapas import COLUNAS, ETAPAS
 app = FastAPI(title="Guia de Runeterra Studio")
 
 
+@app.middleware("http")
+async def sem_cache_na_pagina(request, chamar):
+    """A página (index.html) nunca fica em cache: depois de recompilar, o navegador pega a versão nova.
+    Os arquivos em /assets têm nome com hash e podem ficar em cache normalmente."""
+    resposta = await chamar(request)
+    if not request.url.path.startswith(("/assets/", "/api/arquivo")):
+        resposta.headers["Cache-Control"] = "no-store"
+    return resposta
+
+
 def _video(con, vid: int) -> dict:
     v = con.execute("SELECT * FROM videos WHERE id=?", (vid,)).fetchone()
     if not v:
@@ -70,15 +80,45 @@ def mover(vid: int, corpo: Mover):
     if corpo.coluna not in {c["chave"] for c in COLUNAS}:
         raise HTTPException(400, "coluna inválida")
     with conectar() as con:
-        antiga = con.execute("SELECT coluna FROM videos WHERE id=?", (vid,)).fetchone()
+        antiga = con.execute("SELECT coluna, travado FROM videos WHERE id=?", (vid,)).fetchone()
         if not antiga:
             raise HTTPException(404)
+        if antiga["travado"]:
+            raise HTTPException(409, "vídeo travado: destrave para mover")
         ordem = corpo.ordem if corpo.ordem is not None else (
             con.execute("SELECT MAX(ordem) FROM videos WHERE coluna=?", (corpo.coluna,)).fetchone()[0] or 0) + 1
         con.execute("UPDATE videos SET coluna=?, ordem=?, atualizado_em=? WHERE id=?", (corpo.coluna, ordem, agora(), vid))
         if antiga["coluna"] != corpo.coluna:
             nome = next(c["titulo"] for c in COLUNAS if c["chave"] == corpo.coluna)
             registrar(con, vid, f"Movido para “{nome}”", "info")
+        con.commit()
+    return {"ok": True}
+
+
+class Travar(BaseModel):
+    travado: bool
+
+
+@app.patch("/api/videos/{vid}/travar")
+def travar(vid: int, corpo: Travar):
+    with conectar() as con:
+        if not con.execute("UPDATE videos SET travado=?, atualizado_em=? WHERE id=?",
+                           (int(corpo.travado), agora(), vid)).rowcount:
+            raise HTTPException(404)
+        registrar(con, vid, "Travado" if corpo.travado else "Destravado", "info")
+        con.commit()
+    return {"ok": True}
+
+
+@app.delete("/api/videos/{vid}")
+def excluir(vid: int):
+    with conectar() as con:
+        v = con.execute("SELECT travado FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v:
+            raise HTTPException(404)
+        if v["travado"]:
+            raise HTTPException(409, "vídeo travado: destrave para excluir")
+        con.execute("DELETE FROM videos WHERE id=?", (vid,))  # etapas/pendências/atividade saem em cascata
         con.commit()
     return {"ok": True}
 

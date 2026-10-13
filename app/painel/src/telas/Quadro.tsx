@@ -8,10 +8,11 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { AlertTriangle, Plus } from 'lucide-react'
+import { AlertTriangle, Lock, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { api, arquivo, quando, useAoVivo, type Coluna, type Status, type VideoResumo } from '../api'
 import { FUNDO } from '../componentes/Estado'
+import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
 
 type DadosQuadro = { colunas: Coluna[]; videos: VideoResumo[] }
@@ -28,7 +29,7 @@ export function Quadro() {
     const id = Number(e.active.id)
     if (!dados || !coluna) return
     const video = dados.videos.find((v) => v.id === id)
-    if (!video || video.coluna === coluna) return
+    if (!video || video.coluna === coluna || video.travado) return
     // otimista: move já na tela; o servidor confirma em seguida
     setDados({ ...dados, videos: dados.videos.map((v) => (v.id === id ? { ...v, coluna, ordem: 1e9 } : v)) })
     await api(`/videos/${id}/mover`, { method: 'PATCH', body: JSON.stringify({ coluna }) })
@@ -87,7 +88,7 @@ function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: Vid
       </header>
       <div className="flex min-h-24 flex-col gap-2.5">
         {videos.map((v) => (
-          <ArrastavelVideo key={v.id} video={v} />
+          <ArrastavelVideo key={v.id} video={v} aoMudar={aoCriar} />
         ))}
       </div>
       {coluna.chave === 'ideia' && (
@@ -106,11 +107,14 @@ function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: Vid
   )
 }
 
-function ArrastavelVideo({ video }: { video: VideoResumo }) {
-  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: String(video.id) })
+function ArrastavelVideo({ video, aoMudar }: { video: VideoResumo; aoMudar: () => void }) {
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: String(video.id), disabled: Boolean(video.travado) })
   return (
-    <div ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? 'opacity-30' : ''}>
+    <div ref={setNodeRef} {...listeners} {...attributes} className={`relative ${isDragging ? 'opacity-30' : ''}`}>
       <CardVideo video={video} />
+      <div className="absolute top-2 right-2">
+        <MenuCard video={video} aoMudar={aoMudar} />
+      </div>
     </div>
   )
 }
@@ -120,7 +124,9 @@ function CardVideo({ video, flutuando }: { video: VideoResumo; flutuando?: boole
   return (
     <a
       href={`#/video/${video.id}`}
-      className={`block cursor-grab overflow-hidden rounded-lg border border-borda bg-painel-2 hover:border-borda-forte active:cursor-grabbing ${
+      className={`block overflow-hidden rounded-lg border bg-painel-2 hover:border-borda-forte ${
+        video.travado ? 'cursor-pointer border-ouro/40' : 'cursor-grab border-borda active:cursor-grabbing'
+      } ${
         flutuando ? 'rotate-2 shadow-2xl shadow-black/60' : ''
       }`}
       draggable={false}
@@ -129,7 +135,10 @@ function CardVideo({ video, flutuando }: { video: VideoResumo; flutuando?: boole
         <img src={arquivo(video.capa)} alt="" className="aspect-video w-full object-cover opacity-90" draggable={false} />
       )}
       <div className="p-3">
-        <h3 className="text-sm leading-snug font-medium">{video.titulo}</h3>
+        <h3 className="pr-7 text-sm leading-snug font-medium">
+          {video.travado ? <Lock className="mr-1.5 mb-0.5 inline size-3.5 text-ouro" /> : null}
+          {video.titulo}
+        </h3>
         <div className="mt-2.5 flex gap-0.5">
           {segmentos.map((s, k) => (
             <span key={k} className={`h-1 flex-1 rounded-full ${FUNDO[s]}`} />

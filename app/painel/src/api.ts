@@ -15,6 +15,7 @@ export type VideoResumo = {
   progresso: Partial<Record<Status, number>>
   total_etapas: number
   pendencias: number
+  travado: number
 }
 
 export type Etapa = {

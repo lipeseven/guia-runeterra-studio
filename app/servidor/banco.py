@@ -68,6 +68,10 @@ def conectar() -> sqlite3.Connection:
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
     con.executescript(ESQUEMA)
+    # Migrações simples: colunas adicionadas depois da criação do banco.
+    colunas = {r["name"] for r in con.execute("PRAGMA table_info(videos)")}
+    if "travado" not in colunas:
+        con.execute("ALTER TABLE videos ADD COLUMN travado INTEGER NOT NULL DEFAULT 0")
     return con
 
 
