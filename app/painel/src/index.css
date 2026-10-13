@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/fraunces";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* Tema escuro do Studio. Cores de estado seguem a referência: verde = concluído, âmbar = precisa de você. */
+@theme {
+  --color-fundo: #0a0c0b;
+  --color-painel: #111413;
+  --color-painel-2: #171b19;
+  --color-borda: #232a27;
+  --color-borda-forte: #33403b;
+  --color-texto: #e9ede9;
+  --color-suave: #8b958f;
+  --color-apagado: #5a645f;
+  --color-ok: #4ade80;
+  --color-atencao: #f5b84a;
+  --color-andamento: #60a5fa;
+  --color-ouro: #c8aa6e; /* dourado "Runeterra" para a marca */
+
+  --font-sans: "Inter Variable", system-ui, sans-serif;
+  --font-titulo: "Fraunces Variable", Georgia, serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--color-fundo);
+  color: var(--color-texto);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Barra de rolagem discreta (trilha de etapas e quadro rolam na horizontal). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-borda-forte) transparent;
+}
