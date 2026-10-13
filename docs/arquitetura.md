@@ -113,7 +113,25 @@ exclusive Claude/
 
 ---
 
-## 6. Ordem de construção
+## 6. Limpeza de arquivos (garbage)
+
+Cada vídeo vive em `projetos/<slug>/`, separado por importância:
+
+| Subpasta | Conteúdo | Após "Publicado" |
+|---|---|---|
+| `direcao/` | roteiro, direção (cenas), tempos, relatórios — KB | **fica** (permite refazer o vídeo) |
+| `trabalho/` | voz guia, áudio limpo, tomadas, mídias copiadas, cenas renderizadas — GB | **removido** |
+| `saida/` | vídeo final, thumbnail | Felipe escolhe |
+| `entrada/` | gravação original do Felipe | Felipe escolhe (nunca automático) |
+
+- Disparo: vídeo vai para "Publicado" no quadro (ou comando manual). O sistema mostra o que sai e o espaço
+  liberado, e só executa com confirmação.
+- Tudo vai para a **Lixeira do Windows** (recuperável), nunca exclusão definitiva.
+- Caches globais: `dados/cache_voz` > 30 dias; cópias em `app/video/public/` após cada render.
+- Mídias novas da internet vão para o acervo (crescimento desejado); cinemáticas inteiras podem ser
+  reduzidas às tomadas usadas.
+
+## 7. Ordem de construção
 
 | Fase | Entrega | Como valida |
 |---|---|---|
@@ -121,7 +139,7 @@ exclusive Claude/
 | **1. Prova do Remotion** | 2–3 modelos de cartão (grade de ícones, cartão emoldurado, diálogo com palavras em vermelho) sincronizados com tempos do Whisper | Medir tempo de render na RTX 4060; Felipe aprova o visual |
 | **2. Áudio** | Voz guia (Fish/Edge), limpeza da gravação, detecção de regravações, ressincronização | Gravação real do Felipe |
 | **3. Diretor** | Claude transforma roteiro + tempos em lista de cenas (JSON) usando o acervo | Rascunho de um trecho do vídeo dos Demônios refeito |
-| **4. Render completo** | Remotion + FFmpeg montando um vídeo inteiro | Vídeo de 5 min de ponta a ponta |
+| **4. Render completo** | Remotion + FFmpeg montando um vídeo inteiro; pastas por vídeo + limpeza (seção 6) | Vídeo de 5 min de ponta a ponta |
 | **5. Painel** | Quadro, revisão de cenas com Player, troca de mídias | Felipe usa sem terminal |
 | **6. Pesquisa e roteiro** | Referência → mapa de fatos → fontes → roteiro → detector de semelhança | Roteiro de um vídeo novo |
 | **7. Internet** | Coletores (Riot, wiki, Reddit, entrada manual) alimentando o acervo, créditos | Vídeo com proporção ~50/50 |
