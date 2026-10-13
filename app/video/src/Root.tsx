@@ -1,6 +1,7 @@
 import { AbsoluteFill, Audio, Composition, staticFile } from "remotion";
 import { Citacao } from "./cenas/Citacao";
 import { Mostruario, POR_EFEITO, totalMostruario } from "./cenas/Mostruario";
+import fiddle from "./dados/fiddle.json";
 import dados from "./dados/prototipo.json";
 import { ALTURA, LARGURA } from "./estilo";
 import { Montagem, duracaoDoTrecho } from "./Montagem";
@@ -23,8 +24,30 @@ const CitacaoComAudio: React.FC = () => (
   </AbsoluteFill>
 );
 
+// Demo da ressincronização: mesma direção, dois áudios (tools/prototipo/fiddlesticks.py).
+const fiddleGuia = fiddle.guia as unknown as Trecho;
+const fiddleReal = fiddle.real as unknown as Trecho;
+
 export const Root: React.FC = () => (
   <>
+    <Composition
+      id="FiddleGuia"
+      component={Montagem}
+      defaultProps={{ trecho: fiddleGuia }}
+      durationInFrames={duracaoDoTrecho(fiddleGuia, fps)}
+      fps={fps}
+      width={LARGURA}
+      height={ALTURA}
+    />
+    <Composition
+      id="FiddleReal"
+      component={Montagem}
+      defaultProps={{ trecho: fiddleReal }}
+      durationInFrames={duracaoDoTrecho(fiddleReal, fps)}
+      fps={fps}
+      width={LARGURA}
+      height={ALTURA}
+    />
     <Composition
       id="Abertura"
       component={Montagem}

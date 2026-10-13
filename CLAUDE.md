@@ -34,5 +34,10 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 ## Estado atual
 - Fase 0 (base: análise, guia de estilo, acervo catalogado) ✅
 - Fase 1 (protótipo Remotion: capa, cartão, recorte, tela cheia, diálogo, citação, mosaico, clipe; efeitos variados) ✅
-- **Próximo: Fase 2 — áudio** (voz guia Fish Audio → reserva Edge TTS; limpeza da gravação; detecção de regravações;
-  ressincronização). Aguardando uma gravação de teste do Felipe com erros de propósito.
+- Fase 2 (áudio) ✅ — `tools/audio/`: `voz_guia.py` (Fish s2.1-pro-free → reserva local Piper; Edge TTS caiu),
+  `limpar_gravacao.py` (fala cortada por volume e transcrita trecho a trecho — o Whisper com o áudio inteiro "corrige"
+  falsos começos; regravações, falas fora do roteiro, pausas, -14 LUFS; ruído de fundo do Felipe é ~-80 dB, não aplicar
+  denoise), `alinhar.py` (tempos por palavra DO ROTEIRO → a direção usa índices do roteiro; trocar áudio = trocar tabela).
+  Demo: `tools/prototipo/fiddlesticks.py` (composições FiddleGuia/FiddleReal).
+- **Próximo: Fase 3 — diretor** (Claude transforma roteiro + tempos em cenas JSON usando acervo, regras de direção e Variador).
+- Obs.: `app/video/src/dados/*.json` são gerados pelos scripts de `tools/prototipo/` (fora do Git).
