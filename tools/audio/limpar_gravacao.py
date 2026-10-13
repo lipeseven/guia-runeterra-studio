@@ -205,6 +205,18 @@ def filtrar_com_roteiro(fs: list[dict], texto_roteiro: str, descartar: set[int])
     return fora, novos
 
 
+def divergencias(lido: str, texto_roteiro: str) -> list[dict]:
+    """Palavras lidas diferentes do roteiro (não são cortadas — só avisadas no relatório)."""
+    hifen = lambda t: re.sub(r"\s*-\s*", "", t)  # "paralisá -las" (Whisper) == "paralisá-las"
+    a = [w for w in (normalizar(x) for x in hifen(texto_roteiro).split()) if w]
+    b = [w for w in (normalizar(x) for x in hifen(lido).split()) if w]
+    saida = []
+    for op, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if op != "equal":
+            saida.append({"roteiro": " ".join(a[i1:i2]) or "-", "lido": " ".join(b[j1:j2]) or "-"})
+    return saida
+
+
 # ---------------------------------------------------------------- montagem
 def montar(a: np.ndarray, fs: list[dict], descartar: set[int]) -> tuple[np.ndarray, list[dict], dict]:
     mantidas = [f for k, f in enumerate(fs) if k not in descartar]
@@ -283,6 +295,8 @@ def limpar(gravacao: Path, pasta: Path, roteiro: str | None = None) -> dict:
         **volume,
         "frases_mantidas": [f["texto"] for k, f in enumerate(fs) if k not in descartar],
     }
+    if roteiro:
+        relatorio["divergencias_do_roteiro"] = divergencias(" ".join(relatorio["frases_mantidas"]), roteiro)
     (pasta / "relatorio.json").write_text(json.dumps(relatorio, ensure_ascii=False, indent=1), encoding="utf-8")
     (pasta / "palavras.json").write_text(json.dumps(mapa, ensure_ascii=False, indent=1), encoding="utf-8")
     return relatorio
@@ -304,6 +318,10 @@ def main() -> None:
     for p in r["pausas_encurtadas"]:
         print(f"  em {p['em']:6.2f}s: {p['de']:.2f}s -> {p['para']:.2f}s")
     print("Texto final:", " | ".join(r["frases_mantidas"]))
+    if "divergencias_do_roteiro" in r:
+        print("Lido diferente do roteiro (não cortado, só aviso):")
+        for d in r["divergencias_do_roteiro"]:
+            print(f"  roteiro: '{d['roteiro']}'  ->  lido: '{d['lido']}'")
 
 
 if __name__ == "__main__":
