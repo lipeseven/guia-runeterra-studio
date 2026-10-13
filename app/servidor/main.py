@@ -15,7 +15,9 @@ if (_HUB / "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo").exists():
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
+import asyncio
 import json
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -26,7 +28,24 @@ from pydantic import BaseModel
 from . import motor, recursos, storyboard
 from .banco import RAIZ, agora, atualizar_etapa, conectar, criar_video, registrar
 from .etapas import COLUNAS, ETAPAS
-app = FastAPI(title="Guia de Runeterra Studio")
+
+
+def _silenciar_conexao_cortada(loop: asyncio.AbstractEventLoop, contexto: dict) -> None:
+    """No Windows, quando o navegador corta uma conexão no meio (o player de vídeo faz isso ao pular para outro
+    ponto, recarregar ou trocar de tela), o asyncio registra um ConnectionResetError (WinError 10054). É inofensivo:
+    só esse caso é silenciado; qualquer outro erro continua aparecendo normalmente."""
+    if isinstance(contexto.get("exception"), ConnectionResetError):
+        return
+    loop.default_exception_handler(contexto)
+
+
+@asynccontextmanager
+async def _ciclo_de_vida(_app: FastAPI):
+    asyncio.get_running_loop().set_exception_handler(_silenciar_conexao_cortada)
+    yield
+
+
+app = FastAPI(title="Guia de Runeterra Studio", lifespan=_ciclo_de_vida)
 motor.iniciar()
 
 
