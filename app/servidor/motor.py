@@ -354,26 +354,21 @@ def gravacao_na_pasta(slug: str) -> Path | None:
 
 
 def receber_gravacao(con, vid: int, arquivo: Path) -> None:
-    fechar_pendencia(con, vid, "enviar_gravacao")
+    for chave in ("enviar_gravacao", "aprovar_gravacao", "leitura_diferente"):  # gravação nova substitui a anterior
+        fechar_pendencia(con, vid, chave)
     atualizar_etapa(con, vid, "gravacao", "andamento", "na fila", arquivo.name)
     registrar(con, vid, f"Gravação recebida: {arquivo.name} ({arquivo.stat().st_size / 1e6:.0f} MB)", "info")
     FILA.put((vid, "gravacao"))
 
 
 def tarefa_gravacao(vid: int) -> None:
-    """Limpa a gravação, realinha a direção aprovada à voz do Felipe e renderiza o vídeo com a narração real."""
-    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
-    from alinhar import alinhar
+    """Limpa a gravação e PARA: o Felipe confere o áudio limpo antes de qualquer realinhamento/render."""
     from limpar_gravacao import limpar
-    from montar import montar, renderizar
-    from planejar import frases_do_roteiro
-
-    from .storyboard import aplicar
 
     with conectar() as con:
         slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
     pasta = PASTA_PROJETOS / slug
-    dirc, trab, saida = pasta / "direcao", pasta / "trabalho", pasta / "saida"
+    dirc, trab = pasta / "direcao", pasta / "trabalho"
     original = gravacao_na_pasta(slug)
     if original is None:
         raise RuntimeError("nenhuma gravação encontrada na pasta entrada/ do vídeo")
@@ -400,7 +395,43 @@ def tarefa_gravacao(vid: int) -> None:
                             " · ".join(f"“{d['roteiro']}” → “{d['lido']}”" for d in divergencias[:12])
                             + ". Nada foi cortado por isso; confirme se pode ficar assim.")
         registrar(con, vid, f"Gravação limpa: {len(rel['removidos'])} cortes, {rel['duracao_original']}s → {rel['duracao_limpa']}s", "ok")
+        # Ponto de controle do Felipe: nada de ressincronizar/renderizar sobre um corte errado.
+        con.execute("UPDATE etapas SET status='atencao' WHERE video_id=? AND chave='gravacao'", (vid,))
+        abrir_pendencia(con, vid, "aprovar_gravacao", "gravacao", "Confira a gravação limpa",
+                        f"{len(rel['removidos'])} cortes, {mmss(rel['duracao_original'])} → {mmss(rel['duracao_limpa'])}. "
+                        "Ouça o áudio limpo no painel “Gravação” (dá para ver cada corte). Se estiver bom, aprove: "
+                        "aí o sistema realinha as cenas à sua voz e renderiza.")
         con.commit()
+
+
+def aprovar_gravacao(con, vid: int) -> None:
+    fechar_pendencia(con, vid, "aprovar_gravacao")
+    fechar_pendencia(con, vid, "leitura_diferente")  # aprovar o áudio = aceitar a leitura como está
+    atualizar_etapa_status(con, vid, "gravacao", "concluido")
+    atualizar_etapa(con, vid, "ressincronizacao", "andamento", "na fila", "aguardando a vez na GPU")
+    registrar(con, vid, "Gravação limpa aprovada", "ok")
+    FILA.put((vid, "final"))
+
+
+def tarefa_final(vid: int) -> None:
+    """Depois da gravação aprovada: realinha a direção à voz do Felipe e renderiza com a narração real."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from alinhar import alinhar
+    from montar import montar, renderizar
+    from planejar import frases_do_roteiro
+
+    from .storyboard import aplicar
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    pasta = PASTA_PROJETOS / slug
+    dirc, trab, saida = pasta / "direcao", pasta / "trabalho", pasta / "saida"
+    roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
+
+    def etapa(chave: str, status: str, resumo: str, detalhe: str, dados: dict | None = None) -> None:
+        with conectar() as con:
+            atualizar_etapa(con, vid, chave, status, resumo, detalhe, dados)
+            con.commit()
 
     # 2) ressincronização: a direção aponta para palavras do roteiro; só trocam os tempos
     etapa("ressincronizacao", "andamento", "alinhando à sua voz…", "palavras do roteiro")
@@ -479,7 +510,7 @@ def tarefa_rascunho(vid: int) -> None:
 
 
 TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
-           "gravacao": tarefa_gravacao}
+           "gravacao": tarefa_gravacao, "final": tarefa_final}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 

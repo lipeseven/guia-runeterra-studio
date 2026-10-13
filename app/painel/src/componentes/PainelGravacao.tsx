@@ -1,4 +1,4 @@
-import { FolderOpen, Loader2, Mic, Upload } from 'lucide-react'
+import { CheckCircle2, FolderOpen, Loader2, Mic, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { api, arquivo, type Etapa } from '../api'
 
@@ -67,9 +67,26 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
           </span>
         )}
         {rel && !trabalhando && (
-          <button onClick={() => seletor.current?.click()} className="ml-auto rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:bg-painel-2">
-            Enviar outra gravação
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button onClick={() => seletor.current?.click()} className="rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:bg-painel-2">
+              Enviar outra gravação
+            </button>
+            {etapa.status === 'concluido' ? (
+              <span className="flex items-center gap-1.5 text-xs text-ok">
+                <CheckCircle2 className="size-4" /> Aprovada
+              </span>
+            ) : (
+              <button
+                onClick={async () => {
+                  await api(`/videos/${videoId}/gravacao/aprovar`, { method: 'POST' })
+                  aoMudar()
+                }}
+                className="rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
+              >
+                Aprovar áudio limpo
+              </button>
+            )}
+          </div>
         )}
       </header>
       <input ref={seletor} type="file" accept={EXTENSOES} className="hidden" onChange={(e) => enviar(e.target.files?.[0])} />
@@ -86,7 +103,7 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
           <Loader2 className="size-5 animate-spin text-andamento" />
           <div>
             <p className="text-sm">{etapa.resumo ?? 'trabalhando…'}</p>
-            <p className="text-xs text-suave">O sistema limpa a gravação, realinha as cenas à sua voz e renderiza. Você pode sair desta tela.</p>
+            <p className="text-xs text-suave">O sistema limpa a gravação e depois espera você conferir. Você pode sair desta tela.</p>
           </div>
         </div>
       ) : !rel ? (

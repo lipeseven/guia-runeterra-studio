@@ -288,6 +288,17 @@ def gravacao_da_pasta(vid: int):
     return {"ok": True, "arquivo": arquivo.name}
 
 
+@app.post("/api/videos/{vid}/gravacao/aprovar")
+def aprovar_gravacao(vid: int):
+    with conectar() as con:
+        r = con.execute("SELECT status, dados FROM etapas WHERE video_id=? AND chave='gravacao'", (vid,)).fetchone()
+        if not r or not json.loads(r["dados"] or "{}").get("relatorio"):
+            raise HTTPException(400, "não há gravação limpa para aprovar")
+        motor.aprovar_gravacao(con, vid)
+        con.commit()
+    return {"ok": True}
+
+
 @app.post("/api/videos/{vid}/abrir-pasta-entrada")
 def abrir_pasta_entrada(vid: int):
     """Abre o Explorador do Windows na pasta entrada/ do vídeo (o servidor roda no próprio PC do Felipe)."""

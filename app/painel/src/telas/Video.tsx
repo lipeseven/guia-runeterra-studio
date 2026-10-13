@@ -191,6 +191,23 @@ function ProximoPasso({ c, direcao }: { c: TVideo['condicoes_direcao']; direcao:
 /** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
 function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; id: number; videoId: number; aoMudar: () => void }) {
   const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
+  if (chave === 'aprovar_gravacao')
+    return (
+      <div className="flex shrink-0 flex-col gap-1.5">
+        <button className={estilo} onClick={() => document.getElementById('gravacao')?.scrollIntoView({ behavior: 'smooth' })}>
+          Ouvir e ver os cortes
+        </button>
+        <button
+          className="rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
+          onClick={async () => {
+            await api(`/videos/${videoId}/gravacao/aprovar`, { method: 'POST' })
+            aoMudar()
+          }}
+        >
+          Aprovar áudio limpo
+        </button>
+      </div>
+    )
   if (chave === 'enviar_gravacao')
     return (
       <button className={estilo} onClick={() => document.getElementById('gravacao')?.scrollIntoView({ behavior: 'smooth' })}>
