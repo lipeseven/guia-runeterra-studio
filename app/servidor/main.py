@@ -16,12 +16,7 @@ from pydantic import BaseModel
 from . import recursos
 from .banco import RAIZ, agora, conectar, criar_video, registrar
 from .etapas import COLUNAS, ETAPAS
-from .semente import popular
-
 app = FastAPI(title="Guia de Runeterra Studio")
-
-with conectar() as _con:
-    popular(_con)
 
 
 def _video(con, vid: int) -> dict:
