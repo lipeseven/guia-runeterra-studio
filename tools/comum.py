@@ -44,6 +44,13 @@ CREATE TABLE IF NOT EXISTS midias (
 );
 CREATE INDEX IF NOT EXISTS idx_midias_prefixo ON midias(prefixo);
 CREATE INDEX IF NOT EXISTS idx_midias_sha1 ON midias(sha1);
+-- Memória de uso: quais mídias cada vídeo PUBLICADO usou (o diretor evita repetir as recentes).
+CREATE TABLE IF NOT EXISTS uso_midia (
+    midia_id    INTEGER NOT NULL REFERENCES midias(id),
+    video       TEXT NOT NULL,          -- slug do vídeo
+    publicado_em TEXT NOT NULL,
+    PRIMARY KEY (midia_id, video)
+);
 """
 
 

@@ -6,6 +6,7 @@ import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
 import { PainelCapa } from '../componentes/PainelCapa'
 import { PainelGravacao } from '../componentes/PainelGravacao'
+import { PainelPublicacao } from '../componentes/PainelPublicacao'
 import { PainelRoteiro } from '../componentes/PainelRoteiro'
 
 export function Video({ id }: { id: number }) {
@@ -34,6 +35,7 @@ export function Video({ id }: { id: number }) {
   const previa = [...v.etapas].reverse().find((e) => typeof e.dados.video === 'string' || typeof e.dados.audio === 'string')
   const roteiro = v.etapas.find((e) => e.chave === 'roteiro')!
   const gravacao = v.etapas.find((e) => e.chave === 'gravacao')!
+  const publicacaoEtapa = v.etapas.find((e) => e.chave === 'publicacao')!
 
   return (
     <Moldura trilha={trilha}>
@@ -111,6 +113,9 @@ export function Video({ id }: { id: number }) {
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-w-0 flex-col gap-5">
+            {(['revisao', 'publicado'].includes(v.coluna) || publicacaoEtapa.status !== 'pendente') && (
+              <PainelPublicacao videoId={v.id} etapa={publicacaoEtapa} publicado={v.coluna === 'publicado'} aoMudar={recarregar} />
+            )}
             {(['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente') && (
               <PainelGravacao videoId={v.id} etapa={gravacao} aoMudar={recarregar} />
             )}
@@ -191,6 +196,12 @@ function ProximoPasso({ c, direcao }: { c: TVideo['condicoes_direcao']; direcao:
 /** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
 function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; id: number; videoId: number; aoMudar: () => void }) {
   const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
+  if (chave === 'publicar' || chave === 'limpeza')
+    return (
+      <button className={estilo} onClick={() => document.getElementById('publicacao')?.scrollIntoView({ behavior: 'smooth' })}>
+        {chave === 'publicar' ? 'Ir para a publicação' : 'Escolher o que limpar'}
+      </button>
+    )
   if (chave === 'aprovar_gravacao')
     return (
       <div className="flex shrink-0 flex-col gap-1.5">

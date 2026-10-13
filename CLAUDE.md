@@ -50,5 +50,11 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - Card Gravação ✅ — mover p/ Gravação aceita o rascunho e pede o arquivo (upload com progresso ou pasta entrada/ +
   "Já coloquei na pasta"); motor: limpar → alinhar → montar com a voz real → saida/final_vN.mp4 → card vai p/ Revisão.
   Rascunhos e finais: cada versão em arquivo próprio (nunca renomear arquivo que pode estar aberto no player).
-- **Ainda não construído:** Publicação (título/descrição/créditos/thumbnail), Pesquisa, Mídias (internet),
-  efeitos sonoros, limpeza de arquivos de vídeos publicados.
+  Gravação tem ponto de controle: limpeza PARA em "Confira a gravação limpa"; só a aprovação dispara ressinc + render.
+- Card Publicação ✅ — "Vídeo aprovado" → `app/servidor/publicacao.py` (5 títulos, descrição com capítulos reais
+  [≥3 seções] + créditos de autores + aviso Legal Jibber Jabber, tags, comentário fixado; Claude sonnet) + thumbnail
+  1280×720 da capa. "Marcar como publicado" (ou arrastar p/ Publicado) registra mídias em `uso_midia` (acervo.db; o
+  diretor penaliza as dos últimos 3 vídeos) e abre a limpeza (trabalho/saída/entrada → Lixeira; direcao/ sempre fica).
+- **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: efeitos sonoros (Freesound + Stable Audio Open),
+  falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
+  exportação para Premiere/DaVinci (XML) e After Effects (script).

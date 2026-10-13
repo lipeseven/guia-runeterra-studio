@@ -92,6 +92,11 @@ def ao_mover(con, vid: int, para: str) -> None:
     else:
         fechar_pendencia(con, vid, "enviar_gravacao")  # saiu da coluna Gravação: não cobra mais
 
+    if para == "publicado":
+        st = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='publicacao'", (vid,)).fetchone()["status"]
+        if st != "concluido":  # arrastar para Publicado = marcar como publicado
+            marcar_publicado(con, vid, None)
+
 
 def estatisticas(texto: str) -> dict:
     pars = [p for p in re.split(r"\n\s*\n", texto) if p.strip()]
@@ -466,6 +471,57 @@ def tarefa_final(vid: int) -> None:
         con.commit()
 
 
+# ---------------------------------------------------------------- publicação
+def tarefa_publicacao(vid: int) -> None:
+    """Depois do vídeo aprovado: textos do YouTube (Claude, modelo leve) + thumbnail."""
+    from . import publicacao
+
+    with conectar() as con:
+        v = con.execute("SELECT slug, titulo FROM videos WHERE id=?", (vid,)).fetchone()
+        atualizar_etapa(con, vid, "publicacao", "andamento", "escrevendo título e descrição…", "Claude")
+        con.commit()
+    pasta = PASTA_PROJETOS / v["slug"]
+    tempos = pasta / "direcao" / "tempos_gravacao.json"
+    duracao = json.loads(tempos.read_text(encoding="utf-8"))[-1]["f"] if tempos.exists() else 0
+    textos = publicacao.gerar_textos(pasta, v["titulo"], duracao)
+    thumb = publicacao.exportar_thumbnail(pasta)
+    textos["thumbnail"] = f"projetos/{v['slug']}/saida/{thumb.name}" if thumb else None
+    (pasta / "direcao" / "publicacao.json").write_text(json.dumps(textos, ensure_ascii=False, indent=1), encoding="utf-8")
+    with conectar() as con:
+        atualizar_etapa(con, vid, "publicacao", "atencao", "textos prontos · revise",
+                        f"{len(textos['titulos'])} títulos · {len(textos['capitulos'])} capítulos")
+        abrir_pendencia(con, vid, "publicar", "publicacao", "Revise os textos e publique",
+                        "Título, descrição (com capítulos e créditos), tags e thumbnail estão no painel “Publicação”. "
+                        "Suba o vídeo no YouTube e depois clique em “Marcar como publicado”.")
+        registrar(con, vid, "Textos de publicação prontos", "ok")
+        con.commit()
+
+
+def ao_aprovar_final(con, vid: int) -> None:
+    con.execute("UPDATE etapas SET status='concluido', atualizado_em=? WHERE video_id=? AND chave='render'", (agora(), vid))
+    st = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='publicacao'", (vid,)).fetchone()["status"]
+    if st == "pendente":
+        atualizar_etapa(con, vid, "publicacao", "andamento", "na fila", "")
+        FILA.put((vid, "publicacao"))
+
+
+def marcar_publicado(con, vid: int, url: str | None) -> None:
+    from . import publicacao
+
+    v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+    pasta = PASTA_PROJETOS / v["slug"]
+    n = publicacao.registrar_uso(pasta, v["slug"], agora())
+    con.execute("UPDATE videos SET coluna='publicado', url_youtube=COALESCE(?, url_youtube), atualizado_em=? WHERE id=?",
+                (url or None, agora(), vid))
+    con.execute("UPDATE etapas SET status='concluido', atualizado_em=? WHERE video_id=? AND chave='publicacao'", (agora(), vid))
+    fechar_pendencia(con, vid, "publicar")
+    fechar_pendencia(con, vid, "ver_final")
+    registrar(con, vid, f"Publicado{' — ' + url if url else ''}. {n} mídias registradas na memória de uso.", "ok")
+    abrir_pendencia(con, vid, "limpeza", "publicacao", "Limpar os arquivos do vídeo?",
+                    "O vídeo está publicado. No painel “Publicação” você escolhe o que mandar para a Lixeira "
+                    "(arquivos de trabalho, vídeo final, gravação original) e vê quanto espaço libera.")
+
+
 def tarefa_rascunho(vid: int) -> None:
     """Refaz o rascunho com os ajustes do storyboard. Só chama o Claude se houver pedidos ao diretor."""
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
@@ -510,7 +566,7 @@ def tarefa_rascunho(vid: int) -> None:
 
 
 TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
-           "gravacao": tarefa_gravacao, "final": tarefa_final}
+           "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 

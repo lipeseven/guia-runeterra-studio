@@ -25,7 +25,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import motor, recursos, storyboard
+from . import motor, publicacao, recursos, storyboard
 from .banco import RAIZ, agora, atualizar_etapa, conectar, criar_video, registrar
 from .etapas import COLUNAS, ETAPAS
 
@@ -311,6 +311,85 @@ def abrir_pasta_entrada(vid: int):
     return {"caminho": str(pasta.resolve())}
 
 
+@app.get("/api/videos/{vid}/publicacao")
+def ver_publicacao(vid: int):
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+        url = con.execute("SELECT url_youtube FROM videos WHERE id=?", (vid,)).fetchone()["url_youtube"]
+    arq = pasta / "direcao" / "publicacao.json"
+    finais = sorted((pasta / "saida").glob("final_v*.mp4"), key=lambda p: p.stat().st_mtime) if (pasta / "saida").exists() else []
+    return {"textos": json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else None,
+            "tamanhos": publicacao.tamanhos(pasta), "url": url,
+            "video_final": str(finais[-1].resolve()) if finais else None}
+
+
+@app.put("/api/videos/{vid}/publicacao")
+def salvar_publicacao(vid: int, textos: dict):
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    arq = pasta / "direcao" / "publicacao.json"
+    atual = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {}
+    for campo in ("titulo", "descricao", "tags", "comentario_fixado"):
+        if campo in textos:
+            atual[campo] = textos[campo]
+    arq.write_text(json.dumps(atual, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"ok": True}
+
+
+@app.post("/api/videos/{vid}/publicacao/gerar")
+def gerar_publicacao(vid: int):
+    with conectar() as con:
+        _pasta(con, vid)
+        atualizar_etapa(con, vid, "publicacao", "andamento", "na fila", "")
+        con.commit()
+    motor.FILA.put((vid, "publicacao"))
+    return {"ok": True}
+
+
+class Publicado(BaseModel):
+    url: str | None = None
+
+
+@app.post("/api/videos/{vid}/publicado")
+def marcar_publicado(vid: int, corpo: Publicado):
+    with conectar() as con:
+        _pasta(con, vid)
+        motor.marcar_publicado(con, vid, (corpo.url or "").strip() or None)
+        con.commit()
+    return {"ok": True}
+
+
+class Limpeza(BaseModel):
+    trabalho: bool = True
+    saida: bool = False
+    entrada: bool = False
+
+
+@app.post("/api/videos/{vid}/limpeza")
+def limpar_arquivos(vid: int, corpo: Limpeza):
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+        executando = motor.situacao()["executando"]
+        if executando and executando["video"] == vid:
+            raise HTTPException(409, "o motor está trabalhando neste vídeo agora")
+        r = publicacao.limpar(pasta, corpo.trabalho, corpo.saida, corpo.entrada)
+        motor.fechar_pendencia(con, vid, "limpeza")
+        registrar(con, vid, f"Limpeza: {', '.join(r['itens']) or 'nada'} → Lixeira ({r['liberado'] / 1e9:.2f} GB liberados)", "ok")
+        con.commit()
+    return r
+
+
+@app.post("/api/videos/{vid}/abrir-pasta-saida")
+def abrir_pasta_saida(vid: int):
+    import subprocess
+
+    with conectar() as con:
+        pasta = _pasta(con, vid) / "saida"
+    pasta.mkdir(parents=True, exist_ok=True)
+    subprocess.Popen(["explorer", str(pasta.resolve())])
+    return {"ok": True}
+
+
 @app.get("/api/motor")
 def estado_motor():
     return motor.situacao()
@@ -370,6 +449,10 @@ def resolver(pid: int):
         registrar(con, p["video_id"], f"Resolvido: {p['titulo']}", "ok")
         if (p["chave"] or "").startswith("erro_"):
             motor.tentar_de_novo(con, p["video_id"], p["chave"][5:])
+            con.commit()
+            return {"ok": True}
+        if p["chave"] == "ver_final":  # vídeo aprovado: prepara a publicação sozinho
+            motor.ao_aprovar_final(con, p["video_id"])
             con.commit()
             return {"ok": True}
         # Sem mais pendências abertas na etapa, ela deixa de "precisar de você".

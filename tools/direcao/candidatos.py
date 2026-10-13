@@ -45,6 +45,12 @@ def _pontuar(con, mid: int, nota: float, busca: dict, tipo: str) -> float:
         bonus += 0.10 if r["transparente"] or r["categoria"] == "recorte" else -0.10
     if r["categoria"] == "canal":
         bonus -= 0.5  # material do canal (logos, thumbs) não é ilustração
+    # memória de uso: imagem usada nos últimos vídeos publicados fica menos provável (não some de vez)
+    recentes = [x[0] for x in con.execute(
+        "SELECT video FROM uso_midia GROUP BY video ORDER BY MAX(publicado_em) DESC LIMIT 3").fetchall()]
+    if recentes and con.execute(f"SELECT 1 FROM uso_midia WHERE midia_id=? AND video IN ({','.join('?' * len(recentes))})",
+                                (mid, *recentes)).fetchone():
+        bonus -= 0.06
     return nota + bonus
 
 
