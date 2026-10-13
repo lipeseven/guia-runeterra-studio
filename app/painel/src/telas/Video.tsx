@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { api, arquivo, gb, quando, useAoVivo, type Etapa, type Recursos, type Video as TVideo } from '../api'
 import { CirculoEstado, COR, RotuloEstado } from '../componentes/Estado'
 import { Moldura } from '../componentes/Moldura'
+import { PainelCapa } from '../componentes/PainelCapa'
 import { PainelRoteiro } from '../componentes/PainelRoteiro'
 
 export function Video({ id }: { id: number }) {
@@ -60,7 +61,10 @@ export function Video({ id }: { id: number }) {
         <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-w-0 flex-col gap-5">
             {(v.coluna !== 'ideia' || roteiro.status !== 'pendente') && (
-              <PainelRoteiro videoId={v.id} etapa={roteiro} aoMudar={recarregar} />
+              <>
+                <PainelRoteiro videoId={v.id} etapa={roteiro} aoMudar={recarregar} />
+                <PainelCapa videoId={v.id} aoMudar={recarregar} />
+              </>
             )}
             <Painel titulo="Precisa de você" lateral="revisão por exceção · o resto segue sozinho">
               {v.pendencias.length === 0 ? (

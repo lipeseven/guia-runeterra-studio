@@ -135,6 +135,36 @@ def aprovar_roteiro(vid: int):
     return {"ok": True}
 
 
+class Capa(BaseModel):
+    nome: str
+    dados_base64: str  # imagem enviada pelo navegador
+
+
+@app.get("/api/videos/{vid}/capa")
+def ler_capa(vid: int):
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v:
+            raise HTTPException(404)
+        return motor.ler_capa(v["slug"])
+
+
+@app.post("/api/videos/{vid}/capa")
+def enviar_capa(vid: int, corpo: Capa):
+    import base64
+
+    ext = Path(corpo.nome).suffix.lower()
+    if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        raise HTTPException(400, "envie a capa em JPG, PNG ou WEBP")
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v:
+            raise HTTPException(404)
+        info = motor.receber_capa(con, vid, base64.b64decode(corpo.dados_base64), ext)
+        con.commit()
+    return info
+
+
 @app.get("/api/motor")
 def estado_motor():
     return motor.situacao()

@@ -5,6 +5,7 @@ Regra: anda sozinho enquanto não precisa do Felipe; quando precisa, cria uma pe
 """
 from __future__ import annotations
 
+import json
 import queue
 import re
 import sys
@@ -109,6 +110,25 @@ def receber_roteiro(con, vid: int, texto: str, nome: str) -> dict:
     return est
 
 
+def receber_capa(con, vid: int, conteudo: bytes, ext: str) -> dict:
+    """Guarda a capa (grade de ícones feita pelo Felipe) e detecta os círculos dos personagens.
+    Os NOMES de cada círculo são lidos pelo diretor (Claude) na etapa de Direção."""
+    from capa import detectar
+
+    v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+    pasta = pasta_do_video(v["slug"]) / "direcao"
+    for antiga in pasta.glob("capa.*"):
+        antiga.unlink()
+    arquivo = pasta / f"capa{ext}"
+    arquivo.write_bytes(conteudo)
+    circulos, _ = detectar(str(arquivo))
+    rel = f"projetos/{v['slug']}/direcao/{arquivo.name}"
+    con.execute("UPDATE videos SET capa=?, atualizado_em=? WHERE id=?", (rel, agora(), vid))
+    (pasta / "capa_circulos.json").write_text(json.dumps(circulos, indent=1), encoding="utf-8")
+    registrar(con, vid, f"Capa recebida: {len(circulos)} ícones detectados", "ok" if circulos else "alerta")
+    return {"capa": rel, "icones": len(circulos)}
+
+
 def aprovar_roteiro(con, vid: int) -> None:
     atualizar_etapa_status(con, vid, "roteiro", "concluido")
     fechar_pendencia(con, vid, "aprovar_roteiro")
@@ -169,6 +189,14 @@ def iniciar() -> None:
 
 def situacao() -> dict:
     return {"executando": ESTADO["executando"], "na_fila": FILA.qsize()}
+
+
+def ler_capa(slug: str) -> dict:
+    pasta = PASTA_PROJETOS / slug / "direcao"
+    arq = next(iter(sorted(pasta.glob("capa.*"))), None) if pasta.exists() else None
+    circ = pasta / "capa_circulos.json"
+    return {"capa": f"projetos/{slug}/direcao/{arq.name}" if arq else None,
+            "circulos": json.loads(circ.read_text(encoding="utf-8")) if circ.exists() else []}
 
 
 def ler_roteiro(slug: str) -> str | None:
