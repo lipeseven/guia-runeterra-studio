@@ -99,7 +99,7 @@ function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: Vid
             onChange={(e) => setTitulo(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && criar()}
             placeholder="Nova ideia de vídeo…"
-            className="w-44 min-w-0 bg-transparent text-center text-sm outline-none placeholder:text-apagado focus:w-full focus:text-left"
+            className="max-w-full min-w-[3ch] bg-transparent text-sm outline-none [field-sizing:content] placeholder:text-apagado"
           />
         </div>
       )}

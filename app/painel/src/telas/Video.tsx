@@ -76,7 +76,38 @@ export function Video({ id }: { id: number }) {
           ))}
         </div>
 
-        <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
+        {/* "Precisa de você" no topo: é a primeira coisa a ler, sem precisar rolar a tela */}
+        <section
+          className={`mt-5 rounded-xl border p-4 ${v.pendencias.length ? 'border-atencao/40 bg-painel' : 'border-borda bg-painel'}`}
+        >
+          <header className="mb-3 flex items-baseline justify-between gap-3">
+            <h2 className={`text-sm font-semibold ${v.pendencias.length ? 'text-atencao' : ''}`}>
+              Precisa de você{v.pendencias.length ? ` (${v.pendencias.length})` : ''}
+            </h2>
+            <span className="truncate font-mono text-[11px] text-apagado">revisão por exceção · o resto segue sozinho</span>
+          </header>
+          {v.pendencias.length === 0 ? (
+            <div className="flex items-center gap-3">
+              <CheckCircle2 className="size-5 text-ok" />
+              <p className="text-sm text-suave">Nada precisa de você agora.</p>
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {v.pendencias.map((p) => (
+                <li key={p.id} className="flex items-start gap-3 rounded-lg border border-atencao/30 bg-atencao/5 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-atencao">{p.titulo}</p>
+                    <p className="mt-1 text-sm text-texto/85">{p.texto}</p>
+                    {p.etapa && <p className="mt-1.5 font-mono text-[11px] text-apagado">etapa: {p.etapa}</p>}
+                  </div>
+                  <AcaoPendencia chave={p.chave} id={p.id} videoId={v.id} aoMudar={recarregar} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-w-0 flex-col gap-5">
             {(v.coluna !== 'ideia' || roteiro.status !== 'pendente') && (
               <>
@@ -85,31 +116,6 @@ export function Video({ id }: { id: number }) {
                 <PainelCapa videoId={v.id} aprovada={Boolean(v.capa_aprovada)} aoMudar={recarregar} />
               </>
             )}
-            <Painel titulo="Precisa de você" lateral="revisão por exceção · o resto segue sozinho">
-              {v.pendencias.length === 0 ? (
-                <div className="flex items-center gap-3 rounded-lg border border-dashed border-borda-forte p-4">
-                  <CheckCircle2 className="size-5 text-ok" />
-                  <div>
-                    <p className="text-sm">Nada precisa de você agora</p>
-                    <p className="text-xs text-suave">Quando algo pedir revisão (roteiro, cena sem imagem boa, rascunho pronto), aparece aqui.</p>
-                  </div>
-                </div>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {v.pendencias.map((p) => (
-                    <li key={p.id} className="flex items-start gap-3 rounded-lg border border-atencao/30 bg-atencao/5 p-4">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium text-atencao">{p.titulo}</p>
-                        <p className="mt-1 text-sm text-texto/85">{p.texto}</p>
-                        {p.etapa && <p className="mt-1.5 font-mono text-[11px] text-apagado">etapa: {p.etapa}</p>}
-                      </div>
-                      <AcaoPendencia chave={p.chave} id={p.id} videoId={v.id} aoMudar={recarregar} />
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Painel>
-
             <Painel titulo="Prévia" lateral={previa ? `${previa.titulo.toLowerCase()} · ${previa.detalhe ?? ''}` : undefined}>
               {previa && typeof previa.dados.video === 'string' ? (
                 <video key={previa.dados.video} src={arquivo(previa.dados.video)} controls className="w-full rounded-lg bg-black" />

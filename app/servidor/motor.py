@@ -272,6 +272,14 @@ def tarefa_direcao(vid: int) -> None:
     montar_e_renderizar(vid, slug, palavras, frases, plano, necs, escolhas, capa, circulos, primeira_vez=True)
 
 
+def proxima_versao(trab: Path) -> int:
+    """Número da próxima versão do rascunho (rascunho_v1.mp4, v2, …; o antigo rascunho.mp4 conta como v1)."""
+    nums = [int(p.stem.split("_v")[1]) for p in trab.glob("rascunho_v*.mp4") if p.stem.split("_v")[1].isdigit()]
+    if (trab / "rascunho.mp4").exists():
+        nums.append(1)
+    return max(nums, default=0) + 1
+
+
 def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, escolhas, capa, circulos,
                         primeira_vez: bool) -> None:
     """Aplica os ajustes do storyboard, monta a direção, renderiza o rascunho e atualiza o painel."""
@@ -287,7 +295,11 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
     trecho, pendencias = montar(slug, roteiro, palavras, frases, plano_final, necs, escolhas_finais, capa, circulos,
                                 trab / "voz_guia.wav")
     (dirc / "direcao.json").write_text(json.dumps(trecho, ensure_ascii=False, indent=1), encoding="utf-8")
-    segundos = renderizar(trecho, trab / "props.json", trab / "rascunho.mp4")
+    # Cada versão ganha o PRÓPRIO arquivo. Nunca renomear/sobrescrever a anterior: ela pode estar aberta
+    # no player do painel, e o Windows não deixa mexer em arquivo em uso.
+    versao = proxima_versao(trab)
+    arquivo = trab / f"rascunho_v{versao}.mp4"
+    segundos = renderizar(trecho, trab / "props.json", arquivo)
 
     with conectar() as con:
         tipos = {}
@@ -296,11 +308,10 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
         resumo_tipos = " · ".join(f"{n} {t}" for t, n in sorted(tipos.items(), key=lambda x: -x[1]))
         atualizar_etapa(con, vid, "direcao", "concluido", f"{len(trecho['cenas'])} cenas", resumo_tipos,
                         {"tipos": tipos, "observacoes": plano.get("observacoes")})
-        versao = 1 if primeira_vez else len(list(trab.glob("rascunho_v*.mp4"))) + 1  # anteriores ficam como _vN
         atualizar_etapa(con, vid, "rascunho", "atencao",
                         f"{mmss(palavras[-1]['f'])} · {len(trecho['cenas'])} cenas" if primeira_vez else f"v{versao} pronto · valide",
                         f"v{versao} · render em {mmss(segundos)}",
-                        {"video": f"projetos/{slug}/trabalho/rascunho.mp4", "versao": versao})
+                        {"video": f"projetos/{slug}/trabalho/{arquivo.name}", "versao": versao})
         con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND chave='cena_sem_imagem' AND resolvida=0", (vid,))
         for p in pendencias:
             con.execute("INSERT INTO pendencias (video_id, etapa, chave, titulo, texto, criada_em) VALUES (?,?,?,?,?,?)",
@@ -339,11 +350,6 @@ def tarefa_rascunho(vid: int) -> None:
         from claude_cli import chamar_json
         circulos, _ = ler_nomes_da_capa(capa, detectar, chamar_json)
         (dirc / "capa_circulos.json").write_text(json.dumps(circulos, ensure_ascii=False, indent=1), encoding="utf-8")
-    # guarda a versão anterior do rascunho
-    if (trab / "rascunho.mp4").exists():
-        n = len(list(trab.glob("rascunho_v*.mp4"))) + 1
-        (trab / "rascunho.mp4").replace(trab / f"rascunho_v{n}.mp4")
-
     ks = pendentes_para_o_diretor(ajustes)
     with conectar() as con:
         atualizar_etapa(con, vid, "direcao", "andamento",
@@ -378,6 +384,9 @@ def _trabalhador() -> None:
             traceback.print_exc()
             with conectar() as con:
                 atualizar_etapa_status(con, vid, nome, "atencao")
+                # nada pode ficar "girando" depois de uma falha (ex.: Direção presa em andamento)
+                con.execute("UPDATE etapas SET status='atencao', atualizado_em=? WHERE video_id=? AND status='andamento'",
+                            (agora(), vid))
                 abrir_pendencia(con, vid, f"erro_{nome}", nome, f"Falha na etapa “{nome}”", str(e)[:400])
                 registrar(con, vid, f"Erro em {nome}: {e}", "alerta")
                 con.commit()
