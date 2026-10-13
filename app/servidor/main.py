@@ -5,6 +5,16 @@ Rodar:  .venv\\Scripts\\python.exe -m uvicorn app.servidor.main:app --host 127.0
 """
 from __future__ import annotations
 
+import os
+from pathlib import Path as _P
+
+# Modelos de IA (Whisper, CLIP) já estão baixados: modo offline evita consultas ao Hugging Face a cada uso
+# (e o aviso "unauthenticated requests"). Só liga se o cache existir — num PC novo, o 1º uso ainda baixa.
+_HUB = _P.home() / ".cache" / "huggingface" / "hub"
+if (_HUB / "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo").exists():
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+
 import json
 from pathlib import Path
 
@@ -215,6 +225,9 @@ def refazer_rascunho(vid: int):
         if con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='direcao'", (vid,)).fetchone()["status"] == "andamento":
             raise HTTPException(409, "a direção já está trabalhando")
         atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "novo rascunho")
+        r = con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='rascunho'", (vid,)).fetchone()
+        dados = json.loads(r["dados"] or "{}")
+        atualizar_etapa(con, vid, "rascunho", "andamento", f"gerando v{dados.get('versao', 1) + 1}…", "na fila", dados)
         registrar(con, vid, "Novo rascunho pedido (storyboard)", "info")
         con.commit()
     motor.FILA.put((vid, "rascunho"))

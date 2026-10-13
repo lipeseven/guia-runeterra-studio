@@ -92,14 +92,14 @@ function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: Vid
         ))}
       </div>
       {coluna.chave === 'ideia' && (
-        <div className="mt-3 flex items-center gap-2 rounded-lg border border-dashed border-borda-forte px-2.5 py-2">
-          <Plus className="size-4 text-apagado" />
+        <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-dashed border-borda-forte px-2.5 py-2">
+          <Plus className="size-4 shrink-0 text-apagado" />
           <input
             value={titulo}
             onChange={(e) => setTitulo(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && criar()}
             placeholder="Nova ideia de vídeo…"
-            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-apagado"
+            className="w-44 min-w-0 bg-transparent text-center text-sm outline-none placeholder:text-apagado focus:w-full focus:text-left"
           />
         </div>
       )}

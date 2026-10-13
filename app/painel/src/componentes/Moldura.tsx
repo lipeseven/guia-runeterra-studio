@@ -56,7 +56,6 @@ export function Moldura({ trilha, children }: { trilha: ReactNode; children: Rea
               <Chip>
                 Disco livre <b className="text-texto">{rec ? `${Math.round(rec.disco.livre / 1e9)} GB` : '—'}</b>
               </Chip>
-              <Chip>Custo <b className="text-ok">R$ 0,00</b></Chip>
               <div className="flex h-8 w-64 items-center gap-2 rounded-lg border border-borda bg-painel px-3 text-xs text-apagado">
                 <Search className="size-3.5" /> Buscar vídeo, cena, mídia… <span className="ml-auto">em breve</span>
               </div>

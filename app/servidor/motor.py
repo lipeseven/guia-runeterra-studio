@@ -297,7 +297,8 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
         atualizar_etapa(con, vid, "direcao", "concluido", f"{len(trecho['cenas'])} cenas", resumo_tipos,
                         {"tipos": tipos, "observacoes": plano.get("observacoes")})
         versao = 1 if primeira_vez else len(list(trab.glob("rascunho_v*.mp4"))) + 1  # anteriores ficam como _vN
-        atualizar_etapa(con, vid, "rascunho", "atencao", f"{mmss(palavras[-1]['f'])} · {len(trecho['cenas'])} cenas",
+        atualizar_etapa(con, vid, "rascunho", "atencao",
+                        f"{mmss(palavras[-1]['f'])} · {len(trecho['cenas'])} cenas" if primeira_vez else f"v{versao} pronto · valide",
                         f"v{versao} · render em {mmss(segundos)}",
                         {"video": f"projetos/{slug}/trabalho/rascunho.mp4", "versao": versao})
         con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND chave='cena_sem_imagem' AND resolvida=0", (vid,))
@@ -306,7 +307,8 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
                         (vid, "midias", "cena_sem_imagem", p["titulo"], p["texto"], agora()))
         if primeira_vez and plano.get("observacoes"):
             abrir_pendencia(con, vid, "obs_diretor", "direcao", "Observações do diretor", plano["observacoes"])
-        abrir_pendencia(con, vid, "ver_rascunho", "rascunho", "Assista o rascunho",
+        abrir_pendencia(con, vid, "ver_rascunho", "rascunho",
+                        "Assista o rascunho" if primeira_vez else f"Novo rascunho pronto (v{versao}): assista e valide",
                         "O rascunho (com a voz guia) está na Prévia. Para trocar imagens, legendas ou pedir mudanças, "
                         "abra o storyboard. Se estiver tudo certo, aprove.")
         registrar(con, vid, f"Rascunho v{versao} pronto: {len(trecho['cenas'])} cenas, render em {mmss(segundos)}", "ok")
@@ -355,6 +357,8 @@ def tarefa_rascunho(vid: int) -> None:
             (dirc / nome).write_text(json.dumps(dado, ensure_ascii=False, indent=1), encoding="utf-8")
     with conectar() as con:
         atualizar_etapa(con, vid, "direcao", "andamento", "renderizando o novo rascunho", "storyboard")
+        dados = json.loads(con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='rascunho'", (vid,)).fetchone()["dados"] or "{}")
+        atualizar_etapa(con, vid, "rascunho", "andamento", f"gerando v{dados.get('versao', 1) + 1}…", "renderizando", dados)
         con.commit()
     montar_e_renderizar(vid, slug, palavras, frases, plano, necs, escolhas, capa, circulos, primeira_vez=False)
 

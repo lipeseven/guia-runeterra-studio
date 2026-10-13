@@ -30,7 +30,8 @@ const NOME_TIPO: Record<string, string> = {
 const mmss = (s: number | null) => (s == null ? '—' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`)
 
 export function Storyboard({ id }: { id: number }) {
-  const { dados: v } = useAoVivo<Video>(`/videos/${id}`, 3000)
+  const { dados: v, recarregar: recarregarVideo } = useAoVivo<Video>(`/videos/${id}`, 3000)
+  const [enviando, setEnviando] = useState(false)
   const [sb, setSb] = useState<Dados | null>(null)
   const player = useRef<HTMLVideoElement>(null)
   const [agora, setAgora] = useState(0)
@@ -42,7 +43,7 @@ export function Storyboard({ id }: { id: number }) {
 
   const direcao = v?.etapas.find((e) => e.chave === 'direcao')
   const rascunho = v?.etapas.find((e) => e.chave === 'rascunho')
-  const trabalhando = direcao?.status === 'andamento'
+  const trabalhando = enviando || direcao?.status === 'andamento'
   // quando o motor termina um rascunho novo, recarrega as cenas
   useEffect(() => {
     if (!trabalhando) carregar()
@@ -91,12 +92,18 @@ export function Storyboard({ id }: { id: number }) {
             <button
               disabled={trabalhando || !sb || sb.ajustes === 0}
               onClick={async () => {
-                await api(`/videos/${id}/rascunho/refazer`, { method: 'POST' })
+                setEnviando(true) // reação imediata; o motor confirma em seguida
+                try {
+                  await api(`/videos/${id}/rascunho/refazer`, { method: 'POST' })
+                  recarregarVideo()
+                } finally {
+                  setTimeout(() => setEnviando(false), 1500)
+                }
               }}
               className="flex items-center gap-2 rounded-lg bg-ouro px-4 py-2 text-sm font-semibold text-fundo enabled:hover:brightness-110 disabled:opacity-40"
             >
               {trabalhando ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
-              {trabalhando ? direcao?.resumo ?? 'trabalhando…' : 'Gerar novo rascunho'}
+              {enviando && direcao?.status !== 'andamento' ? 'Enviando…' : trabalhando ? direcao?.resumo ?? 'trabalhando…' : 'Gerar novo rascunho'}
             </button>
           </div>
         </div>
