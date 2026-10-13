@@ -38,6 +38,14 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   `limpar_gravacao.py` (fala cortada por volume e transcrita trecho a trecho — o Whisper com o áudio inteiro "corrige"
   falsos começos; regravações, falas fora do roteiro, pausas, -14 LUFS; ruído de fundo do Felipe é ~-80 dB, não aplicar
   denoise), `alinhar.py` (tempos por palavra DO ROTEIRO → a direção usa índices do roteiro; trocar áudio = trocar tabela).
-  Demo: `tools/prototipo/fiddlesticks.py` (composições FiddleGuia/FiddleReal).
-- **Próximo: Fase 3 — diretor** (Claude transforma roteiro + tempos em cenas JSON usando acervo, regras de direção e Variador).
-- Obs.: `app/video/src/dados/*.json` são gerados pelos scripts de `tools/prototipo/` (fora do Git).
+- Fase 3 (diretor) ✅ — `tools/direcao/`: `claude_cli.py` (Claude Code headless enxuto: `--tools "" --setting-sources ""
+  --strict-mcp-config`, ~800 tokens de base; imagens via stream-json; log em dados/uso_claude.jsonl), `planejar.py`
+  (1ª passada, texto), `candidatos.py` (busca local CLIP+etiquetas, folhas), `escolher.py` (2ª passada, imagens),
+  `montar.py` (direção final + render da composição "Video" com --props), `revisar.py` (refaz só cenas com pedido).
+- Painel (Fase 5 adiantada) ✅ — `app/servidor/` (FastAPI+SQLite dados/studio.db; `motor.py` = fila/orquestrador;
+  `storyboard.py`), `app/painel/` (React/Vite). Fluxo pelo painel: Ideia → mover p/ Roteiro → .txt → aprovar → voz guia
+  → capa → aprovar → Direção automática (retoma de onde parou) → rascunho → storyboard (ajustes/pedidos) → novo rascunho.
+- 2026-10-13: sistema zerado para o Felipe testar "como se estivesse pronto" e anotar bugs (banco, projetos e testes
+  foram para a Lixeira; acervo catalogado mantido).
+- **Ainda não construído:** card Gravação no painel (limpeza/ressincronização já existem em tools/audio), render final,
+  Publicação, Pesquisa, Mídias (internet), efeitos sonoros, limpeza de arquivos.
