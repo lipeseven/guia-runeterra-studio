@@ -199,8 +199,16 @@ def renderizar(trecho: dict, props: Path, saida: Path) -> float:
 
     props.write_text(json.dumps({"trecho": trecho}, ensure_ascii=False), encoding="utf-8")
     t0 = time.time()
-    p = subprocess.run(["npx.cmd", "remotion", "render", "Video", str(saida), f"--props={props}", "--log=error"],
-                       cwd=VIDEO_APP, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    if p.returncode != 0:
-        raise RuntimeError(f"Remotion falhou: {(p.stderr or p.stdout)[-800:]}")
-    return time.time() - t0
+    temporario = saida.with_name(saida.stem + "_renderizando.mp4")
+    log = saida.with_name("render_erro.log")
+    for tentativa in (1, 2):  # falhas momentâneas acontecem: tenta mais uma vez antes de desistir
+        p = subprocess.run(["npx.cmd", "remotion", "render", "Video", str(temporario), f"--props={props}", "--log=error"],
+                           cwd=VIDEO_APP, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        if p.returncode == 0 and temporario.exists():
+            temporario.replace(saida)
+            return time.time() - t0
+        texto = re.sub(r"\x1b\[[0-9;]*m", "", (p.stderr or "") + "\n" + (p.stdout or ""))
+        with log.open("a", encoding="utf-8") as f:
+            f.write(f"\n===== tentativa {tentativa} ({time.strftime('%H:%M:%S')}) =====\n{texto}")
+    linhas = [ln.strip() for ln in texto.splitlines() if ln.strip() and not ln.strip().startswith("at ")]
+    raise RuntimeError(f"Remotion falhou 2x. Resumo: {' | '.join(linhas[:4])[:300]} (log completo: {log.name})")

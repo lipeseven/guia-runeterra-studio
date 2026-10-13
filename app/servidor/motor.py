@@ -194,6 +194,17 @@ def tarefa_voz_guia(vid: int) -> None:
         con.commit()
 
 
+def ler_nomes_da_capa(capa: Path, detectar, chamar_json) -> tuple[list[dict], list[str]]:
+    """Detecta os círculos (local) e pede ao Claude só os NOMES, na ordem de leitura (1 chamada barata)."""
+    circulos, _ = detectar(str(capa))
+    nomes = chamar_json("Esta é a capa do vídeo: ícones redondos de personagens com o nome embaixo. Liste os nomes na "
+                        'ordem de leitura (linha a linha, da esquerda para a direita). Responda só JSON: {"nomes": [...]}',
+                        "Você lê imagens com precisão.", modelo="sonnet", imagens=[capa], etiqueta="capa-nomes")["nomes"]
+    for c, n in zip(circulos, nomes):
+        c["nome"] = n
+    return circulos, nomes
+
+
 def tarefa_direcao(vid: int) -> None:
     """Diretor completo: tempos -> plano (Claude) -> candidatos (local) -> escolha (Claude, imagens) -> montagem -> rascunho."""
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
@@ -221,25 +232,42 @@ def tarefa_direcao(vid: int) -> None:
     palavras = tempos_da_narracao(trab / "voz_guia.wav", roteiro, dirc / "tempos_guia.json")
 
     capa = next(iter(sorted(dirc.glob("capa.*"))))
-    circulos, _ = detectar(str(capa))
-    nomes = chamar_json("Esta é a capa do vídeo: ícones redondos de personagens com o nome embaixo. Liste os nomes na "
-                        'ordem de leitura (linha a linha, da esquerda para a direita). Responda só JSON: {"nomes": [...]}',
-                        "Você lê imagens com precisão.", modelo="sonnet", imagens=[capa], etiqueta="capa-nomes")["nomes"]
-    for c, n in zip(circulos, nomes):
-        c["nome"] = n
-    (dirc / "capa_circulos.json").write_text(json.dumps(circulos, ensure_ascii=False, indent=1), encoding="utf-8")
+    arq_circ = dirc / "capa_circulos.json"
+    salvos = json.loads(arq_circ.read_text(encoding="utf-8")) if arq_circ.exists() else []
+    if salvos and all(c.get("nome") for c in salvos) and arq_circ.stat().st_mtime >= capa.stat().st_mtime:
+        circulos, nomes = salvos, [c["nome"] for c in salvos]
+    else:
+        circulos, nomes = ler_nomes_da_capa(capa, detectar, chamar_json)
+        arq_circ.write_text(json.dumps(circulos, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    passo(2, "planejando as cenas (Claude)")
-    plano, frases = planejar(roteiro, palavras, nomes)
-    (dirc / "plano.json").write_text(json.dumps(plano, ensure_ascii=False, indent=1), encoding="utf-8")
+    # Retomada: se um passo já foi feito DEPOIS da última mudança no que ele depende, reaproveita
+    # (um erro no render não pode gastar a cota do Claude de novo).
+    def recente(arq: Path, *depende: Path) -> bool:
+        return arq.exists() and all(arq.stat().st_mtime >= d.stat().st_mtime for d in depende if d.exists())
 
-    passo(3, "buscando mídias no acervo")
-    necs, folhas = preparar(plano, frases, trab)
-    (dirc / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
+    arq_plano, arq_cand, arq_esc = dirc / "plano.json", dirc / "candidatos.json", dirc / "escolhas.json"
+    frases = frases_do_roteiro(roteiro, palavras)
+    if recente(arq_plano, dirc / "roteiro.txt", capa):
+        plano = json.loads(arq_plano.read_text(encoding="utf-8"))
+    else:
+        passo(2, "planejando as cenas (Claude)")
+        plano, frases = planejar(roteiro, palavras, nomes)
+        arq_plano.write_text(json.dumps(plano, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    passo(4, "escolhendo as imagens (Claude)")
-    escolhas = escolher(necs, folhas)
-    (dirc / "escolhas.json").write_text(json.dumps(escolhas, ensure_ascii=False, indent=1), encoding="utf-8")
+    folhas = sorted((trab / "candidatos").glob("candidatos_*.jpg"))
+    if recente(arq_cand, arq_plano) and folhas:
+        necs = json.loads(arq_cand.read_text(encoding="utf-8"))
+    else:
+        passo(3, "buscando mídias no acervo")
+        necs, folhas = preparar(plano, frases, trab)
+        arq_cand.write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    if recente(arq_esc, arq_cand):
+        escolhas = json.loads(arq_esc.read_text(encoding="utf-8"))
+    else:
+        passo(4, "escolhendo as imagens (Claude)")
+        escolhas = escolher(necs, folhas)
+        arq_esc.write_text(json.dumps(escolhas, ensure_ascii=False, indent=1), encoding="utf-8")
 
     passo(5, "renderizando o rascunho")
     trecho, pendencias = montar(slug, roteiro, palavras, frases, plano, necs, escolhas, capa, circulos, trab / "voz_guia.wav")
