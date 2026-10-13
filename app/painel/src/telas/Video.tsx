@@ -1,7 +1,8 @@
-import { CheckCircle2, Cpu, HardDrive, LayoutPanelTop, Trash2 } from 'lucide-react'
+import { CheckCircle2, Cpu, HardDrive, LayoutPanelTop, Lock, Trash2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { api, arquivo, gb, quando, useAoVivo, type Etapa, type Recursos, type Video as TVideo } from '../api'
 import { CirculoEstado, COR, RotuloEstado } from '../componentes/Estado'
+import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
 import { PainelCapa } from '../componentes/PainelCapa'
 import { PainelRoteiro } from '../componentes/PainelRoteiro'
@@ -42,6 +43,12 @@ export function Video({ id }: { id: number }) {
               {concluidas}/{v.etapas.length} etapas · {v.pendencias.length} pendência{v.pendencias.length === 1 ? '' : 's'} · atualizado {quando(v.atualizado_em)}
             </p>
           </div>
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+          {Boolean(v.travado) && (
+            <span className="flex items-center gap-1 text-xs text-ouro">
+              <Lock className="size-3.5" /> travado
+            </span>
+          )}
           {v.etapas.some((e) => e.chave === 'rascunho' && typeof e.dados.video === 'string') ? (
             <a
               href={`#/video/${v.id}/storyboard`}
@@ -58,6 +65,8 @@ export function Video({ id }: { id: number }) {
               <LayoutPanelTop className="size-4" /> Abrir storyboard
             </button>
           )}
+          <MenuCard video={v} aoMudar={recarregar} aoExcluir={() => (window.location.hash = '#/')} />
+          </div>
         </div>
 
         {/* Trilha de etapas */}

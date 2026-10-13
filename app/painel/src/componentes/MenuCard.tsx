@@ -5,8 +5,9 @@ import { useState } from 'react'
 import { api, type VideoResumo } from '../api'
 
 /** Menu "⋯" do card: travar/destravar e excluir (com confirmação). */
-export function MenuCard({ video, aoMudar }: { video: VideoResumo; aoMudar: () => void }) {
+export function MenuCard({ video, aoMudar, aoExcluir }: { video: Pick<VideoResumo, 'id' | 'titulo' | 'travado'>; aoMudar: () => void; aoExcluir?: () => void }) {
   const [confirmar, setConfirmar] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const travado = Boolean(video.travado)
   // impede que o clique/arraste no menu abra o vídeo ou comece um arraste do card
   const parar = (e: React.SyntheticEvent) => {
@@ -63,15 +64,21 @@ export function MenuCard({ video, aoMudar }: { video: VideoResumo; aoMudar: () =
           <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-borda bg-painel p-5 shadow-2xl">
             <Dialog.Title className="text-base font-semibold">Excluir “{video.titulo}”?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-suave">
-              O card e o histórico dele saem do painel. Não dá para desfazer.
+              O card e o histórico saem do painel. Os arquivos do vídeo (roteiro, capa, rascunhos) vão para a Lixeira do Windows.
             </Dialog.Description>
+            {erro && <p className="mt-3 text-sm text-atencao">{erro}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <Dialog.Close className="rounded-lg border border-borda-forte px-4 py-2 text-sm hover:bg-painel-2">Cancelar</Dialog.Close>
               <button
                 onClick={async () => {
-                  await api(`/videos/${video.id}`, { method: 'DELETE' })
-                  setConfirmar(false)
-                  aoMudar()
+                  try {
+                    await api(`/videos/${video.id}`, { method: 'DELETE' })
+                    setConfirmar(false)
+                    if (aoExcluir) aoExcluir()
+                    else aoMudar()
+                  } catch (e) {
+                    setErro(String(e).replace(/^Error: \d+ /, '').replace(/[{}"]|detail:/g, ''))
+                  }
                 }}
                 className="rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
               >

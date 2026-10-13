@@ -262,8 +262,18 @@ def excluir(vid: int):
             raise HTTPException(404)
         if v["travado"]:
             raise HTTPException(409, "vídeo travado: destrave para excluir")
+        executando = motor.situacao()["executando"]
+        if executando and executando["video"] == vid:
+            raise HTTPException(409, "o motor está trabalhando neste vídeo agora; espere terminar para excluir")
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
         con.execute("DELETE FROM videos WHERE id=?", (vid,))  # etapas/pendências/atividade saem em cascata
         con.commit()
+    # arquivos do vídeo vão para a Lixeira do Windows (recuperáveis), não somem de vez
+    from send2trash import send2trash
+
+    for pasta in (motor.PASTA_PROJETOS / slug, RAIZ / "app" / "video" / "public" / slug):
+        if pasta.exists():
+            send2trash(str(pasta.resolve()))
     return {"ok": True}
 
 
