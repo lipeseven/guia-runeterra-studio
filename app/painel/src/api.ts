@@ -30,7 +30,7 @@ export type Etapa = {
   atualizado_em: string | null
 }
 
-export type Pendencia = { id: number; etapa: string | null; titulo: string; texto: string; criada_em: string }
+export type Pendencia = { id: number; etapa: string | null; chave: string | null; titulo: string; texto: string; criada_em: string }
 export type Atividade = { id: number; texto: string; tipo: 'info' | 'ok' | 'alerta'; quando: string }
 
 export type Video = VideoResumo & { etapas: Etapa[]; pendencias: Pendencia[]; atividade: Atividade[] }

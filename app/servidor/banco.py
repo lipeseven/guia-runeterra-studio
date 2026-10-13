@@ -72,6 +72,8 @@ def conectar() -> sqlite3.Connection:
     colunas = {r["name"] for r in con.execute("PRAGMA table_info(videos)")}
     if "travado" not in colunas:
         con.execute("ALTER TABLE videos ADD COLUMN travado INTEGER NOT NULL DEFAULT 0")
+    if "chave" not in {r["name"] for r in con.execute("PRAGMA table_info(pendencias)")}:
+        con.execute("ALTER TABLE pendencias ADD COLUMN chave TEXT")  # identifica o tipo (ex.: aprovar_roteiro)
     return con
 
 

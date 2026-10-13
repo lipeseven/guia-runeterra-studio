@@ -13,10 +13,11 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import recursos
+from . import motor, recursos
 from .banco import RAIZ, agora, conectar, criar_video, registrar
 from .etapas import COLUNAS, ETAPAS
 app = FastAPI(title="Guia de Runeterra Studio")
+motor.iniciar()
 
 
 @app.middleware("http")
@@ -43,7 +44,7 @@ def _video(con, vid: int) -> dict:
     pend = [dict(r) for r in con.execute(
         "SELECT * FROM pendencias WHERE video_id=? AND resolvida=0 ORDER BY criada_em", (vid,))]
     ativ = [dict(r) for r in con.execute(
-        "SELECT * FROM atividade WHERE video_id=? ORDER BY quando DESC LIMIT 40", (vid,))]
+        "SELECT * FROM atividade WHERE video_id=? ORDER BY quando DESC, id DESC LIMIT 40", (vid,))]
     return {**dict(v), "etapas": lista, "pendencias": pend, "atividade": ativ}
 
 
@@ -91,8 +92,52 @@ def mover(vid: int, corpo: Mover):
         if antiga["coluna"] != corpo.coluna:
             nome = next(c["titulo"] for c in COLUNAS if c["chave"] == corpo.coluna)
             registrar(con, vid, f"Movido para “{nome}”", "info")
+            motor.ao_mover(con, vid, corpo.coluna)
         con.commit()
     return {"ok": True}
+
+
+class Roteiro(BaseModel):
+    texto: str
+    nome: str = "roteiro colado"
+
+
+@app.get("/api/videos/{vid}/roteiro")
+def ler_roteiro(vid: int):
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v:
+            raise HTTPException(404)
+        texto = motor.ler_roteiro(v["slug"])
+        return {"texto": texto, **(motor.estatisticas(texto) if texto else {})}
+
+
+@app.post("/api/videos/{vid}/roteiro")
+def enviar_roteiro(vid: int, corpo: Roteiro):
+    if len(corpo.texto.strip()) < 20:
+        raise HTTPException(400, "roteiro vazio ou curto demais")
+    with conectar() as con:
+        if not con.execute("SELECT 1 FROM videos WHERE id=?", (vid,)).fetchone():
+            raise HTTPException(404)
+        est = motor.receber_roteiro(con, vid, corpo.texto, corpo.nome)
+        con.commit()
+    return est
+
+
+@app.post("/api/videos/{vid}/roteiro/aprovar")
+def aprovar_roteiro(vid: int):
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v or not motor.ler_roteiro(v["slug"]):
+            raise HTTPException(400, "não há roteiro para aprovar")
+        motor.aprovar_roteiro(con, vid)
+        con.commit()
+    return {"ok": True}
+
+
+@app.get("/api/motor")
+def estado_motor():
+    return motor.situacao()
 
 
 class Travar(BaseModel):
@@ -155,7 +200,7 @@ def api_recursos():
 def arquivo(caminho: str):
     """Serve mídias geradas (capas, vídeos de rascunho). Só dentro de dados/ e projetos/."""
     alvo = (RAIZ / caminho).resolve()
-    permitido = [(RAIZ / "dados").resolve(), (RAIZ / "projetos").resolve()]
+    permitido = [(RAIZ / "dados").resolve(), motor.PASTA_PROJETOS.resolve()]
     if not any(alvo.is_relative_to(p) for p in permitido) or not alvo.is_file():
         raise HTTPException(404)
     return FileResponse(alvo)

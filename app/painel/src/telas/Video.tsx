@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { api, arquivo, gb, quando, useAoVivo, type Etapa, type Recursos, type Video as TVideo } from '../api'
 import { CirculoEstado, COR, RotuloEstado } from '../componentes/Estado'
 import { Moldura } from '../componentes/Moldura'
+import { PainelRoteiro } from '../componentes/PainelRoteiro'
 
 export function Video({ id }: { id: number }) {
   const { dados: v, recarregar } = useAoVivo<TVideo>(`/videos/${id}`, 3000)
@@ -18,7 +19,8 @@ export function Video({ id }: { id: number }) {
   if (!v) return <Moldura trilha={trilha}><p className="p-6 text-suave">Carregando…</p></Moldura>
 
   const concluidas = v.etapas.filter((e) => e.status === 'concluido').length
-  const previa = [...v.etapas].reverse().find((e) => typeof e.dados.video === 'string')
+  const previa = [...v.etapas].reverse().find((e) => typeof e.dados.video === 'string' || typeof e.dados.audio === 'string')
+  const roteiro = v.etapas.find((e) => e.chave === 'roteiro')!
 
   return (
     <Moldura trilha={trilha}>
@@ -48,6 +50,9 @@ export function Video({ id }: { id: number }) {
 
         <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-w-0 flex-col gap-5">
+            {(v.coluna !== 'ideia' || roteiro.status !== 'pendente') && (
+              <PainelRoteiro videoId={v.id} etapa={roteiro} aoMudar={recarregar} />
+            )}
             <Painel titulo="Precisa de você" lateral="revisão por exceção · o resto segue sozinho">
               {v.pendencias.length === 0 ? (
                 <div className="flex items-center gap-3 rounded-lg border border-dashed border-borda-forte p-4">
@@ -66,15 +71,7 @@ export function Video({ id }: { id: number }) {
                         <p className="mt-1 text-sm text-texto/85">{p.texto}</p>
                         {p.etapa && <p className="mt-1.5 font-mono text-[11px] text-apagado">etapa: {p.etapa}</p>}
                       </div>
-                      <button
-                        onClick={async () => {
-                          await api(`/pendencias/${p.id}/resolver`, { method: 'POST' })
-                          recarregar()
-                        }}
-                        className="shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok"
-                      >
-                        Está ok
-                      </button>
+                      <AcaoPendencia chave={p.chave} id={p.id} videoId={v.id} aoMudar={recarregar} />
                     </li>
                   ))}
                 </ul>
@@ -82,10 +79,15 @@ export function Video({ id }: { id: number }) {
             </Painel>
 
             <Painel titulo="Prévia" lateral={previa ? `${previa.titulo.toLowerCase()} · ${previa.detalhe ?? ''}` : undefined}>
-              {previa ? (
-                <video key={String(previa.dados.video)} src={arquivo(String(previa.dados.video))} controls className="w-full rounded-lg bg-black" />
+              {previa && typeof previa.dados.video === 'string' ? (
+                <video key={previa.dados.video} src={arquivo(previa.dados.video)} controls className="w-full rounded-lg bg-black" />
+              ) : previa && typeof previa.dados.audio === 'string' ? (
+                <div>
+                  <p className="mb-2 text-xs text-suave">Voz guia — só para o rascunho, nunca vai para o vídeo publicado.</p>
+                  <audio key={`${previa.dados.audio}-${previa.atualizado_em}`} src={arquivo(previa.dados.audio)} controls className="w-full" />
+                </div>
               ) : (
-                <p className="text-sm text-suave">Ainda não há rascunho nem render para assistir.</p>
+                <p className="text-sm text-suave">Ainda não há voz guia, rascunho nem render para ouvir/assistir.</p>
               )}
             </Painel>
           </div>
@@ -109,6 +111,40 @@ export function Video({ id }: { id: number }) {
         </div>
       </div>
     </Moldura>
+  )
+}
+
+/** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
+function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; id: number; videoId: number; aoMudar: () => void }) {
+  const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
+  if (chave === 'enviar_roteiro')
+    return (
+      <button className={estilo} onClick={() => document.getElementById('roteiro')?.scrollIntoView({ behavior: 'smooth' })}>
+        Ir para o roteiro
+      </button>
+    )
+  if (chave === 'aprovar_roteiro')
+    return (
+      <button
+        className="shrink-0 rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
+        onClick={async () => {
+          await api(`/videos/${videoId}/roteiro/aprovar`, { method: 'POST' })
+          aoMudar()
+        }}
+      >
+        Aprovar roteiro
+      </button>
+    )
+  return (
+    <button
+      className={estilo}
+      onClick={async () => {
+        await api(`/pendencias/${id}/resolver`, { method: 'POST' })
+        aoMudar()
+      }}
+    >
+      Está ok
+    </button>
   )
 }
 
