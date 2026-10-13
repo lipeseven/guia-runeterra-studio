@@ -4,7 +4,7 @@ Uso:
     .venv\\Scripts\\python.exe tools\\audio\\limpar_gravacao.py <gravacao> <pasta-saida> [--roteiro roteiro.txt]
 
 Gera em <pasta-saida>:
-    limpa.wav        áudio final (-14 LUFS, pico -1.5 dBTP)
+    limpa.wav        áudio final (-14 LUFS, pico -1.5 dBTP; só cortes + volume, timbre intocado)
     relatorio.json   o que foi cortado (regravações, pausas), com tempos e texto — para revisão
     palavras.json    tempo de cada palavra JÁ no áudio limpo (base da ressincronização da direção)
 
@@ -252,20 +252,22 @@ def montar(a: np.ndarray, fs: list[dict], descartar: set[int]) -> tuple[np.ndarr
     return np.concatenate(pedacos), mapa, info
 
 
-def normalizar_volume(entrada: Path, saida: Path) -> dict:
-    """Passa-alta suave (tira ronco < 70 Hz) + loudnorm em duas passadas (-14 LUFS, pico -1.5 dBTP)."""
+def normalizar_volume(entrada: Path, saida: Path, passa_alta: bool = False) -> dict:
+    """Só VOLUME: loudnorm linear em duas passadas (-14 LUFS, pico -1.5 dBTP) — não mexe no timbre.
+    A voz do Felipe já chega tratada pelos filtros dele; o passa-alta (tira ronco < 70 Hz) é opcional."""
     alvo = "I=-14:TP=-1.5:LRA=11"
+    pre = "highpass=f=70," if passa_alta else ""
     medida = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(entrada), "-af",
-                             f"highpass=f=70,loudnorm={alvo}:print_format=json", "-f", "null", "-"],
+                             f"{pre}loudnorm={alvo}:print_format=json", "-f", "null", "-"],
                             capture_output=True, text=True).stderr
     m, _ = json.JSONDecoder().raw_decode(medida[medida.rindex("{"):])  # há texto depois do JSON
-    filtro = (f"highpass=f=70,loudnorm={alvo}:measured_I={m['input_i']}:measured_TP={m['input_tp']}:"
+    filtro = (f"{pre}loudnorm={alvo}:measured_I={m['input_i']}:measured_TP={m['input_tp']}:"
               f"measured_LRA={m['input_lra']}:measured_thresh={m['input_thresh']}:offset={m['target_offset']}:linear=true")
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(entrada), "-af", filtro, "-ar", str(SR), str(saida)], check=True)
     return {"lufs_antes": float(m["input_i"]), "pico_antes": float(m["input_tp"])}
 
 
-def limpar(gravacao: Path, pasta: Path, roteiro: str | None = None) -> dict:
+def limpar(gravacao: Path, pasta: Path, roteiro: str | None = None, passa_alta: bool = False) -> dict:
     preparar_ffmpeg()
     pasta.mkdir(parents=True, exist_ok=True)
     a = carregar(gravacao)
@@ -283,7 +285,7 @@ def limpar(gravacao: Path, pasta: Path, roteiro: str | None = None) -> dict:
     tmp = pasta / "_sem_volume.wav"
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "f32le", "-ar", str(SR), "-ac", "1", "-i", "-", str(tmp)],
                    input=audio.astype(np.float32).tobytes(), check=True)
-    volume = normalizar_volume(tmp, pasta / "limpa.wav")
+    volume = normalizar_volume(tmp, pasta / "limpa.wav", passa_alta)
     tmp.unlink()
 
     relatorio = {
@@ -307,9 +309,10 @@ def main() -> None:
     ap.add_argument("gravacao")
     ap.add_argument("pasta")
     ap.add_argument("--roteiro", help="arquivo .txt com o roteiro lido (recomendado)")
+    ap.add_argument("--passa-alta", action="store_true", help="tira ronco < 70 Hz (só se gravar SEM os filtros de voz)")
     a = ap.parse_args()
     roteiro = Path(a.roteiro).read_text(encoding="utf-8") if a.roteiro else None
-    r = limpar(Path(a.gravacao), Path(a.pasta), roteiro)
+    r = limpar(Path(a.gravacao), Path(a.pasta), roteiro, a.passa_alta)
     print(f"{r['duracao_original']}s -> {r['duracao_limpa']}s | LUFS antes {r['lufs_antes']}")
     print("Removidos:")
     for x in r["removidos"]:
