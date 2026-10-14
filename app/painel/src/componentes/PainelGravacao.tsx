@@ -160,6 +160,9 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
               </div>
             )}
           </div>
+          {!!etapa.dados.arquivos_removidos && (
+            <p className="text-xs text-apagado">Os áudios desta gravação foram para a Lixeira na limpeza.</p>
+          )}
           {!!rel.divergencias_do_roteiro?.length && (
             <div className="rounded-lg border border-atencao/30 bg-atencao/5 p-3 text-sm">
               <p className="mb-1 font-medium text-atencao">Lido diferente do roteiro (nada foi cortado por isso)</p>

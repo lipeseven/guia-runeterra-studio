@@ -67,9 +67,14 @@ def _video(con, vid: int) -> dict:
     lista = []
     for n, e in enumerate(ETAPAS, 1):
         r = etapas.get(e["chave"], {})
+        dados = json.loads(r.get("dados") or "{}")
+        # Arquivo que já não existe (ex.: limpeza depois de publicar) não vai para a tela: evita players quebrados/404.
+        for campo in ("video", "audio", "original"):
+            if isinstance(dados.get(campo), str) and not (RAIZ / dados[campo]).exists():
+                dados.pop(campo)
+                dados["arquivos_removidos"] = True
         lista.append({**e, "numero": n, "status": r.get("status", "pendente"), "resumo": r.get("resumo"),
-                      "detalhe": r.get("detalhe"), "dados": json.loads(r.get("dados") or "{}"),
-                      "atualizado_em": r.get("atualizado_em")})
+                      "detalhe": r.get("detalhe"), "dados": dados, "atualizado_em": r.get("atualizado_em")})
     pend = [dict(r) for r in con.execute(
         "SELECT * FROM pendencias WHERE video_id=? AND resolvida=0 ORDER BY criada_em", (vid,))]
     ativ = [dict(r) for r in con.execute(
@@ -318,7 +323,10 @@ def ver_publicacao(vid: int):
         url = con.execute("SELECT url_youtube FROM videos WHERE id=?", (vid,)).fetchone()["url_youtube"]
     arq = pasta / "direcao" / "publicacao.json"
     finais = sorted((pasta / "saida").glob("final_v*.mp4"), key=lambda p: p.stat().st_mtime) if (pasta / "saida").exists() else []
-    return {"textos": json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else None,
+    textos = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else None
+    if textos and textos.get("thumbnail") and not (RAIZ / textos["thumbnail"]).exists():
+        textos["thumbnail"] = None  # removida na limpeza
+    return {"textos": textos,
             "tamanhos": publicacao.tamanhos(pasta), "url": url,
             "video_final": str(finais[-1].resolve()) if finais else None}
 

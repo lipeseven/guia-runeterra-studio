@@ -508,7 +508,14 @@ def ao_aprovar_final(con, vid: int) -> None:
 def marcar_publicado(con, vid: int, url: str | None) -> None:
     from . import publicacao
 
-    v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+    v = con.execute("SELECT slug, coluna FROM videos WHERE id=?", (vid,)).fetchone()
+    ja = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='publicacao'", (vid,)).fetchone()
+    if v["coluna"] == "publicado" and ja and ja["status"] == "concluido":
+        # Já publicado (ex.: card arrastado e depois o botão): só guarda o link, sem registrar tudo de novo.
+        if url:
+            con.execute("UPDATE videos SET url_youtube=?, atualizado_em=? WHERE id=?", (url, agora(), vid))
+            registrar(con, vid, f"Link do YouTube salvo: {url}", "ok")
+        return
     pasta = PASTA_PROJETOS / v["slug"]
     n = publicacao.registrar_uso(pasta, v["slug"], agora())
     con.execute("UPDATE videos SET coluna='publicado', url_youtube=COALESCE(?, url_youtube), atualizado_em=? WHERE id=?",

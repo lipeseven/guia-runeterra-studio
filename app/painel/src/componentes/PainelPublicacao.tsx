@@ -163,7 +163,11 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-borda bg-painel-2 p-3">
             {t.thumbnail && <img src={arquivo(t.thumbnail)} alt="Thumbnail" className="h-20 rounded border border-borda" />}
             <div className="min-w-0 flex-1 text-xs text-suave">
-              <p>Thumbnail 1280×720 (a sua capa) e o vídeo final ficam na pasta de saída.</p>
+              <p>
+                {t.thumbnail || d?.video_final
+                  ? 'Thumbnail 1280×720 (a sua capa) e o vídeo final ficam na pasta de saída.'
+                  : 'Vídeo final e thumbnail foram para a Lixeira na limpeza.'}
+              </p>
               {d?.video_final && <p className="mt-1 truncate font-mono text-[11px] text-apagado">{d.video_final}</p>}
             </div>
             {t.thumbnail && (
@@ -180,9 +184,9 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
           </div>
 
           {/* publicar */}
-          {!publicado ? (
+          {!publicado || !d?.url ? (
             <div className="flex flex-wrap items-center gap-2 rounded-lg border border-ouro/40 bg-ouro/5 p-3">
-              <span className="text-sm">Subiu no YouTube?</span>
+              <span className="text-sm">{publicado ? 'Link do vídeo no YouTube:' : 'Subiu no YouTube?'}</span>
               <input
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
@@ -196,7 +200,7 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
                 }}
                 className="rounded-md bg-ouro px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
               >
-                Marcar como publicado
+                {publicado ? 'Salvar link' : 'Marcar como publicado'}
               </button>
             </div>
           ) : (
