@@ -1,6 +1,6 @@
-import { Check, Copy, Download, FolderOpen, Loader2, RefreshCw, Send, Trash2 } from 'lucide-react'
+import { Check, Copy, Download, FolderOpen, Loader2, RefreshCw, Send } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { api, arquivo, gb, type Etapa } from '../api'
+import { api, arquivo, AVISO_PUBLICAR, type Etapa } from '../api'
 
 type Textos = {
   titulos: string[]
@@ -39,8 +39,6 @@ function BotaoCopiar({ texto }: { texto: string }) {
 export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { videoId: number; etapa: Etapa; publicado: boolean; aoMudar: () => void }) {
   const [d, setD] = useState<Dados | null>(null)
   const [url, setUrl] = useState('')
-  const [limpar, setLimpar] = useState({ trabalho: true, saida: false, entrada: false })
-  const [resultado, setResultado] = useState<string | null>(null)
   const carregar = () => api<Dados>(`/videos/${videoId}/publicacao`).then(setD)
   useEffect(() => {
     carregar()
@@ -195,6 +193,7 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
               />
               <button
                 onClick={async () => {
+                  if (!publicado && !window.confirm(AVISO_PUBLICAR)) return
                   await api(`/videos/${videoId}/publicado`, { method: 'POST', body: JSON.stringify({ url }) })
                   aoMudar()
                 }}
@@ -216,48 +215,6 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
         </div>
       )}
 
-      {/* limpeza (só depois de publicado) */}
-      {publicado && d && (
-        <div className="mt-4 rounded-lg border border-borda bg-painel-2 p-3">
-          <p className="mb-2 text-sm font-medium">Limpar arquivos do vídeo</p>
-          <p className="mb-3 text-xs text-suave">
-            Vai para a Lixeira do Windows (dá para recuperar). Roteiro, direção e textos ({gb(d.tamanhos.direcao)}) sempre ficam.
-          </p>
-          {(
-            [
-              ['trabalho', 'Arquivos de trabalho (voz guia, rascunhos, cópias de mídia)', d.tamanhos.trabalho],
-              ['saida', 'Vídeo final e thumbnail (já estão no YouTube)', d.tamanhos.saida],
-              ['entrada', 'Sua gravação original', d.tamanhos.entrada],
-            ] as const
-          ).map(([chave, rotulo, bytes]) => (
-            <label key={chave} className="flex items-center gap-2 py-1 text-sm">
-              <input
-                type="checkbox"
-                checked={limpar[chave]}
-                disabled={bytes === 0}
-                onChange={(e) => setLimpar({ ...limpar, [chave]: e.target.checked })}
-              />
-              <span className={bytes === 0 ? 'text-apagado' : ''}>{rotulo}</span>
-              <span className="ml-auto font-mono text-[11px] text-apagado">{bytes ? gb(bytes) : 'vazio'}</span>
-            </label>
-          ))}
-          <div className="mt-2 flex items-center justify-end gap-3">
-            {resultado && <span className="text-xs text-ok">{resultado}</span>}
-            <button
-              onClick={async () => {
-                const r = await api<{ liberado: number }>(`/videos/${videoId}/limpeza`, { method: 'POST', body: JSON.stringify(limpar) })
-                setResultado(`${gb(r.liberado)} liberados`)
-                carregar()
-                aoMudar()
-              }}
-              disabled={!limpar.trabalho && !limpar.saida && !limpar.entrada}
-              className="flex items-center gap-1.5 rounded-md border border-red-500/60 px-3 py-1.5 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-40"
-            >
-              <Trash2 className="size-3.5" /> Mandar para a Lixeira
-            </button>
-          </div>
-        </div>
-      )}
     </section>
   )
 }

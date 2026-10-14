@@ -16,7 +16,13 @@ export type VideoResumo = {
   total_etapas: number
   pendencias: number
   travado: number
+  url_youtube: string | null
 }
+
+/** Aviso antes de publicar: publicar arquiva tudo (só a capa fica). */
+export const AVISO_PUBLICAR =
+  'Marcar como publicado é definitivo: as mídias usadas vão para a memória de uso e TODOS os arquivos do vídeo ' +
+  '(roteiro, gravação, rascunhos, vídeo final, thumbnail) vão para a Lixeira do Windows. Só a capa fica, para o card.\n\nContinuar?'
 
 export type Etapa = {
   chave: string

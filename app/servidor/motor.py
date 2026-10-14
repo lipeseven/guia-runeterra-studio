@@ -517,16 +517,14 @@ def marcar_publicado(con, vid: int, url: str | None) -> None:
             registrar(con, vid, f"Link do YouTube salvo: {url}", "ok")
         return
     pasta = PASTA_PROJETOS / v["slug"]
-    n = publicacao.registrar_uso(pasta, v["slug"], agora())
-    con.execute("UPDATE videos SET coluna='publicado', url_youtube=COALESCE(?, url_youtube), atualizado_em=? WHERE id=?",
-                (url or None, agora(), vid))
+    n = publicacao.registrar_uso(pasta, v["slug"], agora())  # antes de arquivar: lê as mídias da direção
+    r = publicacao.arquivar(pasta)
+    con.execute("UPDATE videos SET coluna='publicado', capa=?, url_youtube=COALESCE(?, url_youtube), atualizado_em=? WHERE id=?",
+                (r["capa"], url or None, agora(), vid))
     con.execute("UPDATE etapas SET status='concluido', atualizado_em=? WHERE video_id=? AND chave='publicacao'", (agora(), vid))
-    fechar_pendencia(con, vid, "publicar")
-    fechar_pendencia(con, vid, "ver_final")
+    con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND resolvida=0", (vid,))
     registrar(con, vid, f"Publicado{' — ' + url if url else ''}. {n} mídias registradas na memória de uso.", "ok")
-    abrir_pendencia(con, vid, "limpeza", "publicacao", "Limpar os arquivos do vídeo?",
-                    "O vídeo está publicado. No painel “Publicação” você escolhe o que mandar para a Lixeira "
-                    "(arquivos de trabalho, vídeo final, gravação original) e vê quanto espaço libera.")
+    registrar(con, vid, f"Arquivado: tudo para a Lixeira menos a capa ({r['liberado'] / 1e9:.2f} GB liberados)", "ok")
 
 
 def tarefa_rascunho(vid: int) -> None:
@@ -581,6 +579,10 @@ ESTADO = {"executando": None}
 def _trabalhador() -> None:
     while True:
         vid, nome = FILA.get()
+        with conectar() as con:
+            v = con.execute("SELECT coluna FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v or v["coluna"] == "publicado":  # excluído ou já arquivado: tarefa que sobrou na fila não roda
+            continue
         ESTADO["executando"] = {"video": vid, "tarefa": nome, "desde": agora()}
         try:
             TAREFAS[nome](vid)

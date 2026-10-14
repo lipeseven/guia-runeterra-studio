@@ -149,20 +149,23 @@ def tamanhos(pasta: Path) -> dict:
             "entrada": t(pasta / "entrada"), "direcao": t(pasta / "direcao")}
 
 
-def limpar(pasta: Path, trabalho: bool, saida: bool, entrada: bool) -> dict:
-    """Manda para a Lixeira do Windows o que o Felipe escolheu. direcao/ (KB) sempre fica: permite refazer o vídeo."""
+def arquivar(pasta: Path) -> dict:
+    """Vídeo publicado não se mexe mais: tudo vai para a Lixeira do Windows (recuperável), menos a capa,
+    que fica em projetos/<slug>/capa.* para o card do quadro. Chamar DEPOIS de registrar_uso (que lê a direção)."""
+    import shutil
+
     from send2trash import send2trash
 
-    antes = tamanhos(pasta)
-    alvos = []
-    if trabalho:
-        alvos += [pasta / "trabalho", RAIZ / "app" / "video" / "public" / pasta.name]
-    if saida:
-        alvos.append(pasta / "saida")
-    if entrada:
-        alvos.append(pasta / "entrada")
+    antes = sum(tamanhos(pasta).values())
+    capa = next(iter(sorted((pasta / "direcao").glob("capa.*"))), None) or next(iter(sorted(pasta.glob("capa.*"))), None)
+    guardada = None
+    if capa:
+        guardada = pasta / f"capa{capa.suffix}"
+        if capa != guardada:
+            shutil.copy2(capa, guardada)
+    alvos = [p for p in pasta.iterdir() if p != guardada] if pasta.exists() else []
+    alvos.append(RAIZ / "app" / "video" / "public" / pasta.name)
     for a in alvos:
         if a.exists():
             send2trash(str(a.resolve()))
-    liberado = (antes["trabalho"] if trabalho else 0) + (antes["saida"] if saida else 0) + (antes["entrada"] if entrada else 0)
-    return {"liberado": liberado, "itens": [a.name for a in alvos]}
+    return {"liberado": antes, "capa": guardada.relative_to(RAIZ).as_posix() if guardada else None}

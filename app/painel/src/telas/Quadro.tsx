@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core'
 import { AlertTriangle, Lock, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { api, arquivo, quando, useAoVivo, type Coluna, type Status, type VideoResumo } from '../api'
+import { api, arquivo, AVISO_PUBLICAR, quando, useAoVivo, type Coluna, type Status, type VideoResumo } from '../api'
 import { FUNDO } from '../componentes/Estado'
 import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
@@ -29,7 +29,8 @@ export function Quadro() {
     const id = Number(e.active.id)
     if (!dados || !coluna) return
     const video = dados.videos.find((v) => v.id === id)
-    if (!video || video.coluna === coluna || video.travado) return
+    if (!video || video.coluna === coluna || video.travado || video.coluna === 'publicado') return
+    if (coluna === 'publicado' && !window.confirm(AVISO_PUBLICAR)) return
     // otimista: move já na tela; o servidor confirma em seguida
     setDados({ ...dados, videos: dados.videos.map((v) => (v.id === id ? { ...v, coluna, ordem: 1e9 } : v)) })
     await api(`/videos/${id}/mover`, { method: 'PATCH', body: JSON.stringify({ coluna }) })
@@ -108,7 +109,10 @@ function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: Vid
 }
 
 function ArrastavelVideo({ video, aoMudar }: { video: VideoResumo; aoMudar: () => void }) {
-  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: String(video.id), disabled: Boolean(video.travado) })
+  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
+    id: String(video.id),
+    disabled: Boolean(video.travado) || video.coluna === 'publicado', // publicado é definitivo
+  })
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? 'opacity-30' : ''}>
       <CardVideo video={video} menu={<MenuCard video={video} aoMudar={aoMudar} />} />
@@ -122,7 +126,7 @@ function CardVideo({ video, flutuando, menu }: { video: VideoResumo; flutuando?:
     <a
       href={`#/video/${video.id}`}
       className={`block overflow-hidden rounded-lg border bg-painel-2 hover:border-borda-forte ${
-        video.travado ? 'cursor-pointer border-ouro/40' : 'cursor-grab border-borda active:cursor-grabbing'
+        video.travado ? 'cursor-pointer border-ouro/40' : video.coluna === 'publicado' ? 'cursor-pointer border-borda' : 'cursor-grab border-borda active:cursor-grabbing'
       } ${
         flutuando ? 'rotate-2 shadow-2xl shadow-black/60' : ''
       }`}

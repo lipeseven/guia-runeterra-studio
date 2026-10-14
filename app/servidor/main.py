@@ -121,6 +121,10 @@ def mover(vid: int, corpo: Mover):
             raise HTTPException(404)
         if antiga["travado"]:
             raise HTTPException(409, "vídeo travado: destrave para mover")
+        if antiga["coluna"] == "publicado" and corpo.coluna != "publicado":
+            raise HTTPException(409, "vídeo publicado é definitivo: os arquivos já foram arquivados")
+        if corpo.coluna == "publicado":
+            _motor_livre(vid)
         ordem = corpo.ordem if corpo.ordem is not None else (
             con.execute("SELECT MAX(ordem) FROM videos WHERE coluna=?", (corpo.coluna,)).fetchone()[0] or 0) + 1
         con.execute("UPDATE videos SET coluna=?, ordem=?, atualizado_em=? WHERE id=?", (corpo.coluna, ordem, agora(), vid))
@@ -362,29 +366,17 @@ class Publicado(BaseModel):
 def marcar_publicado(vid: int, corpo: Publicado):
     with conectar() as con:
         _pasta(con, vid)
+        _motor_livre(vid)
         motor.marcar_publicado(con, vid, (corpo.url or "").strip() or None)
         con.commit()
     return {"ok": True}
 
 
-class Limpeza(BaseModel):
-    trabalho: bool = True
-    saida: bool = False
-    entrada: bool = False
-
-
-@app.post("/api/videos/{vid}/limpeza")
-def limpar_arquivos(vid: int, corpo: Limpeza):
-    with conectar() as con:
-        pasta = _pasta(con, vid)
-        executando = motor.situacao()["executando"]
-        if executando and executando["video"] == vid:
-            raise HTTPException(409, "o motor está trabalhando neste vídeo agora")
-        r = publicacao.limpar(pasta, corpo.trabalho, corpo.saida, corpo.entrada)
-        motor.fechar_pendencia(con, vid, "limpeza")
-        registrar(con, vid, f"Limpeza: {', '.join(r['itens']) or 'nada'} → Lixeira ({r['liberado'] / 1e9:.2f} GB liberados)", "ok")
-        con.commit()
-    return r
+def _motor_livre(vid: int) -> None:
+    """Publicar arquiva os arquivos: não pode acontecer com o motor mexendo neste vídeo."""
+    executando = motor.situacao()["executando"]
+    if executando and executando["video"] == vid:
+        raise HTTPException(409, "o motor está trabalhando neste vídeo agora; espere terminar")
 
 
 @app.post("/api/videos/{vid}/abrir-pasta-saida")

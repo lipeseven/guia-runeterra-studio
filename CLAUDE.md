@@ -54,7 +54,8 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - Card Publicação ✅ — "Vídeo aprovado" → `app/servidor/publicacao.py` (5 títulos, descrição com capítulos reais
   [≥3 seções] + créditos de autores + aviso Legal Jibber Jabber, tags, comentário fixado; Claude sonnet) + thumbnail
   1280×720 da capa. "Marcar como publicado" (ou arrastar p/ Publicado) registra mídias em `uso_midia` (acervo.db; o
-  diretor penaliza as dos últimos 3 vídeos) e abre a limpeza (trabalho/saída/entrada → Lixeira; direcao/ sempre fica).
+  diretor penaliza as dos últimos 3 vídeos) e ARQUIVA (pede confirmação): tudo vai para a Lixeira, só fica
+  `projetos/<slug>/capa.*` para o card. Publicado é definitivo: não sai da coluna, página vira resumo (capa, link, histórico).
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: efeitos sonoros (Freesound + Stable Audio Open),
   falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

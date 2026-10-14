@@ -1,5 +1,5 @@
 import { CheckCircle2, Cpu, HardDrive, LayoutPanelTop, Lock, Trash2 } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { api, arquivo, gb, quando, useAoVivo, type Etapa, type Recursos, type Video as TVideo } from '../api'
 import { CirculoEstado, COR, RotuloEstado } from '../componentes/Estado'
 import { MenuCard } from '../componentes/MenuCard'
@@ -30,6 +30,12 @@ export function Video({ id }: { id: number }) {
       </Moldura>
     )
   if (!v) return <Moldura trilha={trilha}><p className="p-6 text-suave">Carregando…</p></Moldura>
+  if (v.coluna === 'publicado')
+    return (
+      <Moldura trilha={trilha}>
+        <VideoPublicado v={v} aoMudar={recarregar} />
+      </Moldura>
+    )
 
   const concluidas = v.etapas.filter((e) => e.status === 'concluido').length
   const previa = [...v.etapas].reverse().find((e) => typeof e.dados.video === 'string' || typeof e.dados.audio === 'string')
@@ -159,6 +165,70 @@ export function Video({ id }: { id: number }) {
         </div>
       </div>
     </Moldura>
+  )
+}
+
+/** Vídeo publicado é definitivo: os arquivos foram arquivados; fica só a capa, o link e o histórico. */
+function VideoPublicado({ v, aoMudar }: { v: TVideo; aoMudar: () => void }) {
+  const [url, setUrl] = useState('')
+  return (
+    <div className="mx-auto max-w-[1100px] px-6 py-6">
+      <div className="flex items-start gap-4">
+        <div className="min-w-0">
+          <h1 className="font-titulo text-4xl leading-tight font-medium tracking-tight">{v.titulo}</h1>
+          <p className="mt-1 flex items-center gap-1.5 font-mono text-xs text-ok">
+            <CheckCircle2 className="size-3.5" /> publicado · {quando(v.atualizado_em)}
+          </p>
+        </div>
+        <div className="ml-auto shrink-0">
+          <MenuCard video={v} aoMudar={aoMudar} aoExcluir={() => (window.location.hash = '#/')} />
+        </div>
+      </div>
+      <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex flex-col gap-4">
+          {v.capa && <img src={arquivo(v.capa)} alt="Capa" className="w-full rounded-xl border border-borda" />}
+          {v.url_youtube ? (
+            <a href={v.url_youtube} target="_blank" rel="noreferrer" className="text-sm text-ouro underline">
+              {v.url_youtube}
+            </a>
+          ) : (
+            <div className="flex items-center gap-2 rounded-lg border border-borda bg-painel p-3">
+              <span className="shrink-0 text-sm">Link no YouTube:</span>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="cole o link (opcional)"
+                className="min-w-0 flex-1 rounded-md border border-borda bg-painel-2 px-2 py-1.5 text-xs outline-none focus:border-suave"
+              />
+              <button
+                disabled={!url.trim()}
+                onClick={async () => {
+                  await api(`/videos/${v.id}/publicado`, { method: 'POST', body: JSON.stringify({ url }) })
+                  aoMudar()
+                }}
+                className="rounded-md bg-ouro px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110 disabled:opacity-40"
+              >
+                Salvar link
+              </button>
+            </div>
+          )}
+          <p className="text-xs text-apagado">
+            Os arquivos deste vídeo foram para a Lixeira do Windows ao publicar; só a capa ficou. As mídias usadas estão na
+            memória de uso (o diretor evita repeti-las nos próximos vídeos).
+          </p>
+        </div>
+        <Painel titulo="Atividade">
+          <ul className="flex flex-col">
+            {v.atividade.map((a) => (
+              <li key={a.id} className="flex items-start gap-3 border-b border-borda/60 py-2 text-sm last:border-0">
+                <span className="w-12 shrink-0 pt-0.5 font-mono text-[11px] text-apagado">{quando(a.quando)}</span>
+                <span className="text-texto/85">{a.texto}</span>
+              </li>
+            ))}
+          </ul>
+        </Painel>
+      </div>
+    </div>
   )
 }
 
