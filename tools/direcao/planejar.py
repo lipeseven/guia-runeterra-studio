@@ -55,7 +55,7 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
   recorte   — personagem recortado sobre fundo branco + legenda (apresentar/descrever um personagem).
   meio      — meio a meio: arte numa metade da tela e uma FRASE curta (campo "legenda", até ~6 palavras) na outra.
               Para ideias/conceitos fortes ("o poder de criar", "amaldiçoou a família real").
-  texto     — só texto, sem imagem, no branco ou no preto (campo "legenda" + "fundo": "claro"|"escuro").
+  texto     — só texto, sem imagem (campo "legenda" + "fundo": "claro" — padrão — ou "escuro" só em ocasião especial).
               Para conceitos abstratos, viradas e pausas dramáticas ("A Clareza", "Outra história"). Curto e raro.
   dividida  — tela dividida: 2 ou 3 imagens em altura total lado a lado, com nome embaixo de cada ("pecas").
               Para comparar/confrontar ou apresentar um par/trio ("Tryndamere e Ashe", "Darkin contra Ascendidos").
@@ -71,8 +71,9 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
   frases narrativas ("e aí deu ruim") ou, com moderação, ter humor/gíria brasileira no tom do canal
   ("Swain é zika", "gg") — o Felipe revisa.
 - Seções: cada personagem/tema principal é uma seção (o nome dele fica no topo dos cartões, com o ícone da capa).
-- Modo do vídeo ("modo"): "claro" (cartões brancos, padrão do canal — explicativo, listas, humor) ou "escuro"
-  (cinematográfico — temas sombrios/épicos, guerras, horror, versus). Escolha UM pelo tom do roteiro.
+- O FUNDO BRANCO é a assinatura do canal: cartões, recortes, listas, meio a meio e diálogos são sempre no branco.
+  O escuro só aparece nas cenas de tela cheia (arte, clipe, citação, tela dividida) e, em ocasiões especiais,
+  num "texto" com "fundo": "escuro" (virada dramática, pausa pesada). O padrão do "texto" é "claro".
 - Variedade é obrigatória: um vídeo com só cartão parece automático. Misture os tipos com sentido; nenhum tipo
   "especial" (hub não conta) mais de 2 vezes seguidas ou dominando o vídeo.
 
@@ -94,7 +95,6 @@ Para "clipe", a busca descreve a ação da tomada.
 
 FORMATO = """Responda com este JSON (campos que não se aplicam = null):
 {
- "modo": "claro",
  "secoes": [{"titulo": "Nome da seção", "frase_inicial": 0, "personagem_da_capa": "Nome exatamente como na capa ou null"}],
  "cenas": [
   {"frase": 0, "tipo": "capa"},
@@ -103,7 +103,7 @@ FORMATO = """Responda com este JSON (campos que não se aplicam = null):
   {"frase": 3, "comeca_na_palavra": "Raum", "tipo": "telacheia", "rotulo": "Raum", "subrotulo": "o demônio dos segredos",
    "legenda_na_palavra": "Raum", "busca": {"o_que": "...", "personagens": ["Raum"], "categorias": ["splash"]}},
   {"frase": 5, "tipo": "meio", "legenda": "o poder de criar", "legenda_na_palavra": "criar", "busca": {...}},
-  {"frase": 6, "tipo": "texto", "legenda": "Outra história", "fundo": "escuro"},
+  {"frase": 6, "tipo": "texto", "legenda": "Outra história", "fundo": "claro"},
   {"frase": 7, "comeca_na_palavra": "Volibear", "tipo": "mosaico", "busca": {"o_que": "fundo...", "personagens": [], "categorias": ["arte"]},
    "pecas": [{"palavra": "Volibear", "busca": {"o_que": "...", "personagens": ["Volibear"], "categorias": ["splash"]}}]},
   {"frase": 9, "tipo": "dividida", "pecas": [{"palavra": "Ashe", "rotulo": "Ashe", "busca": {...}},
@@ -168,8 +168,6 @@ def validar(plano: dict, frases: list[dict]) -> list[str]:
             problemas.append(f"cena {k}: {tipo} precisa de \"legenda\" (o texto da cena)")
         if tipo in ("cartao", "telacheia", "recorte", "meio", "citacao", "clipe", "mosaico") and not c.get("busca"):
             problemas.append(f"cena {k}: {tipo} precisa de \"busca\"")
-    if plano.get("modo") not in ("claro", "escuro"):
-        problemas.append('"modo" deve ser "claro" ou "escuro"')
     return problemas
 
 

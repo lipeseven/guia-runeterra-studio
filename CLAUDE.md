@@ -61,7 +61,8 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   que ainda faltam no Remotion). Stable Audio Open (diffusers, ~30 s/efeito, 5,9 GB VRAM) e Freesound prontos.
 - Novos recursos visuais ✅ (2026-10-14): `hub` (transição de seção: grade/esteira), `dividida`, `lista`, `meio`,
   `texto`, `citacao` (agora ligada ao diretor), nome sobre arte (telacheia rotulo/subrotulo), clarão, crédito de fan
-  art na cena (midias.autor) e `modo` claro/escuro por vídeo (trecho.tema → `app/video/src/tema.ts`). Peças de
+  art na cena (midias.autor). **Fundo branco é a assinatura do canal**: o vídeo é sempre "claro" (o tema escuro de
+`app/video/src/tema.ts` existe mas não é usado); escuro só em telas cheias e no `texto` com fundo escuro, raro. Peças de
   mosaico/dividida/lista ficam em `pecas` (planos antigos: `mosaico`, lido por `planejar.pecas_da_cena`).
 - Efeitos sonoros ✅ (2026-10-14): `tools/audio/sfx.py` (catálogo em acervo.db `sons`/`uso_som`, arquivos em
   dados/sfx/; 117 sons do Freesound só CC0/CC BY + Stable Audio Open para completar; busca CLAP texto→áudio com

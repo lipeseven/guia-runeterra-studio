@@ -97,7 +97,9 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         return {"nome": c["nome"], "midia": capa_midia, "foco": [c["cx"], c["cy"]], "diametro": 2 * c["r"] * 0.93}
 
     secoes = sorted(plano.get("secoes", []), key=lambda s: s["frase_inicial"])
-    modo = plano.get("modo") if plano.get("modo") in ("claro", "escuro") else "claro"
+    # Fundo branco é a assinatura do canal (Felipe, 2026-10-14): o vídeo inteiro é sempre "claro";
+    # o escuro fica só nas cenas de tela cheia e no "texto" com fundo escuro em ocasião especial.
+    modo = "claro"
 
     def secao_da_frase(n: int) -> dict | None:
         atual = None
@@ -178,7 +180,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         if tipo == "texto":
             if legenda:
                 cenas.append({**base, "tipo": "texto", "texto": legenda,
-                              "fundo": c.get("fundo") if c.get("fundo") in ("claro", "escuro") else modo,
+                              "fundo": "escuro" if c.get("fundo") == "escuro" else "claro",
                               "entrada_texto": var.texto()})
             continue
 

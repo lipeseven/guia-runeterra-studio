@@ -123,8 +123,9 @@ o analisador descarta esses vazamentos.
 | **Narrativo longo** | Every Couple | cenas de 10–40 s, quadrinhos percorridos, cinemáticas (Arcane) |
 | **Versus** | Aatrox vs Mordekaiser | placar por categoria ("Power", "Feats", "Battle IQ"), arte gráfica alto contraste |
 
-→ O diretor deve escolher um modo **por vídeo** (pelo tema) e variar entre vídeos: um canal que faz todo vídeo
-igual parece automatizado.
+→ **Decisão do Felipe (2026-10-14): o fundo branco é a assinatura do Guia de Runeterra.** Não adotamos o modo
+"todo escuro" da referência: o escuro fica só nas telas cheias e no "só texto" em ocasiões especiais. A variedade
+entre vídeos vem dos tipos de cena, efeitos e mídias — não da cor de fundo.
 
 ### 10.2 Recursos encontrados que ainda NÃO temos no Remotion
 
