@@ -70,6 +70,29 @@ def midias_usadas(pasta: Path) -> list[int]:
     return sorted(ids)
 
 
+def sons_usados(pasta: Path) -> list[int]:
+    """Ids do catálogo de efeitos sonoros usados no vídeo final (arquivos s<id>.wav)."""
+    final = pasta / "direcao" / "direcao_final.json"
+    if not final.exists():
+        final = pasta / "direcao" / "direcao.json"
+    if not final.exists():
+        return []
+    return sorted({int(s) for s in re.findall(r"/s(\d+)\.wav", final.read_text(encoding="utf-8"))})
+
+
+def creditos_sons(ids: list[int]) -> list[str]:
+    """CC BY exige crédito; CC0 e os gerados localmente não (mas não custa nada não listar)."""
+    from comum import abrir_acervo
+
+    con = abrir_acervo()
+    linhas = []
+    for sid in ids:
+        r = con.execute("SELECT descricao, autor, url, licenca FROM sons WHERE id=?", (sid,)).fetchone()
+        if r and r["autor"] and (r["licenca"] or "").startswith("CC BY"):
+            linhas.append(f"\"{r['descricao']}\" por {r['autor']} — {r['url']} ({r['licenca']})")
+    return sorted(set(linhas))
+
+
 def creditos(ids: list[int]) -> list[str]:
     from comum import abrir_acervo
 
@@ -109,6 +132,9 @@ def gerar_textos(pasta: Path, titulo_card: str, duracao: float) -> dict:
         partes.append("Capítulos:\n" + "\n".join(f"{c['tempo']} {c['titulo']}" for c in caps))
     if cred:
         partes.append("Artes de fãs usadas (créditos):\n" + "\n".join(f"• {c}" for c in cred))
+    cred_sons = creditos_sons(sons_usados(pasta))
+    if cred_sons:
+        partes.append("Efeitos sonoros (freesound.org):\n" + "\n".join(f"• {c}" for c in cred_sons))
     partes.append(AVISO_RIOT)
     return {"titulos": r["titulos"], "titulo": r["titulos"][0], "descricao": "\n\n".join(partes),
             "tags": r["tags"], "comentario_fixado": r.get("comentario_fixado", ""), "capitulos": caps,
@@ -136,6 +162,8 @@ def registrar_uso(pasta: Path, slug: str, quando: str) -> int:
     con = abrir_acervo()
     con.executemany("INSERT OR REPLACE INTO uso_midia (midia_id, video, publicado_em) VALUES (?,?,?)",
                     [(i, slug, quando) for i in ids])
+    con.executemany("INSERT OR REPLACE INTO uso_som (som_id, video, publicado_em) VALUES (?,?,?)",
+                    [(s, slug, quando) for s in sons_usados(pasta)])
     con.commit()
     return len(ids)
 

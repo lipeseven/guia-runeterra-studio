@@ -68,6 +68,8 @@ def cenas(pasta: Path) -> list[dict]:
             "no_rascunho": m is not None, "removida": bool(aj.get("removida")),
             "comentario": aj.get("comentario"), "comentario_aplicado": bool(aj.get("comentario_aplicado")),
             "motivo": esc.get("motivo"), "ajustada": bool(aj),
+            "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
+            "som_no_rascunho": any(s.get("k") == k for s in d["direcao"].get("sons", [])),
         })
     # fim de cada cena = início da próxima montada
     for i, s in enumerate(saida):
@@ -101,6 +103,8 @@ def ajustar(pasta: Path, k: int, acao: dict) -> dict:
         aj["tipo"] = acao["tipo"]
     elif tipo == "remover":
         aj["removida"] = True
+    elif tipo == "sem_som":
+        aj["sem_som"] = True
     elif tipo == "restaurar":
         d["ajustes"].pop(str(k), None)
     elif tipo == "comentario":
@@ -125,6 +129,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
         c = plano["cenas"][k]
         if aj.get("removida"):
             c["removida"] = True
+        if aj.get("sem_som"):
+            c["som"] = None
         if "legenda" in aj:
             c["legenda"] = aj["legenda"] or None
         if "tipo" in aj:

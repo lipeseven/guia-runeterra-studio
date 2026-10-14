@@ -170,7 +170,11 @@ export type Trecho = {
   secao?: Secao;
   cenas: Cena[];
   tema?: "claro" | "escuro";
+  sons?: Som[];
 };
+
+/** Efeito sonoro ancorado numa palavra (raro: guia de estilo §8). Volume relativo (0–1), bem abaixo da voz. */
+export type Som = { arquivo: string; de: number; volume: number; categoria?: string };
 
 /** Ícone redondo recortado de dentro de um círculo da capa (sem pegar a borda preta original). */
 export const iconeDaCapa = (capa: Midia, c: CirculoCapa): Icone => ({

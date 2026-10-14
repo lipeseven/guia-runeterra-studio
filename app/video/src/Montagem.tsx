@@ -45,6 +45,12 @@ export const Montagem: React.FC<{ trecho: Trecho }> = ({ trecho }) => {
           );
         })}
         <Audio src={staticFile(trecho.audio)} />
+        {(trecho.sons ?? []).map((s, k) => (
+          // o efeito bate 2 quadros antes da palavra (ataque do som + percepção)
+          <Sequence key={`som${k}`} from={Math.max(0, quadroDaPalavra(palavras, s.de, fps) - 2)} name={`som ${s.categoria ?? ""}`}>
+            <Audio src={staticFile(s.arquivo)} volume={s.volume} />
+          </Sequence>
+        ))}
       </AbsoluteFill>
     </TemaCtx.Provider>
   );

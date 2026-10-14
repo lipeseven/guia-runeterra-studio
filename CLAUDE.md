@@ -59,6 +59,13 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - Referências 100% analisadas (2026-10-14): som (`separar_sons.py` Demucs + `analisar_sons.py` CLAP — padrão é voz
   pura, efeito é raro) e leitura visual dos 11 vídeos → guia de estilo v1.0 (seção 10: modos por vídeo e recursos
   que ainda faltam no Remotion). Stable Audio Open (diffusers, ~30 s/efeito, 5,9 GB VRAM) e Freesound prontos.
-- **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: efeitos sonoros (Freesound + Stable Audio Open),
-  falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
+- Novos recursos visuais ✅ (2026-10-14): `hub` (transição de seção: grade/esteira), `dividida`, `lista`, `meio`,
+  `texto`, `citacao` (agora ligada ao diretor), nome sobre arte (telacheia rotulo/subrotulo), clarão, crédito de fan
+  art na cena (midias.autor) e `modo` claro/escuro por vídeo (trecho.tema → `app/video/src/tema.ts`). Peças de
+  mosaico/dividida/lista ficam em `pecas` (planos antigos: `mosaico`, lido por `planejar.pecas_da_cena`).
+- Efeitos sonoros ✅ (2026-10-14): `tools/audio/sfx.py` (catálogo em acervo.db `sons`/`uso_som`, arquivos em
+  dados/sfx/; 117 sons do Freesound só CC0/CC BY + Stable Audio Open para completar; busca CLAP texto→áudio com
+  reforço da categoria, `tools/audio/clap.py`). Diretor pede `som` por cena; `montar.efeitos_sonoros` impõe as
+  regras (≤1 a cada 30 s, ≥18 s entre eles, ~15 dB abaixo da voz); créditos CC BY entram na descrição.
+- **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

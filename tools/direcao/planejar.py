@@ -76,6 +76,15 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
 - Variedade é obrigatória: um vídeo com só cartão parece automático. Misture os tipos com sentido; nenhum tipo
   "especial" (hub não conta) mais de 2 vezes seguidas ou dominando o vídeo.
 
+=== EFEITOS SONOROS (campo opcional "som") ===
+- O padrão do canal é VOZ PURA (medido nos vídeos de referência). Efeito sonoro é tempero raro e com sentido:
+  em média no máximo 1 a cada ~40 s, só em momentos marcantes — revelação, golpe/batalha, magia, criatura,
+  morte, explosão, sino/presságio. Na grande maioria das cenas: "som": null.
+- "som": {"o_que": "descrição do som em inglês (ex.: 'deep cinematic boom', 'crows cawing', 'sword clash')",
+  "palavra": "palavra da frase em que o som bate"}.
+- Nunca em cenas seguidas, nunca o mesmo tipo de som duas vezes seguidas, nada de whoosh em corte. Metáforas
+  não viram som literal ("devorar nações" não leva som de mastigar).
+
 === COMO DESCREVER A BUSCA ===
 "busca.o_que" é a descrição VISUAL, em inglês, do que a imagem deve mostrar segundo o SENTIDO da frase
 (metáforas não são literais). "busca.personagens" são nomes de LoL que devem aparecer (pode ser vazio).
@@ -101,13 +110,14 @@ FORMATO = """Responda com este JSON (campos que não se aplicam = null):
                                             {"palavra": "Tryndamere", "rotulo": "Tryndamere", "busca": {...}}]},
   {"frase": 11, "tipo": "lista", "pecas": [{"palavra": "nervos", "rotulo": "nervos cutucados", "busca": {...}}, ...]},
   {"frase": 12, "tipo": "hub"},
+  {"frase": 13, "tipo": "telacheia", "busca": {...}, "som": {"o_que": "deep cinematic boom", "palavra": "explodiu"}},
   {"frase": 14, "tipo": "citacao", "autor": "Sion, na Mente da Loucura", "destaques": ["sangue"], "busca": {...}},
   {"frase": 15, "tipo": "dialogo", "dialogo": {"esquerda": "Quem fala", "direita": "Quem ouve", "destaques": ["palavra"]}}
  ],
  "observacoes": "1 a 3 frases sobre escolhas que o Felipe deve conferir"
 }
 Regras do JSON: "frase" é o número [n] da frase; "comeca_na_palavra", "legenda_na_palavra", "destaques" e
-"pecas[].palavra" são palavras que EXISTEM naquela frase (copie exatamente); as cenas estão em ordem e cobrem o
+"pecas[].palavra" e "som.palavra" são palavras que EXISTEM naquela frase (copie exatamente); as cenas estão em ordem e cobrem o
 roteiro inteiro; "pecas" (mosaico/dividida/lista) entram na ordem em que as palavras são faladas — a 1ª peça
 entra junto com a cena; dividida = 2 ou 3 peças, lista = 2 a 5, mosaico = 2 a 4."""
 
@@ -151,6 +161,9 @@ def validar(plano: dict, frases: list[dict]) -> list[str]:
                     problemas.append(f"cena {k}: peça com palavra {p['palavra']!r} que não está na frase {n}")
                 if not p.get("busca"):
                     problemas.append(f"cena {k}: peça sem busca")
+        som = c.get("som")
+        if som and som.get("palavra") and not existe(som["palavra"]):
+            problemas.append(f"cena {k}: som com palavra {som['palavra']!r} que não está na frase {n}")
         if tipo in ("meio", "texto") and not c.get("legenda"):
             problemas.append(f"cena {k}: {tipo} precisa de \"legenda\" (o texto da cena)")
         if tipo in ("cartao", "telacheia", "recorte", "meio", "citacao", "clipe", "mosaico") and not c.get("busca"):

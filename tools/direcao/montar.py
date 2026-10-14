@@ -261,8 +261,68 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         a["ate"] = max(a["de"], b["de"] - 1)
     if cenas:
         cenas[-1]["ate"] = len(toks) - 1
-    trecho = {"audio": f"{slug}/voz.wav", "palavras": palavras, "cenas": cenas, "tema": modo}
+    montadas = {c["k"] for c in cenas}
+    sons = efeitos_sonoros(plano, frases, toks, palavras, montadas, m, var)
+    trecho = {"audio": f"{slug}/voz.wav", "palavras": palavras, "cenas": cenas, "tema": modo, "sons": sons}
     return trecho, pendencias
+
+
+# volume de cada categoria (a voz está em -14 LUFS e os efeitos com pico em -3 dBFS): fica 12–18 dB abaixo
+VOLUME_SOM = {"impacto": 0.40, "explosao": 0.40, "trovao": 0.36, "rugido": 0.36, "metal": 0.34, "sino": 0.34}
+VOLUME_PADRAO = 0.30  # medido no render de teste: ~15 dB abaixo da voz
+INTERVALO_MIN = 18.0  # segundos entre efeitos
+SEGUNDOS_POR_SOM = 30.0  # teto: no máximo 1 efeito a cada 30 s de vídeo, em média
+
+
+def efeitos_sonoros(plano: dict, frases: list[dict], toks: list[str], palavras: list[dict], montadas: set,
+                    m: "Midias", var: Variador) -> list[dict]:
+    """Efeitos pedidos pelo diretor → arquivos do catálogo (busca CLAP pela descrição), com as regras do canal
+    garantidas aqui mesmo que o diretor exagere: intervalo mínimo, teto por duração, sem repetir o mesmo som."""
+    pedidos = []
+    for k, c in enumerate(plano["cenas"]):
+        som = c.get("som")
+        if c.get("removida") or k not in montadas or not (som and som.get("o_que")):
+            continue
+        f = frases[c["frase"]]
+        i = indice_na_frase(f, toks, som.get("palavra"))
+        i = i if i is not None else f["de"]
+        pedidos.append({"k": k, "de": i, "t": palavras[i]["i"], "o_que": som["o_que"]})
+    if not pedidos:
+        return []
+    duracao = palavras[-1]["f"]
+    teto = max(1, int(duracao / SEGUNDOS_POR_SOM))
+    aceitos, ultimo = [], -1e9
+    for p in sorted(pedidos, key=lambda p: p["t"]):
+        if p["t"] - ultimo >= INTERVALO_MIN and len(aceitos) < teto:
+            aceitos.append(p)
+            ultimo = p["t"]
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "audio"))
+        from sfx import PASTA as PASTA_SFX, Busca
+        busca = Busca()
+    except Exception as e:  # sem catálogo/CLAP: o vídeo sai sem efeitos, nunca quebra a montagem
+        print("efeitos sonoros indisponíveis:", e)
+        return []
+    usados: set[int] = set()
+    saida = []
+    ultima_categoria = None
+    for p in aceitos:
+        achados = busca.buscar(p["o_que"], 6, evitar=usados)
+        # não repete a categoria do efeito anterior se houver alternativa razoável
+        achados.sort(key=lambda a: -(a[1] - (0.05 if busca.info[a[0]]["categoria"] == ultima_categoria else 0)))
+        if not achados:
+            continue
+        sid = achados[0][0]
+        usados.add(sid)
+        cat = busca.info[sid]["categoria"]
+        ultima_categoria = cat
+        destino = m.pasta / f"s{sid}.wav"
+        shutil.copyfile(PASTA_SFX / busca.info[sid]["arquivo"], destino)
+        volume = VOLUME_SOM.get(cat, VOLUME_PADRAO) * var.rng.uniform(0.85, 1.12)
+        saida.append({"k": p["k"], "de": p["de"], "arquivo": f"{m.slug}/{destino.name}", "volume": round(volume, 3),
+                      "categoria": cat, "o_que": p["o_que"]})
+    busca.liberar()
+    return saida
 
 
 def renderizar(trecho: dict, props: Path, saida: Path) -> float:

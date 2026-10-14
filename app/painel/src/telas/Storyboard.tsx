@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, MessageSquarePlus, Play, RotateCcw, Search, Trash2, Wand2 } from 'lucide-react'
+import { ArrowLeft, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, Trash2, Wand2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, arquivo, useAoVivo, type Video } from '../api'
 import { Moldura } from '../componentes/Moldura'
@@ -21,6 +21,8 @@ type Cena = {
   comentario_aplicado: boolean
   motivo: string | null
   ajustada: boolean
+  som: string | null
+  som_no_rascunho: boolean
 }
 type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number }
 
@@ -241,6 +243,22 @@ function CartaoCena({
             {c.ajustada && !c.removida && !c.comentario && <span className="text-[11px] text-andamento">ajustada</span>}
           </div>
           <p className="mt-1 line-clamp-2 text-sm text-texto/85">{c.frase || <i className="text-apagado">(fora do rascunho)</i>}</p>
+          {c.som && (
+            <p className="mt-1 flex items-center gap-1.5 text-[11px] text-suave">
+              <Music className="size-3 shrink-0" />
+              <span className="truncate">
+                efeito sonoro: {c.som}
+                {!c.som_no_rascunho && <span className="text-apagado"> (não entrou: limite de efeitos por minuto)</span>}
+              </span>
+              <button
+                onClick={() => ajustar(c.k, { acao: 'sem_som' })}
+                title="Tirar o efeito sonoro desta cena"
+                className="ml-1 shrink-0 rounded px-1 text-apagado hover:text-red-300"
+              >
+                <X className="size-3" />
+              </button>
+            </p>
+          )}
           {usaLegenda && (
             <input
               value={legenda}

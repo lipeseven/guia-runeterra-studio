@@ -43,7 +43,10 @@ Poro no final) — ver guia de estilo §10.4.
   e a narração não compete com nada).
 - **Exceção rara**: um momento curto em que o som original acrescenta muito (grito, golpe,
   fala marcante) pode entrar **baixo, por baixo da narração**. Deve ser exceção, poucas vezes por vídeo.
-- Efeitos sonoros: catálogo próprio (Fase 8) — tratados à parte.
+- **Efeitos sonoros** (catálogo `tools/audio/sfx.py`): o padrão do canal é voz pura; efeito é tempero raro,
+  só em momento marcante (revelação, golpe, magia, criatura, morte, explosão, presságio). A montagem garante:
+  no máximo 1 a cada 30 s em média, mínimo de 18 s entre dois, sem repetir o mesmo arquivo, volume ~15 dB
+  abaixo da voz. Nada de whoosh em corte; metáfora não vira som literal.
 
 ## 4. Variedade
 

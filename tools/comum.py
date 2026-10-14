@@ -51,6 +51,25 @@ CREATE TABLE IF NOT EXISTS uso_midia (
     publicado_em TEXT NOT NULL,
     PRIMARY KEY (midia_id, video)
 );
+-- Efeitos sonoros (tools/audio/sfx.py): Freesound (só CC0/CC BY) ou gerados localmente (Stable Audio Open).
+CREATE TABLE IF NOT EXISTS sons (
+    id          INTEGER PRIMARY KEY,
+    arquivo     TEXT UNIQUE NOT NULL,   -- relativo a dados/sfx/
+    categoria   TEXT NOT NULL,
+    descricao   TEXT,                   -- nome/descrição original ou o prompt usado na geração
+    origem      TEXT NOT NULL,          -- freesound | gerado
+    autor       TEXT,
+    url         TEXT,
+    licenca     TEXT,                   -- CC0 | CC BY 4.0 | Stability Community
+    duracao     REAL,
+    vetor       BLOB                    -- CLAP do áudio (float32, normalizado) para busca por descrição
+);
+CREATE TABLE IF NOT EXISTS uso_som (
+    som_id      INTEGER NOT NULL REFERENCES sons(id),
+    video       TEXT NOT NULL,
+    publicado_em TEXT NOT NULL,
+    PRIMARY KEY (som_id, video)
+);
 """
 
 
