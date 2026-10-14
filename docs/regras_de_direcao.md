@@ -25,8 +25,17 @@ Ter um recurso não é motivo para usá-lo. Cada tipo de cena tem um gatilho:
 | **Cartão emoldurado** | Padrão para apresentar lugar, conceito, personagem, evento | — (é o "feijão com arroz") |
 | **Tela cheia** | Momentos de impacto, atmosfera, transição entre seções | Sequências longas seguidas |
 | **Meme / quebra** | Humor, ironia, alívio depois de trecho pesado | Momentos sérios ou trágicos |
+| **Transição de seção (hub)** | Início de cada seção a partir da 2ª, quando o personagem está na capa (o roteiro fala só o nome) | No meio de uma seção |
+| **Nome sobre a arte** (tela cheia + rótulo) | Apresentar um personagem/lugar pela 1ª vez ("Raum / o demônio dos segredos") | Personagem já apresentado |
+| **Meio a meio** | Ideia/conceito forte que cabe numa frase curta ao lado da arte | Frases comuns (aí é cartão) |
+| **Só texto** | Conceito abstrato, virada, pausa dramática ("A Clareza", "Outra história") | Mais de 1–2 vezes por vídeo |
+| **Tela dividida** | Par/trio, comparação, confronto ("Ashe e Tryndamere", "Darkin contra Ascendidos") | Itens sem relação |
+| **Lista acumulada** | Enumeração de conceitos com rótulo (torturas, poderes, motivos) | Enumeração de personagens com arte forte (aí é mosaico) |
+| **Modo escuro** (vídeo inteiro) | Temas sombrios/épicos, guerras, horror, versus | Vídeos explicativos leves, com humor (modo claro) |
 
-Recursos "especiais" (mosaico, clipe, diálogo, citação) devem parecer escolhas, não rotina.
+Recursos "especiais" (mosaico, clipe, diálogo, citação, meio a meio, só texto, dividida, lista) devem parecer
+escolhas, não rotina. Nada de copiar as marcas registradas da referência (emoji amarelo apontando, boneco-bolha,
+Poro no final) — ver guia de estilo §10.4.
 
 ## 3. Áudio de clipes
 

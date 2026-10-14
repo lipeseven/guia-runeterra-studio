@@ -1,7 +1,7 @@
 import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import { CabecalhoSecao, Legenda } from "../componentes/CabecalhoSecao";
 import { estiloEntradaImagem } from "../efeitos";
-import { cor } from "../estilo";
+import { useCores } from "../tema";
 import type { CenaRecorte, Secao } from "../tipos";
 import { variar } from "../tempo";
 
@@ -13,11 +13,12 @@ export const Recorte: React.FC<{
 }> = ({ cena, secao, quadro }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const cores = useCores();
   const altura = 760;
   const largura = (cena.midia.w / cena.midia.h) * altura;
   const lado = variar(cena.semente ?? "rec", -260, 260); // não fica sempre no mesmo lugar
   return (
-    <AbsoluteFill style={{ background: cor.fundo }}>
+    <AbsoluteFill style={{ background: cores.fundo }}>
       <div
         style={{
           position: "absolute",

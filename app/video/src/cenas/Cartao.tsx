@@ -1,7 +1,7 @@
 import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
-import { CabecalhoSecao, Legenda } from "../componentes/CabecalhoSecao";
+import { CabecalhoSecao, Credito, Legenda } from "../componentes/CabecalhoSecao";
 import { estiloEntradaImagem, transformMovimento, type EfeitoImagem, type Entrada, type Movimento } from "../efeitos";
-import { cor } from "../estilo";
+import { useCores } from "../tema";
 import type { CenaCartao, Midia, Secao } from "../tipos";
 
 const CAIXA = { largura: 1712, altura: 790, topo: 140 };
@@ -36,6 +36,7 @@ export const ImagemNaCaixa: React.FC<{
         src={staticFile(midia.arquivo)}
         style={{ width: "100%", height: "100%", transform: transformMovimento(movimento, p) }}
       />
+      <Credito texto={midia.credito} direita={12} baixo={8} />
     </div>
   );
 };
@@ -47,6 +48,7 @@ export const Cartao: React.FC<{
   duracao: number;
 }> = ({ cena, secao, quadro, duracao }) => {
   const frame = useCurrentFrame();
+  const cores = useCores();
   const inicios = cena.itens.map((it, k) => (k === 0 ? 0 : quadro(it.de)));
   let atual = 0;
   inicios.forEach((q, k) => {
@@ -58,7 +60,7 @@ export const Cartao: React.FC<{
   const quandoLegenda = item.legenda_em !== undefined ? Math.max(desde, quadro(item.legenda_em)) : desde;
 
   return (
-    <AbsoluteFill style={{ background: cor.fundo }}>
+    <AbsoluteFill style={{ background: cores.fundo }}>
       <ImagemNaCaixa
         key={atual}
         midia={item.midia}

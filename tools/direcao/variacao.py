@@ -19,6 +19,7 @@ PESOS_TEXTO = {
 PESOS_IMAGEM = {
     "corte": 26, "fade": 14, "deslizar_esq": 5, "deslizar_dir": 5, "deslizar_cima": 5,
     "assentar": 12, "revelar_esq": 6, "revelar_dir": 6, "desfoque": 8, "pop": 6, "giro": 4,
+    "clarao": 3,  # impacto: raro de propósito
 }
 PESOS_MOVIMENTO = {
     "aproximar": 22, "afastar": 18, "pan_esq": 14, "pan_dir": 14, "subir": 7, "descer": 7,
@@ -32,16 +33,20 @@ DURACAO_PADRAO = (7, 18)
 class Variador:
     def __init__(self, semente: int | str, memoria: int = 3):
         self.rng = random.Random(semente)
-        self.recentes = {k: deque(maxlen=memoria) for k in ("texto", "imagem", "movimento", "mosaico")}
+        self.recentes = {k: deque(maxlen=memoria) for k in
+                         ("texto", "imagem", "movimento", "mosaico", "hub", "dividida", "lado", "citacao")}
 
     def _escolher(self, categoria: str, pesos: dict[str, int]) -> str:
         recentes = self.recentes[categoria]
         ajustados = {}
+        poucas = sum(1 for p in pesos.values() if p > 0) <= 3  # com 2–3 opções, proibir repetir vira relógio
         for nome, peso in pesos.items():
             if peso <= 0:
                 continue
             if recentes and nome == recentes[-1]:
-                continue  # nunca repete o anterior
+                if not poucas:
+                    continue  # nunca repete o anterior
+                peso *= 0.45
             if nome in recentes:
                 peso *= 0.35  # usado há pouco: bem menos provável
             ajustados[nome] = peso
@@ -102,3 +107,23 @@ class Variador:
     def movimento(self) -> dict:
         m = self._escolher("movimento", PESOS_MOVIMENTO)
         return {"tipo": m, "intensidade": round(self.rng.uniform(0.03, 0.09), 3)}
+
+    # --- recursos da leitura visual completa (guia de estilo §10.2) ---
+    def hub(self) -> dict:
+        """Transição de seção: capa com zoom ou esteira de ícones (alterna, sem repetir sempre a mesma)."""
+        variante = self._escolher("hub", {"grade": 10, "esteira": 10})
+        return {"variante": variante, "zoom": round(self.rng.uniform(2.2, 2.8), 2)}
+
+    def dividida(self) -> dict:
+        entrada = self._escolher("dividida", {"corte": 10, "deslizar": 8, "revelar": 6})
+        return {"entrada": entrada, "separador": self.rng.choice([0, 8, 14]), "movimento": self.movimento()}
+
+    def lista(self) -> dict:
+        return {"entrada": self.imagem(), "inclinado": self.rng.random() < 0.4}
+
+    def lado(self) -> str:
+        """Lado da imagem no meio a meio: alterna, mas não como relógio."""
+        return self._escolher("lado", {"esq": 10, "dir": 10})
+
+    def lado_citacao(self) -> str:
+        return self._escolher("citacao", {"esq": 8, "dir": 8, "centro": 6})

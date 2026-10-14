@@ -7,7 +7,8 @@ from pathlib import Path
 
 from .banco import RAIZ
 
-TIPOS = ["cartao", "telacheia", "recorte", "mosaico", "clipe", "dialogo", "capa"]
+TIPOS = ["cartao", "telacheia", "recorte", "meio", "texto", "citacao", "mosaico", "dividida", "lista", "clipe",
+         "dialogo", "hub", "capa"]
 
 
 def _ler(p: Path, padrao):

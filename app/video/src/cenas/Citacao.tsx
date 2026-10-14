@@ -1,18 +1,24 @@
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { Credito } from "../componentes/CabecalhoSecao";
+import { transformMovimento } from "../efeitos";
 import { cor, fonte } from "../estilo";
-import type { Midia, Palavra } from "../tipos";
+import type { CenaCitacao, Palavra } from "../tipos";
 
-/** Citação em serifa itálica sobre arte, com faixas escuras por linha (estilo do canal). */
+/**
+ * Citação em serifa itálica sobre arte, com faixas escuras por linha e o autor embaixo.
+ * As palavras-chave acendem em vermelho no instante em que são ditas.
+ */
 export const Citacao: React.FC<{
+  cena: CenaCitacao;
   palavras: Palavra[];
-  autor: string;
-  fundo: Midia;
-  foco: [number, number];
-  destaques: number[];
-}> = ({ palavras, autor, fundo, foco, destaques }) => {
+  quadro: (palavra: number) => number;
+  duracao: number;
+}> = ({ cena, palavras, quadro, duracao }) => {
   const frame = useCurrentFrame();
-  const { fps, durationInFrames } = useVideoConfig();
-  const zoom = interpolate(frame, [0, durationInFrames], [1.0, 1.08]);
+  const p = interpolate(frame, [0, duracao], [0, 1], { extrapolateRight: "clamp" });
+  const fala = palavras.slice(cena.de, cena.ate + 1);
+  const tam = Math.max(50, Math.min(96, 118 - fala.length * 2.4));
+  const origem = `${cena.foco[0] * 100}% ${cena.foco[1] * 100}%`;
   const faixa: React.CSSProperties = {
     background: cor.faixaCitacao,
     padding: "2px 18px",
@@ -20,49 +26,58 @@ export const Citacao: React.FC<{
     boxDecorationBreak: "clone",
     WebkitBoxDecorationBreak: "clone",
   };
+  const caixa: React.CSSProperties =
+    cena.lado === "centro"
+      ? { left: 200, width: 1520, bottom: 90 }
+      : cena.lado === "esq"
+        ? { left: 60, width: 940, top: 200 }
+        : { right: 60, width: 940, top: 200 };
   return (
     <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
       <Img
-        src={staticFile(fundo.arquivo)}
+        src={staticFile(cena.midia.arquivo)}
         style={{
           width: "100%",
           height: "100%",
           objectFit: "cover",
-          objectPosition: `${foco[0] * 100}% ${foco[1] * 100}%`,
-          transform: `scale(${zoom})`,
+          objectPosition: origem,
+          transformOrigin: origem,
+          transform: transformMovimento(cena.movimento, p),
         }}
       />
       <div
         style={{
           position: "absolute",
-          left: 50,
-          top: 230,
-          width: 900,
+          ...caixa,
           textAlign: "center",
           fontFamily: fonte.citacao,
           fontStyle: "italic",
-          fontSize: 104,
+          fontSize: tam,
           lineHeight: 1.22,
           color: "#fff",
         }}
       >
         <span style={faixa}>
-          "
-          {palavras.map((p, k) => {
-            const acesa = destaques.includes(k) && frame >= Math.round(p.i * fps);
+          {"“"}
+          {fala.map((w, k) => {
+            const indice = cena.de + k;
+            const acesa = cena.destaques.includes(indice) && frame >= quadro(indice);
             return (
-              <span key={k} style={{ color: acesa ? "#ff4a4a" : "#fff" }}>
-                {p.t}
-                {k < palavras.length - 1 ? " " : ""}
+              <span key={indice} style={{ color: acesa ? "#ff4a4a" : "#fff" }}>
+                {w.t}
+                {k < fala.length - 1 ? " " : ""}
               </span>
             );
           })}
-          "
+          {"”"}
         </span>
-        <div style={{ marginTop: 18, fontSize: 84 }}>
-          <span style={faixa}>{autor}</span>
-        </div>
+        {cena.autor && (
+          <div style={{ marginTop: 16, fontSize: Math.round(tam * 0.55) }}>
+            <span style={faixa}>{cena.autor}</span>
+          </div>
+        )}
       </div>
+      <Credito texto={cena.midia.credito} />
     </AbsoluteFill>
   );
 };

@@ -26,6 +26,15 @@ type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajuste
 
 const NOME_TIPO: Record<string, string> = {
   capa: 'Capa', cartao: 'Cartão', telacheia: 'Tela cheia', recorte: 'Recorte', mosaico: 'Mosaico', clipe: 'Clipe', dialogo: 'Diálogo',
+  meio: 'Meio a meio', texto: 'Só texto', citacao: 'Citação', dividida: 'Tela dividida', lista: 'Lista', hub: 'Transição de seção',
+}
+/** Para quais tipos uma cena pode virar sem perder as imagens que já tem. */
+const UMA_IMAGEM = ['cartao', 'telacheia', 'recorte', 'meio', 'citacao']
+function tiposPossiveis(atual: string, tipos: string[]): string[] {
+  if (UMA_IMAGEM.includes(atual)) return tipos.filter((t) => UMA_IMAGEM.includes(t) || t === 'texto')
+  if (atual === 'mosaico') return ['mosaico', 'dividida', 'lista']
+  if (atual === 'dividida' || atual === 'lista') return ['dividida', 'lista']
+  return [atual]
 }
 const mmss = (s: number | null) => (s == null ? '—' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`)
 
@@ -164,7 +173,7 @@ function CartaoCena({
   useEffect(() => setLegenda(c.legenda ?? ''), [c.legenda])
 
   const temImagem = c.candidatos.length > 0
-  const usaLegenda = ['cartao', 'recorte'].includes(c.tipo)
+  const usaLegenda = ['cartao', 'recorte', 'meio', 'texto'].includes(c.tipo)
   const borda = c.removida
     ? 'border-dashed border-borda opacity-50'
     : ativa
@@ -188,7 +197,17 @@ function CartaoCena({
             <img src={arquivo(c.escolhido.miniatura)} alt="" className="h-full w-full object-cover" />
           ) : (
             <span className="grid h-full place-items-center px-2 text-center text-[11px] text-apagado">
-              {c.tipo === 'capa' ? 'capa do vídeo' : c.tipo === 'dialogo' ? 'diálogo (ícones da capa)' : 'sem imagem'}
+              {c.tipo === 'capa'
+                ? 'capa do vídeo'
+                : c.tipo === 'hub'
+                  ? 'ícones da capa (transição)'
+                  : c.tipo === 'dialogo'
+                    ? 'diálogo (ícones da capa)'
+                    : c.tipo === 'texto'
+                      ? 'só texto'
+                      : ['dividida', 'lista'].includes(c.tipo)
+                        ? 'várias imagens (uma por item)'
+                        : 'sem imagem'}
             </span>
           )}
           {c.inicio != null && (
@@ -206,10 +225,10 @@ function CartaoCena({
             <select
               value={c.tipo}
               onChange={(e) => ajustar(c.k, { acao: 'tipo', tipo: e.target.value })}
-              disabled={c.tipo === 'capa'}
+              disabled={tiposPossiveis(c.tipo, tipos).length < 2}
               className="rounded-md border border-borda bg-painel-2 px-1.5 py-0.5 text-xs"
             >
-              {tipos.map((t) => (
+              {tiposPossiveis(c.tipo, tipos).map((t) => (
                 <option key={t} value={t}>{NOME_TIPO[t] ?? t}</option>
               ))}
             </select>

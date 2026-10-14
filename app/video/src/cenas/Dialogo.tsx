@@ -1,6 +1,7 @@
 import { AbsoluteFill, interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { Icone } from "../componentes/Icone";
-import { cor, fonte } from "../estilo";
+import { fonte } from "../estilo";
+import { useCores } from "../tema";
 import type { CenaDialogo, Palavra } from "../tipos";
 
 /** Dois retratos e a fala embaixo; palavras-chave ficam vermelhas no instante em que são ditas. */
@@ -11,6 +12,7 @@ export const Dialogo: React.FC<{
 }> = ({ cena, palavras, quadro }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+  const cor = useCores();
   const fala = palavras.slice(cena.de, cena.ate + 1);
   const entrada = (atraso: number) => spring({ frame: frame - atraso, fps, config: { damping: 13, stiffness: 200 } });
   return (

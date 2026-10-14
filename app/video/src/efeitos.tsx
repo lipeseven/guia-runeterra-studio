@@ -8,7 +8,7 @@ export const EFEITOS_TEXTO = [
 ] as const;
 export const EFEITOS_IMAGEM = [
   "corte", "fade", "deslizar_esq", "deslizar_dir", "deslizar_cima",
-  "assentar", "revelar_esq", "revelar_dir", "desfoque", "pop", "giro",
+  "assentar", "revelar_esq", "revelar_dir", "desfoque", "pop", "giro", "clarao",
 ] as const;
 export const MOVIMENTOS = [
   "aproximar", "afastar", "pan_esq", "pan_dir", "subir", "descer", "parado", "aproximar_pan",
@@ -128,6 +128,8 @@ export const estiloEntradaImagem = (
     }
     case "giro":
       return { transform: `rotate(${-3 * (1 - p)}deg) scale(${0.96 + 0.04 * p})`, opacity: p };
+    case "clarao": // estoura em branco e assenta (impacto; guia de estilo §10.2)
+      return { filter: `brightness(${1 + 5 * (1 - p) ** 2})` };
     case "corte":
       return {};
   }

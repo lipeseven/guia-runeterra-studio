@@ -14,6 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from comum import PASTA_ACERVO, abrir_acervo, preparar_ffmpeg  # noqa: E402
 from direcao.variacao import Variador  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from planejar import pecas_da_cena  # noqa: E402
+
 RAIZ = Path(__file__).resolve().parents[2]
 VIDEO_APP = RAIZ / "app" / "video"
 
@@ -44,8 +47,11 @@ class Midias:
         self.con = abrir_acervo()
 
     def imagem(self, mid: int) -> dict:
-        origem = PASTA_ACERVO / self.con.execute("SELECT caminho FROM midias WHERE id=?", (mid,)).fetchone()[0]
-        return self.arquivo(origem, f"m{mid}")
+        caminho, autor = self.con.execute("SELECT caminho, autor FROM midias WHERE id=?", (mid,)).fetchone()
+        midia = self.arquivo(PASTA_ACERVO / caminho, f"m{mid}")
+        if autor:  # fan art: crédito do artista na própria cena (além da descrição)
+            midia["credito"] = f"arte: {autor}"
+        return midia
 
     def arquivo(self, origem: Path, nome: str) -> dict:
         ext = origem.suffix.lower()
@@ -91,6 +97,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         return {"nome": c["nome"], "midia": capa_midia, "foco": [c["cx"], c["cy"]], "diametro": 2 * c["r"] * 0.93}
 
     secoes = sorted(plano.get("secoes", []), key=lambda s: s["frase_inicial"])
+    modo = plano.get("modo") if plano.get("modo") in ("claro", "escuro") else "claro"
 
     def secao_da_frase(n: int) -> dict | None:
         atual = None
@@ -119,6 +126,28 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         return None
 
+    nomes_capa = [x.get("nome", "").lower() for x in circulos]
+
+    def secao_do_hub(n: int) -> dict | None:
+        """Seção que começa nesta frase — o hub fecha no personagem dela. Tolera o diretor errar por 1 frase
+        ("Evelynn." numa frase e a seção marcada na seguinte/anterior)."""
+        perto = [s for s in secoes if abs(s["frase_inicial"] - n) <= 1]
+        if perto:
+            return min(perto, key=lambda s: (abs(s["frase_inicial"] - n), -s["frase_inicial"]))
+        return next((s for s in secoes if s["frase_inicial"] >= n), None)
+
+    def pecas_montadas(k: int, c: dict, f: dict, de: int) -> list[dict]:
+        saida = []
+        for j, peca in enumerate(pecas_da_cena(c)):
+            ep = escolhido(f"C{k}p{j}")
+            if not (ep and ep["tipo"] == "midia"):
+                continue
+            pi = indice_na_frase(f, toks, peca.get("palavra"))
+            saida.append({"de": pi if pi is not None else de, "midia": m.imagem(ep["id"]), "foco": ep["foco"],
+                          "rotulo": peca.get("rotulo") or ""})
+        saida.sort(key=lambda p: p["de"])
+        return saida
+
     cenas = []
     for k, c in enumerate(plano["cenas"]):
         if c.get("removida"):
@@ -128,14 +157,29 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         legenda_em = indice_na_frase(f, toks, c.get("legenda_na_palavra"))
         base = {"k": k, "de": de, "ate": de, "semente": k, "secao": secao_da_frase(c["frase"])}
         tipo = c["tipo"]
+        legenda = c.get("legenda") or ""
 
-        if tipo == "capa":
-            if not capa_midia:
+        if tipo in ("capa", "hub"):
+            if not capa_midia or not circulos:
                 continue
-            nomes = [x.get("nome", "").lower() for x in circulos]
-            alvo = (secoes[0].get("personagem_da_capa") or "").lower() if secoes else ""
-            cenas.append({**base, "tipo": "capa", "midia": capa_midia, "circulos": circulos,
-                          "destaque": nomes.index(alvo) if alvo in nomes else 0, "zoom": round(var.rng.uniform(2.3, 2.8), 2)})
+            s = (secoes[0] if secoes else None) if tipo == "capa" else secao_do_hub(c["frase"])
+            alvo = ((s or {}).get("personagem_da_capa") or "").lower()
+            if tipo == "hub" and alvo not in nomes_capa:
+                continue  # seção sem ícone na capa: não há em quem fechar
+            destaque = nomes_capa.index(alvo) if alvo in nomes_capa else 0
+            if tipo == "capa":
+                cenas.append({**base, "tipo": "capa", "midia": capa_midia, "circulos": circulos,
+                              "destaque": destaque, "zoom": round(var.rng.uniform(2.3, 2.8), 2)})
+            else:
+                cenas.append({**base, "secao": None, "tipo": "hub", "midia": capa_midia, "circulos": circulos,
+                              "destaque": destaque, **var.hub()})
+            continue
+
+        if tipo == "texto":
+            if legenda:
+                cenas.append({**base, "tipo": "texto", "texto": legenda,
+                              "fundo": c.get("fundo") if c.get("fundo") in ("claro", "escuro") else modo,
+                              "entrada_texto": var.texto()})
             continue
 
         if tipo == "dialogo":
@@ -146,6 +190,20 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 cenas.append({**base, "tipo": "dialogo", "esquerda": esq, "direita": dir_, "destaques": destaques})
                 continue
             tipo = "cartao"  # sem ícones na capa: vira cartão
+
+        if tipo in ("dividida", "lista"):
+            pecas = pecas_montadas(k, c, f, de)
+            minimo = 2
+            if len(pecas) >= minimo:
+                pecas = pecas[:3] if tipo == "dividida" else pecas[:5]
+                pecas[0]["de"] = de
+                extra = var.dividida() if tipo == "dividida" else var.lista()
+                cenas.append({**base, "tipo": tipo, "pecas": pecas, **extra})
+            else:
+                pendencias.append({"titulo": "Cena com poucas imagens",
+                                   "texto": f"Cena {k} ({tipo}, “{f['texto'][:80]}…”): menos de 2 imagens serviram. "
+                                            "No rascunho, a cena anterior continua na tela."})
+            continue
 
         esc = escolhido(f"C{k}")
         if not esc:
@@ -167,35 +225,43 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         if midia is None:
             continue
         if tipo == "telacheia":
-            cenas.append({**base, "tipo": "telacheia", "midia": midia, "foco": esc["foco"],
-                          "movimento": var.movimento(), "entrada_img": var.imagem()})
+            cena = {**base, "tipo": "telacheia", "midia": midia, "foco": esc["foco"],
+                    "movimento": var.movimento(), "entrada_img": var.imagem()}
+            if c.get("rotulo"):
+                cena.update({"rotulo": c["rotulo"], "subrotulo": c.get("subrotulo") or "",
+                             "rotulo_em": legenda_em if legenda_em is not None else de, "entrada_rotulo": var.texto()})
+            cenas.append(cena)
         elif tipo == "recorte":
-            cenas.append({**base, "tipo": "recorte", "midia": midia, "legenda": c.get("legenda") or "",
+            cenas.append({**base, "tipo": "recorte", "midia": midia, "legenda": legenda,
                           "legenda_em": legenda_em or de, "entrada_img": var.imagem(), "entrada_legenda": var.texto()})
+        elif tipo == "meio" and legenda:
+            cenas.append({**base, "tipo": "meio", "midia": midia, "foco": esc["foco"], "lado": var.lado(),
+                          "texto": legenda, "texto_em": legenda_em if legenda_em is not None else de,
+                          "entrada_img": var.imagem(), "entrada_texto": var.texto(), "movimento": var.movimento()})
+        elif tipo == "citacao":
+            destaques = [i for w in (c.get("destaques") or []) if (i := indice_na_frase(f, toks, w)) is not None]
+            cenas.append({**base, "secao": None, "tipo": "citacao", "midia": midia, "foco": esc["foco"],
+                          "autor": c.get("autor") or "", "destaques": destaques, "lado": var.lado_citacao(),
+                          "movimento": var.movimento()})
         elif tipo == "mosaico":
-            pecas = []
-            for j, peca in enumerate(c.get("mosaico") or []):
-                ep = escolhido(f"C{k}p{j}")
-                pi = indice_na_frase(f, toks, peca.get("palavra"))
-                if ep and ep["tipo"] == "midia":
-                    pecas.append({"de": pi if pi is not None else de, "midia": m.imagem(ep["id"])})
+            pecas = pecas_montadas(k, c, f, de)
             if len(pecas) >= 2:
                 posicoes, borda = var.mosaico([p["midia"]["w"] / p["midia"]["h"] for p in pecas])
                 cenas.append({**base, "tipo": "mosaico", "fundo": midia, "movimento": var.movimento(), "borda": borda,
-                              "pecas": [{**p, **pos} for p, pos in zip(pecas, posicoes)]})
+                              "pecas": [{"de": p["de"], "midia": p["midia"], **pos} for p, pos in zip(pecas, posicoes)]})
             else:
                 cenas.append({**base, "tipo": "telacheia", "midia": midia, "foco": esc["foco"],
                               "movimento": var.movimento(), "entrada_img": var.imagem()})
-        else:  # cartao (padrão)
+        else:  # cartao (padrão; também "meio" sem texto)
             cenas.append({**base, "tipo": "cartao", "itens": [
-                {"de": de, "midia": midia, "legenda": c.get("legenda") or "", "legenda_em": legenda_em,
+                {"de": de, "midia": midia, "legenda": legenda, "legenda_em": legenda_em,
                  "entrada_img": var.imagem(), "entrada_legenda": var.texto(), "movimento": var.movimento()}]})
 
     for a, b in zip(cenas, cenas[1:]):
         a["ate"] = max(a["de"], b["de"] - 1)
     if cenas:
         cenas[-1]["ate"] = len(toks) - 1
-    trecho = {"audio": f"{slug}/voz.wav", "palavras": palavras, "cenas": cenas}
+    trecho = {"audio": f"{slug}/voz.wav", "palavras": palavras, "cenas": cenas, "tema": modo}
     return trecho, pendencias
 
 
@@ -203,6 +269,7 @@ def renderizar(trecho: dict, props: Path, saida: Path) -> float:
     """Renderiza a composição genérica "Video" com a direção dada. Devolve os segundos gastos."""
     import time
 
+    props, saida = props.resolve(), saida.resolve()  # o Remotion roda com cwd em app/video
     props.write_text(json.dumps({"trecho": trecho}, ensure_ascii=False), encoding="utf-8")
     t0 = time.time()
     temporario = saida.with_name(saida.stem + "_renderizando.mp4")

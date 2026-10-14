@@ -12,7 +12,9 @@ from pathlib import Path
 from claude_cli import chamar_json
 
 RAIZ = Path(__file__).resolve().parents[2]
-TIPOS = ("capa", "cartao", "telacheia", "recorte", "mosaico", "clipe", "dialogo")
+TIPOS = ("capa", "hub", "cartao", "telacheia", "recorte", "mosaico", "clipe", "dialogo",
+         "dividida", "lista", "meio", "texto", "citacao")
+COM_PECAS = ("mosaico", "dividida", "lista")  # tipos que usam "pecas" (uma imagem por item falado)
 
 
 def frases_do_roteiro(texto: str, palavras: list[dict]) -> list[dict]:
@@ -44,16 +46,35 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
   numa palavra de ênfase (campo "comeca_na_palavra"). Cortes caem no início de frases ou em palavras de ênfase.
 - Tipos de cena disponíveis:
   capa      — abertura: a capa do vídeo com zoom no personagem da 1ª seção. SÓ a primeira cena.
+  hub       — transição de seção: os ícones da capa voltam e a câmera fecha no personagem da seção que COMEÇA.
+              Use na frase inicial de cada seção a partir da 2ª (é onde o roteiro fala só o nome: "Nocturne."),
+              quando o personagem da seção está na capa. Sem busca.
   cartao    — fundo branco, imagem emoldurada no centro e LEGENDA curta embaixo (o "feijão com arroz").
-  telacheia — arte ocupando a tela toda (impacto, atmosfera, transição). Sem legenda.
+  telacheia — arte ocupando a tela toda (impacto, atmosfera). Pode ter "rotulo" (nome grande) e "subrotulo"
+              (descrição curta) sobre a arte, para APRESENTAR um personagem/lugar ("Raum" / "o demônio dos segredos").
   recorte   — personagem recortado sobre fundo branco + legenda (apresentar/descrever um personagem).
-  mosaico   — fundo em tela cheia + 2 a 4 imagens que entram quando cada item é falado. SÓ enumeração rápida
-              de itens do mesmo assunto. Nunca dois mosaicos seguidos.
+  meio      — meio a meio: arte numa metade da tela e uma FRASE curta (campo "legenda", até ~6 palavras) na outra.
+              Para ideias/conceitos fortes ("o poder de criar", "amaldiçoou a família real").
+  texto     — só texto, sem imagem, no branco ou no preto (campo "legenda" + "fundo": "claro"|"escuro").
+              Para conceitos abstratos, viradas e pausas dramáticas ("A Clareza", "Outra história"). Curto e raro.
+  dividida  — tela dividida: 2 ou 3 imagens em altura total lado a lado, com nome embaixo de cada ("pecas").
+              Para comparar/confrontar ou apresentar um par/trio ("Tryndamere e Ashe", "Darkin contra Ascendidos").
+  lista     — lista acumulada: 2 a 5 painéis com rótulo entrando um ao lado do outro conforme a frase enumera
+              ("pecas", cada uma com "rotulo"). Para enumerações de CONCEITOS (torturas, poderes, motivos).
+  mosaico   — fundo em tela cheia + 2 a 4 imagens que entram quando cada item é falado ("pecas"). Enumeração
+              rápida de itens do mesmo assunto, mais visual que a lista. Nunca dois mosaicos seguidos.
   clipe     — trecho de animação/cinemática (ação, revelação, emoção) quando faz sentido existir tomada disso.
   dialogo   — dois ícones e a fala entre aspas: fala atribuída a um personagem dirigida a outro.
-- Legendas: curtas (1 a 5 palavras), em português. Podem ser descritivas ("Noxus invadiu Ionia") ou,
-  com moderação, ter humor/gíria brasileira no tom do canal ("Swain é zika", "gg") — o Felipe revisa.
+  citacao   — fala/trecho CITADO de um personagem ou conto, sobre uma arte, com "autor" e "destaques"
+              (palavras que acendem em vermelho). A cena deve cobrir exatamente a frase citada.
+- Legendas/rótulos: curtos (1 a 5 palavras), em português. Podem ser descritivos ("Noxus invadiu Ionia"),
+  frases narrativas ("e aí deu ruim") ou, com moderação, ter humor/gíria brasileira no tom do canal
+  ("Swain é zika", "gg") — o Felipe revisa.
 - Seções: cada personagem/tema principal é uma seção (o nome dele fica no topo dos cartões, com o ícone da capa).
+- Modo do vídeo ("modo"): "claro" (cartões brancos, padrão do canal — explicativo, listas, humor) ou "escuro"
+  (cinematográfico — temas sombrios/épicos, guerras, horror, versus). Escolha UM pelo tom do roteiro.
+- Variedade é obrigatória: um vídeo com só cartão parece automático. Misture os tipos com sentido; nenhum tipo
+  "especial" (hub não conta) mais de 2 vezes seguidas ou dominando o vídeo.
 
 === COMO DESCREVER A BUSCA ===
 "busca.o_que" é a descrição VISUAL, em inglês, do que a imagem deve mostrar segundo o SENTIDO da frase
@@ -62,24 +83,33 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
 Para "clipe", a busca descreve a ação da tomada.
 """
 
-FORMATO = """Responda com este JSON:
+FORMATO = """Responda com este JSON (campos que não se aplicam = null):
 {
+ "modo": "claro",
  "secoes": [{"titulo": "Nome da seção", "frase_inicial": 0, "personagem_da_capa": "Nome exatamente como na capa ou null"}],
  "cenas": [
-  {"frase": 0, "comeca_na_palavra": null, "tipo": "capa", "legenda": null, "legenda_na_palavra": null,
-   "destaques": [], "busca": null, "mosaico": null, "dialogo": null},
-  {"frase": 1, "comeca_na_palavra": null, "tipo": "cartao", "legenda": "um conto infantil", "legenda_na_palavra": "conto",
-   "destaques": [], "busca": {"o_que": "...", "personagens": ["..."], "categorias": ["arte"]}, "mosaico": null, "dialogo": null},
-  {"frase": 7, "comeca_na_palavra": "Volibear", "tipo": "mosaico", "legenda": null, "legenda_na_palavra": null, "destaques": [],
-   "busca": {"o_que": "fundo...", "personagens": [], "categorias": ["arte"]},
-   "mosaico": [{"palavra": "Volibear", "busca": {"o_que": "...", "personagens": ["Volibear"], "categorias": ["splash"]}}],
-   "dialogo": null}
+  {"frase": 0, "tipo": "capa"},
+  {"frase": 1, "tipo": "cartao", "legenda": "um conto infantil", "legenda_na_palavra": "conto",
+   "busca": {"o_que": "...", "personagens": ["..."], "categorias": ["arte"]}},
+  {"frase": 3, "comeca_na_palavra": "Raum", "tipo": "telacheia", "rotulo": "Raum", "subrotulo": "o demônio dos segredos",
+   "legenda_na_palavra": "Raum", "busca": {"o_que": "...", "personagens": ["Raum"], "categorias": ["splash"]}},
+  {"frase": 5, "tipo": "meio", "legenda": "o poder de criar", "legenda_na_palavra": "criar", "busca": {...}},
+  {"frase": 6, "tipo": "texto", "legenda": "Outra história", "fundo": "escuro"},
+  {"frase": 7, "comeca_na_palavra": "Volibear", "tipo": "mosaico", "busca": {"o_que": "fundo...", "personagens": [], "categorias": ["arte"]},
+   "pecas": [{"palavra": "Volibear", "busca": {"o_que": "...", "personagens": ["Volibear"], "categorias": ["splash"]}}]},
+  {"frase": 9, "tipo": "dividida", "pecas": [{"palavra": "Ashe", "rotulo": "Ashe", "busca": {...}},
+                                            {"palavra": "Tryndamere", "rotulo": "Tryndamere", "busca": {...}}]},
+  {"frase": 11, "tipo": "lista", "pecas": [{"palavra": "nervos", "rotulo": "nervos cutucados", "busca": {...}}, ...]},
+  {"frase": 12, "tipo": "hub"},
+  {"frase": 14, "tipo": "citacao", "autor": "Sion, na Mente da Loucura", "destaques": ["sangue"], "busca": {...}},
+  {"frase": 15, "tipo": "dialogo", "dialogo": {"esquerda": "Quem fala", "direita": "Quem ouve", "destaques": ["palavra"]}}
  ],
  "observacoes": "1 a 3 frases sobre escolhas que o Felipe deve conferir"
 }
-Regras do JSON: "frase" é o número [n] da frase; "comeca_na_palavra" e "legenda_na_palavra" são palavras que
-EXISTEM naquela frase (copie exatamente); as cenas estão em ordem e cobrem o roteiro inteiro;
-"dialogo" = {"esquerda": "Personagem que fala", "direita": "Personagem ouvinte", "destaques": ["palavra"]}."""
+Regras do JSON: "frase" é o número [n] da frase; "comeca_na_palavra", "legenda_na_palavra", "destaques" e
+"pecas[].palavra" são palavras que EXISTEM naquela frase (copie exatamente); as cenas estão em ordem e cobrem o
+roteiro inteiro; "pecas" (mosaico/dividida/lista) entram na ordem em que as palavras são faladas — a 1ª peça
+entra junto com a cena; dividida = 2 ou 3 peças, lista = 2 a 5, mosaico = 2 a 4."""
 
 
 def montar_prompt(frases: list[dict], nomes_capa: list[str]) -> str:
@@ -105,11 +135,34 @@ def validar(plano: dict, frases: list[dict]) -> list[str]:
             problemas.append(f"cena {k}: fora de ordem")
         ultima = n
         palavras = [re.sub(r"[^\wÀ-ú-]", "", w).lower() for w in frases[n]["texto"].split()]
+        existe = lambda w: re.sub(r"[^\wÀ-ú-]", "", w).lower() in palavras  # noqa: E731
         for campo in ("comeca_na_palavra", "legenda_na_palavra"):
             w = c.get(campo)
-            if w and re.sub(r"[^\wÀ-ú-]", "", w).lower() not in palavras:
+            if w and not existe(w):
                 problemas.append(f"cena {k}: {campo} {w!r} não está na frase {n}")
+        tipo = c.get("tipo")
+        if tipo in COM_PECAS:
+            pecas = pecas_da_cena(c)
+            minimo, maximo = {"dividida": (2, 3), "lista": (2, 5), "mosaico": (2, 4)}[tipo]
+            if not minimo <= len(pecas) <= maximo:
+                problemas.append(f"cena {k}: {tipo} precisa de {minimo} a {maximo} peças (tem {len(pecas)})")
+            for p in pecas:
+                if p.get("palavra") and not existe(p["palavra"]):
+                    problemas.append(f"cena {k}: peça com palavra {p['palavra']!r} que não está na frase {n}")
+                if not p.get("busca"):
+                    problemas.append(f"cena {k}: peça sem busca")
+        if tipo in ("meio", "texto") and not c.get("legenda"):
+            problemas.append(f"cena {k}: {tipo} precisa de \"legenda\" (o texto da cena)")
+        if tipo in ("cartao", "telacheia", "recorte", "meio", "citacao", "clipe", "mosaico") and not c.get("busca"):
+            problemas.append(f"cena {k}: {tipo} precisa de \"busca\"")
+    if plano.get("modo") not in ("claro", "escuro"):
+        problemas.append('"modo" deve ser "claro" ou "escuro"')
     return problemas
+
+
+def pecas_da_cena(c: dict) -> list[dict]:
+    """Peças de mosaico/dividida/lista. Planos antigos usavam o campo "mosaico"."""
+    return c.get("pecas") or c.get("mosaico") or []
 
 
 def planejar(texto: str, palavras: list[dict], nomes_capa: list[str], modelo: str = "opus") -> tuple[dict, list[dict]]:

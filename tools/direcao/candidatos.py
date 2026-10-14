@@ -15,18 +15,27 @@ POR_NECESSIDADE = 4
 PASTA_TOMADAS = Path(__file__).resolve().parents[2] / "dados" / "acervo" / "tomadas"
 
 
+SEM_MIDIA = ("capa", "hub", "dialogo", "texto")
+SEM_MIDIA_PRINCIPAL = ("dividida", "lista")  # só as peças têm imagem
+
+
 def necessidades(plano: dict, frases: list[dict]) -> list[dict]:
-    """Tudo que precisa de mídia: cenas com busca e cada peça de mosaico."""
+    """Tudo que precisa de mídia: cenas com busca e cada peça de mosaico/dividida/lista."""
+    from planejar import pecas_da_cena
+
     saida = []
     for k, c in enumerate(plano["cenas"]):
-        if c["tipo"] in ("capa", "dialogo") or not c.get("busca"):
+        if c["tipo"] in SEM_MIDIA:
             continue
         texto = frases[c["frase"]]["texto"]
-        saida.append({"id": f"C{k}", "cena": k, "tipo": c["tipo"], "busca": c["busca"], "frase": texto,
-                      "legenda": c.get("legenda")})
-        for j, peca in enumerate(c.get("mosaico") or []):
-            saida.append({"id": f"C{k}p{j}", "cena": k, "peca": j, "tipo": "peca", "busca": peca["busca"],
-                          "frase": texto, "legenda": peca.get("palavra")})
+        if c.get("busca") and c["tipo"] not in SEM_MIDIA_PRINCIPAL:
+            saida.append({"id": f"C{k}", "cena": k, "tipo": c["tipo"], "busca": c["busca"], "frase": texto,
+                          "legenda": c.get("legenda") or c.get("rotulo")})
+        if c["tipo"] in ("mosaico", "dividida", "lista"):
+            for j, peca in enumerate(pecas_da_cena(c)):
+                if peca.get("busca"):
+                    saida.append({"id": f"C{k}p{j}", "cena": k, "peca": j, "tipo": "peca", "busca": peca["busca"],
+                                  "frase": texto, "legenda": peca.get("rotulo") or peca.get("palavra")})
     return saida
 
 
