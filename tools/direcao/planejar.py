@@ -81,8 +81,8 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
 - O padrão do canal é VOZ PURA (medido nos vídeos de referência). Efeito sonoro é tempero raro e com sentido:
   em média no máximo 1 a cada ~40 s, só em momentos marcantes — revelação, golpe/batalha, magia, criatura,
   morte, explosão, sino/presságio. Na grande maioria das cenas: "som": null.
-- "som": {"o_que": "descrição do som em inglês (ex.: 'deep cinematic boom', 'crows cawing', 'sword clash')",
-  "palavra": "palavra da frase em que o som bate"}.
+- "som": {{"o_que": "descrição do som em inglês (ex.: 'deep cinematic boom', 'crows cawing', 'sword clash')",
+  "palavra": "palavra da frase em que o som bate"}}.
 - Nunca em cenas seguidas, nunca o mesmo tipo de som duas vezes seguidas, nada de whoosh em corte. Metáforas
   não viram som literal ("devorar nações" não leva som de mastigar).
 
