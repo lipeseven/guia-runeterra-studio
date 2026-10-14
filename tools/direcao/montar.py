@@ -55,10 +55,14 @@ class Midias:
 
     def arquivo(self, origem: Path, nome: str) -> dict:
         ext = origem.suffix.lower()
-        if ext in (".jpg", ".jpeg", ".png"):
+        animado = False
+        if ext == ".gif":
+            with Image.open(origem) as im:
+                animado = getattr(im, "n_frames", 1) > 1
+        if ext in (".jpg", ".jpeg", ".png") or animado:  # GIF animado vai como GIF (o Remotion anima com <Gif>)
             destino = self.pasta / f"{nome}{'.jpg' if ext == '.jpeg' else ext}"
             shutil.copyfile(origem, destino)
-        else:  # webp, avif, jfif, gif (1º quadro), jpg_large...
+        else:  # webp, avif, jfif, gif parado, jpg_large...
             destino = self.pasta / f"{nome}.png"
             with Image.open(origem) as im:
                 im.seek(0)

@@ -1,4 +1,5 @@
-import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
+import { Figura } from "../componentes/Figura";
 import { Credito, sombraTexto } from "../componentes/CabecalhoSecao";
 import { transformMovimento } from "../efeitos";
 import { fonte } from "../estilo";
@@ -33,23 +34,17 @@ export const Dividida: React.FC<{ cena: CenaDividida; quadro: (palavra: number) 
             : cena.entrada === "revelar"
               ? { clipPath: `inset(0 0 ${100 * (1 - e)}% 0)` }
               : {};
-        const foco = peca.foco ?? [0.5, 0.4];
-        const origem = `${foco[0] * 100}% ${foco[1] * 100}%`;
         return (
           <div
             key={k}
             style={{ position: "absolute", top: 0, left: k * (larg + cena.separador), width: larg, height: 1080, overflow: "hidden", ...entrada }}
           >
-            <Img
-              src={staticFile(peca.midia.arquivo)}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: origem,
-                transformOrigin: origem,
-                transform: transformMovimento(cena.movimento, p),
-              }}
+            <Figura
+              midia={peca.midia}
+              largura={larg}
+              altura={1080}
+              foco={peca.foco ?? [0.5, 0.4]}
+              style={{ transform: transformMovimento(cena.movimento, p) }}
             />
             {peca.rotulo && (
               <div

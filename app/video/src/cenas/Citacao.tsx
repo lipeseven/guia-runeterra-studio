@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
+import { Figura } from "../componentes/Figura";
 import { Credito } from "../componentes/CabecalhoSecao";
 import { transformMovimento } from "../efeitos";
 import { cor, fonte } from "../estilo";
@@ -18,7 +19,6 @@ export const Citacao: React.FC<{
   const p = interpolate(frame, [0, duracao], [0, 1], { extrapolateRight: "clamp" });
   const fala = palavras.slice(cena.de, cena.ate + 1);
   const tam = Math.max(50, Math.min(96, 118 - fala.length * 2.4));
-  const origem = `${cena.foco[0] * 100}% ${cena.foco[1] * 100}%`;
   const faixa: React.CSSProperties = {
     background: cor.faixaCitacao,
     padding: "2px 18px",
@@ -34,16 +34,12 @@ export const Citacao: React.FC<{
         : { right: 60, width: 940, top: 200 };
   return (
     <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
-      <Img
-        src={staticFile(cena.midia.arquivo)}
-        style={{
-          width: "100%",
-          height: "100%",
-          objectFit: "cover",
-          objectPosition: origem,
-          transformOrigin: origem,
-          transform: transformMovimento(cena.movimento, p),
-        }}
+      <Figura
+        midia={cena.midia}
+        largura={1920}
+        altura={1080}
+        foco={cena.foco}
+        style={{ transform: transformMovimento(cena.movimento, p) }}
       />
       <div
         style={{

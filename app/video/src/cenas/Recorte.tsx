@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
+import { Figura } from "../componentes/Figura";
 import { CabecalhoSecao, Legenda } from "../componentes/CabecalhoSecao";
 import { estiloEntradaImagem } from "../efeitos";
 import { useCores } from "../tema";
@@ -29,7 +30,7 @@ export const Recorte: React.FC<{
           ...estiloEntradaImagem(frame, fps, 0, cena.entrada_img),
         }}
       >
-        <Img src={staticFile(cena.midia.arquivo)} style={{ width: "100%", height: "100%" }} />
+        <Figura midia={cena.midia} largura={largura} altura={altura} ajuste="fill" />
       </div>
       <Legenda texto={cena.legenda} desde={quadro(cena.legenda_em)} entrada={cena.entrada_legenda} />
       {secao && <CabecalhoSecao secao={secao} />}

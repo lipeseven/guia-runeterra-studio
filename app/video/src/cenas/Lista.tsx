@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { Figura } from "../componentes/Figura";
 import { CabecalhoSecao } from "../componentes/CabecalhoSecao";
 import { estiloEntradaImagem } from "../efeitos";
 import { fonte } from "../estilo";
@@ -49,10 +50,7 @@ export const Lista: React.FC<{ cena: CenaLista; secao?: Secao; quadro: (palavra:
             }}
           >
             <div style={{ width: larg, height: alt, overflow: "hidden", transform: `rotate(${giro}deg)`, background: "#222" }}>
-              <Img
-                src={staticFile(peca.midia.arquivo)}
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: `${foco[0] * 100}% ${foco[1] * 100}%` }}
-              />
+              <Figura midia={peca.midia} largura={larg} altura={alt} foco={foco} />
             </div>
             {peca.rotulo && (
               <div

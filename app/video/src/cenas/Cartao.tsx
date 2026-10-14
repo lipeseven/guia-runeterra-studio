@@ -1,5 +1,6 @@
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import { CabecalhoSecao, Credito, Legenda } from "../componentes/CabecalhoSecao";
+import { Figura } from "../componentes/Figura";
 import { estiloEntradaImagem, transformMovimento, type EfeitoImagem, type Entrada, type Movimento } from "../efeitos";
 import { useCores } from "../tema";
 import type { CenaCartao, Midia, Secao } from "../tipos";
@@ -32,10 +33,7 @@ export const ImagemNaCaixa: React.FC<{
         ...estiloEntradaImagem(frame, fps, desde, entrada),
       }}
     >
-      <Img
-        src={staticFile(midia.arquivo)}
-        style={{ width: "100%", height: "100%", transform: transformMovimento(movimento, p) }}
-      />
+      <Figura midia={midia} largura={w} altura={h} ajuste="fill" style={{ transform: transformMovimento(movimento, p) }} />
       <Credito texto={midia.credito} direita={12} baixo={8} />
     </div>
   );

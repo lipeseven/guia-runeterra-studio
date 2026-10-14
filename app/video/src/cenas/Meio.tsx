@@ -1,4 +1,5 @@
-import { AbsoluteFill, Img, interpolate, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
+import { AbsoluteFill, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
+import { Figura } from "../componentes/Figura";
 import { Credito } from "../componentes/CabecalhoSecao";
 import { EntradaTexto, estiloEntradaImagem, transformMovimento } from "../efeitos";
 import { fonte } from "../estilo";
@@ -15,7 +16,6 @@ export const Meio: React.FC<{ cena: CenaMeio; quadro: (palavra: number) => numbe
   const { fps } = useVideoConfig();
   const cores = useCores();
   const p = interpolate(frame, [0, duracao], [0, 1], { extrapolateRight: "clamp" });
-  const origem = `${cena.foco[0] * 100}% ${cena.foco[1] * 100}%`;
   const imgEsq = cena.lado === "esq";
   const tam = cena.texto.length > 40 ? 76 : cena.texto.length > 22 ? 92 : 112;
   return (
@@ -31,16 +31,12 @@ export const Meio: React.FC<{ cena: CenaMeio; quadro: (palavra: number) => numbe
           ...estiloEntradaImagem(frame, fps, 0, cena.entrada_img),
         }}
       >
-        <Img
-          src={staticFile(cena.midia.arquivo)}
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "cover",
-            objectPosition: origem,
-            transformOrigin: origem,
-            transform: transformMovimento(cena.movimento, p),
-          }}
+        <Figura
+          midia={cena.midia}
+          largura={960}
+          altura={1080}
+          foco={cena.foco}
+          style={{ transform: transformMovimento(cena.movimento, p) }}
         />
         <Credito texto={cena.midia.credito} direita={16} baixo={10} />
       </div>

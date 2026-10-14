@@ -1,4 +1,5 @@
-import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
+import { Figura } from "../componentes/Figura";
 import { transformMovimento } from "../efeitos";
 import type { CenaMosaico } from "../tipos";
 
@@ -17,10 +18,7 @@ export const Mosaico: React.FC<{
   const p = interpolate(frame, [0, duracao], [0, 1], { extrapolateRight: "clamp" });
   return (
     <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
-      <Img
-        src={staticFile(cena.fundo.arquivo)}
-        style={{ width: "100%", height: "100%", objectFit: "cover", transform: transformMovimento(cena.movimento, p) }}
-      />
+      <Figura midia={cena.fundo} largura={1920} altura={1080} style={{ transform: transformMovimento(cena.movimento, p) }} />
       {cena.pecas.map((peca, k) => {
         const inicio = Math.max(0, quadro(peca.de));
         const e = interpolate(frame, [inicio, inicio + peca.quadros], [0, 1], {
@@ -47,7 +45,7 @@ export const Mosaico: React.FC<{
               background: "#111",
             }}
           >
-            <Img src={staticFile(peca.midia.arquivo)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <Figura midia={peca.midia} largura={peca.largura} altura={altura} />
           </div>
         );
       })}
