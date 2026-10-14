@@ -1,11 +1,12 @@
-# Guia de estilo — Guia de Runeterra (v0.1)
+# Guia de estilo — Guia de Runeterra (v1.0)
 
-Extraído dos 10 vídeos de referência em `recursos de vídeo para aprender/`.
-Dados brutos: `dados/analise_referencias/` (cortes, transcrições, folhas de contato, `estatisticas.json`).
+Extraído dos 10 vídeos de referência + 1 do Felipe em `recursos de vídeo para aprender/`.
+Dados brutos: `dados/analise_referencias/` (cortes, transcrições, folhas de contato, `estatisticas.json`,
+som separado, `leitura_visual.md` com as anotações brutas por vídeo).
 Ferramentas: `tools/analise_referencias/`.
 
-> Versão 0.1: estatísticas cobrem os 10 vídeos; a leitura visual detalhada foi feita em
-> 2 deles ("The Darkin…" e "The Most Terrifying Characters…"). Ampliar conforme necessário.
+> v1.0 (2026-10-14): estatísticas, transcrição, som e **leitura visual dos 11 vídeos** (todas as folhas de
+> contato). Seções 3–4 da v0.1 continuam valendo; a seção 10 traz o que a leitura completa acrescentou.
 
 ## 1. Formato geral
 
@@ -109,4 +110,55 @@ o analisador descarta esses vazamentos.
 
 ## 9. Em aberto
 
-- Leitura visual detalhada dos outros 8 vídeos (layouts, textos, mosaicos, transições visuais).
+- Nada pendente de análise. Próximo passo é construir os recursos da seção 10 que o Felipe escolher.
+
+## 10. Leitura visual completa (v1.0)
+
+### 10.1 Cada vídeo tem um "modo" — e o modo muda o visual inteiro
+
+| Modo | Vídeos | Visual |
+|---|---|---|
+| **Branco/explicativo** | Demons, Most Powerful 1 e 2, Major Events, Suffered | cartões brancos, recortes, legendas, memes |
+| **Escuro/cinematográfico** | Biggest Threat, Aatrox vs Mordekaiser | quase sem branco; título da seção no topo sobre a arte, telas divididas, citações no preto |
+| **Narrativo longo** | Every Couple | cenas de 10–40 s, quadrinhos percorridos, cinemáticas (Arcane) |
+| **Versus** | Aatrox vs Mordekaiser | placar por categoria ("Power", "Feats", "Battle IQ"), arte gráfica alto contraste |
+
+→ O diretor deve escolher um modo **por vídeo** (pelo tema) e variar entre vídeos: um canal que faz todo vídeo
+igual parece automatizado.
+
+### 10.2 Recursos encontrados que ainda NÃO temos no Remotion
+
+| Recurso | Como é | Onde apareceu |
+|---|---|---|
+| **Hub de seção** | a grade/esteira de ícones volta entre TODAS as seções e dá zoom (ou desliza) até o ícone da próxima — é a transição de seção | todos os vídeos com lista |
+| **Tela dividida** | 2 (ou 3) imagens em altura total lado a lado, nome de cada lado; às vezes um círculo no meio com um detalhe | Couples, Aatrox, Suffered, Threat |
+| **Meio a meio** | arte em metade da tela + frase curta no branco da outra metade | Most Powerful 2, Demons ("10 Kings") |
+| **Texto sozinho** | frase/conceito no branco ou no preto, sem imagem ("Another story", "The Clarity", "Being") | quase todos |
+| **Lista acumulada** | painéis com legenda entrando lado a lado conforme a narração enumera | Suffered, Most Powerful 2 |
+| **Comparação construída** | 2 imagens rotuladas entram uma por vez ("villain" → "savior") | Most Powerful |
+| **Linha do tempo** | ícones sobre uma linha com datas; cartão só com a data grande; nome do evento + intervalo | Major Events, Aatrox |
+| **Mapa** | mapa com zoom na região e rótulo; regiões coloridas com nomes | Major Events |
+| **Diagrama** | ícones ligados por linhas (triângulo do Trifarix, pares de casais com tipo de relação) | Major Events, Couples |
+| **Nome sobre arte** | nome grande + subtítulo pequeno colado no personagem ("Raum / the demon of secrets") | Threat, Aatrox, Suffered |
+| **Título da seção no topo da arte escura** | variação do marcador de seção para o modo escuro | Threat, Suffered |
+| **Quadrinho percorrido** | página de HQ com pan/zoom de painel em painel | Couples |
+| **Clarão branco** | 2–6 quadros brancos como impacto/transição dentro de cinemática | Most Powerful 2, Couples |
+| **Montagem relâmpago** | cortes de 0,1–0,5 s (clímax de cinemática ou piada com o fundo trocando) | Aatrox, Threat |
+| **Anotação com seta** | seta desenhada apontando um detalhe ("wings ←", "→ Avarosa") | Aatrox, Major Events |
+| **Personagem + reação** | ícone do personagem com nome e, ao lado, meme/emoji com fala ("Rell" + "I'm in") | Suffered, Most Powerful |
+| **Crédito de fan art na cena** | linha pequena embaixo da imagem com o nome do artista | Couples |
+| **Fonte na cena** | "in-game voice lines", "The Call Cinematic" em letra pequena | Most Powerful, Aatrox |
+| **Aviso de spoiler** | cartão "spoilers warning" com recorte do personagem | Couples |
+
+### 10.3 Padrões confirmados nos 11
+- Legendas curtas em minúsculas, descritivas OU frases narrativas ("two realms emerged",
+  "maybe this wasn't a good idea") OU piada — misturadas.
+- Memes e fotos reais em todos os vídeos (a cada 1–3 min), sempre ligados ao sentido da frase.
+- Final: metade termina seco, metade com CTA ("have I missed anything?", "thanks for watching").
+  O Guia de Runeterra mantém o CTA próprio dele (seção 7).
+
+### 10.4 Marcas registradas da referência — NÃO copiar
+- O **emoji amarelo apontando** e o **boneco-bolha desenhado** que reaparecem dezenas de vezes, o Poro do
+  final, "if you've made it this far…", a abertura "A long time ago in a galaxy far, far away…".
+- São a identidade do @explainedbynavi. Copiar isso é o que faria o Guia de Runeterra parecer cópia.
+  Se o Felipe quiser um mascote/bordão recorrente, que seja **dele** (ex.: um meme brasileiro fixo).
