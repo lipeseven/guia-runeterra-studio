@@ -56,6 +56,9 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   1280×720 da capa. "Marcar como publicado" (ou arrastar p/ Publicado) registra mídias em `uso_midia` (acervo.db; o
   diretor penaliza as dos últimos 3 vídeos) e ARQUIVA (pede confirmação): tudo vai para a Lixeira, só fica
   `projetos/<slug>/capa.*` para o card. Publicado é definitivo: não sai da coluna, página vira resumo (capa, link, histórico).
+- Referências 100% analisadas (2026-10-14): som (`separar_sons.py` Demucs + `analisar_sons.py` CLAP — padrão é voz
+  pura, efeito é raro) e leitura visual dos 11 vídeos → guia de estilo v1.0 (seção 10: modos por vídeo e recursos
+  que ainda faltam no Remotion). Stable Audio Open (diffusers, ~30 s/efeito, 5,9 GB VRAM) e Freesound prontos.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: efeitos sonoros (Freesound + Stable Audio Open),
   falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).
