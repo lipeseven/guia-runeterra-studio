@@ -86,7 +86,27 @@ cinemáticas. O que é **próprio do canal** e deve prevalecer sobre as referên
   deixem sugestões… Valeu, falou e um abraço") — diferente das referências, que terminam seco.
 - Whisper em PT também erra nomes: "Asacanas" (Azakanas), "Ione" (Yone), "guerras rônicas" (rúnicas).
 
-## 8. Em aberto
+## 8. Som (efeitos e trilha) — analisado nos 11 vídeos
 
-- Efeitos sonoros: ainda não analisados (quais sons, em que momentos).
-- Transições: aparentemente cortes secos; confirmar se há whoosh/flash.
+Como foi medido: Demucs separa a narração do resto (`tools/analise_referencias/separar_sons.py`); no que sobra,
+`analisar_sons.py` detecta picos acima do fundo, classifica com CLAP (local) e mede volume vs. voz.
+Dados: `dados/analise_referencias/sons_resumo.json`, `<vídeo>/som/eventos.json`; exemplos em `sons_exemplos/`.
+Cuidado: o Demucs deixa vazar consoantes da voz como "pops" (~100% em cima da fala, até no vídeo do Felipe) —
+o analisador descarta esses vazamentos.
+
+- **O padrão é voz pura.** Em 8 dos 11 vídeos (incluindo o do Felipe) não há trilha audível (fundo ≈ -40 dB
+  da voz = resíduo da separação) e quase nenhum efeito: **0 a 0,4 efeito por minuto**.
+- **Transições são cortes secos**, sem whoosh: só 2–15% dos sons coincidem com um corte de cena.
+- Os poucos sons dos vídeos "secos" são pontuais e temáticos (vidro quebrando, espada, sino, magia), quase
+  sempre de clipes do jogo ou de um momento marcante — não decoração.
+- **Exceções:**
+  - "The Demons…" (10 min): trilha tensa contínua a ~-19 dB da voz + ~3,7 efeitos/min (explosões, batidas,
+    criaturas) fortes (~-7 dB da voz).
+  - "Aatrox vs Mordekaiser": trilha com batida só nos primeiros 7 minutos (-24 a -33 dB), depois silêncio.
+- **Implicação para o Guia de Runeterra** (que já é sem trilha, por escolha do Felipe): efeito sonoro é tempero
+  raro e com sentido — no máximo ~1–2 por minuto, ancorado em palavra/momento marcante (revelação, golpe, magia,
+  criatura, nome que abre seção), volume bem abaixo da voz (-12 a -18 dB), nunca em todo corte. Variar sempre.
+
+## 9. Em aberto
+
+- Leitura visual detalhada dos outros 8 vídeos (layouts, textos, mosaicos, transições visuais).
