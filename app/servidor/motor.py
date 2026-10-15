@@ -66,9 +66,10 @@ def ao_mover(con, vid: int, para: str) -> None:
     elif para == "roteiro" and etapa["status"] != "concluido":
         pasta_do_video(v["slug"])
         if not tem_roteiro:
-            atualizar_etapa(con, vid, "roteiro", "atencao", "aguardando roteiro", "envie o .txt")
-            abrir_pendencia(con, vid, "enviar_roteiro", "roteiro", "Envie o roteiro",
-                            "Arraste o .txt do roteiro no painel “Roteiro”, logo abaixo.")
+            atualizar_etapa(con, vid, "roteiro", "atencao", "aguardando roteiro", "envie o .txt ou gere")
+            abrir_pendencia(con, vid, "enviar_roteiro", "roteiro", "Envie ou gere o roteiro",
+                            "No painel “Roteiro”, logo abaixo: arraste o .txt, cole o texto ou gere com o Claude "
+                            "(do zero ou a partir de um roteiro base).")
             registrar(con, vid, "Pasta do vídeo pronta; aguardando roteiro", "info")
         else:  # voltou de Ideia com roteiro já enviado, mas não aprovado
             con.execute("UPDATE etapas SET status='atencao', detalhe=?, atualizado_em=? WHERE video_id=? AND chave='roteiro'",
@@ -570,8 +571,52 @@ def tarefa_rascunho(vid: int) -> None:
     montar_e_renderizar(vid, slug, palavras, frases, plano, necs, escolhas, capa, circulos, primeira_vez=False)
 
 
+def pedir_roteiro(con, vid: int, pedido: dict) -> None:
+    """Guarda o pedido (gerar/ajustar) e põe na fila. O pedido fica no disco: "Tentar de novo" refaz igual."""
+    v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+    pasta = pasta_do_video(v["slug"])
+    (pasta / "direcao" / "pedido_roteiro.json").write_text(json.dumps(pedido, ensure_ascii=False, indent=1),
+                                                          encoding="utf-8")
+    texto = "escrevendo o roteiro…" if pedido["acao"] == "gerar" else "aplicando o ajuste…"
+    con.execute("UPDATE etapas SET status='andamento', detalhe=?, atualizado_em=? WHERE video_id=? AND chave='roteiro'",
+                (texto, agora(), vid))
+    fechar_pendencia(con, vid, "enviar_roteiro")
+    fechar_pendencia(con, vid, "erro_roteiro")
+    registrar(con, vid, "Roteirista: " + ("gerando roteiro" if pedido["acao"] == "gerar" else f"ajuste — {pedido['pedido'][:80]}"),
+              "info")
+    FILA.put((vid, "roteiro"))
+
+
+def tarefa_roteiro(vid: int) -> None:
+    """Gera (do zero ou a partir de um roteiro base) ou ajusta o roteiro com o Claude; vira uma versão nova."""
+    from . import roteirista
+
+    with conectar() as con:
+        v = con.execute("SELECT slug, titulo FROM videos WHERE id=?", (vid,)).fetchone()
+    pasta = pasta_do_video(v["slug"])
+    pedido = json.loads((pasta / "direcao" / "pedido_roteiro.json").read_text(encoding="utf-8"))
+    if pedido["acao"] == "gerar":
+        texto = roteirista.gerar(pedido.get("titulo") or v["titulo"], float(pedido.get("minutos") or 20),
+                                 pedido.get("notas") or "", pedido.get("base"))
+        nome, resumo = ("gerado a partir do roteiro base" if pedido.get("base") else "gerado pelo Claude"), "roteiro gerado"
+    else:
+        atual = ler_roteiro(v["slug"])
+        if not atual:
+            raise RuntimeError("não há roteiro para ajustar")
+        texto, resumo = roteirista.ajustar(atual, pedido["pedido"], roteirista.historico(pasta))
+        nome = "ajuste: " + pedido["pedido"][:60]
+    with conectar() as con:
+        est = receber_roteiro(con, vid, texto, nome)
+        versao = len(list((pasta / "direcao").glob("roteiro_v*.txt")))
+        roteirista.anotar(pasta, {"quando": agora(), "acao": pedido["acao"], "pedido": pedido.get("pedido") or
+                                  pedido.get("notas") or "", "resumo": resumo, "versao": versao,
+                                  "palavras": est["palavras"]})
+        con.commit()
+
+
 TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
-           "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao}
+           "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
+           "roteiro": tarefa_roteiro}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 

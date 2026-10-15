@@ -163,6 +163,73 @@ def enviar_roteiro(vid: int, corpo: Roteiro):
     return est
 
 
+class GerarRoteiro(BaseModel):
+    minutos: float = 20
+    notas: str = ""
+    base: str | None = None  # roteiro base (canal gringo): só fatos/temas, nunca tradução
+    titulo: str | None = None
+
+
+class AjustarRoteiro(BaseModel):
+    pedido: str
+
+
+def _roteirista_livre(con, vid: int) -> None:
+    r = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='roteiro'", (vid,)).fetchone()
+    if not r:
+        raise HTTPException(404)
+    if r["status"] == "andamento":
+        raise HTTPException(409, "o roteirista ainda está trabalhando neste roteiro")
+
+
+@app.post("/api/videos/{vid}/roteiro/gerar")
+def gerar_roteiro(vid: int, corpo: GerarRoteiro):
+    with conectar() as con:
+        _roteirista_livre(con, vid)
+        motor.pedir_roteiro(con, vid, {"acao": "gerar", **corpo.model_dump()})
+        con.commit()
+    return {"ok": True}
+
+
+@app.post("/api/videos/{vid}/roteiro/ajustar")
+def ajustar_roteiro(vid: int, corpo: AjustarRoteiro):
+    if len(corpo.pedido.strip()) < 3:
+        raise HTTPException(400, "escreva o que quer mudar")
+    with conectar() as con:
+        _roteirista_livre(con, vid)
+        if not motor.ler_roteiro(con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]):
+            raise HTTPException(400, "ainda não há roteiro para ajustar")
+        motor.pedir_roteiro(con, vid, {"acao": "ajustar", "pedido": corpo.pedido.strip()})
+        con.commit()
+    return {"ok": True}
+
+
+@app.get("/api/videos/{vid}/roteiro/historico")
+def historico_roteiro(vid: int):
+    from . import roteirista
+
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    return {"conversa": roteirista.historico(pasta), "versoes": roteirista.versoes(pasta)}
+
+
+class Restaurar(BaseModel):
+    versao: int
+
+
+@app.post("/api/videos/{vid}/roteiro/restaurar")
+def restaurar_roteiro(vid: int, corpo: Restaurar):
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+        _roteirista_livre(con, vid)
+        arq = pasta / "direcao" / f"roteiro_v{corpo.versao}.txt"
+        if not arq.exists():
+            raise HTTPException(404, "versão não encontrada")
+        est = motor.receber_roteiro(con, vid, arq.read_text(encoding="utf-8"), f"volta para a v{corpo.versao}")
+        con.commit()
+    return est
+
+
 @app.post("/api/videos/{vid}/roteiro/aprovar")
 def aprovar_roteiro(vid: int):
     with conectar() as con:
