@@ -45,62 +45,108 @@ def id_da_cena(c: dict, k: int) -> str:
     return c.get("id") or f"C{k}"
 
 
-def _pontuar(con, mid: int, nota: float, busca: dict, tipo: str) -> float:
-    r = con.execute("SELECT categoria, personagens, transparente, tipo FROM midias WHERE id=?", (mid,)).fetchone()
-    pers = {p.lower() for p in json.loads(r["personagens"] or "[]")}
-    alvo = {p.lower() for p in busca.get("personagens") or []}
-    bonus = 0.0
-    if alvo and pers & alvo:
-        bonus += 0.08
-    elif alvo and pers and not pers & alvo:
-        bonus -= 0.05  # imagem claramente de OUTRO personagem
-    if r["categoria"] in (busca.get("categorias") or []):
-        bonus += 0.03
-    if tipo == "recorte":
-        bonus += 0.10 if r["transparente"] or r["categoria"] == "recorte" else -0.10
-    if r["categoria"] == "canal":
-        bonus -= 0.5  # material do canal (logos, thumbs) não é ilustração
-    # memória de uso: imagem usada nos últimos vídeos publicados fica menos provável (não some de vez)
-    recentes = [x[0] for x in con.execute(
-        "SELECT video FROM uso_midia GROUP BY video ORDER BY MAX(publicado_em) DESC LIMIT 3").fetchall()]
-    if recentes and con.execute(f"SELECT 1 FROM uso_midia WHERE midia_id=? AND video IN ({','.join('?' * len(recentes))})",
-                                (mid, *recentes)).fetchone():
-        bonus -= 0.06
-    return nota + bonus
+class Acervo:
+    """Metadados do acervo carregados UMA vez por direção (a busca agora compara com o acervo inteiro)."""
+
+    def __init__(self, con):
+        self.con = con
+        self.info = {r["id"]: {"nome": r["nome"], "tipo": r["tipo"], "categoria": r["categoria"],
+                               "transparente": r["transparente"],
+                               "pers": {_sem_acento(p) for p in json.loads(r["personagens"] or "[]")}}
+                     for r in con.execute("SELECT id, nome, tipo, categoria, transparente, personagens FROM midias")}
+        # vocabulário: todo personagem/lugar/facção etiquetado no acervo ("xolaani", "camavor", "noxus"…)
+        self.vocab = sorted({p for i in self.info.values() for p in i["pers"]}, key=len, reverse=True)
+        recentes = [x[0] for x in con.execute(
+            "SELECT video FROM uso_midia GROUP BY video ORDER BY MAX(publicado_em) DESC LIMIT 3").fetchall()]
+        self.usadas_recentes = {x[0] for x in con.execute(
+            f"SELECT midia_id FROM uso_midia WHERE video IN ({','.join('?' * len(recentes))})", recentes)} if recentes else set()
+
+    def alvos(self, nec: dict) -> set[str]:
+        """Quem a cena pede: os personagens da busca (tolerando grafia: "Zolani" → "xolaani") + nomes do acervo
+        citados na descrição ou na frase narrada ("Camavor", "Ionia")."""
+        import difflib
+        import re
+
+        busca = nec["busca"]
+        alvos = set()
+        for p in busca.get("personagens") or []:
+            n = _sem_acento(p)
+            perto = difflib.get_close_matches(n, self.vocab, n=1, cutoff=0.75)
+            alvos.add(perto[0] if perto else n)
+        texto = " " + re.sub(r"[^a-z0-9]+", " ", _sem_acento(busca.get("o_que", "") + " " + nec.get("frase", ""))) + " "
+        for v in self.vocab:
+            if len(v) >= 4 and f" {v} " in texto:
+                alvos.add(v)
+        return alvos
+
+    def pontuar(self, mid: int, nota: float, alvos: set[str], busca: dict, tipo: str) -> float:
+        i = self.info.get(mid)
+        if i is None:
+            return nota
+        bonus = 0.0
+        if alvos and i["pers"] & alvos:
+            bonus += 0.12
+        elif alvos and i["pers"]:
+            bonus -= 0.05  # imagem claramente de OUTRO personagem/lugar
+        if i["categoria"] in (busca.get("categorias") or []):
+            bonus += 0.03
+        if tipo == "recorte":
+            bonus += 0.10 if i["transparente"] or i["categoria"] == "recorte" else -0.10
+        if i["categoria"] == "canal":
+            bonus -= 0.5  # material do canal (logos, thumbs) não é ilustração
+        if mid in self.usadas_recentes:  # memória de uso: menos provável, não some de vez
+            bonus -= 0.06
+        return nota + bonus
 
 
-def buscar(con, nec: dict) -> list[dict]:
+def _sem_acento(t: str) -> str:
+    import unicodedata
+
+    return unicodedata.normalize("NFKD", t.lower()).encode("ascii", "ignore").decode().strip()
+
+
+def _imagens(ac: Acervo, nec: dict, alvos: set[str], consulta: str) -> list[dict]:
     from busca_semantica import buscar as buscar_imagens
 
     busca = nec["busca"]
+    achados = [(mid, ac.pontuar(mid, nota, alvos, busca, nec["tipo"]))
+               for mid, nota in buscar_imagens(consulta, len(ac.info))  # o acervo inteiro, não só o top 60
+               if ac.info.get(mid, {}).get("tipo") in ("imagem", "gif")]
+    achados.sort(key=lambda a: -a[1])
+    escolhidos = achados[:POR_NECESSIDADE]
+    # a cena pede alguém que existe no acervo: pelo menos 2 dos candidatos são dele(s)
+    if alvos:
+        do_alvo = [a for a in achados if ac.info[a[0]]["pers"] & alvos]
+        minimo = min(2, len(do_alvo))
+        faltam = minimo - sum(1 for a in escolhidos if ac.info[a[0]]["pers"] & alvos)
+        if faltam > 0:
+            extras = [a for a in do_alvo if a not in escolhidos][:faltam]
+            escolhidos = [a for a in escolhidos if ac.info[a[0]]["pers"] & alvos] + \
+                [a for a in escolhidos if not ac.info[a[0]]["pers"] & alvos][:POR_NECESSIDADE - minimo] + extras
+            escolhidos.sort(key=lambda a: -a[1])
+    return [{"tipo": "midia", "id": mid, "nota": round(nota, 3), "nome": ac.info[mid]["nome"],
+             "miniatura": str(PASTA_MINIATURAS / f"{mid}.jpg")} for mid, nota in escolhidos]
+
+
+def buscar(ac: Acervo, nec: dict) -> list[dict]:
+    busca = nec["busca"]
+    alvos = ac.alvos(nec)
     consulta = busca["o_que"] + (" " + " ".join(busca.get("personagens") or []) if busca.get("personagens") else "")
     if nec["tipo"] == "clipe":
         from indexar_clipes import buscar as buscar_tomadas
         tomadas = buscar_tomadas(consulta, 120)
-        alvo = {p.lower() for p in busca.get("personagens") or []}
-        if alvo:  # existindo clipe do personagem citado, a escolha fica entre eles
-            def do_alvo(t):
-                pers = con.execute("SELECT personagens FROM midias WHERE id=?", (t["midia_id"],)).fetchone()[0]
-                return bool({p.lower() for p in json.loads(pers or "[]")} & alvo)
-            proprios = [t for t in tomadas if do_alvo(t)]
+        if alvos:  # existindo clipe do personagem citado, a escolha fica entre eles
+            proprios = [t for t in tomadas if ac.info.get(t["midia_id"], {}).get("pers", set()) & alvos]
+            if not proprios and any(i["pers"] & alvos for i in ac.info.values()):
+                return _imagens(ac, nec, alvos, consulta)  # sem clipe dele: imagem dele, não clipe de outro
             tomadas = proprios or tomadas
         for t in tomadas:
-            t["nota"] = _pontuar(con, t["midia_id"], t["nota"], busca, "clipe")
+            t["nota"] = ac.pontuar(t["midia_id"], t["nota"], alvos, busca, "clipe")
         tomadas.sort(key=lambda t: -t["nota"])
         return [{"tipo": "tomada", "id": t["id"], "midia_id": t["midia_id"], "inicio": t["inicio"], "fim": t["fim"],
                  "nota": round(t["nota"], 3), "miniatura": str(PASTA_TOMADAS / f"{t['midia_id']}_{t['n']}.jpg"),
                  "nome": t["nome"]} for t in tomadas[:POR_NECESSIDADE]]
-    achados = [(mid, _pontuar(con, mid, nota, busca, nec["tipo"])) for mid, nota in buscar_imagens(consulta, 60)]
-    # imagens estáticas para cenas de imagem (vídeos do acervo entram via tomadas)
-    tipos = {r["id"]: r["tipo"] for r in con.execute("SELECT id, tipo FROM midias")}
-    achados = [a for a in achados if tipos.get(a[0]) in ("imagem", "gif")]
-    achados.sort(key=lambda a: -a[1])
-    saida = []
-    for mid, nota in achados[:POR_NECESSIDADE]:
-        nome = con.execute("SELECT nome FROM midias WHERE id=?", (mid,)).fetchone()["nome"]
-        saida.append({"tipo": "midia", "id": mid, "nota": round(nota, 3), "nome": nome,
-                      "miniatura": str(PASTA_MINIATURAS / f"{mid}.jpg")})
-    return saida
+    return _imagens(ac, nec, alvos, consulta)
 
 
 def folhas(necs: list[dict], destino: Path, por_folha: int = 7) -> list[Path]:
@@ -150,24 +196,40 @@ def folhas(necs: list[dict], destino: Path, por_folha: int = 7) -> list[Path]:
 
 
 def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: list[dict] | None = None,
-             escolhidas: set[str] = frozenset()) -> tuple[list[dict], list[dict], list[Path]]:
-    """Candidatos de todas as necessidades. Reaproveita os de antes quando a busca não mudou (a escolha aponta
-    para a POSIÇÃO do candidato, então a lista tem que ser a mesma). Devolve (todas, as que ainda precisam de
-    escolha do Claude, folhas só dessas)."""
+             escolhas: dict | None = None) -> tuple[list[dict], list[dict], list[Path]]:
+    """Candidatos de todas as necessidades + quais ainda precisam da escolha do Claude. Devolve (todas, as que
+    precisam de escolha, folhas só dessas). Por cena:
+      escolha feita e busca igual        → reaproveita candidatos e escolha (a escolha aponta para a POSIÇÃO)
+      "folha não recebida" (falha nossa) → mesmos candidatos, volta para a escolha
+      recusada de verdade                → busca de novo; só volta ao Claude se vierem candidatos DIFERENTES
+      nova ou busca mudou                → busca e escolha"""
     import shutil
 
-    con = abrir_acervo()
+    from escolher import NAO_VIU
+
+    escolhas = escolhas or {}
+    ac = Acervo(abrir_acervo())
     velhas = {n["id"]: n for n in (anteriores or [])}
     necs, sem_escolha = [], []
     for n in necessidades(plano, frases):
         v = velhas.get(n["id"])
-        if v and v.get("busca") == n["busca"] and v.get("candidatos"):
+        e = escolhas.get(n["id"])
+        mesma = bool(v and v.get("busca") == n["busca"] and v.get("candidatos"))
+        if mesma and e and e.get("escolha"):
             n["candidatos"] = v["candidatos"]
-        else:
-            n["candidatos"] = buscar(con, n)
-        necs.append(n)
-        if not (v and v.get("busca") == n["busca"] and n["id"] in escolhidas):
+        elif mesma and e and NAO_VIU.search(e.get("motivo") or ""):
+            n["candidatos"] = v["candidatos"]
             sem_escolha.append(n)
+        elif mesma and e:  # recusada: a busca melhorou?
+            n["candidatos"] = buscar(ac, n)
+            if [c["id"] for c in n["candidatos"]] != [c["id"] for c in v["candidatos"]]:
+                sem_escolha.append(n)
+            else:
+                n["candidatos"] = v["candidatos"]  # mesmos candidatos: a recusa continua valendo (0 cota)
+        else:
+            n["candidatos"] = buscar(ac, n)
+            sem_escolha.append(n)
+        necs.append(n)
     destino = pasta_trabalho / "candidatos"
     if destino.exists():
         shutil.rmtree(destino)  # folhas antigas não podem ir de novo para o Claude

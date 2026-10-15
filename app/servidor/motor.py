@@ -324,13 +324,14 @@ def tarefa_direcao(vid: int) -> None:
 
     passo(3, "buscando mídias no acervo")
     escolhas_velhas = ler(arq_esc) or {}
-    necs, sem_escolha, folhas = preparar(plano, frases, trab, ler(arq_cand), set(escolhas_velhas))
+    necs, sem_escolha, folhas = preparar(plano, frases, trab, ler(arq_cand), escolhas_velhas)
     arq_cand.write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
     ids = {n["id"] for n in necs}
     escolhas = {k: v for k, v in escolhas_velhas.items() if k in ids}  # cenas que sumiram saem
     if sem_escolha:
         passo(4, f"escolhendo {len(sem_escolha)} imagem(ns) (Claude)")
-        escolhas.update(escolher(sem_escolha, folhas))
+        escolhas.update(escolher(sem_escolha, folhas, aviso=lambda msg: passo(4, msg)))
+        arq_esc.write_text(json.dumps(escolhas, ensure_ascii=False, indent=1), encoding="utf-8")
     arq_esc.write_text(json.dumps(escolhas, ensure_ascii=False, indent=1), encoding="utf-8")
     with conectar() as con:
         registrar(con, vid, f"Imagens: {len(necs) - len(sem_escolha)} reaproveitada(s), {len(sem_escolha)} escolhida(s) agora",

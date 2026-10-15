@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from candidatos import abrir_acervo, buscar, folhas, id_da_cena, necessidades
+from candidatos import Acervo, abrir_acervo, buscar, folhas, id_da_cena, necessidades
 from claude_cli import chamar_json
 from escolher import escolher
 from planejar import FORMATO, SISTEMA
@@ -43,10 +43,10 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
             aj.pop(campo, None)
 
     # novos candidatos e nova escolha, só para as necessidades dessas cenas
-    con = abrir_acervo()
+    ac = Acervo(abrir_acervo())
     alvo = [n for n in necessidades(plano, frases) if n["cena"] in ids]
     for n in alvo:
-        n["candidatos"] = buscar(con, n)
+        n["candidatos"] = buscar(ac, n)
     if alvo:
         escolhas.update(escolher(alvo, folhas(alvo, pasta_trabalho / "candidatos_revisao")))
     necs[:] = [n for n in necs if n["cena"] not in ids] + alvo
