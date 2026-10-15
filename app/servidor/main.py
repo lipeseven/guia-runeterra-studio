@@ -158,6 +158,7 @@ def enviar_roteiro(vid: int, corpo: Roteiro):
     with conectar() as con:
         if not con.execute("SELECT 1 FROM videos WHERE id=?", (vid,)).fetchone():
             raise HTTPException(404)
+        _roteirista_livre(con, vid)
         est = motor.receber_roteiro(con, vid, corpo.texto, corpo.nome)
         con.commit()
     return est
@@ -175,11 +176,17 @@ class AjustarRoteiro(BaseModel):
 
 
 def _roteirista_livre(con, vid: int) -> None:
-    r = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='roteiro'", (vid,)).fetchone()
-    if not r:
+    """Trocar o roteiro com a direção/rascunho rodando deixaria o trabalho em curso apontando para o texto errado."""
+    st = {r["chave"]: r["status"] for r in con.execute("SELECT chave, status FROM etapas WHERE video_id=?", (vid,))}
+    if not st:
         raise HTTPException(404)
-    if r["status"] == "andamento":
+    if st.get("roteiro") == "andamento":
         raise HTTPException(409, "o roteirista ainda está trabalhando neste roteiro")
+    executando = motor.situacao()["executando"]
+    rodando = [k for k in ("direcao", "rascunho", "gravacao", "render") if st.get(k) == "andamento"]
+    if rodando or (executando and executando["video"] == vid):
+        raise HTTPException(409, "espere o motor terminar (" + (", ".join(rodando) or executando["tarefa"]) +
+                            ") antes de trocar o roteiro")
 
 
 @app.post("/api/videos/{vid}/roteiro/gerar")

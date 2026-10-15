@@ -110,10 +110,48 @@ def mmss(s: float) -> str:
     return f"{int(s) // 60}:{int(s) % 60:02d}"
 
 
+ARQUIVOS_DA_DIRECAO = ("plano.json", "candidatos.json", "escolhas.json", "ajustes.json", "direcao.json",
+                       "direcao_final.json", "tempos_guia.json", "tempos_gravacao.json")
+ETAPAS_DEPOIS_DO_ROTEIRO = ("direcao", "rascunho", "gravacao", "ressincronizacao", "render", "publicacao")
+PENDENCIAS_DEPOIS_DO_ROTEIRO = ("cena_sem_imagem", "obs_diretor", "ver_rascunho", "enviar_gravacao", "aprovar_gravacao",
+                                "ver_final", "publicar", "erro_direcao", "erro_rascunho", "erro_gravacao", "erro_final",
+                                "erro_publicacao")
+
+
+def invalidar_depois_do_roteiro(con, vid: int, pasta: Path) -> None:
+    """O roteiro mudou: a direção antiga aponta para palavras que não existem mais (cenas ancoradas em índices
+    do roteiro) e os ajustes do storyboard são por número de cena. Tudo isso é arquivado (não apagado) e as
+    etapas voltam a pendente; a Direção recomeça sozinha quando a voz guia nova ficar pronta."""
+    import shutil
+
+    dirc = pasta / "direcao"
+    existentes = [dirc / a for a in ARQUIVOS_DA_DIRECAO if (dirc / a).exists()]
+    if existentes:
+        destino = dirc / "anteriores" / agora().replace(":", "-")
+        destino.mkdir(parents=True, exist_ok=True)
+        for a in existentes:
+            shutil.move(str(a), str(destino / a.name))
+    feitas = [r["chave"] for r in con.execute(
+        f"SELECT chave FROM etapas WHERE video_id=? AND status!='pendente' AND chave IN "
+        f"({','.join('?' * len(ETAPAS_DEPOIS_DO_ROTEIRO))})", (vid, *ETAPAS_DEPOIS_DO_ROTEIRO))]
+    for chave in feitas:
+        atualizar_etapa(con, vid, chave, "pendente", None,
+                        "o roteiro mudou: refazer" if chave in ("gravacao", "ressincronizacao", "render") else None)
+    con.execute(f"UPDATE pendencias SET resolvida=1 WHERE video_id=? AND resolvida=0 AND chave IN "
+                f"({','.join('?' * len(PENDENCIAS_DEPOIS_DO_ROTEIRO))})", (vid, *PENDENCIAS_DEPOIS_DO_ROTEIRO))
+    if existentes or feitas:
+        registrar(con, vid, "Roteiro mudou: direção e rascunho antigos arquivados (direcao/anteriores/); "
+                            "a direção recomeça depois da voz guia nova" +
+                  (" — a gravação também precisa ser refeita" if "gravacao" in feitas else ""), "alerta")
+
+
 def receber_roteiro(con, vid: int, texto: str, nome: str) -> dict:
     v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
     pasta = pasta_do_video(v["slug"]) / "direcao"
     texto = texto.replace("\r\n", "\n").strip() + "\n"
+    anterior = (pasta / "roteiro.txt").read_text(encoding="utf-8") if (pasta / "roteiro.txt").exists() else None
+    if anterior is not None and anterior != texto:
+        invalidar_depois_do_roteiro(con, vid, pasta.parent)
     versoes = sorted(pasta.glob("roteiro_v*.txt"))
     n = len(versoes) + 1
     (pasta / f"roteiro_v{n}.txt").write_text(texto, encoding="utf-8")  # histórico de versões
