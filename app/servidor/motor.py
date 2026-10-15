@@ -147,17 +147,25 @@ def invalidar_depois_do_roteiro(con, vid: int, pasta: Path) -> None:
 
 
 def receber_roteiro(con, vid: int, texto: str, nome: str) -> dict:
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from notas import separar
+
     v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
     pasta = pasta_do_video(v["slug"]) / "direcao"
     texto = texto.replace("\r\n", "\n").strip() + "\n"
-    anterior = (pasta / "roteiro.txt").read_text(encoding="utf-8") if (pasta / "roteiro.txt").exists() else None
+    anterior = ler_roteiro(v["slug"])  # com as notas: mudar só uma nota também muda a direção daquele bloco
     if anterior is not None and anterior != texto:
         invalidar_depois_do_roteiro(con, vid, pasta.parent)
     versoes = sorted(pasta.glob("roteiro_v*.txt"))
     n = len(versoes) + 1
-    (pasta / f"roteiro_v{n}.txt").write_text(texto, encoding="utf-8")  # histórico de versões
-    (pasta / "roteiro.txt").write_text(texto, encoding="utf-8")
-    est = estatisticas(texto)
+    # roteiro_fonte.txt = como o Felipe escreveu (com [notas de direção]); roteiro.txt = SÓ a narração, que é o
+    # que a voz guia, o alinhamento, a limpeza da gravação e a direção leem; notas.json = notas e onde estão.
+    narracao, notas = separar(texto)
+    (pasta / f"roteiro_v{n}.txt").write_text(texto, encoding="utf-8")  # histórico de versões (com notas)
+    (pasta / "roteiro_fonte.txt").write_text(texto, encoding="utf-8")
+    (pasta / "roteiro.txt").write_text(narracao, encoding="utf-8")
+    (pasta / "notas.json").write_text(json.dumps(notas, ensure_ascii=False, indent=1), encoding="utf-8")
+    est = estatisticas(narracao)
     atualizar_etapa(con, vid, "roteiro", "atencao",
                     f"{est['paragrafos']} parágrafos · {est['palavras']} palavras",
                     f"~{mmss(est['segundos'])} narrado · v{n}", {**est, "versao": n, "arquivo_original": nome})
@@ -720,6 +728,11 @@ def ler_capa(slug: str) -> dict:
 
 
 def ler_roteiro(slug: str) -> str | None:
-    p = PASTA_PROJETOS / slug / "direcao" / "roteiro.txt"
-    return p.read_text(encoding="utf-8") if p.exists() else None
+    """O roteiro como o Felipe escreveu (COM as [notas de direção]) — para o painel, a edição e o roteirista.
+    O pipeline (voz guia, alinhamento, direção) lê direcao/roteiro.txt, que é só a narração."""
+    dirc = PASTA_PROJETOS / slug / "direcao"
+    for p in (dirc / "roteiro_fonte.txt", dirc / "roteiro.txt"):
+        if p.exists():
+            return p.read_text(encoding="utf-8")
+    return None
 

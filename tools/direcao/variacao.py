@@ -12,10 +12,9 @@ from __future__ import annotations
 import random
 from collections import deque
 
-PESOS_TEXTO = {
-    "corte": 22, "fade": 14, "subir": 10, "descer": 5, "esquerda": 6, "direita": 6,
-    "maquina": 8, "palavras": 8, "pop": 6, "desfoque": 7, "revelar": 7, "espacar": 4,
-}
+# Textos auxiliares (legendas, rótulos, nomes) quase sempre entram SECOS: animação em texto cansa (pedido do
+# Felipe, 2026-10-15). Só um fade discreto de vez em quando. A variedade fica nas imagens.
+PESOS_TEXTO = {"corte": 85, "fade": 15}
 PESOS_IMAGEM = {
     "corte": 26, "fade": 14, "deslizar_esq": 5, "deslizar_dir": 5, "deslizar_cima": 5,
     "assentar": 12, "revelar_esq": 6, "revelar_dir": 6, "desfoque": 8, "pop": 6, "giro": 4,
@@ -36,8 +35,13 @@ class Variador:
         self.recentes = {k: deque(maxlen=memoria) for k in
                          ("texto", "imagem", "movimento", "mosaico", "hub", "dividida", "lado", "citacao")}
 
-    def _escolher(self, categoria: str, pesos: dict[str, int]) -> str:
+    def _escolher(self, categoria: str, pesos: dict[str, int], livre: bool = False) -> str:
+        """`livre`: sorteio puro pelos pesos, sem penalizar repetição (texto: corte seco seguido é o desejado)."""
         recentes = self.recentes[categoria]
+        if livre:
+            nome = self.rng.choices(list(pesos), weights=list(pesos.values()))[0]
+            recentes.append(nome)
+            return nome
         ajustados = {}
         poucas = sum(1 for p in pesos.values() if p > 0) <= 3  # com 2–3 opções, proibir repetir vira relógio
         for nome, peso in pesos.items():
@@ -59,8 +63,8 @@ class Variador:
         return self.rng.randint(a, b)
 
     def texto(self) -> dict:
-        e = self._escolher("texto", PESOS_TEXTO)
-        return {"efeito": e, "quadros": self._duracao(e)}
+        e = self._escolher("texto", PESOS_TEXTO, livre=True)
+        return {"efeito": e, "quadros": self.rng.randint(6, 10) if e == "fade" else 1}  # fade curto e discreto
 
     def imagem(self) -> dict:
         e = self._escolher("imagem", PESOS_IMAGEM)

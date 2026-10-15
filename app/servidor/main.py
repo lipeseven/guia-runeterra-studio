@@ -147,8 +147,10 @@ def ler_roteiro(vid: int):
         v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
         if not v:
             raise HTTPException(404)
-        texto = motor.ler_roteiro(v["slug"])
-        return {"texto": texto, **(motor.estatisticas(texto) if texto else {})}
+        texto = motor.ler_roteiro(v["slug"])  # com as [notas]
+        narracao = motor.PASTA_PROJETOS / v["slug"] / "direcao" / "roteiro.txt"
+        est = motor.estatisticas(narracao.read_text(encoding="utf-8")) if narracao.exists() else {}
+        return {"texto": texto, **est}
 
 
 @app.post("/api/videos/{vid}/roteiro")

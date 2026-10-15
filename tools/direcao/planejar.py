@@ -77,6 +77,11 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
 - Variedade é obrigatória: um vídeo com só cartão parece automático. Misture os tipos com sentido; nenhum tipo
   "especial" (hub não conta) mais de 2 vezes seguidas ou dominando o vídeo.
 
+=== NOTAS DO FELIPE ===
+- Linhas "↳ NOTA DO FELIPE: ..." são ordens de direção que ele escreveu no roteiro para aquela frase (não são
+  narradas). Têm prioridade sobre o seu gosto: siga-as. Ex.: "Texto na tela: X" → cena "texto" (ou a legenda da
+  cena) com exatamente X; "mostrar o mapa de Ionia" → a busca é o mapa; "meme do gato aqui" → meme de gato.
+
 === EFEITOS SONOROS (campo opcional "som") ===
 - O padrão do canal é VOZ PURA (medido nos vídeos de referência). Efeito sonoro é tempero raro e com sentido:
   em média no máximo 1 a cada ~40 s, só em momentos marcantes — revelação, golpe/batalha, magia, criatura,
@@ -123,7 +128,10 @@ entra junto com a cena; dividida = 2 ou 3 peças, lista = 2 a 5, mosaico = 2 a 4
 
 def montar_prompt(frases: list[dict], nomes_capa: list[str], contexto: str = "") -> str:
     """`frases` numeradas a partir de 0 (o trecho que está sendo planejado)."""
-    linhas = [f"[{i}] ({f['segundos']}s){' ¶' if f['fim_de_paragrafo'] else ''} {f['texto']}" for i, f in enumerate(frases)]
+    linhas = []
+    for i, f in enumerate(frases):
+        linhas.append(f"[{i}] ({f['segundos']}s){' ¶' if f['fim_de_paragrafo'] else ''} {f['texto']}")
+        linhas += [f"     ↳ NOTA DO FELIPE: {nota}" for nota in f.get("notas", [])]
     total = sum(f["segundos"] for f in frases)
     return (f"Personagens na capa (ícones disponíveis): {', '.join(nomes_capa) or 'nenhum'}.\n" + contexto +
             f"Narração deste trecho: {total:.0f}s em {len(frases)} frases (¶ = fim de parágrafo). "
@@ -196,11 +204,16 @@ def _parece_titulo(f: dict) -> bool:
     return len(f["texto"].split()) <= 6 and f["texto"].rstrip().endswith((".", "!", "?", ":"))
 
 
+def titulos_possiveis(frases: list[dict]) -> list[int]:
+    """Frases curtas no início de parágrafo: candidatas a título de seção."""
+    inicio_par = {0} | {i + 1 for i, f in enumerate(frases[:-1]) if f["fim_de_paragrafo"]}
+    return [i for i in sorted(inicio_par) if i < len(frases) and _parece_titulo(frases[i])]
+
+
 def segmentar(frases: list[dict], nomes_capa: list[str], anterior: dict | None) -> list[dict]:
     """Seções: [{"titulo", "frase_inicial", "personagem_da_capa"}]. Tenta reaproveitar as fronteiras do plano
-    anterior (sem cota); se o roteiro ganhou/perdeu seções, pergunta ao Claude (Sonnet, barato)."""
-    inicio_par = {0} | {i + 1 for i, f in enumerate(frases[:-1]) if f["fim_de_paragrafo"]}
-    candidatos = [i for i in sorted(inicio_par) if i < len(frases) and _parece_titulo(frases[i])]
+    anterior (sem cota); só pergunta ao Claude (Sonnet, barato) se apareceu uma frase com cara de título nova."""
+    candidatos = titulos_possiveis(frases)
     if anterior and anterior.get("secoes"):
         textos = [_norm_frase(f["texto"]) for f in frases]
         achadas, ini = [], 0
@@ -212,8 +225,11 @@ def segmentar(frases: list[dict], nomes_capa: list[str], anterior: dict | None) 
                 break
             achadas.append({**s, "frase_inicial": i})
             ini = i + 1
-        # todas as seções antigas continuam lá e não apareceu nenhum título novo: mesmas fronteiras
-        if achadas and not (set(candidatos) - {s["frase_inicial"] for s in achadas} - {0}):
+        # todas as seções antigas continuam lá e não apareceu nenhuma frase com cara de título que já não
+        # existisse antes (as que o Claude já julgou "não é seção" ficam em titulos_vistos): mesmas fronteiras
+        vistos = set(anterior.get("titulos_vistos", []))
+        novos = {_norm_frase(frases[i]["texto"]) for i in candidatos} - vistos
+        if achadas and not novos:
             return achadas
     linhas = "\n".join(f"[{i}] {f['texto']}" for i, f in enumerate(frases))
     r = chamar_json(
@@ -260,7 +276,9 @@ def blocos_do_roteiro(frases: list[dict], secoes: list[dict], nomes_capa: list[s
                        "de": s["frase_inicial"], "ate": ate, "tipo": "primeira" if k == 0 else "secao"})
     for b in blocos:
         b["frases"] = [frases[i]["texto"] for i in range(b["de"], b["ate"] + 1)]
-        chave = json.dumps([b["frases"], b["tipo"], b["personagem_da_capa"], sorted(nomes_capa)], ensure_ascii=False)
+        notas = [frases[i].get("notas", []) for i in range(b["de"], b["ate"] + 1)]
+        chave = json.dumps([b["frases"], b["tipo"], b["personagem_da_capa"], sorted(nomes_capa)]
+                           + ([notas] if any(notas) else []), ensure_ascii=False)
         b["hash"] = hashlib.sha1(chave.encode("utf-8")).hexdigest()[:16]
     return blocos
 
@@ -321,7 +339,13 @@ def planejar(texto: str, palavras: list[dict], nomes_capa: list[str], dirc: Path
     """Plano do vídeo inteiro, bloco a bloco, reaproveitando o que não mudou. Devolve (plano, frases, relatório)."""
     import uuid
 
+    from notas import notas_por_frase
+
     frases = frases_do_roteiro(texto, palavras)
+    arq_notas = dirc / "notas.json"
+    if arq_notas.exists():  # [notas de direção] do roteiro, presas na frase em que aparecem
+        for n, textos in notas_por_frase(json.loads(arq_notas.read_text(encoding="utf-8")), frases).items():
+            frases[n]["notas"] = textos
     arq_plano, cache = dirc / "plano.json", dirc / "plano_secoes"
     cache.mkdir(exist_ok=True)
     anterior = json.loads(arq_plano.read_text(encoding="utf-8")) if arq_plano.exists() else None
@@ -341,7 +365,8 @@ def planejar(texto: str, palavras: list[dict], nomes_capa: list[str], dirc: Path
         else:
             v = velhos.get(b["id"])
             mudadas = mudanca_pequena(v["frases"], b["frases"]) if v and (cache / f"{v['hash']}.json").exists() else None
-            if mudadas is not None:
+            # mudadas == [] = frases idênticas mas o bloco mudou (nota de direção, personagem da capa): replaneja
+            if mudadas:
                 local = json.loads((cache / f"{v['hash']}.json").read_text(encoding="utf-8"))
                 # cena que cobre uma frase alterada: o Felipe confere no storyboard (marcas de antes continuam
                 # até ele clicar "está ok")
@@ -366,6 +391,7 @@ def planejar(texto: str, palavras: list[dict], nomes_capa: list[str], dirc: Path
             observacoes.append(f"{nome}: {local['observacoes']}")
     plano = {
         "formato": 2,
+        "titulos_vistos": [_norm_frase(frases[i]["texto"]) for i in titulos_possiveis(frases)],
         "blocos": [{k: b[k] for k in ("id", "titulo", "personagem_da_capa", "de", "ate", "tipo", "frases", "hash")}
                    for b in blocos],
         "secoes": [{"id": b["id"], "titulo": b["titulo"], "frase_inicial": b["de"],

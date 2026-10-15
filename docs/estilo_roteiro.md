@@ -4,8 +4,12 @@ Este arquivo entra no prompt do roteirista (Claude) quando o Felipe gera ou ajus
 Edite à vontade: cada ajuste fino de estilo entra aqui.
 
 ## Formato (obrigatório — o diretor visual depende disso)
-- Texto corrido para ser NARRADO, em português do Brasil. Sem títulos, sem markdown, sem marcações de cena,
-  sem "[música]", sem tempo, sem emojis.
+- Texto corrido para ser NARRADO, em português do Brasil. Sem títulos, sem markdown, sem tempo, sem emojis.
+- **Notas de direção entre colchetes** são permitidas e úteis, com moderação: `[Texto na tela: a.N. = antes de
+  Noxus]`, `[mostrar o mapa de Ionia]`, `[meme do gato aqui]`. Elas NÃO são narradas (o sistema tira da narração)
+  e viram ordem para o diretor visual naquele ponto. Nada de "[música]" (o canal não usa trilha).
+- Escreva a narração do jeito que se FALA: "vinte e cinco mil anos antes de Noxus", não "25.000 a.N." — a
+  abreviação pode ir numa nota de texto na tela.
 - Parágrafos separados por UMA linha em branco.
 - Cada seção (personagem/tema/evento) começa com o NOME SOZINHO numa frase própria ("Nocturne."), e logo depois
   a definição ("Nocturne é…"). É ali que o vídeo faz a transição de seção.
