@@ -305,12 +305,12 @@ def ver_storyboard(vid: int):
             "ajustes": len(storyboard.carregar(pasta)["ajustes"])}
 
 
-@app.post("/api/videos/{vid}/storyboard/{k}")
-def ajustar_cena(vid: int, k: int, acao: dict):
+@app.post("/api/videos/{vid}/storyboard/{cid}")
+def ajustar_cena(vid: int, cid: str, acao: dict):
     with conectar() as con:
         pasta = _pasta(con, vid)
     try:
-        return storyboard.ajustar(pasta, k, acao)
+        return storyboard.ajustar(pasta, cid, acao)
     except (ValueError, KeyError) as e:
         raise HTTPException(400, str(e))
 
@@ -324,8 +324,11 @@ def buscar_acervo(q: str):
 def refazer_rascunho(vid: int):
     with conectar() as con:
         _pasta(con, vid)
-        if con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='direcao'", (vid,)).fetchone()["status"] == "andamento":
+        status = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='direcao'", (vid,)).fetchone()["status"]
+        if status == "andamento":
             raise HTTPException(409, "a direção já está trabalhando")
+        if status != "concluido":  # ex.: o roteiro mudou e a direção ainda não foi refeita
+            raise HTTPException(409, "a direção ainda não foi feita para este roteiro")
         atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "novo rascunho")
         r = con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='rascunho'", (vid,)).fetchone()
         dados = json.loads(r["dados"] or "{}")

@@ -40,14 +40,16 @@ def cenas(pasta: Path) -> list[dict]:
     d = carregar(pasta)
     toks = d["roteiro"].split()
     palavras = d["direcao"].get("palavras") or []
-    montadas = {c.get("k"): c for c in d["direcao"].get("cenas", [])}
+    montadas = {c.get("id") or f"C{c.get('k')}": c for c in d["direcao"].get("cenas", [])}
+    sons = {s.get("id") or f"C{s.get('k')}" for s in d["direcao"].get("sons", [])}
     necs = {n["id"]: n for n in d["necs"]}
     inicios = []
     saida = []
     for k, c in enumerate(d["plano"].get("cenas", [])):
-        aj = d["ajustes"].get(str(k), {})
-        nec = necs.get(f"C{k}")
-        esc = d["escolhas"].get(f"C{k}") or {}
+        cid = _id(c, k)
+        aj = d["ajustes"].get(cid, {})
+        nec = necs.get(cid)
+        esc = d["escolhas"].get(cid) or {}
         cands = [{"idx": i, "nome": x["nome"], "tipo": x["tipo"], "miniatura": _rel(x["miniatura"])}
                  for i, x in enumerate(nec["candidatos"])] if nec else []
         escolhido = None
@@ -55,21 +57,22 @@ def cenas(pasta: Path) -> list[dict]:
             escolhido = cands[aj["candidato"]] if aj["candidato"] < len(cands) else None
         elif esc.get("escolha") and cands:
             escolhido = cands[esc["escolha"] - 1]
-        m = montadas.get(k)
+        m = montadas.get(cid)
         inicio = palavras[m["de"]]["i"] if m and palavras else None
         inicios.append(inicio)
         frase = ""
         if m and toks:
             frase = " ".join(toks[m["de"]:m["ate"] + 1])
         saida.append({
-            "k": k, "tipo": aj.get("tipo", c["tipo"]), "legenda": aj.get("legenda", c.get("legenda")),
+            "k": k, "id": cid, "secao": c.get("secao"), "conferir": bool(c.get("conferir")) and not aj.get("conferido"),
+            "tipo": aj.get("tipo", c["tipo"]), "legenda": aj.get("legenda", c.get("legenda")),
             "frase": frase, "inicio": inicio, "busca": (c.get("busca") or {}).get("o_que"),
             "escolhido": escolhido, "candidatos": cands, "recusada": nec is not None and not esc.get("escolha"),
             "no_rascunho": m is not None, "removida": bool(aj.get("removida")),
             "comentario": aj.get("comentario"), "comentario_aplicado": bool(aj.get("comentario_aplicado")),
             "motivo": esc.get("motivo"), "ajustada": bool(aj),
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
-            "som_no_rascunho": any(s.get("k") == k for s in d["direcao"].get("sons", [])),
+            "som_no_rascunho": cid in sons,
         })
     # fim de cada cena = início da próxima montada
     for i, s in enumerate(saida):
@@ -78,16 +81,24 @@ def cenas(pasta: Path) -> list[dict]:
     return saida
 
 
-def ajustar(pasta: Path, k: int, acao: dict) -> dict:
-    """Aplica um ajuste do Felipe a uma cena. Ações: candidato, usar_midia, legenda, tipo, remover, restaurar, comentario."""
+def _id(c: dict, k: int) -> str:
+    """Id estável da cena (planos por bloco); planos antigos usavam a posição."""
+    return c.get("id") or f"C{k}"
+
+
+def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
+    """Aplica um ajuste do Felipe a uma cena (pelo id estável). Ações: candidato, usar_midia, legenda, tipo,
+    remover, sem_som, conferido, restaurar, comentario."""
     d = carregar(pasta)
-    aj = d["ajustes"].setdefault(str(k), {})
+    if cid not in {_id(c, k) for k, c in enumerate(d["plano"].get("cenas", []))}:
+        raise ValueError("cena não encontrada (o plano mudou? recarregue o storyboard)")
+    aj = d["ajustes"].setdefault(cid, {})
     tipo = acao["acao"]
     if tipo == "candidato":
         aj["candidato"] = int(acao["idx"])
     elif tipo == "usar_midia":  # resultado de uma busca manual no acervo: vira um candidato novo
         necs = d["necs"]
-        nec = next((n for n in necs if n["id"] == f"C{k}"), None)
+        nec = next((n for n in necs if n["id"] == cid), None)
         if nec is None:
             raise ValueError("esta cena não usa imagem")
         cand = {"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0,
@@ -105,28 +116,32 @@ def ajustar(pasta: Path, k: int, acao: dict) -> dict:
         aj["removida"] = True
     elif tipo == "sem_som":
         aj["sem_som"] = True
+    elif tipo == "conferido":  # o Felipe olhou a cena cuja frase mudou no roteiro e está ok
+        aj["conferido"] = True
     elif tipo == "restaurar":
-        d["ajustes"].pop(str(k), None)
+        d["ajustes"].pop(cid, None)
     elif tipo == "comentario":
         aj["comentario"] = acao["texto"].strip()
         aj["comentario_aplicado"] = False
     else:
         raise ValueError(f"ação desconhecida: {tipo}")
-    if str(k) in d["ajustes"] and not d["ajustes"][str(k)]:
-        d["ajustes"].pop(str(k))
+    if cid in d["ajustes"] and not d["ajustes"][cid]:
+        d["ajustes"].pop(cid)
     salvar_ajustes(pasta, d["ajustes"])
-    return d["ajustes"].get(str(k), {})
+    return d["ajustes"].get(cid, {})
 
 
 def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
-    """Ajustes por cima do plano/escolhas do diretor (usado antes de montar)."""
+    """Ajustes por cima do plano/escolhas do diretor (usado antes de montar). Ajustes de cenas que não existem
+    mais (bloco replanejado) são ignorados."""
     plano = json.loads(json.dumps(plano))
     escolhas = dict(escolhas)
-    for k_str, aj in ajustes.items():
-        k = int(k_str)
-        if k >= len(plano["cenas"]):
+    por_id = {_id(c, k): c for k, c in enumerate(plano["cenas"])}
+    for cid, aj in ajustes.items():
+        c = por_id.get(cid)
+        if c is None:
             continue
-        c = plano["cenas"][k]
+        k = cid
         if aj.get("removida"):
             c["removida"] = True
         if aj.get("sem_som"):
@@ -136,12 +151,12 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
         if "tipo" in aj:
             c["tipo"] = aj["tipo"]
         if "candidato" in aj:
-            escolhas[f"C{k}"] = {**(escolhas.get(f"C{k}") or {}), "escolha": aj["candidato"] + 1, "fixa": True}
+            escolhas[k] = {**(escolhas.get(k) or {}), "escolha": aj["candidato"] + 1, "fixa": True}
     return plano, escolhas
 
 
-def pendentes_para_o_diretor(ajustes: dict) -> list[int]:
-    return [int(k) for k, a in ajustes.items() if a.get("comentario") and not a.get("comentario_aplicado")]
+def pendentes_para_o_diretor(ajustes: dict) -> list[str]:
+    return [cid for cid, a in ajustes.items() if a.get("comentario") and not a.get("comentario_aplicado")]
 
 
 def buscar_no_acervo(consulta: str, n: int = 12) -> list[dict]:

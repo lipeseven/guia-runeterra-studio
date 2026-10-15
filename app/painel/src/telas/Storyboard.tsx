@@ -6,6 +6,9 @@ import { Moldura } from '../componentes/Moldura'
 type Candidato = { idx: number; nome: string; tipo: string; miniatura: string }
 type Cena = {
   k: number
+  id: string
+  secao: string | null
+  conferir: boolean
   tipo: string
   legenda: string | null
   frase: string
@@ -60,8 +63,8 @@ export function Storyboard({ id }: { id: number }) {
     if (!trabalhando) carregar()
   }, [trabalhando, rascunho?.atualizado_em]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const ajustar = async (k: number, acao: Record<string, unknown>) => {
-    await api(`/videos/${id}/storyboard/${k}`, { method: 'POST', body: JSON.stringify(acao) })
+  const ajustar = async (cid: string, acao: Record<string, unknown>) => {
+    await api(`/videos/${id}/storyboard/${encodeURIComponent(cid)}`, { method: 'POST', body: JSON.stringify(acao) })
     await carregar()
   }
   const irPara = (s: number | null) => {
@@ -144,7 +147,7 @@ export function Storyboard({ id }: { id: number }) {
           {/* lista de cenas */}
           <div className="flex flex-col gap-3">
             {sb?.cenas.map((c) => (
-              <CartaoCena key={c.k} cena={c} tipos={sb.tipos} ativa={atual?.k === c.k} ajustar={ajustar} irPara={irPara} />
+              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} ativa={atual?.id === c.id} ajustar={ajustar} irPara={irPara} />
             ))}
           </div>
         </div>
@@ -163,7 +166,7 @@ function CartaoCena({
   cena: Cena
   tipos: string[]
   ativa: boolean
-  ajustar: (k: number, acao: Record<string, unknown>) => Promise<void>
+  ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void>
   irPara: (s: number | null) => void
 }) {
   const [aba, setAba] = useState<'nada' | 'trocar' | 'pedir'>('nada')
@@ -226,7 +229,7 @@ function CartaoCena({
             </span>
             <select
               value={c.tipo}
-              onChange={(e) => ajustar(c.k, { acao: 'tipo', tipo: e.target.value })}
+              onChange={(e) => ajustar(c.id, { acao: 'tipo', tipo: e.target.value })}
               disabled={tiposPossiveis(c.tipo, tipos).length < 2}
               className="rounded-md border border-borda bg-painel-2 px-1.5 py-0.5 text-xs"
             >
@@ -241,6 +244,14 @@ function CartaoCena({
               </span>
             )}
             {c.ajustada && !c.removida && !c.comentario && <span className="text-[11px] text-andamento">ajustada</span>}
+            {c.conferir && (
+              <span className="flex items-center gap-1.5 text-[11px] text-atencao">
+                a frase mudou no roteiro: confira a cena
+                <button onClick={() => ajustar(c.id, { acao: 'conferido' })} className="rounded border border-atencao/50 px-1.5 hover:bg-atencao/10">
+                  está ok
+                </button>
+              </span>
+            )}
           </div>
           <p className="mt-1 line-clamp-2 text-sm text-texto/85">{c.frase || <i className="text-apagado">(fora do rascunho)</i>}</p>
           {c.som && (
@@ -251,7 +262,7 @@ function CartaoCena({
                 {!c.som_no_rascunho && <span className="text-apagado"> (não entrou: limite de efeitos por minuto)</span>}
               </span>
               <button
-                onClick={() => ajustar(c.k, { acao: 'sem_som' })}
+                onClick={() => ajustar(c.id, { acao: 'sem_som' })}
                 title="Tirar o efeito sonoro desta cena"
                 className="ml-1 shrink-0 rounded px-1 text-apagado hover:text-red-300"
               >
@@ -263,7 +274,7 @@ function CartaoCena({
             <input
               value={legenda}
               onChange={(e) => setLegenda(e.target.value)}
-              onBlur={() => legenda !== (c.legenda ?? '') && ajustar(c.k, { acao: 'legenda', texto: legenda })}
+              onBlur={() => legenda !== (c.legenda ?? '') && ajustar(c.id, { acao: 'legenda', texto: legenda })}
               onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               placeholder="legenda"
               className="mt-1.5 w-full rounded-md border border-borda bg-painel-2 px-2 py-1 text-sm outline-none focus:border-suave"
@@ -279,12 +290,12 @@ function CartaoCena({
               <MessageSquarePlus className="size-3.5" /> Pedir ao diretor
             </Botao>
             {c.ajustada || c.removida ? (
-              <Botao onClick={() => ajustar(c.k, { acao: 'restaurar' })}>
+              <Botao onClick={() => ajustar(c.id, { acao: 'restaurar' })}>
                 <RotateCcw className="size-3.5" /> Desfazer ajustes
               </Botao>
             ) : (
               c.tipo !== 'capa' && (
-                <Botao onClick={() => ajustar(c.k, { acao: 'remover' })}>
+                <Botao onClick={() => ajustar(c.id, { acao: 'remover' })}>
                   <Trash2 className="size-3.5" /> Remover cena
                 </Botao>
               )
@@ -300,7 +311,7 @@ function CartaoCena({
             {c.candidatos.map((cand) => (
               <button
                 key={cand.idx}
-                onClick={() => ajustar(c.k, { acao: 'candidato', idx: cand.idx })}
+                onClick={() => ajustar(c.id, { acao: 'candidato', idx: cand.idx })}
                 className={`overflow-hidden rounded-md border text-left ${c.escolhido?.idx === cand.idx ? 'border-ouro' : 'border-borda hover:border-suave'}`}
               >
                 <img src={arquivo(cand.miniatura)} alt="" className="aspect-video w-full object-cover" />
@@ -331,7 +342,7 @@ function CartaoCena({
                     <button
                       key={r.midia_id}
                       onClick={async () => {
-                        await ajustar(c.k, { acao: 'usar_midia', midia_id: r.midia_id, nome: r.nome, miniatura: r.miniatura })
+                        await ajustar(c.id, { acao: 'usar_midia', midia_id: r.midia_id, nome: r.nome, miniatura: r.miniatura })
                         setResultados(null)
                         setAba('nada')
                       }}
@@ -362,7 +373,7 @@ function CartaoCena({
           <div className="mt-2 flex justify-end">
             <button
               onClick={async () => {
-                await ajustar(c.k, { acao: 'comentario', texto: pedido })
+                await ajustar(c.id, { acao: 'comentario', texto: pedido })
                 setAba('nada')
               }}
               disabled={!pedido.trim()}

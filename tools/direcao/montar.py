@@ -15,6 +15,7 @@ from comum import PASTA_ACERVO, abrir_acervo, preparar_ffmpeg  # noqa: E402
 from direcao.variacao import Variador  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from candidatos import id_da_cena  # noqa: E402
 from planejar import pecas_da_cena  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[2]
@@ -142,10 +143,10 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             return min(perto, key=lambda s: (abs(s["frase_inicial"] - n), -s["frase_inicial"]))
         return next((s for s in secoes if s["frase_inicial"] >= n), None)
 
-    def pecas_montadas(k: int, c: dict, f: dict, de: int) -> list[dict]:
+    def pecas_montadas(cid: str, c: dict, f: dict, de: int) -> list[dict]:
         saida = []
         for j, peca in enumerate(pecas_da_cena(c)):
-            ep = escolhido(f"C{k}p{j}")
+            ep = escolhido(f"{cid}p{j}")
             if not (ep and ep["tipo"] == "midia"):
                 continue
             pi = indice_na_frase(f, toks, peca.get("palavra"))
@@ -161,7 +162,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         f = frases[c["frase"]]
         de = indice_na_frase(f, toks, c.get("comeca_na_palavra")) or f["de"]
         legenda_em = indice_na_frase(f, toks, c.get("legenda_na_palavra"))
-        base = {"k": k, "de": de, "ate": de, "semente": k, "secao": secao_da_frase(c["frase"])}
+        cid = id_da_cena(c, k)
+        base = {"k": k, "id": cid, "de": de, "ate": de, "semente": k, "secao": secao_da_frase(c["frase"])}
         tipo = c["tipo"]
         legenda = c.get("legenda") or ""
 
@@ -198,7 +200,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             tipo = "cartao"  # sem ícones na capa: vira cartão
 
         if tipo in ("dividida", "lista"):
-            pecas = pecas_montadas(k, c, f, de)
+            pecas = pecas_montadas(cid, c, f, de)
             minimo = 2
             if len(pecas) >= minimo:
                 pecas = pecas[:3] if tipo == "dividida" else pecas[:5]
@@ -211,7 +213,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                                             "No rascunho, a cena anterior continua na tela."})
             continue
 
-        esc = escolhido(f"C{k}")
+        esc = escolhido(cid)
         if not esc:
             pendencias.append({"titulo": "Cena sem imagem boa",
                                "texto": f"Cena {k} (“{f['texto'][:90]}…”): nenhum candidato do acervo serviu. "
@@ -250,7 +252,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                           "autor": c.get("autor") or "", "destaques": destaques, "lado": var.lado_citacao(),
                           "movimento": var.movimento()})
         elif tipo == "mosaico":
-            pecas = pecas_montadas(k, c, f, de)
+            pecas = pecas_montadas(cid, c, f, de)
             if len(pecas) >= 2:
                 posicoes, borda = var.mosaico([p["midia"]["w"] / p["midia"]["h"] for p in pecas])
                 cenas.append({**base, "tipo": "mosaico", "fundo": midia, "movimento": var.movimento(), "borda": borda,
@@ -292,7 +294,7 @@ def efeitos_sonoros(plano: dict, frases: list[dict], toks: list[str], palavras: 
         f = frases[c["frase"]]
         i = indice_na_frase(f, toks, som.get("palavra"))
         i = i if i is not None else f["de"]
-        pedidos.append({"k": k, "de": i, "t": palavras[i]["i"], "o_que": som["o_que"]})
+        pedidos.append({"k": k, "id": id_da_cena(c, k), "de": i, "t": palavras[i]["i"], "o_que": som["o_que"]})
     if not pedidos:
         return []
     duracao = palavras[-1]["f"]
@@ -325,7 +327,7 @@ def efeitos_sonoros(plano: dict, frases: list[dict], toks: list[str], palavras: 
         destino = m.pasta / f"s{sid}.wav"
         shutil.copyfile(PASTA_SFX / busca.info[sid]["arquivo"], destino)
         volume = VOLUME_SOM.get(cat, VOLUME_PADRAO) * var.rng.uniform(0.85, 1.12)
-        saida.append({"k": p["k"], "de": p["de"], "arquivo": f"{m.slug}/{destino.name}", "volume": round(volume, 3),
+        saida.append({"k": p["k"], "id": p["id"], "de": p["de"], "arquivo": f"{m.slug}/{destino.name}", "volume": round(volume, 3),
                       "categoria": cat, "o_que": p["o_que"]})
     busca.liberar()
     return saida

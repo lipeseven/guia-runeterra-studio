@@ -72,6 +72,13 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   partir de roteiro BASE gringo — inspiração, nunca tradução) e ajusta por pedido (Claude devolve só os parágrafos
   alterados → barato, preserva edições à mão). Edição à mão, versões (roteiro_vN.txt) com "voltar", conversa em
   direcao/conversa_roteiro.json. Jeito do canal: `docs/estilo_roteiro.md` (formato que o diretor exige + voz do Felipe).
+- Direção por blocos com reaproveitamento ✅ (2026-10-15): `planejar.planejar()` divide o roteiro em blocos
+  (introdução + seções; fronteiras reaproveitadas do plano anterior ou pedidas ao Sonnet) e planeja cada bloco à parte
+  com cache por conteúdo em `direcao/plano_secoes/<hash>.json`. Bloco igual = 0 cota; mudança pequena (mesmas frases,
+  palavras trocadas) = reaproveita e marca "conferir"; bloco reescrito/novo = só ele vai ao Opus. Cada cena tem `id`
+  estável (`<bloco>-<hex>`): candidatos, escolhas e ajustes do storyboard são por id (`candidatos.preparar` só manda
+  ao Claude as cenas sem escolha). Roteiro novo (`motor.invalidar_depois_do_roteiro`) arquiva só a montagem
+  (direcao.json, tempos) e volta as etapas; plano/escolhas/ajustes ficam para o reaproveitamento.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

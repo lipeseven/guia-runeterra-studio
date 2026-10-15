@@ -110,8 +110,9 @@ def mmss(s: float) -> str:
     return f"{int(s) // 60}:{int(s) % 60:02d}"
 
 
-ARQUIVOS_DA_DIRECAO = ("plano.json", "candidatos.json", "escolhas.json", "ajustes.json", "direcao.json",
-                       "direcao_final.json", "tempos_guia.json", "tempos_gravacao.json")
+# Só o que ficou inválido é arquivado: plano.json, candidatos, escolhas, ajustes e direcao/plano_secoes/ FICAM —
+# são a base do reaproveitamento por bloco (o planejamento compara o roteiro novo com o antigo).
+ARQUIVOS_DA_DIRECAO = ("direcao.json", "direcao_final.json", "tempos_guia.json", "tempos_gravacao.json")
 ETAPAS_DEPOIS_DO_ROTEIRO = ("direcao", "rascunho", "gravacao", "ressincronizacao", "render", "publicacao")
 PENDENCIAS_DEPOIS_DO_ROTEIRO = ("cena_sem_imagem", "obs_diretor", "ver_rascunho", "enviar_gravacao", "aprovar_gravacao",
                                 "ver_final", "publicar", "erro_direcao", "erro_rascunho", "erro_gravacao", "erro_final",
@@ -119,9 +120,9 @@ PENDENCIAS_DEPOIS_DO_ROTEIRO = ("cena_sem_imagem", "obs_diretor", "ver_rascunho"
 
 
 def invalidar_depois_do_roteiro(con, vid: int, pasta: Path) -> None:
-    """O roteiro mudou: a direção antiga aponta para palavras que não existem mais (cenas ancoradas em índices
-    do roteiro) e os ajustes do storyboard são por número de cena. Tudo isso é arquivado (não apagado) e as
-    etapas voltam a pendente; a Direção recomeça sozinha quando a voz guia nova ficar pronta."""
+    """O roteiro mudou: a direção montada aponta para palavras que não existem mais (cenas ancoradas em índices
+    do roteiro). A montagem antiga é arquivada (não apagada) e as etapas voltam a pendente; a Direção recomeça
+    sozinha quando a voz guia nova ficar pronta — reaproveitando os blocos que não mudaram."""
     import shutil
 
     dirc = pasta / "direcao"
@@ -272,7 +273,7 @@ def tarefa_direcao(vid: int) -> None:
     from capa import detectar
     from claude_cli import chamar_json
     from escolher import escolher
-    from planejar import frases_do_roteiro, planejar
+    from planejar import planejar
     from tempos import tempos_da_narracao
 
     with conectar() as con:
@@ -299,34 +300,34 @@ def tarefa_direcao(vid: int) -> None:
         circulos, nomes = ler_nomes_da_capa(capa, detectar, chamar_json)
         arq_circ.write_text(json.dumps(circulos, ensure_ascii=False, indent=1), encoding="utf-8")
 
-    # Retomada: se um passo já foi feito DEPOIS da última mudança no que ele depende, reaproveita
-    # (um erro no render não pode gastar a cota do Claude de novo).
-    def recente(arq: Path, *depende: Path) -> bool:
-        return arq.exists() and all(arq.stat().st_mtime >= d.stat().st_mtime for d in depende if d.exists())
-
+    # Reaproveitamento (cota!): o plano é por bloco com cache em direcao/plano_secoes/ — só bloco novo ou
+    # reescrito vai ao Claude; candidatos e escolhas são por id de cena — só cena nova vai para a escolha.
+    # O mesmo mecanismo cuida da retomada depois de um erro (nada já pago é pedido de novo).
+    ler = lambda arq: json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else None  # noqa: E731
     arq_plano, arq_cand, arq_esc = dirc / "plano.json", dirc / "candidatos.json", dirc / "escolhas.json"
-    frases = frases_do_roteiro(roteiro, palavras)
-    if recente(arq_plano, dirc / "roteiro.txt", capa):
-        plano = json.loads(arq_plano.read_text(encoding="utf-8"))
-    else:
-        passo(2, "planejando as cenas (Claude)")
-        plano, frases = planejar(roteiro, palavras, nomes)
-        arq_plano.write_text(json.dumps(plano, ensure_ascii=False, indent=1), encoding="utf-8")
+    passo(2, "planejando as cenas")
+    plano, frases, rel = planejar(roteiro, palavras, nomes, dirc, aviso=lambda msg: passo(2, msg))
+    arq_plano.write_text(json.dumps(plano, ensure_ascii=False, indent=1), encoding="utf-8")
+    with conectar() as con:
+        partes = [f"{len(rel[k])} {nome}" for k, nome in (("iguais", "reaproveitado(s)"), ("ajustados", "ajustado(s) sem Claude"),
+                                                          ("novos", "planejado(s) com o Claude")) if rel[k]]
+        registrar(con, vid, "Plano por seção: " + ", ".join(partes), "info")
+        con.commit()
 
-    folhas = sorted((trab / "candidatos").glob("candidatos_*.jpg"))
-    if recente(arq_cand, arq_plano) and folhas:
-        necs = json.loads(arq_cand.read_text(encoding="utf-8"))
-    else:
-        passo(3, "buscando mídias no acervo")
-        necs, folhas = preparar(plano, frases, trab)
-        arq_cand.write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
-
-    if recente(arq_esc, arq_cand):
-        escolhas = json.loads(arq_esc.read_text(encoding="utf-8"))
-    else:
-        passo(4, "escolhendo as imagens (Claude)")
-        escolhas = escolher(necs, folhas)
-        arq_esc.write_text(json.dumps(escolhas, ensure_ascii=False, indent=1), encoding="utf-8")
+    passo(3, "buscando mídias no acervo")
+    escolhas_velhas = ler(arq_esc) or {}
+    necs, sem_escolha, folhas = preparar(plano, frases, trab, ler(arq_cand), set(escolhas_velhas))
+    arq_cand.write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
+    ids = {n["id"] for n in necs}
+    escolhas = {k: v for k, v in escolhas_velhas.items() if k in ids}  # cenas que sumiram saem
+    if sem_escolha:
+        passo(4, f"escolhendo {len(sem_escolha)} imagem(ns) (Claude)")
+        escolhas.update(escolher(sem_escolha, folhas))
+    arq_esc.write_text(json.dumps(escolhas, ensure_ascii=False, indent=1), encoding="utf-8")
+    with conectar() as con:
+        registrar(con, vid, f"Imagens: {len(necs) - len(sem_escolha)} reaproveitada(s), {len(sem_escolha)} escolhida(s) agora",
+                  "info")
+        con.commit()
 
     passo(5, "renderizando o rascunho")
     montar_e_renderizar(vid, slug, palavras, frases, plano, necs, escolhas, capa, circulos, primeira_vez=True)
@@ -597,10 +598,13 @@ def tarefa_rascunho(vid: int) -> None:
         fechar_pendencia(con, vid, "ver_rascunho")
         con.commit()
     if ks:
+        from planejar import guardar_blocos
+
         revisar(plano, frases, necs, escolhas, ajustes, ks, trab, [c.get("nome", "") for c in circulos])
         for nome, dado in (("plano.json", plano), ("candidatos.json", necs), ("escolhas.json", escolhas),
                            ("ajustes.json", ajustes)):
             (dirc / nome).write_text(json.dumps(dado, ensure_ascii=False, indent=1), encoding="utf-8")
+        guardar_blocos(plano, dirc)  # senão o próximo planejamento devolveria as cenas antigas do cache
     with conectar() as con:
         atualizar_etapa(con, vid, "direcao", "andamento", "renderizando o novo rascunho", "storyboard")
         dados = json.loads(con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='rascunho'", (vid,)).fetchone()["dados"] or "{}")

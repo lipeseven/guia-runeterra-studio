@@ -27,16 +27,22 @@ def necessidades(plano: dict, frases: list[dict]) -> list[dict]:
     for k, c in enumerate(plano["cenas"]):
         if c["tipo"] in SEM_MIDIA:
             continue
+        cid = id_da_cena(c, k)
         texto = frases[c["frase"]]["texto"]
         if c.get("busca") and c["tipo"] not in SEM_MIDIA_PRINCIPAL:
-            saida.append({"id": f"C{k}", "cena": k, "tipo": c["tipo"], "busca": c["busca"], "frase": texto,
+            saida.append({"id": cid, "cena": cid, "tipo": c["tipo"], "busca": c["busca"], "frase": texto,
                           "legenda": c.get("legenda") or c.get("rotulo")})
         if c["tipo"] in ("mosaico", "dividida", "lista"):
             for j, peca in enumerate(pecas_da_cena(c)):
                 if peca.get("busca"):
-                    saida.append({"id": f"C{k}p{j}", "cena": k, "peca": j, "tipo": "peca", "busca": peca["busca"],
+                    saida.append({"id": f"{cid}p{j}", "cena": cid, "peca": j, "tipo": "peca", "busca": peca["busca"],
                                   "frase": texto, "legenda": peca.get("rotulo") or peca.get("palavra")})
     return saida
+
+
+def id_da_cena(c: dict, k: int) -> str:
+    """Id estável da cena (planos por bloco); planos antigos usavam a posição ("C12")."""
+    return c.get("id") or f"C{k}"
 
 
 def _pontuar(con, mid: int, nota: float, busca: dict, tipo: str) -> float:
@@ -143,9 +149,26 @@ def folhas(necs: list[dict], destino: Path, por_folha: int = 7) -> list[Path]:
     return caminhos
 
 
-def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path) -> tuple[list[dict], list[Path]]:
+def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: list[dict] | None = None,
+             escolhidas: set[str] = frozenset()) -> tuple[list[dict], list[dict], list[Path]]:
+    """Candidatos de todas as necessidades. Reaproveita os de antes quando a busca não mudou (a escolha aponta
+    para a POSIÇÃO do candidato, então a lista tem que ser a mesma). Devolve (todas, as que ainda precisam de
+    escolha do Claude, folhas só dessas)."""
+    import shutil
+
     con = abrir_acervo()
-    necs = necessidades(plano, frases)
-    for n in necs:
-        n["candidatos"] = buscar(con, n)
-    return necs, folhas(necs, pasta_trabalho / "candidatos")
+    velhas = {n["id"]: n for n in (anteriores or [])}
+    necs, sem_escolha = [], []
+    for n in necessidades(plano, frases):
+        v = velhas.get(n["id"])
+        if v and v.get("busca") == n["busca"] and v.get("candidatos"):
+            n["candidatos"] = v["candidatos"]
+        else:
+            n["candidatos"] = buscar(con, n)
+        necs.append(n)
+        if not (v and v.get("busca") == n["busca"] and n["id"] in escolhidas):
+            sem_escolha.append(n)
+    destino = pasta_trabalho / "candidatos"
+    if destino.exists():
+        shutil.rmtree(destino)  # folhas antigas não podem ir de novo para o Claude
+    return necs, sem_escolha, folhas(sem_escolha, destino) if sem_escolha else []
