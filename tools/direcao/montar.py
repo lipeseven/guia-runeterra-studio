@@ -72,10 +72,16 @@ class Midias:
             w, h = im.size
         return {"arquivo": f"{self.slug}/{destino.name}", "w": w, "h": h}
 
-    def tomada(self, tomada_id: int) -> tuple[str, float]:
+    def tomada(self, tomada_id: int, inicio: float | None = None) -> tuple[str, float]:
+        """Recorte da tomada. `inicio` = segundo do vídeo original escolhido pelo Felipe no storyboard ("escolher o
+        momento"): o clipe começa ali e vai até o fim do vídeo."""
         mid, ini, fim = self.con.execute("SELECT midia_id, inicio, fim FROM tomadas WHERE id=?", (tomada_id,)).fetchone()
-        origem = PASTA_ACERVO / self.con.execute("SELECT caminho FROM midias WHERE id=?", (mid,)).fetchone()[0]
+        caminho, duracao = self.con.execute("SELECT caminho, duracao FROM midias WHERE id=?", (mid,)).fetchone()
+        origem = PASTA_ACERVO / caminho
         destino = self.pasta / f"t{tomada_id}.mp4"
+        if inicio is not None:
+            ini, fim = float(inicio), float(duracao or fim)
+            destino = self.pasta / f"t{tomada_id}_s{round(ini * 10)}.mp4"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(ini), "-to", str(fim), "-i", str(origem), "-an",
                         "-vf", "scale=1920:-2", "-c:v", "h264_nvenc", "-cq", "20", str(destino)], check=True)
         return f"{self.slug}/{destino.name}", round(fim - ini, 3)
@@ -288,7 +294,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             if esc["tipo"] != "tomada":
                 tipo = "telacheia"
             else:
-                arquivo, dur = m.tomada(esc["id"])
+                arquivo, dur = m.tomada(esc["id"], (escolhas.get(cid) or {}).get("inicio"))
                 cenas.append({**base, "tipo": "clipe", "arquivo": arquivo, "duracao_tomada": dur,
                               "movimento": var.movimento(), "entrada_img": var.imagem()})
                 continue

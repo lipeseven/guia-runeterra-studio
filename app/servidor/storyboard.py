@@ -41,7 +41,10 @@ def cenas(pasta: Path) -> list[dict]:
 
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     from candidatos import numeros_das_cenas
+    sys.path.insert(0, str(RAIZ / "tools"))
+    from comum import abrir_acervo
 
+    acervo = abrir_acervo()
     d = carregar(pasta)
     numeros = numeros_das_cenas(d["plano"], pasta / "direcao")
     toks = d["roteiro"].split()
@@ -63,6 +66,12 @@ def cenas(pasta: Path) -> list[dict]:
             escolhido = cands[aj["candidato"]] if aj["candidato"] < len(cands) else None
         elif esc.get("escolha") and cands:
             escolhido = cands[esc["escolha"] - 1]
+        clipe = None
+        if escolhido and escolhido["tipo"] == "tomada":  # para o Felipe escolher o momento do clipe no vídeo original
+            t = acervo.execute("SELECT t.midia_id, t.inicio, m.duracao FROM tomadas t JOIN midias m ON m.id=t.midia_id "
+                               "WHERE t.id=?", (nec["candidatos"][escolhido["idx"]]["id"],)).fetchone()
+            if t:
+                clipe = {"midia_id": t[0], "inicio": aj.get("clipe_inicio", t[1]), "duracao": t[2]}
         m = montadas.get(cid)
         inicio = palavras[m["de"]]["i"] if m and palavras else None
         inicios.append(inicio)
@@ -73,7 +82,7 @@ def cenas(pasta: Path) -> list[dict]:
             "k": k, "numero": numeros.get(cid, str(k)), "id": cid, "secao": c.get("secao"), "conferir": bool(c.get("conferir")) and not aj.get("conferido"),
             "tipo": aj.get("tipo", c["tipo"]), "legenda": aj.get("legenda", c.get("legenda")),
             "frase": frase, "inicio": inicio, "busca": (c.get("busca") or {}).get("o_que"),
-            "escolhido": escolhido, "candidatos": cands, "recusada": nec is not None and not esc.get("escolha"),
+            "escolhido": escolhido, "clipe": clipe, "candidatos": cands, "recusada": nec is not None and not esc.get("escolha"),
             "no_rascunho": m is not None, "removida": bool(aj.get("removida")),
             "comentario": aj.get("comentario"), "comentario_aplicado": bool(aj.get("comentario_aplicado")),
             "motivo": esc.get("motivo"), "ajustada": bool(aj),
@@ -120,6 +129,8 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         nec["candidatos"].append(cand)
         aj["candidato"] = len(nec["candidatos"]) - 1
         (pasta / "direcao" / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
+    elif tipo == "clipe_inicio":
+        aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
         aj["legenda"] = acao["texto"].strip()
     elif tipo == "tipo":
@@ -166,6 +177,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["tipo"] = aj["tipo"]
         if "candidato" in aj:
             escolhas[k] = {**(escolhas.get(k) or {}), "escolha": aj["candidato"] + 1, "fixa": True}
+        if "clipe_inicio" in aj:  # momento do clipe escolhido pelo Felipe (segundo do vídeo original)
+            escolhas[k] = {**(escolhas.get(k) or {}), "inicio": aj["clipe_inicio"]}
     return plano, escolhas
 
 

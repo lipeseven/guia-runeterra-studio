@@ -561,6 +561,21 @@ def arquivo(caminho: str):
     return FileResponse(alvo)
 
 
+@app.get("/api/acervo/video/{midia_id}")
+def video_do_acervo(midia_id: int):
+    """Vídeo original do acervo (só leitura), para escolher o momento de um clipe no storyboard."""
+    import sys
+
+    sys.path.insert(0, str(RAIZ / "tools"))
+    from comum import PASTA_ACERVO, abrir_acervo
+
+    r = abrir_acervo().execute("SELECT caminho FROM midias WHERE id=? AND tipo='video'", (midia_id,)).fetchone()
+    alvo = (PASTA_ACERVO / r[0]).resolve() if r else None
+    if not alvo or not alvo.is_relative_to(PASTA_ACERVO.resolve()) or not alvo.is_file():
+        raise HTTPException(404)
+    return FileResponse(alvo)
+
+
 # Tela compilada (app/painel/dist). Em desenvolvimento, use o Vite (npm run dev), que faz proxy de /api.
 _DIST = RAIZ / "app" / "painel" / "dist"
 if _DIST.exists():

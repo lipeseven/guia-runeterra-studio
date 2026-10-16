@@ -18,6 +18,7 @@ type Cena = {
   fim: number | null
   busca: string | null
   escolhido: Candidato | null
+  clipe: { midia_id: number; inicio: number; duracao: number } | null // vídeo original do clipe escolhido
   candidatos: Candidato[]
   recusada: boolean
   no_rascunho: boolean
@@ -298,7 +299,7 @@ function CartaoCena({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {aceitaImagem && (
               <Botao ativo={aba === 'trocar'} onClick={() => setAba(aba === 'trocar' ? 'nada' : 'trocar')}>
-                <Search className="size-3.5" /> {c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
+                <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
               </Botao>
             )}
             <Botao ativo={aba === 'pedir'} onClick={() => setAba(aba === 'pedir' ? 'nada' : 'pedir')}>
@@ -334,6 +335,7 @@ function CartaoCena({
               </button>
             ))}
           </div>
+          {c.clipe && <MomentoDoClipe clipe={c.clipe} usar={(s) => ajustar(c.id, { acao: 'clipe_inicio', segundos: s })} />}
           {c.tipo !== 'clipe' && (
             <>
               <div className="mt-3 flex gap-2">
@@ -413,5 +415,42 @@ function Botao({ children, onClick, ativo }: { children: React.ReactNode; onClic
     >
       {children}
     </button>
+  )
+}
+
+/** Escolher o momento do clipe: o vídeo original do acervo com "usar a partir daqui". */
+function MomentoDoClipe({ clipe, usar }: { clipe: { midia_id: number; inicio: number; duracao: number }; usar: (s: number) => Promise<void> }) {
+  const ref = useRef<HTMLVideoElement>(null)
+  const [t, setT] = useState(clipe.inicio)
+  const [salvo, setSalvo] = useState(false)
+  return (
+    <div className="mb-3">
+      <p className="mb-2 text-xs text-suave">
+        Momento do clipe: posicione o vídeo onde a cena deve começar e clique em “Usar a partir daqui”.
+      </p>
+      <video
+        ref={ref}
+        src={`/api/acervo/video/${clipe.midia_id}#t=${clipe.inicio}`}
+        controls
+        muted
+        preload="metadata"
+        onTimeUpdate={(e) => setT(e.currentTarget.currentTime)}
+        className="aspect-video w-full rounded-md border border-borda bg-black"
+      />
+      <div className="mt-2 flex items-center gap-3">
+        <button
+          onClick={async () => {
+            await usar(t)
+            setSalvo(true)
+          }}
+          className="rounded-md bg-ouro px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
+        >
+          Usar a partir daqui ({mmss(t)})
+        </button>
+        <span className="font-mono text-[11px] text-apagado">
+          {salvo ? 'salvo: entra no próximo rascunho' : `agora começa em ${mmss(clipe.inicio)}`}
+        </span>
+      </div>
+    </div>
   )
 }
