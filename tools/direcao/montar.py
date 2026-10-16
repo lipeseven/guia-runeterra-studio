@@ -181,7 +181,11 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 usados.add(chave)
                 fontes[nec_id] = list(chave)
                 return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
-        return None
+        # todas as candidatas já são de outras cenas: melhor REPETIR a escolha do diretor do que deixar a cena sem
+        # imagem (e tomar a imagem de outra cena faria a mudança vazar para outros blocos)
+        cand = n["candidatos"][e["escolha"] - 1]
+        fontes[nec_id] = [cand["tipo"], cand["id"]]
+        return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
 
     nomes_capa = [x.get("nome", "").lower() for x in circulos]
 
@@ -501,6 +505,28 @@ def _rodar_render(pedido: Path, faltam: list[dict], progresso) -> tuple[int, str
     return p.wait(), "".join(erros)
 
 
+def _mixar_audio(trecho: dict, saida: Path) -> None:
+    """Áudio do vídeo = voz + efeitos sonoros, igual ao Montagem.tsx (efeito 2 quadros antes da palavra, volume
+    do efeito, duração da composição), mixado direto no FFmpeg. Os clipes de vídeo são sempre mudos."""
+    publico = VIDEO_APP / "public"
+    palavras = trecho["palavras"]
+    duracao = int(-(-((palavras[-1]["f"] + 0.5) * FPS) // 1)) / FPS
+    entradas = ["-i", str(publico / trecho["audio"])]
+    filtros, rotulos = [], ["[0:a]"]
+    for j, s in enumerate(trecho.get("sons") or [], start=1):
+        quadro = max(0, round(palavras[min(s["de"], len(palavras) - 1)]["i"] * FPS) - 2)
+        entradas += ["-i", str(publico / s["arquivo"])]
+        ms = round(quadro / FPS * 1000)
+        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,volume={s['volume']},adelay={ms}:all=1[s{j}]")
+        rotulos.append(f"[s{j}]")
+    filtros.append("[0:a]aresample=48000,aformat=channel_layouts=stereo[voz]")
+    rotulos[0] = "[voz]"
+    filtros.append(f"{''.join(rotulos)}amix=inputs={len(rotulos)}:duration=first:normalize=0,"
+                   f"apad,atrim=0:{duracao:.3f}[saida]")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", *entradas, "-filter_complex", ";".join(filtros),
+                    "-map", "[saida]", "-ac", "2", "-c:a", "pcm_s16le", str(saida)], check=True)
+
+
 def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
     """Renderiza o vídeo POR BLOCOS: cada bloco (introdução + seções) vira um .mp4 sem áudio em cache
     (trabalho/blocos/<impressão>.mp4); só os blocos que mudaram são renderizados. Depois junta tudo com o FFmpeg
@@ -526,15 +552,18 @@ def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
             antigo.replace(b["arquivo"])
     faltam = [b for b in blocos if not b["arquivo"].exists()]
     audio = props.parent / "audio_render.wav"
+    audio.unlink(missing_ok=True)  # um .wav velho não pode passar por "render ok"
+    _mixar_audio(trecho, audio)  # FFmpeg, segundos (pelo Remotion levava ~9 min: ele percorre o vídeo inteiro)
     pedido = props.parent / "pedido_blocos.json"
-    pedido.write_text(json.dumps({"props": str(props), "audio": str(audio), "blocos": [
+    pedido.write_text(json.dumps({"props": str(props), "audio": None, "blocos": [
         {"inicio": b["inicio"], "fim": b["fim"], "saida": str(b["arquivo"].with_suffix(".tmp.mp4"))} for b in faltam]},
         ensure_ascii=False), encoding="utf-8")
     log = saida.with_name("render_erro.log")
-    audio.unlink(missing_ok=True)  # um .wav velho não pode passar por "render ok"
     for tentativa in (1, 2):
+        if not faltam:  # nada mudou na imagem: nem abre o Remotion
+            break
         codigo, erro = _rodar_render(pedido, faltam, progresso)
-        if codigo == 0 and audio.exists():
+        if codigo == 0 and all(b["arquivo"].with_suffix(".tmp.mp4").exists() for b in faltam):
             break
         texto = re.sub(r"\x1b\[[0-9;]*m", "", erro)
         with log.open("a", encoding="utf-8") as f:
