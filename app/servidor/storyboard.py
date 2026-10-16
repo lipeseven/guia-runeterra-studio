@@ -173,6 +173,19 @@ def _sem_acento(t: str) -> str:
     return unicodedata.normalize("NFKD", (t or "").lower()).encode("ascii", "ignore").decode().strip()
 
 
+def preaquecer_busca() -> None:
+    """Carrega o modelo CLIP antes da primeira busca (chamado ao ligar o servidor)."""
+    import sys
+
+    sys.path.insert(0, str(RAIZ / "tools" / "acervo"))
+    try:
+        from busca_semantica import modelo
+
+        modelo()
+    except Exception as e:  # sem GPU/modelo: a busca por nome continua funcionando, só a 1ª fica lenta
+        print(f"[busca] não consegui pré-carregar o CLIP: {e}")
+
+
 def buscar_no_acervo(consulta: str, n: int = 16) -> list[dict]:
     """Busca MANUAL do Felipe no storyboard. Ordem: nome exato (com ou sem extensão) → nome que começa com o
     termo → nome que contém → etiquetas (personagens, descrição, uso) → semelhança (CLIP) para completar.

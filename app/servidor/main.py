@@ -42,6 +42,8 @@ def _silenciar_conexao_cortada(loop: asyncio.AbstractEventLoop, contexto: dict) 
 @asynccontextmanager
 async def _ciclo_de_vida(_app: FastAPI):
     asyncio.get_running_loop().set_exception_handler(_silenciar_conexao_cortada)
+    # o CLIP (busca do storyboard) leva ~10 s para carregar: carrega já, em segundo plano, para a 1ª busca ser rápida
+    asyncio.get_running_loop().run_in_executor(None, storyboard.preaquecer_busca)
     yield
 
 
