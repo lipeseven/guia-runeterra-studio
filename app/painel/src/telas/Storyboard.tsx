@@ -145,7 +145,7 @@ export function Storyboard({ id }: { id: number }) {
             )}
             {atual && (
               <p className="mt-2 font-mono text-xs text-suave">
-                tocando: cena {atual.numero} · {NOME_TIPO[atual.tipo] ?? atual.tipo}
+                tocando: cena {atual.numero ?? atual.k} · {NOME_TIPO[atual.tipo] ?? atual.tipo}
               </p>
             )}
           </div>
@@ -234,7 +234,7 @@ function CartaoCena({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-[11px] text-apagado">
-              #{c.numero} · {mmss(c.inicio)}–{mmss(c.fim)}
+              #{c.numero ?? c.k} · {mmss(c.inicio)}–{mmss(c.fim)}
             </span>
             <select
               value={c.tipo}
