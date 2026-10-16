@@ -50,10 +50,12 @@ class Acervo:
 
     def __init__(self, con):
         self.con = con
+        # só o que ainda existe na pasta do acervo (arquivo renomeado/apagado pelo Felipe quebraria a montagem)
         self.info = {r["id"]: {"nome": r["nome"], "tipo": r["tipo"], "categoria": r["categoria"],
                                "transparente": r["transparente"],
                                "pers": {_sem_acento(p) for p in json.loads(r["personagens"] or "[]")}}
-                     for r in con.execute("SELECT id, nome, tipo, categoria, transparente, personagens FROM midias")}
+                     for r in con.execute("SELECT id, caminho, nome, tipo, categoria, transparente, personagens FROM midias")
+                     if (PASTA_ACERVO / r["caminho"]).exists()}
         # vocabulário: todo personagem/lugar/facção etiquetado no acervo ("xolaani", "camavor", "noxus"…)
         self.vocab = sorted({p for i in self.info.values() for p in i["pers"]}, key=len, reverse=True)
         recentes = [x[0] for x in con.execute(
@@ -128,8 +130,37 @@ def _imagens(ac: Acervo, nec: dict, alvos: set[str], consulta: str) -> list[dict
              "miniatura": str(PASTA_MINIATURAS / f"{mid}.jpg")} for mid, nota in escolhidos]
 
 
+def _arquivo_pedido(ac: Acervo, nec: dict) -> int | None:
+    """Arquivo do acervo citado pelo nome pelo Felipe ("illaoi2.gif" → id da mídia)."""
+    nome = _sem_acento(str((nec["busca"] or {}).get("arquivo") or ""))
+    if not nome:
+        return None
+    imagens = {mid: i for mid, i in ac.info.items() if i["tipo"] in ("imagem", "gif")}
+    for mid, i in imagens.items():
+        if _sem_acento(i["nome"]) == nome:
+            return mid
+    base = nome.rsplit(".", 1)[0]  # sem extensão: "illaoi2" acha "illaoi2.gif"
+    return next((mid for mid, i in imagens.items() if _sem_acento(i["nome"]).rsplit(".", 1)[0] == base), None)
+
+
+def escolha_fixa(nec: dict) -> dict | None:
+    """Se o 1º candidato é o arquivo que o Felipe pediu, a escolha já está feita (não vai ao Claude)."""
+    c = (nec.get("candidatos") or [None])[0]
+    if c and c.get("pedido"):
+        return {"escolha": 1, "foco": [0.5, 0.45], "fixa": True, "motivo": "arquivo pedido pelo Felipe"}
+    return None
+
+
 def buscar(ac: Acervo, nec: dict) -> list[dict]:
     busca = nec["busca"]
+    pedido = _arquivo_pedido(ac, nec)
+    if pedido is not None:
+        i = ac.info[pedido]
+        fixo = {"tipo": "midia", "id": pedido, "nota": 1.0, "nome": i["nome"], "pedido": True,
+                "miniatura": str(PASTA_MINIATURAS / f"{pedido}.jpg")}
+        resto = [c for c in buscar(ac, {**nec, "busca": {k: v for k, v in busca.items() if k != "arquivo"}})
+                 if not (c["tipo"] == "midia" and c["id"] == pedido)]
+        return [fixo] + resto[:POR_NECESSIDADE - 1]
     alvos = ac.alvos(nec)
     consulta = busca["o_que"] + (" " + " ".join(busca.get("personagens") or []) if busca.get("personagens") else "")
     if nec["tipo"] == "clipe":
@@ -228,7 +259,11 @@ def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: 
                 n["candidatos"] = v["candidatos"]  # mesmos candidatos: a recusa continua valendo (0 cota)
         else:
             n["candidatos"] = buscar(ac, n)
-            sem_escolha.append(n)
+            fixa = escolha_fixa(n)
+            if fixa:
+                escolhas[n["id"]] = fixa  # arquivo pedido pelo Felipe (nota/pedido): não vai ao Claude
+            else:
+                sem_escolha.append(n)
         necs.append(n)
     destino = pasta_trabalho / "candidatos"
     if destino.exists():

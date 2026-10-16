@@ -20,9 +20,9 @@ PESOS_IMAGEM = {
     "assentar": 12, "revelar_esq": 6, "revelar_dir": 6, "desfoque": 8, "pop": 6, "giro": 4,
     "clarao": 3,  # impacto: raro de propósito
 }
+# Sem "parado": imagem sempre com um pan/zoom, nem que sutil (pedido do Felipe, 2026-10-15).
 PESOS_MOVIMENTO = {
-    "aproximar": 22, "afastar": 18, "pan_esq": 14, "pan_dir": 14, "subir": 7, "descer": 7,
-    "parado": 10, "aproximar_pan": 8,
+    "aproximar": 22, "afastar": 18, "pan_esq": 14, "pan_dir": 14, "subir": 7, "descer": 7, "aproximar_pan": 8,
 }
 # Faixa de duração (quadros a 60 fps) de cada efeito.
 DURACAO = {"corte": (1, 1), "maquina": (14, 30), "palavras": (16, 34), "pop": (14, 20)}

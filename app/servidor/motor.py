@@ -362,8 +362,9 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
     ajustes = json.loads((dirc / "ajustes.json").read_text(encoding="utf-8")) if (dirc / "ajustes.json").exists() else {}
     plano_final, escolhas_finais = aplicar(plano, escolhas, ajustes)
     roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
+    anterior = json.loads((dirc / "direcao.json").read_text(encoding="utf-8")) if (dirc / "direcao.json").exists() else None
     trecho, pendencias = montar(slug, roteiro, palavras, frases, plano_final, necs, escolhas_finais, capa, circulos,
-                                trab / "voz_guia.wav")
+                                trab / "voz_guia.wav", anterior=anterior)
     (dirc / "direcao.json").write_text(json.dumps(trecho, ensure_ascii=False, indent=1), encoding="utf-8")
     # Cada versão ganha o PRÓPRIO arquivo. Nunca renomear/sobrescrever a anterior: ela pode estar aberta
     # no player do painel, e o Windows não deixa mexer em arquivo em uso.
@@ -392,7 +393,12 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
                         "Assista o rascunho" if primeira_vez else f"Novo rascunho pronto (v{versao}): assista e valide",
                         "O rascunho (com a voz guia) está na Prévia. Para trocar imagens, legendas ou pedir mudanças, "
                         "abra o storyboard. Se estiver tudo certo, aprove.")
-        registrar(con, vid, f"Rascunho v{versao} pronto: {len(trecho['cenas'])} cenas, render em {mmss(segundos)}", "ok")
+        from montar import ULTIMO_RENDER
+
+        blocos = (f" ({ULTIMO_RENDER['renderizados']} bloco(s) renderizado(s), {ULTIMO_RENDER['reaproveitados']} "
+                  "reaproveitado(s))") if ULTIMO_RENDER else ""
+        registrar(con, vid, f"Rascunho v{versao} pronto: {len(trecho['cenas'])} cenas, render em {mmss(segundos)}{blocos}",
+                  "ok")
         con.commit()
 
 
@@ -499,8 +505,10 @@ def tarefa_final(vid: int) -> None:
     plano, escolhas = aplicar(ler("plano.json"), ler("escolhas.json"), ajustes)
     capa = next(iter(sorted(dirc.glob("capa.*"))))
     frases = frases_do_roteiro(roteiro, palavras)
+    # o vídeo final mantém os efeitos que o Felipe viu e aprovou no rascunho
+    anterior = ler("direcao.json") if (dirc / "direcao.json").exists() else None
     trecho, _ = montar(slug, roteiro, palavras, frases, plano, ler("candidatos.json"), escolhas, capa,
-                       ler("capa_circulos.json"), trab / "gravacao" / "limpa.wav")
+                       ler("capa_circulos.json"), trab / "gravacao" / "limpa.wav", anterior=anterior)
     (dirc / "direcao_final.json").write_text(json.dumps(trecho, ensure_ascii=False, indent=1), encoding="utf-8")
     etapa("ressincronizacao", "concluido", f"{len(trecho['cenas'])} cenas realinhadas",
           f"{estimadas} palavras com tempo estimado" if estimadas else "todas as palavras encontradas")

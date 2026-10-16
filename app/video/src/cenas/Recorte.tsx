@@ -4,7 +4,6 @@ import { CabecalhoSecao, Legenda } from "../componentes/CabecalhoSecao";
 import { estiloEntradaImagem } from "../efeitos";
 import { useCores } from "../tema";
 import type { CenaRecorte, Secao } from "../tipos";
-import { variar } from "../tempo";
 
 /** Personagem recortado sobre o fundo branco; a legenda entra quando a palavra é falada. */
 export const Recorte: React.FC<{
@@ -17,7 +16,7 @@ export const Recorte: React.FC<{
   const cores = useCores();
   const altura = 760;
   const largura = (cena.midia.w / cena.midia.h) * altura;
-  const lado = variar(cena.semente ?? "rec", -260, 260); // não fica sempre no mesmo lugar
+  const lado = 0; // centralizado (pedido do Felipe): a variedade fica na entrada da imagem, não na posição
   return (
     <AbsoluteFill style={{ background: cores.fundo }}>
       <div

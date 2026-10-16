@@ -81,9 +81,43 @@ class Midias:
         return f"{self.slug}/{destino.name}", round(fim - ini, 3)
 
 
+FPS = 60  # igual ao Root.tsx
+
+# efeitos sorteados que uma cena HERDA da versão anterior do rascunho (mesmo id e mesmo tipo): mexer numa cena não
+# muda o visual das outras — e o render por blocos reaproveita os blocos que não mudaram
+EFEITOS_HERDADOS = ("entrada_img", "entrada_legenda", "entrada_texto", "entrada_rotulo", "movimento", "lado",
+                    "entrada", "separador", "inclinado", "variante", "zoom", "borda")
+
+
+def _herdar(cena: dict, velha: dict | None) -> None:
+    if not velha or velha.get("tipo") != cena.get("tipo"):
+        return
+    for k in EFEITOS_HERDADOS:
+        if k in velha and k in cena:
+            if k == "movimento" and (velha[k] or {}).get("tipo") == "parado":
+                continue  # "parado" saiu do cardápio: a cena ganha um movimento novo
+            cena[k] = velha[k]
+    for item, iv in zip(cena.get("itens", []), velha.get("itens", [])):
+        for k in ("entrada_img", "entrada_legenda", "movimento"):
+            if k in iv and not (k == "movimento" and (iv[k] or {}).get("tipo") == "parado"):
+                item[k] = iv[k]
+    if cena["tipo"] == "mosaico" and len(cena.get("pecas", [])) == len(velha.get("pecas", [])):
+        for p, pv in zip(cena["pecas"], velha["pecas"]):
+            p.update({k: pv[k] for k in ("x", "y", "largura", "rotacao", "de_onde", "quadros") if k in pv})
+
+
+def _folga(cid: str) -> int:
+    """"Imperfeição humana" no corte (0 a 4 quadros antes da palavra), estável pelo id da cena."""
+    import hashlib
+
+    return int(hashlib.sha1(cid.encode()).hexdigest()[:8], 16) % 5
+
+
 def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], plano: dict, necs: list[dict],
-           escolhas: dict, capa: Path | None, circulos: list[dict], audio: Path) -> tuple[dict, list[dict]]:
-    """Devolve (trecho para o Remotion, pendências para o painel)."""
+           escolhas: dict, capa: Path | None, circulos: list[dict], audio: Path,
+           anterior: dict | None = None) -> tuple[dict, list[dict]]:
+    """Devolve (trecho para o Remotion, pendências para o painel). `anterior` = direção da versão anterior
+    (efeitos herdados por id de cena)."""
     preparar_ffmpeg()
     toks = roteiro.split()
     m = Midias(slug)
@@ -163,7 +197,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         de = indice_na_frase(f, toks, c.get("comeca_na_palavra")) or f["de"]
         legenda_em = indice_na_frase(f, toks, c.get("legenda_na_palavra"))
         cid = id_da_cena(c, k)
-        base = {"k": k, "id": cid, "de": de, "ate": de, "semente": k, "secao": secao_da_frase(c["frase"])}
+        base = {"k": k, "id": cid, "bloco": c.get("secao") or "", "de": de, "ate": de, "semente": cid,
+                "secao": secao_da_frase(c["frase"])}
         tipo = c["tipo"]
         legenda = c.get("legenda") or ""
 
@@ -269,6 +304,11 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         a["ate"] = max(a["de"], b["de"] - 1)
     if cenas:
         cenas[-1]["ate"] = len(toks) - 1
+    velhas = {c.get("id"): c for c in (anterior or {}).get("cenas", [])}
+    for i, c in enumerate(cenas):
+        _herdar(c, velhas.get(c["id"]))
+        # quadro em que a cena começa (o Montagem.tsx usa este valor): o Python sabe onde cada bloco começa
+        c["q"] = 0 if i == 0 else max(cenas[i - 1]["q"] + 1, int(palavras[c["de"]]["i"] * FPS + 0.5) - _folga(c["id"]))
     montadas = {c["k"] for c in cenas}
     sons = efeitos_sonoros(plano, frases, toks, palavras, montadas, m, var)
     trecho = {"audio": f"{slug}/voz.wav", "palavras": palavras, "cenas": cenas, "tema": modo, "sons": sons}
@@ -333,8 +373,108 @@ def efeitos_sonoros(plano: dict, frases: list[dict], toks: list[str], palavras: 
     return saida
 
 
+ULTIMO_RENDER: dict = {}  # estatística do último render por blocos (o motor mostra no histórico)
+
+
+def _blocos_do_trecho(trecho: dict) -> list[dict]:
+    """Intervalos de quadros de cada bloco (introdução + seções) — sequências de cenas com o mesmo "bloco"."""
+    cenas, palavras = trecho["cenas"], trecho["palavras"]
+    total = int(-(-((palavras[-1]["f"] + 0.5) * FPS) // 1))  # ceil, igual ao duracaoDoTrecho do Montagem.tsx
+    grupos: list[list[dict]] = []
+    for c in cenas:
+        if grupos and grupos[-1][-1].get("bloco") == c.get("bloco"):
+            grupos[-1].append(c)
+        else:
+            grupos.append([c])
+    blocos = []
+    for i, g in enumerate(grupos):
+        inicio = 0 if i == 0 else g[0]["q"]
+        fim = (grupos[i + 1][0]["q"] - 1) if i + 1 < len(grupos) else total - 1
+        if fim >= inicio:
+            blocos.append({"id": g[0].get("bloco"), "inicio": inicio, "fim": fim, "cenas": g})
+    return blocos
+
+
+def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str) -> str:
+    """Tudo o que influencia os quadros do bloco: cenas, intervalo, tempos das palavras usadas, código das cenas e
+    a capa. Igual → o .mp4 em cache vale."""
+    import hashlib
+
+    de = min(c["de"] for c in bloco["cenas"])
+    ate = max(c["ate"] for c in bloco["cenas"])
+    chave = json.dumps([bloco["inicio"], bloco["fim"], bloco["cenas"], trecho["palavras"][de:ate + 2],
+                        trecho.get("tema"), trecho.get("secao"), codigo, capa], ensure_ascii=False, sort_keys=True)
+    return hashlib.sha1(chave.encode("utf-8")).hexdigest()[:20]
+
+
+def _versao_do_codigo() -> str:
+    """Mudou alguma cena/efeito do Remotion → todos os blocos são refeitos (o visual pode ter mudado)."""
+    import hashlib
+
+    h = hashlib.sha1()
+    for p in sorted((VIDEO_APP / "src").rglob("*.ts*")):
+        h.update(p.read_bytes())
+    return h.hexdigest()[:12]
+
+
 def renderizar(trecho: dict, props: Path, saida: Path) -> float:
-    """Renderiza a composição genérica "Video" com a direção dada. Devolve os segundos gastos."""
+    """Renderiza o vídeo POR BLOCOS: cada bloco (introdução + seções) vira um .mp4 sem áudio em cache
+    (trabalho/blocos/<impressão>.mp4); só os blocos que mudaram são renderizados. Depois junta tudo com o FFmpeg
+    (sem recomprimir) e põe o áudio (voz + efeitos), renderizado inteiro à parte. Devolve os segundos gastos."""
+    import hashlib
+    import time
+
+    if not all("q" in c for c in trecho["cenas"]):
+        return _renderizar_inteiro(trecho, props, saida)
+    props, saida = props.resolve(), saida.resolve()
+    props.write_text(json.dumps({"trecho": trecho}, ensure_ascii=False), encoding="utf-8")
+    t0 = time.time()
+    cache = props.parent / "blocos"
+    cache.mkdir(exist_ok=True)
+    capa = next((p for p in (VIDEO_APP / "public").glob(f"{trecho['audio'].split('/')[0]}/capa.*")), None)
+    capa_id = hashlib.sha1(capa.read_bytes()).hexdigest()[:12] if capa else ""
+    codigo = _versao_do_codigo()
+    blocos = _blocos_do_trecho(trecho)
+    for b in blocos:
+        b["arquivo"] = cache / f"{_impressao(b, trecho, codigo, capa_id)}.mp4"
+    faltam = [b for b in blocos if not b["arquivo"].exists()]
+    audio = props.parent / "audio_render.wav"
+    pedido = props.parent / "pedido_blocos.json"
+    pedido.write_text(json.dumps({"props": str(props), "audio": str(audio), "blocos": [
+        {"inicio": b["inicio"], "fim": b["fim"], "saida": str(b["arquivo"].with_suffix(".tmp.mp4"))} for b in faltam]},
+        ensure_ascii=False), encoding="utf-8")
+    log = saida.with_name("render_erro.log")
+    for tentativa in (1, 2):
+        p = subprocess.run(["node", "render_blocos.mjs", str(pedido)], cwd=VIDEO_APP, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace")
+        if p.returncode == 0 and audio.exists():
+            break
+        texto = re.sub(r"\x1b\[[0-9;]*m", "", (p.stderr or "") + "\n" + (p.stdout or ""))
+        with log.open("a", encoding="utf-8") as f:
+            f.write(f"\n===== tentativa {tentativa} ({time.strftime('%H:%M:%S')}) =====\n{texto}")
+    else:
+        linhas = [ln.strip() for ln in texto.splitlines() if ln.strip() and not ln.strip().startswith("at ")]
+        raise RuntimeError(f"Remotion falhou 2x. Resumo: {' | '.join(linhas[:4])[:300]} (log completo: {log.name})")
+    for b in faltam:  # só vira cache depois de pronto (render interrompido não deixa bloco pela metade)
+        b["arquivo"].with_suffix(".tmp.mp4").replace(b["arquivo"])
+    lista = props.parent / "blocos.txt"
+    lista.write_text("".join(f"file '{b['arquivo'].as_posix()}'\n" for b in blocos), encoding="utf-8")
+    temporario = saida.with_name(saida.stem + "_renderizando.mp4")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lista), "-i", str(audio),
+                    "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest",
+                    str(temporario)], check=True)
+    temporario.replace(saida)
+    usados = {b["arquivo"].name for b in blocos}
+    for velho in cache.glob("*.mp4"):  # cache só dos blocos da versão atual
+        if velho.name not in usados:
+            velho.unlink(missing_ok=True)
+    ULTIMO_RENDER.clear()
+    ULTIMO_RENDER.update(blocos=len(blocos), renderizados=len(faltam), reaproveitados=len(blocos) - len(faltam))
+    return time.time() - t0
+
+
+def _renderizar_inteiro(trecho: dict, props: Path, saida: Path) -> float:
+    """Render do vídeo inteiro numa passada (direções antigas, sem os quadros "q" por cena)."""
     import time
 
     props, saida = props.resolve(), saida.resolve()  # o Remotion roda com cwd em app/video

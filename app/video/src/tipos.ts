@@ -17,7 +17,15 @@ export type Icone = {
 /** Círculo detectado na capa (tools/capa.py): cx/cy em fração da imagem, r em fração do menor lado. */
 export type CirculoCapa = { nome: string; cx: number; cy: number; r: number };
 
-type Base = { de: number; ate: number; semente?: number; secao?: Secao };
+type Base = {
+  de: number;
+  ate: number;
+  semente?: number | string;
+  secao?: Secao;
+  id?: string;
+  bloco?: string;
+  q?: number; // quadro em que a cena começa (calculado na montagem)
+};
 
 export type CenaCapa = Base & {
   tipo: "capa";

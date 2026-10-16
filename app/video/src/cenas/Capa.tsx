@@ -11,13 +11,18 @@ export const Capa: React.FC<{ cena: CenaCapa; duracao: number }> = ({ cena, dura
   const ox = (LARGURA - w * k) / 2;
   const oy = (ALTURA - h * k) / 2;
   const alvo = cena.circulos[cena.destaque];
+  // o nome do personagem fica EMBAIXO do círculo: a câmera mira um pouco abaixo do centro e o zoom é limitado
+  // para círculo + nome caberem na tela (antes o nome era cortado pela borda de baixo)
+  const raio = alvo.r * Math.min(w, h) * k;
   const ax = ox + alvo.cx * w * k;
-  const ay = oy + alvo.cy * h * k;
+  const ay = oy + alvo.cy * h * k + raio * 0.55;
+  const zoomMax = (ALTURA * 0.82) / (raio * 3.1);
+  const zoom = Math.max(1, Math.min(cena.zoom, zoomMax));
   const p = interpolate(frame, [0, Math.max(1, duracao)], [0, 1], {
     extrapolateRight: "clamp",
     easing: Easing.inOut(Easing.cubic),
   });
-  const escala = 1 + (cena.zoom - 1) * p;
+  const escala = 1 + (zoom - 1) * p;
   return (
     <AbsoluteFill style={{ background: cor.fundo, overflow: "hidden" }}>
       <Img

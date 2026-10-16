@@ -28,8 +28,9 @@ export const Montagem: React.FC<{ trecho: Trecho }> = ({ trecho }) => {
   const { fps, durationInFrames } = useVideoConfig();
   const { palavras, cenas, secao } = trecho;
   const tema = trecho.tema ?? "claro";
+  // `q` vem pronto da montagem (Python): é o que permite renderizar o vídeo por blocos e juntar depois
   const inicio = (k: number) =>
-    k === 0 ? 0 : Math.max(0, quadroDaPalavra(palavras, cenas[k].de, fps) - folgaDeCorte(`${k}`));
+    cenas[k].q ?? (k === 0 ? 0 : Math.max(0, quadroDaPalavra(palavras, cenas[k].de, fps) - folgaDeCorte(`${k}`)));
 
   return (
     <TemaCtx.Provider value={tema}>

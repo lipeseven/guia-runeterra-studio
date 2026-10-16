@@ -79,6 +79,16 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   estável (`<bloco>-<hex>`): candidatos, escolhas e ajustes do storyboard são por id (`candidatos.preparar` só manda
   ao Claude as cenas sem escolha). Roteiro novo (`motor.invalidar_depois_do_roteiro`) arquiva só a montagem
   (direcao.json, tempos) e volta as etapas; plano/escolhas/ajustes ficam para o reaproveitamento.
+- Render por blocos ✅ (2026-10-15): `montar.renderizar()` agrupa as cenas por bloco (campo `bloco` = seção do
+  plano), usa o quadro inicial `q` calculado na montagem e renderiza cada bloco sem áudio via
+  `app/video/render_blocos.mjs` (bundle + navegador uma vez só), com cache em `trabalho/blocos/<impressão>.mp4`
+  (impressão = cenas + intervalo + tempos + código do Remotion + capa); só blocos alterados são refeitos; áudio
+  inteiro à parte (.wav) e junção com FFmpeg concat sem recomprimir. Cenas HERDAM os efeitos da versão anterior
+  (mesmo id e tipo; `montar._herdar`), semente e folga de corte são por id → mexer numa cena não muda as outras.
+- Escolha de imagens em lotes ✅ (`escolher.py`: 6 folhas por chamada + reenvio do que o Claude "não viu");
+  busca com prioridade para personagem/lugar (`candidatos.Acervo`: vocabulário das etiquetas, tolera grafia,
+  ≥2 candidatos do personagem; ignora arquivos que sumiram da pasta); `busca.arquivo` = arquivo pedido pelo nome
+  (escolha fixa, sem Claude). Revisão ("Pedir ao diretor") vê o trecho inteiro e pode DIVIDIR a cena em várias.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).
