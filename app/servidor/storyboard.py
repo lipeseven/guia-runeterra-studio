@@ -37,7 +37,13 @@ def salvar_ajustes(pasta: Path, ajustes: dict) -> None:
 
 def cenas(pasta: Path) -> list[dict]:
     """Lista para a tela: uma entrada por cena do PLANO (inclusive recusadas/removidas)."""
+    import sys
+
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from candidatos import numeros_das_cenas
+
     d = carregar(pasta)
+    numeros = numeros_das_cenas(d["plano"], pasta / "direcao")
     toks = d["roteiro"].split()
     palavras = d["direcao"].get("palavras") or []
     montadas = {c.get("id") or f"C{c.get('k')}": c for c in d["direcao"].get("cenas", [])}
@@ -64,7 +70,7 @@ def cenas(pasta: Path) -> list[dict]:
         if m and toks:
             frase = " ".join(toks[m["de"]:m["ate"] + 1])
         saida.append({
-            "k": k, "id": cid, "secao": c.get("secao"), "conferir": bool(c.get("conferir")) and not aj.get("conferido"),
+            "k": k, "numero": numeros.get(cid, str(k)), "id": cid, "secao": c.get("secao"), "conferir": bool(c.get("conferir")) and not aj.get("conferido"),
             "tipo": aj.get("tipo", c["tipo"]), "legenda": aj.get("legenda", c.get("legenda")),
             "frase": frase, "inicio": inicio, "busca": (c.get("busca") or {}).get("o_que"),
             "escolhido": escolhido, "candidatos": cands, "recusada": nec is not None and not esc.get("escolha"),

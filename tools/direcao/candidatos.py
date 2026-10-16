@@ -45,6 +45,38 @@ def id_da_cena(c: dict, k: int) -> str:
     return c.get("id") or f"C{k}"
 
 
+def numeros_das_cenas(plano: dict, dirc: Path) -> dict[str, str]:
+    """Número que o Felipe vê no storyboard ("cena 40"). Fixo para sempre (direcao/numeros.json): dividir, remover
+    ou acrescentar cenas não renumera as outras. Cena dividida: a original fica "40", as novas "40.1", "40.2"…
+    (o id delas é "<id da original>-xxxx"); outra cena nova ganha o número da cena anterior + ".1", ".2"…"""
+    arq = dirc / "numeros.json"
+    nums: dict[str, str] = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {}
+    ids = [id_da_cena(c, k) for k, c in enumerate(plano.get("cenas", []))]
+    if not nums:  # 1ª vez: a numeração que o Felipe já está vendo no storyboard (posição no plano)
+        nums = {cid: str(k) for k, cid in enumerate(ids)}
+    usados = set(nums.values())
+
+    def proximo(base: str) -> str:
+        j = 1
+        while f"{base}.{j}" in usados:
+            j += 1
+        usados.add(f"{base}.{j}")
+        return f"{base}.{j}"
+
+    mudou = False
+    anterior = None
+    for cid in ids:
+        if cid not in nums:
+            pai = next((p for p in nums if cid.startswith(p + "-")), None)
+            base = nums[pai] if pai else (nums[anterior] if anterior else "0")
+            nums[cid] = proximo(base.split(".")[0] if not pai else base)
+            mudou = True
+        anterior = cid
+    if mudou or not arq.exists():
+        arq.write_text(json.dumps(nums, ensure_ascii=False, indent=1), encoding="utf-8")
+    return nums
+
+
 class Acervo:
     """Metadados do acervo carregados UMA vez por direção (a busca agora compara com o acervo inteiro)."""
 

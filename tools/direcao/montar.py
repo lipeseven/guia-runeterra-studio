@@ -125,6 +125,9 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
     pendencias: list[dict] = []
     nec_por_id = {n["id"]: n for n in necs}
     usados: set = set()
+    from candidatos import numeros_das_cenas
+
+    numeros = numeros_das_cenas(plano, RAIZ / "projetos" / slug / "direcao")  # o número que o Felipe vê
     fontes: dict[str, list] = {}  # imagem automática que cada cena (necessidade) usou nesta versão
     fontes_velhas = (anterior or {}).get("fontes") or {}
     escolhas_fixas = {k for k, e in escolhas.items() if (e or {}).get("fixa")}
@@ -260,14 +263,14 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 cenas.append({**base, "tipo": tipo, "pecas": pecas, **extra})
             else:
                 pendencias.append({"titulo": "Cena com poucas imagens",
-                                   "texto": f"Cena {k} ({tipo}, “{f['texto'][:80]}…”): menos de 2 imagens serviram. "
+                                   "texto": f"Cena {numeros.get(cid, k)} ({tipo}, “{f['texto'][:80]}…”): menos de 2 imagens serviram. "
                                             "No rascunho, a cena anterior continua na tela."})
             continue
 
         esc = escolhido(cid)
         if not esc:
             pendencias.append({"titulo": "Cena sem imagem boa",
-                               "texto": f"Cena {k} (“{f['texto'][:90]}…”): nenhum candidato do acervo serviu. "
+                               "texto": f"Cena {numeros.get(cid, k)} (“{f['texto'][:90]}…”): nenhum candidato do acervo serviu. "
                                         "No rascunho, a cena anterior continua na tela."})
             continue
 

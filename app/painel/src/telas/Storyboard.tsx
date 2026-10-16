@@ -7,6 +7,7 @@ import { Progresso } from '../componentes/Progresso'
 type Candidato = { idx: number; nome: string; tipo: string; miniatura: string }
 type Cena = {
   k: number
+  numero: string // fixo: dividir/remover cenas não renumera as outras (40, 40.1, 40.2…)
   id: string
   secao: string | null
   conferir: boolean
@@ -144,7 +145,7 @@ export function Storyboard({ id }: { id: number }) {
             )}
             {atual && (
               <p className="mt-2 font-mono text-xs text-suave">
-                tocando: cena {atual.k} · {NOME_TIPO[atual.tipo] ?? atual.tipo}
+                tocando: cena {atual.numero} · {NOME_TIPO[atual.tipo] ?? atual.tipo}
               </p>
             )}
           </div>
@@ -233,7 +234,7 @@ function CartaoCena({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono text-[11px] text-apagado">
-              #{c.k} · {mmss(c.inicio)}–{mmss(c.fim)}
+              #{c.numero} · {mmss(c.inicio)}–{mmss(c.fim)}
             </span>
             <select
               value={c.tipo}
