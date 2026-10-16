@@ -410,12 +410,40 @@ def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str) -> str:
     return hashlib.sha1(chave.encode("utf-8")).hexdigest()[:20]
 
 
-def _versao_do_codigo() -> str:
-    """Mudou alguma cena/efeito do Remotion → todos os blocos são refeitos (o visual pode ter mudado)."""
+ARQUIVO_DA_CENA = {"capa": "Capa", "hub": "Hub", "cartao": "Cartao", "telacheia": "TelaCheia", "recorte": "Recorte",
+                   "dialogo": "Dialogo", "clipe": "Clipe", "mosaico": "Mosaico", "dividida": "Dividida", "lista": "Lista",
+                   "meio": "Meio", "texto": "Texto", "citacao": "Citacao"}
+
+
+def _dependencias(arquivo: Path, pular_cenas: bool = False, vistos: set | None = None) -> set[Path]:
+    """Arquivos do src/ que `arquivo` importa (recursivo, só imports relativos)."""
+    vistos = vistos if vistos is not None else set()
+    if arquivo in vistos or not arquivo.exists():
+        return vistos
+    vistos.add(arquivo)
+    for alvo in re.findall(r"""from\s+["'](\.{1,2}/[^"']+)["']""", arquivo.read_text(encoding="utf-8")):
+        base = (arquivo.parent / alvo).resolve()
+        for cand in (base.with_suffix(".tsx"), base.with_suffix(".ts"), base / "index.ts"):
+            if cand.exists():
+                if not (pular_cenas and cand.parent.name == "cenas"):
+                    _dependencias(cand, pular_cenas, vistos)
+                break
+    return vistos
+
+
+def _versao_do_codigo(tipos: set[str]) -> str:
+    """Impressão do código Remotion que desenha ESTE bloco: a base comum (Montagem, efeitos, estilo, componentes…)
+    + só os arquivos das cenas que aparecem nele. Mexer na Lista só refaz os blocos que têm lista."""
     import hashlib
 
+    src = (VIDEO_APP / "src").resolve()
+    arquivos = _dependencias(src / "Montagem.tsx", pular_cenas=True) | _dependencias(src / "Root.tsx", pular_cenas=True)
+    for t in sorted(tipos):
+        if t in ARQUIVO_DA_CENA:
+            arquivos |= _dependencias(src / "cenas" / f"{ARQUIVO_DA_CENA[t]}.tsx")
     h = hashlib.sha1()
-    for p in sorted((VIDEO_APP / "src").rglob("*.ts*")):
+    for p in sorted(arquivos):
+        h.update(p.relative_to(src).as_posix().encode())
         h.update(p.read_bytes())
     return h.hexdigest()[:12]
 
@@ -462,9 +490,9 @@ def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
     cache.mkdir(exist_ok=True)
     capa = next((p for p in (VIDEO_APP / "public").glob(f"{trecho['audio'].split('/')[0]}/capa.*")), None)
     capa_id = hashlib.sha1(capa.read_bytes()).hexdigest()[:12] if capa else ""
-    codigo = _versao_do_codigo()
     blocos = _blocos_do_trecho(trecho)
     for b in blocos:
+        codigo = _versao_do_codigo({c["tipo"] for c in b["cenas"]})  # só o código das cenas deste bloco
         b["arquivo"] = cache / f"{_impressao(b, trecho, codigo, capa_id)}.mp4"
     faltam = [b for b in blocos if not b["arquivo"].exists()]
     audio = props.parent / "audio_render.wav"
