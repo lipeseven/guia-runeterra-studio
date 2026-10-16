@@ -35,6 +35,26 @@ def salvar_ajustes(pasta: Path, ajustes: dict) -> None:
     (pasta / "direcao" / "ajustes.json").write_text(json.dumps(ajustes, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+def _arq_pendentes(pasta: Path) -> Path:
+    return pasta / "direcao" / "ajustes_pendentes.json"
+
+
+def pendentes(pasta: Path) -> list[str]:
+    """Cenas mexidas depois que o último rascunho começou: ainda NÃO estão em nenhum rascunho (nem no que roda)."""
+    return _ler(_arq_pendentes(pasta), [])
+
+
+def marcar_pendente(pasta: Path, cid: str) -> None:
+    lista = pendentes(pasta)
+    if cid not in lista:
+        _arq_pendentes(pasta).write_text(json.dumps(lista + [cid], ensure_ascii=False), encoding="utf-8")
+
+
+def limpar_pendentes(pasta: Path) -> None:
+    """O motor leu os ajustes para montar um rascunho: tudo o que estava pendente entrou nessa fila."""
+    _arq_pendentes(pasta).unlink(missing_ok=True)
+
+
 def cenas(pasta: Path) -> list[dict]:
     """Lista para a tela: uma entrada por cena do PLANO (inclusive recusadas/removidas)."""
     import sys
@@ -45,6 +65,7 @@ def cenas(pasta: Path) -> list[dict]:
     from comum import abrir_acervo
 
     acervo = abrir_acervo()
+    pend = set(pendentes(pasta))
     d = carregar(pasta)
     numeros = numeros_das_cenas(d["plano"], pasta / "direcao")
     toks = d["roteiro"].split()
@@ -85,7 +106,7 @@ def cenas(pasta: Path) -> list[dict]:
             "escolhido": escolhido, "clipe": clipe, "candidatos": cands, "recusada": nec is not None and not esc.get("escolha"),
             "no_rascunho": m is not None, "removida": bool(aj.get("removida")),
             "comentario": aj.get("comentario"), "comentario_aplicado": bool(aj.get("comentario_aplicado")),
-            "motivo": esc.get("motivo"), "ajustada": bool(aj),
+            "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
         })
@@ -153,6 +174,7 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
     if cid in d["ajustes"] and not d["ajustes"][cid]:
         d["ajustes"].pop(cid)
     salvar_ajustes(pasta, d["ajustes"])
+    marcar_pendente(pasta, cid)
     return d["ajustes"].get(cid, {})
 
 

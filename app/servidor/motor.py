@@ -371,11 +371,12 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
     """Aplica os ajustes do storyboard, monta a direção, renderiza o rascunho e atualiza o painel."""
     from montar import montar, renderizar
 
-    from .storyboard import aplicar
+    from .storyboard import aplicar, limpar_pendentes
 
     pasta = PASTA_PROJETOS / slug
     dirc, trab = pasta / "direcao", pasta / "trabalho"
     ajustes = json.loads((dirc / "ajustes.json").read_text(encoding="utf-8")) if (dirc / "ajustes.json").exists() else {}
+    limpar_pendentes(pasta)  # o que o Felipe mexer daqui em diante fica para o PRÓXIMO rascunho
     plano_final, escolhas_finais = aplicar(plano, escolhas, ajustes)
     roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
     anterior = json.loads((dirc / "direcao.json").read_text(encoding="utf-8")) if (dirc / "direcao.json").exists() else None

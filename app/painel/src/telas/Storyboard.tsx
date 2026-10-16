@@ -27,10 +27,11 @@ type Cena = {
   comentario_aplicado: boolean
   motivo: string | null
   ajustada: boolean
+  pendente: boolean // mexida depois que o último rascunho começou
   som: string | null
   som_no_rascunho: boolean
 }
-type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number }
+type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number; pendentes: number }
 
 const NOME_TIPO: Record<string, string> = {
   capa: 'Capa', cartao: 'Cartão', telacheia: 'Tela cheia', recorte: 'Recorte', mosaico: 'Mosaico', clipe: 'Clipe', dialogo: 'Diálogo',
@@ -101,14 +102,27 @@ export function Storyboard({ id }: { id: number }) {
             {sb ? `${sb.cenas.length} cenas · ${rascunho?.detalhe ?? ''}` : '…'}
           </span>
           <div className="ml-auto flex items-center gap-3">
-            {sb && (sb.ajustes > 0 || sb.pedidos_pendentes > 0) && !trabalhando && (
-              <span className="font-mono text-xs text-atencao">
-                {sb.ajustes} ajuste{sb.ajustes === 1 ? '' : 's'}
-                {sb.pedidos_pendentes > 0 ? ` · ${sb.pedidos_pendentes} pedido(s) ao diretor (usa o Claude)` : ' · sem custo de cota'}
+            {sb && (sb.ajustes > 0 || sb.pendentes > 0) && (
+              <span className="flex items-center gap-2 font-mono text-xs">
+                <span className="text-suave" title="Todas as cenas que você já ajustou neste vídeo">
+                  {sb.ajustes} ajustada{sb.ajustes === 1 ? '' : 's'} no total
+                </span>
+                <span className="text-apagado">·</span>
+                <span
+                  className={sb.pendentes > 0 ? 'text-atencao' : 'text-ok'}
+                  title="Cenas mexidas depois que o último rascunho começou: entram só no PRÓXIMO rascunho"
+                >
+                  {sb.pendentes > 0
+                    ? `${sb.pendentes} pendente${sb.pendentes === 1 ? '' : 's'} (${trabalhando ? 'ficam para o rascunho seguinte' : 'entram no próximo rascunho'})`
+                    : trabalhando ? 'tudo o que você pediu está neste rascunho' : 'nada pendente'}
+                </span>
+                {sb.pedidos_pendentes > 0 && !trabalhando && (
+                  <span className="text-atencao">· {sb.pedidos_pendentes} pedido(s) ao diretor (usa o Claude)</span>
+                )}
               </span>
             )}
             <button
-              disabled={trabalhando || !sb || sb.ajustes === 0}
+              disabled={trabalhando || !sb || (sb.pendentes === 0 && sb.pedidos_pendentes === 0)}
               onClick={async () => {
                 setEnviando(true) // reação imediata; o motor confirma em seguida
                 try {
@@ -254,6 +268,7 @@ function CartaoCena({
               </span>
             )}
             {c.ajustada && !c.removida && !c.comentario && <span className="text-[11px] text-andamento">ajustada</span>}
+            {c.pendente && <span className="rounded bg-atencao/15 px-1.5 text-[11px] text-atencao">pendente · próximo rascunho</span>}
             {c.conferir && (
               <span className="flex items-center gap-1.5 text-[11px] text-atencao">
                 a frase mudou no roteiro: confira a cena
