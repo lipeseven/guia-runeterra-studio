@@ -18,23 +18,20 @@ export const Capa: React.FC<{ cena: CenaCapa; duracao: number }> = ({ cena, dura
   const ay = oy + alvo.cy * h * k + raio * 0.55;
   const zoomMax = (ALTURA * 0.82) / (raio * 3.1);
   const zoom = Math.max(1, Math.min(cena.zoom, zoomMax));
-  // continuidade (transição de seção): começa onde a transição anterior parou — fechado no ícone da seção
-  // anterior —, afasta até a capa inteira e fecha no próximo. O layout da capa nunca muda.
+  // continuidade (transição de seção): a câmera já está fechada no ícone em que a transição anterior parou e só
+  // DESLIZA (pan, zoom constante) até o capítulo atual. Sem zoom-out; o layout da capa nunca muda.
   const origem = cena.origem !== undefined && cena.origem !== cena.destaque ? cena.circulos[cena.origem] : null;
   if (origem) {
     const ro = origem.r * Math.min(w, h) * k;
     const bx = ox + origem.cx * w * k;
     const by = oy + origem.cy * h * k + ro * 0.55;
-    const zo = Math.max(1, Math.min(cena.zoom, (ALTURA * 0.82) / (ro * 3.1)));
-    const meio = Math.max(2, duracao * 0.4);
-    const saindo = interpolate(frame, [0, meio], [1, 0], { extrapolateRight: "clamp", easing: Easing.inOut(Easing.cubic) });
-    const entrando = interpolate(frame, [meio, Math.max(meio + 1, duracao)], [0, 1], {
-      extrapolateLeft: "clamp",
+    const z = Math.max(1, Math.min(zoom, (ALTURA * 0.82) / (ro * 3.1)));
+    const t = interpolate(frame, [0, Math.max(2, duracao * 0.8)], [0, 1], {
       extrapolateRight: "clamp",
       easing: Easing.inOut(Easing.cubic),
     });
-    const [px, py, z] = frame < meio ? [bx, by, 1 + (zo - 1) * saindo] : [ax, ay, 1 + (zoom - 1) * entrando];
-    const t = frame < meio ? saindo : entrando;
+    const px = bx + (ax - bx) * t;
+    const py = by + (ay - by) * t;
     return (
       <AbsoluteFill style={{ background: cor.fundo, overflow: "hidden" }}>
         <Img
@@ -45,8 +42,9 @@ export const Capa: React.FC<{ cena: CenaCapa; duracao: number }> = ({ cena, dura
             top: oy,
             width: w * k,
             height: h * k,
-            transformOrigin: `${px - ox}px ${py - oy}px`,
-            transform: `translate(${(LARGURA / 2 - px) * t}px, ${(ALTURA / 2 - py) * t}px) scale(${z})`,
+            transformOrigin: "0 0",
+            // ponto (px, py) da capa no centro da tela, com zoom z
+            transform: `translate(${LARGURA / 2 - (px - ox) * z - ox}px, ${ALTURA / 2 - (py - oy) * z - oy}px) scale(${z})`,
           }}
         />
       </AbsoluteFill>

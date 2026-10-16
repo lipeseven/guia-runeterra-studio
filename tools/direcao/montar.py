@@ -303,6 +303,13 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 {"de": de, "midia": midia, "legenda": legenda, "legenda_em": legenda_em,
                  "entrada_img": var.imagem(), "entrada_legenda": var.texto(), "movimento": var.movimento()}]})
 
+    # A capa só aparece durante a leitura do TÍTULO da seção (pedido do Felipe): se a cena seguinte começaria
+    # depois (cenas sem imagem no meio), ela é antecipada para logo após o título.
+    for a, b in zip(cenas, cenas[1:]):
+        if a["tipo"] == "hub" and b["tipo"] not in ("hub", "capa"):
+            titulo = next((f for f in frases if f["de"] <= a["de"] <= f["ate"]), None)
+            if titulo and b["de"] > titulo["ate"] + 1:
+                b["de"] = titulo["ate"] + 1
     for a, b in zip(cenas, cenas[1:]):
         a["ate"] = max(a["de"], b["de"] - 1)
     if cenas:
