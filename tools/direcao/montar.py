@@ -125,6 +125,11 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
     pendencias: list[dict] = []
     nec_por_id = {n["id"]: n for n in necs}
     usados: set = set()
+    fontes: dict[str, list] = {}  # imagem automática que cada cena (necessidade) usou nesta versão
+    fontes_velhas = (anterior or {}).get("fontes") or {}
+    escolhas_fixas = {k for k, e in escolhas.items() if (e or {}).get("fixa")}
+    # imagem da versão anterior → cena dona (só cenas automáticas que ainda existem)
+    reservadas = {tuple(v): k for k, v in fontes_velhas.items() if k in nec_por_id and k not in escolhas_fixas}
 
     shutil.copyfile(audio, m.pasta / "voz.wav")
     capa_midia = m.arquivo(capa, "capa") if capa else None
@@ -158,12 +163,20 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             # (a escolha dele não empurra as cenas automáticas para outro candidato → não mexe em outros blocos)
             cand = n["candidatos"][e["escolha"] - 1]
             return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
+        # "poder de Deus" do Felipe: mexer à mão numa cena não pode mudar a imagem de nenhuma outra. Cena automática
+        # mantém a imagem da versão anterior (se ainda é candidata e ninguém antes a pegou); cena sem imagem anterior
+        # (nova, dividida, refeita pelo diretor) não pega imagem que outra cena já usava.
         ordem = [e["escolha"] - 1] + [i for i in range(len(n["candidatos"])) if i != e["escolha"] - 1]
+        antes = fontes_velhas.get(nec_id)
+        if antes:
+            ordem = [i for i in ordem if [n["candidatos"][i]["tipo"], n["candidatos"][i]["id"]] == antes] + ordem
         for i in ordem:
             cand = n["candidatos"][i]
             chave = (cand["tipo"], cand["id"])
-            if chave not in usados:
+            dona = reservadas.get(chave)
+            if chave not in usados and (dona is None or dona == nec_id):
                 usados.add(chave)
+                fontes[nec_id] = list(chave)
                 return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         return None
 
@@ -321,7 +334,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         c["q"] = 0 if i == 0 else max(cenas[i - 1]["q"] + 1, int(palavras[c["de"]]["i"] * FPS + 0.5) - _folga(c["id"]))
     montadas = {c["k"] for c in cenas}
     sons = efeitos_sonoros(plano, frases, toks, palavras, montadas, m, var)
-    trecho = {"audio": f"{slug}/voz.wav", "palavras": palavras, "cenas": cenas, "tema": modo, "sons": sons}
+    trecho = {"audio": f"{slug}/voz.wav", "palavras": palavras, "cenas": cenas, "tema": modo, "sons": sons,
+              "fontes": fontes}  # fora das cenas: não entra na impressão dos blocos
     return trecho, pendencias
 
 
