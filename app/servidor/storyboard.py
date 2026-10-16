@@ -99,8 +99,16 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
     elif tipo == "usar_midia":  # resultado de uma busca manual no acervo: vira um candidato novo
         necs = d["necs"]
         nec = next((n for n in necs if n["id"] == cid), None)
-        if nec is None:
-            raise ValueError("esta cena não usa imagem")
+        if nec is None:  # cena que nasceu sem imagem (ex.: "só texto"): passa a ter uma
+            cena = next(c for k, c in enumerate(d["plano"]["cenas"]) if _id(c, k) == cid)
+            tipo_atual = aj.get("tipo", cena["tipo"])
+            if tipo_atual in ("capa", "hub", "dialogo", "mosaico", "dividida", "lista"):
+                raise ValueError("este tipo de cena não usa uma imagem só")
+            if tipo_atual == "texto":
+                aj["tipo"] = "cartao"  # o texto continua como legenda do cartão
+            nec = {"id": cid, "cena": cid, "tipo": aj.get("tipo", tipo_atual), "frase": "",
+                   "busca": {"o_que": cena.get("legenda") or ""}, "legenda": cena.get("legenda"), "candidatos": []}
+            necs.append(nec)
         cand = {"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0,
                 "miniatura": str(RAIZ / acao["miniatura"])}
         nec["candidatos"].append(cand)

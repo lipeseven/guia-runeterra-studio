@@ -33,6 +33,7 @@ export type CenaCapa = Base & {
   circulos: CirculoCapa[];
   destaque: number;
   zoom: number;
+  origem?: number; // transição de seção: ícone em que a transição anterior parou (continuidade)
 };
 export type ItemCartao = {
   de: number;
@@ -64,7 +65,8 @@ export type CenaHub = Base & {
   circulos: CirculoCapa[];
   destaque: number;
   zoom: number;
-  variante: "grade" | "esteira";
+  variante: "grade" | "esteira"; // "esteira" foi aposentada: altera o layout da capa (Felipe)
+  origem?: number;
 };
 
 /** Peça de tela dividida / lista acumulada: entra quando a palavra é falada. */

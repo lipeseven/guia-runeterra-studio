@@ -114,9 +114,9 @@ class Variador:
 
     # --- recursos da leitura visual completa (guia de estilo §10.2) ---
     def hub(self) -> dict:
-        """Transição de seção: capa com zoom ou esteira de ícones (alterna, sem repetir sempre a mesma)."""
-        variante = self._escolher("hub", {"grade": 10, "esteira": 10})
-        return {"variante": variante, "zoom": round(self.rng.uniform(2.2, 2.8), 2)}
+        """Transição de seção: sempre a própria capa (o layout dela nunca muda — pedido do Felipe); a continuidade
+        com a transição anterior é feita na montagem ("origem")."""
+        return {"variante": "grade", "zoom": round(self.rng.uniform(2.2, 2.8), 2)}
 
     def dividida(self) -> dict:
         entrada = self._escolher("dividida", {"corte": 10, "deslizar": 8, "revelar": 6})

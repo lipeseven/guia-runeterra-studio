@@ -37,7 +37,8 @@ const NOME_TIPO: Record<string, string> = {
 /** Para quais tipos uma cena pode virar sem perder as imagens que já tem. */
 const UMA_IMAGEM = ['cartao', 'telacheia', 'recorte', 'meio', 'citacao']
 function tiposPossiveis(atual: string, tipos: string[]): string[] {
-  if (UMA_IMAGEM.includes(atual)) return tipos.filter((t) => UMA_IMAGEM.includes(t) || t === 'texto')
+  // "só texto" também pode virar cena com imagem (a imagem vem da busca no acervo)
+  if (UMA_IMAGEM.includes(atual) || atual === 'texto') return tipos.filter((t) => UMA_IMAGEM.includes(t) || t === 'texto')
   if (atual === 'mosaico') return ['mosaico', 'dividida', 'lista']
   if (atual === 'dividida' || atual === 'lista') return ['dividida', 'lista']
   return [atual]
@@ -182,6 +183,9 @@ function CartaoCena({
   useEffect(() => setLegenda(c.legenda ?? ''), [c.legenda])
 
   const temImagem = c.candidatos.length > 0
+  // cena de UMA imagem (ou só texto): sempre dá para buscar uma imagem no acervo
+  const aceitaImagem = temImagem || [...UMA_IMAGEM, 'texto'].includes(c.tipo)
+  const foraDoVideo = !c.no_rascunho && !c.removida
   const usaLegenda = ['cartao', 'recorte', 'meio', 'texto'].includes(c.tipo)
   const borda = c.removida
     ? 'border-dashed border-borda opacity-50'
@@ -257,7 +261,13 @@ function CartaoCena({
               </span>
             )}
           </div>
-          <p className="mt-1 line-clamp-2 text-sm text-texto/85">{c.frase || <i className="text-apagado">(fora do rascunho)</i>}</p>
+          <p className="mt-1 line-clamp-2 text-sm text-texto/85">{c.frase || <i className="text-apagado">(não aparece no vídeo)</i>}</p>
+          {foraDoVideo && (
+            <p className="mt-1.5 rounded-md border border-atencao/40 bg-atencao/5 px-2 py-1.5 text-[11px] leading-snug text-atencao">
+              Esta cena foi planejada, mas <b>não está no vídeo</b>: nenhuma imagem do acervo serviu, então a cena anterior
+              continua na tela no lugar dela. Busque uma imagem, troque para “Só texto” ou remova a cena.
+            </p>
+          )}
           {c.som && (
             <p className="mt-1 flex items-center gap-1.5 text-[11px] text-suave">
               <Music className="size-3 shrink-0" />
@@ -285,9 +295,9 @@ function CartaoCena({
             />
           )}
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {temImagem && (
+            {aceitaImagem && (
               <Botao ativo={aba === 'trocar'} onClick={() => setAba(aba === 'trocar' ? 'nada' : 'trocar')}>
-                <Search className="size-3.5" /> Trocar imagem
+                <Search className="size-3.5" /> {c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
               </Botao>
             )}
             <Botao ativo={aba === 'pedir'} onClick={() => setAba(aba === 'pedir' ? 'nada' : 'pedir')}>
@@ -310,7 +320,7 @@ function CartaoCena({
 
       {aba === 'trocar' && (
         <div className="mt-3 border-t border-borda pt-3">
-          <p className="mb-2 text-xs text-suave">Outros candidatos que o diretor considerou:</p>
+          {c.candidatos.length > 0 && <p className="mb-2 text-xs text-suave">Outros candidatos que o diretor considerou:</p>}
           <div className="grid grid-cols-4 gap-2">
             {c.candidatos.map((cand) => (
               <button

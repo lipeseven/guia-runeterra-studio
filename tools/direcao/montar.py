@@ -86,7 +86,7 @@ FPS = 60  # igual ao Root.tsx
 # efeitos sorteados que uma cena HERDA da versão anterior do rascunho (mesmo id e mesmo tipo): mexer numa cena não
 # muda o visual das outras — e o render por blocos reaproveita os blocos que não mudaram
 EFEITOS_HERDADOS = ("entrada_img", "entrada_legenda", "entrada_texto", "entrada_rotulo", "movimento", "lado",
-                    "entrada", "separador", "inclinado", "variante", "zoom", "borda")
+                    "entrada", "separador", "inclinado", "zoom", "borda")  # "variante" não: hub agora é só "grade"
 
 
 def _herdar(cena: dict, velha: dict | None) -> None:
@@ -214,8 +214,11 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 cenas.append({**base, "tipo": "capa", "midia": capa_midia, "circulos": circulos,
                               "destaque": destaque, "zoom": round(var.rng.uniform(2.3, 2.8), 2)})
             else:
+                # continuidade: a transição parte do ícone em que a anterior (abertura ou transição) parou
+                anterior_ic = next((x["destaque"] for x in reversed(cenas) if x["tipo"] in ("capa", "hub")), None)
                 cenas.append({**base, "secao": None, "tipo": "hub", "midia": capa_midia, "circulos": circulos,
-                              "destaque": destaque, **var.hub()})
+                              "destaque": destaque, **var.hub(),
+                              **({"origem": anterior_ic} if anterior_ic is not None else {})})
             continue
 
         if tipo == "texto":
