@@ -154,9 +154,9 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         e = escolhas.get(nec_id) or {}
         if not n or not e.get("escolha"):
             return None
-        if e.get("fixa"):  # escolhida pelo Felipe no storyboard: vale mesmo se repetir
+        if e.get("fixa"):  # escolhida pelo Felipe no storyboard: vale mesmo se repetir e NÃO ocupa a imagem
+            # (a escolha dele não empurra as cenas automáticas para outro candidato → não mexe em outros blocos)
             cand = n["candidatos"][e["escolha"] - 1]
-            usados.add((cand["tipo"], cand["id"]))
             return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         ordem = [e["escolha"] - 1] + [i for i in range(len(n["candidatos"])) if i != e["escolha"] - 1]
         for i in ordem:
