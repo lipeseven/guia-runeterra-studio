@@ -159,34 +159,56 @@ def pendentes_para_o_diretor(ajustes: dict) -> list[str]:
     return [cid for cid, a in ajustes.items() if a.get("comentario") and not a.get("comentario_aplicado")]
 
 
-def buscar_no_acervo(consulta: str, n: int = 12) -> list[dict]:
+def _sem_acento(t: str) -> str:
+    import unicodedata
+
+    return unicodedata.normalize("NFKD", (t or "").lower()).encode("ascii", "ignore").decode().strip()
+
+
+def buscar_no_acervo(consulta: str, n: int = 16) -> list[dict]:
+    """Busca MANUAL do Felipe no storyboard. Ordem: nome exato (com ou sem extensão) → nome que começa com o
+    termo → nome que contém → etiquetas (personagens, descrição, uso) → semelhança (CLIP) para completar.
+    Mostra tudo, inclusive a categoria "canal" (o diretor automático é que não usa logos/thumbs), e esconde
+    arquivos que não existem mais na pasta do acervo."""
+    import re
     import sys
 
     sys.path.insert(0, str(RAIZ / "tools"))
     sys.path.insert(0, str(RAIZ / "tools" / "acervo"))
     from busca_semantica import buscar
-    from comum import abrir_acervo
+    from comum import PASTA_ACERVO, abrir_acervo
 
     con = abrir_acervo()
-    # 1) etiquetas em português (nome do arquivo, personagens, descrição, uso) — acerta nomes e termos exatos
-    termos = [t for t in consulta.lower().split() if len(t) > 2]
+    q = _sem_acento(consulta)
+    q_base = re.sub(r"\.(jpe?g|png|webp|gif|avif|jfif)$", "", q)
+    termos = [t for t in re.split(r"[^a-z0-9]+", q_base) if len(t) >= 2]
     pontos: dict[int, float] = {}
-    for r in con.execute("SELECT id, nome, personagens, descricao, uso FROM midias WHERE tipo IN ('imagem','gif') "
-                         "AND IFNULL(categoria,'') != 'canal'"):
-        texto = " ".join(str(r[x] or "") for x in ("nome", "personagens", "descricao", "uso")).lower()
-        acertos = sum(1 for t in termos if t in texto)
-        if acertos:
-            pontos[r["id"]] = acertos / len(termos)
-    # 2) significado (CLIP) — completa com o que as etiquetas não descrevem
-    for mid, nota in buscar(consulta, 60):
-        pontos[mid] = pontos.get(mid, 0) + nota
-    saida = []
-    for mid, nota in sorted(pontos.items(), key=lambda x: -x[1]):
-        r = con.execute("SELECT nome, tipo, categoria FROM midias WHERE id=?", (mid,)).fetchone()
-        if r["tipo"] not in ("imagem", "gif") or r["categoria"] == "canal":
+    info: dict[int, dict] = {}
+    for r in con.execute("SELECT id, caminho, nome, categoria, personagens, descricao, uso FROM midias "
+                         "WHERE tipo IN ('imagem','gif')"):
+        if not (PASTA_ACERVO / r["caminho"]).exists():
             continue
-        saida.append({"midia_id": mid, "nome": r["nome"], "nota": round(nota, 3),
-                      "miniatura": f"dados/acervo/miniaturas/{mid}.jpg"})
-        if len(saida) >= n:
-            break
-    return saida
+        info[r["id"]] = {"nome": r["nome"], "categoria": r["categoria"]}
+        nome = _sem_acento(r["nome"])
+        base = nome.rsplit(".", 1)[0]
+        nota = 0.0
+        if q_base and (nome == q or base == q_base):
+            nota = 100
+        elif q_base and base.startswith(q_base):
+            nota = 50 + 10 * len(q_base) / max(1, len(base))
+        elif q_base and q_base in base:
+            nota = 30
+        if termos:
+            etiquetas = " " + re.sub(r"[^a-z0-9]+", " ", _sem_acento(" ".join(
+                str(r[x] or "") for x in ("personagens", "descricao", "uso", "categoria")))) + " "
+            acertos = sum(1 for t in termos if t in base or f" {t} " in etiquetas)
+            nota += 10 * acertos / len(termos)
+        if nota:
+            pontos[r["id"]] = nota
+    # semelhança (CLIP): completa com o que nome e etiquetas não dizem; pesa pouco perto de um acerto de nome
+    for mid, nota in buscar(consulta, 80):
+        if mid in info:
+            pontos[mid] = pontos.get(mid, 0) + 5 * nota
+    melhores = sorted(pontos.items(), key=lambda x: -x[1])[:n]
+    return [{"midia_id": mid, "nome": info[mid]["nome"], "nota": round(nota, 2), "categoria": info[mid]["categoria"],
+             "miniatura": f"dados/acervo/miniaturas/{mid}.jpg"} for mid, nota in melhores]

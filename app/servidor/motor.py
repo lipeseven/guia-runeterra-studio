@@ -10,6 +10,7 @@ import queue
 import re
 import sys
 import threading
+import time
 import traceback
 from pathlib import Path
 
@@ -40,6 +41,17 @@ def abrir_pendencia(con, vid: int, chave: str, etapa: str, titulo: str, texto: s
 
 def fechar_pendencia(con, vid: int, chave: str) -> None:
     con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND chave=? AND resolvida=0", (vid, chave))
+
+
+AVISOS_DO_RASCUNHO = ("cena_sem_imagem", "ver_rascunho", "obs_diretor", "erro_rascunho", "erro_direcao")
+AVISOS_DO_FINAL = ("ver_final", "erro_final")
+
+
+def limpar_avisos(con, vid: int, chaves: tuple[str, ...]) -> None:
+    """Uma versão nova foi pedida: os avisos da versão anterior ficaram obsoletos. Quando a nova terminar, só
+    voltam os que ainda valem para ela."""
+    con.execute(f"UPDATE pendencias SET resolvida=1 WHERE video_id=? AND resolvida=0 AND chave IN "
+                f"({','.join('?' * len(chaves))})", (vid, *chaves))
 
 
 # ---------------------------------------------------------------- gatilhos
@@ -290,12 +302,16 @@ def tarefa_direcao(vid: int) -> None:
     dirc, trab = pasta / "direcao", pasta / "trabalho"
 
     def passo(n: int, texto: str) -> None:
+        definir_progresso("Direção", f"{n}/5 · {texto}")
         with conectar() as con:
             atualizar_etapa(con, vid, "direcao", "andamento", f"{n}/5 · {texto}", "diretor trabalhando")
             registrar(con, vid, f"Direção {n}/5: {texto}", "info")
             con.commit()
 
     roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
+    with conectar() as con:
+        limpar_avisos(con, vid, AVISOS_DO_RASCUNHO)  # avisos da direção/rascunho anterior ficaram obsoletos
+        con.commit()
     passo(1, "medindo tempos da voz guia")
     palavras = tempos_da_narracao(trab / "voz_guia.wav", roteiro, dirc / "tempos_guia.json")
 
@@ -370,7 +386,9 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
     # no player do painel, e o Windows não deixa mexer em arquivo em uso.
     versao = proxima_versao(trab)
     arquivo = trab / f"rascunho_v{versao}.mp4"
-    segundos = renderizar(trecho, trab / "props.json", arquivo)
+    t_render = time.time()
+    segundos = renderizar(trecho, trab / "props.json", arquivo,
+                          progresso=lambda fr, txt: definir_progresso(f"Rascunho v{versao}", txt, fr, t_render))
 
     with conectar() as con:
         tipos = {}
@@ -493,6 +511,9 @@ def tarefa_final(vid: int) -> None:
             atualizar_etapa(con, vid, chave, status, resumo, detalhe, dados)
             con.commit()
 
+    with conectar() as con:
+        limpar_avisos(con, vid, AVISOS_DO_FINAL)  # avisos do vídeo final anterior ficaram obsoletos
+        con.commit()
     # 2) ressincronização: a direção aponta para palavras do roteiro; só trocam os tempos
     etapa("ressincronizacao", "andamento", "alinhando à sua voz…", "palavras do roteiro")
     palavras = alinhar(roteiro, json.loads((trab / "gravacao" / "palavras.json").read_text(encoding="utf-8")))
@@ -515,7 +536,9 @@ def tarefa_final(vid: int) -> None:
     etapa("render", "andamento", "renderizando com a sua voz…", "Remotion + NVENC")
     versao = proxima_versao(saida, "final")
     arquivo = saida / f"final_v{versao}.mp4"
-    segundos = renderizar(trecho, trab / "props_final.json", arquivo)
+    t_render = time.time()
+    segundos = renderizar(trecho, trab / "props_final.json", arquivo,
+                          progresso=lambda fr, txt: definir_progresso(f"Vídeo final v{versao}", txt, fr, t_render))
 
     with conectar() as con:
         atualizar_etapa(con, vid, "render", "atencao", f"{mmss(palavras[-1]['f'])} · v{versao}",
@@ -617,7 +640,9 @@ def tarefa_rascunho(vid: int) -> None:
     if ks:
         from planejar import guardar_blocos
 
-        revisar(plano, frases, necs, escolhas, ajustes, ks, trab, [c.get("nome", "") for c in circulos])
+        atual = ler("direcao.json") if (dirc / "direcao.json").exists() else {"cenas": []}
+        montadas = {c["id"]: {"de": c["de"], "ate": c["ate"]} for c in atual["cenas"] if c.get("id")}
+        revisar(plano, frases, necs, escolhas, ajustes, ks, trab, [c.get("nome", "") for c in circulos], montadas)
         for nome, dado in (("plano.json", plano), ("candidatos.json", necs), ("escolhas.json", escolhas),
                            ("ajustes.json", ajustes)):
             (dirc / nome).write_text(json.dumps(dado, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -702,6 +727,7 @@ def _trabalhador() -> None:
                 con.commit()
         finally:
             ESTADO["executando"] = None
+            ESTADO["progresso"] = None
             FILA.task_done()
 
 
@@ -725,7 +751,19 @@ def iniciar() -> None:
 
 
 def situacao() -> dict:
-    return {"executando": ESTADO["executando"], "na_fila": FILA.qsize()}
+    return {"executando": ESTADO["executando"], "na_fila": FILA.qsize(), "progresso": ESTADO.get("progresso")}
+
+
+def definir_progresso(titulo: str, texto: str, fracao: float | None = None, inicio: float | None = None) -> None:
+    """Barra de progresso do painel. `fracao` None = indeterminada (só o texto). Com `inicio` (time.time() do
+    começo da etapa) e fração > 2%, estima o tempo restante pela velocidade real."""
+    import time
+
+    restante = None
+    if fracao is not None and inicio and fracao > 0.02:
+        restante = round((time.time() - inicio) / fracao * (1 - fracao))
+    ESTADO["progresso"] = {"titulo": titulo, "texto": texto, "fracao": None if fracao is None else round(fracao, 4),
+                           "restante_s": restante}
 
 
 def ler_capa(slug: str) -> dict:

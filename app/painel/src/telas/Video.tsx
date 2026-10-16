@@ -8,6 +8,7 @@ import { PainelCapa } from '../componentes/PainelCapa'
 import { PainelGravacao } from '../componentes/PainelGravacao'
 import { PainelPublicacao } from '../componentes/PainelPublicacao'
 import { PainelRoteiro } from '../componentes/PainelRoteiro'
+import { Progresso } from '../componentes/Progresso'
 
 export function Video({ id }: { id: number }) {
   const { dados: v, erro, recarregar } = useAoVivo<TVideo>(`/videos/${id}`, 3000)
@@ -84,6 +85,10 @@ export function Video({ id }: { id: number }) {
           {v.etapas.map((e) => (
             <CardEtapa key={e.chave} etapa={e} />
           ))}
+        </div>
+
+        <div className="mt-5">
+          <Progresso videoId={v.id} />
         </div>
 
         {/* "Precisa de você" no topo: é a primeira coisa a ler, sem precisar rolar a tela */}

@@ -10,16 +10,18 @@ import {
 } from '@dnd-kit/core'
 import { AlertTriangle, Lock, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { api, arquivo, AVISO_PUBLICAR, quando, useAoVivo, type Coluna, type Status, type VideoResumo } from '../api'
+import { api, arquivo, AVISO_PUBLICAR, quando, useAoVivo, type Coluna, type Motor, type Status, type VideoResumo } from '../api'
 import { FUNDO } from '../componentes/Estado'
 import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
+import { ProgressoDoMotor } from '../componentes/Progresso'
 
 type DadosQuadro = { colunas: Coluna[]; videos: VideoResumo[] }
 const ORDEM_STATUS: Status[] = ['concluido', 'atencao', 'andamento', 'pendente', 'em_breve']
 
 export function Quadro() {
   const { dados, recarregar, setDados } = useAoVivo<DadosQuadro>('/quadro', 5000)
+  const { dados: motor } = useAoVivo<Motor>('/motor', 2000)
   const [arrastando, setArrastando] = useState<VideoResumo | null>(null)
   const sensores = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -58,6 +60,7 @@ export function Quadro() {
               coluna={c}
               videos={dados.videos.filter((v) => v.coluna === c.chave).sort((a, b) => a.ordem - b.ordem)}
               aoCriar={recarregar}
+              motor={motor}
             />
           ))}
         </div>
@@ -67,7 +70,7 @@ export function Quadro() {
   )
 }
 
-function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: VideoResumo[]; aoCriar: () => void }) {
+function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; videos: VideoResumo[]; aoCriar: () => void; motor: Motor | null }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave })
   const [titulo, setTitulo] = useState('')
   const criar = async () => {
@@ -89,7 +92,7 @@ function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: Vid
       </header>
       <div className="flex min-h-24 flex-col gap-2.5">
         {videos.map((v) => (
-          <ArrastavelVideo key={v.id} video={v} aoMudar={aoCriar} />
+          <ArrastavelVideo key={v.id} video={v} aoMudar={aoCriar} motor={motor} />
         ))}
       </div>
       {coluna.chave === 'ideia' && (
@@ -108,19 +111,19 @@ function ColunaQuadro({ coluna, videos, aoCriar }: { coluna: Coluna; videos: Vid
   )
 }
 
-function ArrastavelVideo({ video, aoMudar }: { video: VideoResumo; aoMudar: () => void }) {
+function ArrastavelVideo({ video, aoMudar, motor }: { video: VideoResumo; aoMudar: () => void; motor: Motor | null }) {
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({
     id: String(video.id),
     disabled: Boolean(video.travado) || video.coluna === 'publicado', // publicado é definitivo
   })
   return (
     <div ref={setNodeRef} {...listeners} {...attributes} className={isDragging ? 'opacity-30' : ''}>
-      <CardVideo video={video} menu={<MenuCard video={video} aoMudar={aoMudar} />} />
+      <CardVideo video={video} menu={<MenuCard video={video} aoMudar={aoMudar} />} motor={motor} />
     </div>
   )
 }
 
-function CardVideo({ video, flutuando, menu }: { video: VideoResumo; flutuando?: boolean; menu?: React.ReactNode }) {
+function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResumo; flutuando?: boolean; menu?: React.ReactNode; motor?: Motor | null }) {
   const segmentos = ORDEM_STATUS.flatMap((s) => Array(video.progresso[s] ?? 0).fill(s) as Status[])
   return (
     <a
@@ -149,6 +152,7 @@ function CardVideo({ video, flutuando, menu }: { video: VideoResumo; flutuando?:
             <span key={k} className={`h-1 flex-1 rounded-full ${FUNDO[s]}`} />
           ))}
         </div>
+        <ProgressoDoMotor motor={motor} videoId={video.id} compacta />
         <div className="mt-2 flex items-center justify-between font-mono text-[11px] text-apagado">
           <span>
             {video.progresso.concluido ?? 0}/{video.total_etapas} etapas

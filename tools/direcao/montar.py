@@ -417,7 +417,33 @@ def _versao_do_codigo() -> str:
     return h.hexdigest()[:12]
 
 
-def renderizar(trecho: dict, props: Path, saida: Path) -> float:
+def _rodar_render(pedido: Path, faltam: list[dict], progresso) -> tuple[int, str]:
+    """Roda o render_blocos.mjs lendo o progresso linha a linha. Devolve (código de saída, saída de erro)."""
+    import threading
+
+    total = sum(b["fim"] - b["inicio"] + 1 for b in faltam) or 1
+    feitos_antes = [sum(b["fim"] - b["inicio"] + 1 for b in faltam[:i]) for i in range(len(faltam))]
+    p = subprocess.Popen(["node", "render_blocos.mjs", str(pedido)], cwd=VIDEO_APP, stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
+    erros: list[str] = []
+    threading.Thread(target=lambda: erros.extend(p.stderr), daemon=True).start()  # não deixa o stderr entupir
+    for linha in p.stdout:
+        partes = linha.split()
+        if not progresso or not partes:
+            continue
+        if partes[0] == "PRONTO":
+            progresso(0.0, f"preparando ({len(faltam)} bloco(s) para renderizar)")
+        elif partes[0] == "PROG" and len(partes) == 3:
+            i, q = int(partes[1]), int(partes[2])
+            b = faltam[i]
+            progresso(min(0.99, (feitos_antes[i] + q) / total),
+                      f"bloco {i + 1} de {len(faltam)} · {(b.get('id') or 'introdução').replace('-', ' ')}")
+        elif partes[0] == "AUDIO":
+            progresso(0.99, "áudio pronto · juntando os blocos")
+    return p.wait(), "".join(erros)
+
+
+def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
     """Renderiza o vídeo POR BLOCOS: cada bloco (introdução + seções) vira um .mp4 sem áudio em cache
     (trabalho/blocos/<impressão>.mp4); só os blocos que mudaram são renderizados. Depois junta tudo com o FFmpeg
     (sem recomprimir) e põe o áudio (voz + efeitos), renderizado inteiro à parte. Devolve os segundos gastos."""
@@ -444,12 +470,12 @@ def renderizar(trecho: dict, props: Path, saida: Path) -> float:
         {"inicio": b["inicio"], "fim": b["fim"], "saida": str(b["arquivo"].with_suffix(".tmp.mp4"))} for b in faltam]},
         ensure_ascii=False), encoding="utf-8")
     log = saida.with_name("render_erro.log")
+    audio.unlink(missing_ok=True)  # um .wav velho não pode passar por "render ok"
     for tentativa in (1, 2):
-        p = subprocess.run(["node", "render_blocos.mjs", str(pedido)], cwd=VIDEO_APP, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace")
-        if p.returncode == 0 and audio.exists():
+        codigo, erro = _rodar_render(pedido, faltam, progresso)
+        if codigo == 0 and audio.exists():
             break
-        texto = re.sub(r"\x1b\[[0-9;]*m", "", (p.stderr or "") + "\n" + (p.stdout or ""))
+        texto = re.sub(r"\x1b\[[0-9;]*m", "", erro)
         with log.open("a", encoding="utf-8") as f:
             f.write(f"\n===== tentativa {tentativa} ({time.strftime('%H:%M:%S')}) =====\n{texto}")
     else:

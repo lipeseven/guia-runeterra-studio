@@ -2,6 +2,7 @@ import { ArrowLeft, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, 
 import { useEffect, useRef, useState } from 'react'
 import { api, arquivo, useAoVivo, type Video } from '../api'
 import { Moldura } from '../componentes/Moldura'
+import { Progresso } from '../componentes/Progresso'
 
 type Candidato = { idx: number; nome: string; tipo: string; miniatura: string }
 type Cena = {
@@ -120,6 +121,9 @@ export function Storyboard({ id }: { id: number }) {
               {enviando && direcao?.status !== 'andamento' ? 'Enviando…' : trabalhando ? direcao?.resumo ?? 'trabalhando…' : 'Gerar novo rascunho'}
             </button>
           </div>
+        </div>
+        <div className="mb-4">
+          <Progresso videoId={id} />
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">

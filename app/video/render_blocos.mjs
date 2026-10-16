@@ -27,9 +27,24 @@ const comum = {
   logLevel: "error",
 };
 try {
+  console.log("PRONTO bundle");
   for (const [i, b] of pedido.blocos.entries()) {
     const t0 = Date.now();
-    await renderMedia({ ...comum, codec: "h264", muted: true, frameRange: [b.inicio, b.fim], outputLocation: b.saida });
+    let ultimo = -1;
+    await renderMedia({
+      ...comum,
+      codec: "h264",
+      muted: true,
+      frameRange: [b.inicio, b.fim],
+      outputLocation: b.saida,
+      // progresso para a barra do painel (o Python soma os quadros de todos os blocos)
+      onProgress: ({ renderedFrames }) => {
+        if (renderedFrames - ultimo >= 30 || renderedFrames === b.fim - b.inicio + 1) {
+          ultimo = renderedFrames;
+          console.log(`PROG ${i} ${renderedFrames}`);
+        }
+      },
+    });
     console.log(`BLOCO ${i + 1}/${pedido.blocos.length} ${b.fim - b.inicio + 1} quadros em ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   }
   if (pedido.audio) {

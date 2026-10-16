@@ -335,6 +335,7 @@ def refazer_rascunho(vid: int):
         r = con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='rascunho'", (vid,)).fetchone()
         dados = json.loads(r["dados"] or "{}")
         atualizar_etapa(con, vid, "rascunho", "andamento", f"gerando v{dados.get('versao', 1) + 1}…", "na fila", dados)
+        motor.limpar_avisos(con, vid, motor.AVISOS_DO_RASCUNHO)  # eram da versão anterior
         registrar(con, vid, "Novo rascunho pedido (storyboard)", "info")
         con.commit()
     motor.FILA.put((vid, "rascunho"))

@@ -18,16 +18,33 @@ from planejar import FORMATO, SISTEMA, TIPOS
 RAIZ = Path(__file__).resolve().parents[2]
 
 
-def _trecho(plano: dict, k: int, frases: list[dict]) -> list[dict]:
-    """Frases que a cena k cobre: da frase dela até antes da próxima cena."""
-    ini = plano["cenas"][k]["frase"]
-    prox = next((c["frase"] for c in plano["cenas"][k + 1:] if c["frase"] > ini), len(frases))
+def _trecho(plano: dict, k: int, frases: list[dict], montadas: dict) -> list[dict]:
+    """Frases que a cena k cobre NO RASCUNHO que o Felipe viu (cenas seguintes sem imagem ficam de fora do vídeo,
+    e esta cena continua na tela até a próxima montada). Sem rascunho: até a próxima cena do plano."""
+    c = plano["cenas"][k]
+    m = montadas.get(id_da_cena(c, k))
+    if m:
+        return [f for f in frases if f["de"] <= m["ate"] and f["ate"] >= m["de"]] or frases[c["frase"]:c["frase"] + 1]
+    ini = c["frase"]
+    prox = next((x["frase"] for x in plano["cenas"][k + 1:] if x["frase"] > ini), len(frases))
     return frases[ini:max(prox, ini + 1)]
 
 
+def _ordenar(plano: dict, frases: list[dict]) -> None:
+    """Cenas em ordem de fala: frase e, dentro dela, a palavra em que começam."""
+    def chave(c):
+        f = frases[c["frase"]]
+        w = (c.get("comeca_na_palavra") or "").strip().lower()
+        pos = next((i for i, t in enumerate(f["texto"].split()) if w and t.strip(".,;:!?…").lower() == w.strip(".,;:!?…")), 0)
+        return (c["frase"], pos)
+    plano["cenas"].sort(key=chave)
+
+
 def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, ajustes: dict,
-            ids: list[str], pasta_trabalho: Path, nomes_capa: list[str]) -> None:
-    """Atualiza plano/necs/escolhas/ajustes NO LUGAR para as cenas `ids` (ids estáveis das cenas)."""
+            ids: list[str], pasta_trabalho: Path, nomes_capa: list[str], montadas: dict | None = None) -> None:
+    """Atualiza plano/necs/escolhas/ajustes NO LUGAR para as cenas `ids` (ids estáveis das cenas).
+    `montadas` = cenas do rascunho atual por id ({"de", "ate"} em palavras): define o trecho que o Felipe viu."""
+    montadas = montadas or {}
     regras = (RAIZ / "docs" / "regras_de_direcao.md").read_text(encoding="utf-8")
     por_id = {id_da_cena(c, k): k for k, c in enumerate(plano["cenas"])}
     ids = [i for i in ids if i in por_id]
@@ -35,7 +52,7 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
     for cid in ids:
         k = por_id[cid]
         c = plano["cenas"][k]
-        trechos[cid] = _trecho(plano, k, frases)
+        trechos[cid] = _trecho(plano, k, frases, montadas)
         cena = {kk: v for kk, v in c.items() if kk not in ("id", "secao", "conferir")}
         pedidos.append({"cena": cid,
                         "trecho": [f"[{i}] {f['texto']}" + "".join(f"  ↳ NOTA: {n}" for n in f.get("notas", []))
@@ -54,10 +71,10 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
     novas = chamar_json(prompt, SISTEMA.format(regras=regras), modelo="opus", etiqueta="direcao-revisao")["cenas"]
 
     afetados: list[str] = []
-    # de trás para frente: inserir cenas não muda a posição das que ainda vão ser trocadas
-    for cid in sorted((c for c in novas if c in por_id), key=lambda c: -por_id[c]):
-        k = por_id[cid]
-        velha = plano["cenas"][k]
+    trocas: dict[str, list[dict]] = {}
+    sumir: set[str] = set()
+    for cid in (c for c in novas if c in por_id):
+        velha = plano["cenas"][por_id[cid]]
         lista = novas[cid] if isinstance(novas[cid], list) else [novas[cid]]
         trecho = trechos[cid]
         validas = [c for c in lista if isinstance(c, dict) and c.get("tipo") in TIPOS]
@@ -66,14 +83,28 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
         substitutas = []
         for j, c in enumerate(sorted(validas, key=lambda c: int(c.get("frase") or 0))):
             rel = min(max(int(c.get("frase") or 0), 0), len(trecho) - 1)
-            substitutas.append({**c, "frase": velha["frase"] + rel, "secao": velha.get("secao"),
+            substitutas.append({**c, "frase": trecho[rel]["n"], "secao": velha.get("secao"),
                                 "id": cid if j == 0 else f"{cid}-{uuid.uuid4().hex[:4]}"})
-        plano["cenas"][k:k + 1] = substitutas
+        trocas[cid] = substitutas
+        # cenas do plano que caem nesse trecho e NÃO apareciam no rascunho (sem imagem): o diretor acabou de
+        # replanejar o trecho inteiro, então elas saem (senão disputariam o mesmo pedaço do vídeo)
+        nums = {f["n"] for f in trecho}
+        sumir |= {id_da_cena(x, i) for i, x in enumerate(plano["cenas"])
+                  if x["frase"] in nums and id_da_cena(x, i) != cid and montadas and id_da_cena(x, i) not in montadas}
         afetados += [s["id"] for s in substitutas]
         aj = ajustes[cid]
         aj["comentario_aplicado"] = True
         for campo in ("candidato", "tipo", "legenda"):  # o diretor refez a cena: valem as escolhas novas dele
             aj.pop(campo, None)
+    nova_lista = []
+    for i, x in enumerate(plano["cenas"]):
+        xid = id_da_cena(x, i)
+        if xid in trocas:
+            nova_lista += trocas[xid]
+        elif xid not in sumir:
+            nova_lista.append(x)
+    plano["cenas"] = nova_lista
+    _ordenar(plano, frases)
 
     # novos candidatos e nova escolha, só para as necessidades dessas cenas
     ac = Acervo(abrir_acervo())
@@ -88,6 +119,6 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
             para_o_claude.append(n)
     if para_o_claude:
         escolhas.update(escolher(para_o_claude, folhas(para_o_claude, pasta_trabalho / "candidatos_revisao")))
-    necs[:] = [n for n in necs if n["cena"] not in afetados] + alvo
+    necs[:] = [n for n in necs if n["cena"] not in afetados and n["cena"] not in sumir] + alvo
     ordem = {id_da_cena(c, k): k for k, c in enumerate(plano["cenas"])}
     necs.sort(key=lambda n: (ordem.get(n["cena"], 1e9), n.get("peca", -1)))

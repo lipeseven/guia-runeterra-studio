@@ -84,6 +84,12 @@ export function useAoVivo<T>(caminho: string, ms = 3000) {
   return { dados, erro, recarregar, setDados }
 }
 
+export type Motor = {
+  executando: { video: number; tarefa: string; desde: string } | null
+  na_fila: number
+  progresso: { titulo: string; texto: string; fracao: number | null; restante_s: number | null } | null
+}
+
 export const gb = (bytes: number) => `${(bytes / 1e9).toFixed(bytes > 1e11 ? 0 : 1)} GB`
 
 export function quando(iso: string) {
