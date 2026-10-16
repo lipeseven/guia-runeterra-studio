@@ -419,14 +419,17 @@ def _blocos_do_trecho(trecho: dict) -> list[dict]:
     return blocos
 
 
-def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str) -> str:
+def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = False) -> str:
     """Tudo o que influencia os quadros do bloco: cenas, intervalo, tempos das palavras usadas, código das cenas e
-    a capa. Igual → o .mp4 em cache vale."""
+    a capa. Igual → o .mp4 em cache vale. Sem "k" (posição da cena no plano inteiro, o Remotion não usa): dividir
+    uma cena no bloco 2 mudava o "k" de todas as cenas seguintes e refazia o vídeo todo. `com_k` = impressão
+    antiga, só para reaproveitar o cache feito antes desta correção."""
     import hashlib
 
     de = min(c["de"] for c in bloco["cenas"])
     ate = max(c["ate"] for c in bloco["cenas"])
-    chave = json.dumps([bloco["inicio"], bloco["fim"], bloco["cenas"], trecho["palavras"][de:ate + 2],
+    cenas = bloco["cenas"] if com_k else [{x: v for x, v in c.items() if x != "k"} for c in bloco["cenas"]]
+    chave = json.dumps([bloco["inicio"], bloco["fim"], cenas, trecho["palavras"][de:ate + 2],
                         trecho.get("tema"), trecho.get("secao"), codigo, capa], ensure_ascii=False, sort_keys=True)
     return hashlib.sha1(chave.encode("utf-8")).hexdigest()[:20]
 
@@ -515,6 +518,9 @@ def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
     for b in blocos:
         codigo = _versao_do_codigo({c["tipo"] for c in b["cenas"]})  # só o código das cenas deste bloco
         b["arquivo"] = cache / f"{_impressao(b, trecho, codigo, capa_id)}.mp4"
+        antigo = cache / f"{_impressao(b, trecho, codigo, capa_id, com_k=True)}.mp4"
+        if not b["arquivo"].exists() and antigo.exists():  # cache feito antes da correção do "k": mesmo vídeo
+            antigo.replace(b["arquivo"])
     faltam = [b for b in blocos if not b["arquivo"].exists()]
     audio = props.parent / "audio_render.wav"
     pedido = props.parent / "pedido_blocos.json"
