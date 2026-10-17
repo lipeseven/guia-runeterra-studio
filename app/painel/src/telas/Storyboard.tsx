@@ -261,7 +261,11 @@ function CartaoCena({
                 <option key={t} value={t}>{NOME_TIPO[t] ?? t}</option>
               ))}
             </select>
-            {c.recusada && !c.escolhido && <span className="text-[11px] text-atencao">nenhuma imagem serviu</span>}
+            {c.recusada && !c.escolhido && (
+              <span className="text-[11px] text-atencao">
+                nenhuma imagem serviu{c.no_rascunho ? ' · no rascunho entra só o texto: escolha uma imagem' : ''}
+              </span>
+            )}
             {c.comentario && (
               <span className={`text-[11px] ${c.comentario_aplicado ? 'text-ok' : 'text-andamento'}`}>
                 {c.comentario_aplicado ? 'pedido atendido' : 'pedido ao diretor pendente'}

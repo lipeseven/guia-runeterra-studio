@@ -217,6 +217,12 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         saida.sort(key=lambda p: p["de"])
         return saida
 
+    def sem_imagem(base: dict, legenda: str | None) -> dict:
+        """Nenhuma imagem serviu: a cena entra assim mesmo, no tempo dela, como texto (a legenda ou um aviso), e o
+        Felipe escolhe a imagem no storyboard — sem precisar de outra chamada ao Claude."""
+        return {**base, "tipo": "texto", "texto": legenda or "[imagem pendente]", "fundo": "claro",
+                "entrada_texto": {"efeito": "corte", "quadros": 1}, "sem_imagem": True}
+
     cenas = []
     bloco_atual = None
     for k, c in enumerate(plano["cenas"]):
@@ -280,14 +286,16 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             else:
                 pendencias.append({"titulo": "Cena com poucas imagens",
                                    "texto": f"Cena {numeros.get(cid, k)} ({tipo}, “{f['texto'][:80]}…”): menos de 2 imagens serviram. "
-                                            "No rascunho, a cena anterior continua na tela."})
+                                            "No rascunho, um texto ocupa o lugar dela: escolha as imagens no storyboard."})
+                cenas.append(sem_imagem(base, legenda))
             continue
 
         esc = escolhido(cid)
         if not esc:
             pendencias.append({"titulo": "Cena sem imagem boa",
                                "texto": f"Cena {numeros.get(cid, k)} (“{f['texto'][:90]}…”): nenhum candidato do acervo serviu. "
-                                        "No rascunho, a cena anterior continua na tela."})
+                                        "No rascunho, um texto ocupa o lugar dela: escolha a imagem no storyboard."})
+            cenas.append(sem_imagem(base, legenda))
             continue
 
         if tipo == "clipe":
