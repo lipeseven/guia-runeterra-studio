@@ -320,7 +320,8 @@ def ver_storyboard(vid: int):
     return {"cenas": storyboard.cenas(pasta), "tipos": storyboard.TIPOS,
             "pedidos_pendentes": len(storyboard.pendentes_para_o_diretor(storyboard.carregar(pasta)["ajustes"])),
             "ajustes": len(storyboard.carregar(pasta)["ajustes"]),
-            "pendentes": len(storyboard.pendentes(pasta))}  # mexidas depois que o último rascunho começou
+            "pendentes": len(storyboard.pendentes(pasta)),  # mexidas depois que o último rascunho começou
+            "capa": next((p.relative_to(RAIZ).as_posix() for p in sorted((pasta / "direcao").glob("capa.*"))), None)}
 
 
 @app.post("/api/videos/{vid}/storyboard/{cid}")

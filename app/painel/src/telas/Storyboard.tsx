@@ -29,11 +29,13 @@ type Cena = {
   motivo: string | null
   ajustada: boolean
   pendente: boolean // mexida depois que o último rascunho começou
+  lado: string | null // meio a meio / citação: lado da imagem no rascunho
+  fundo: string | null // texto: claro | escuro
   som: string | null
   som_no_rascunho: boolean
 }
 type Peca = { j: number; rotulo: string; busca: string | null; escolhido: Candidato | null; candidatos: Candidato[]; ajustada: boolean }
-type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number; pendentes: number }
+type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number; pendentes: number; capa: string | null }
 
 const NOME_TIPO: Record<string, string> = {
   capa: 'Capa', cartao: 'Cartão', telacheia: 'Tela cheia', recorte: 'Recorte', mosaico: 'Mosaico', clipe: 'Clipe', dialogo: 'Diálogo',
@@ -170,7 +172,7 @@ export function Storyboard({ id }: { id: number }) {
           {/* lista de cenas */}
           <div className="flex flex-col gap-3">
             {sb?.cenas.map((c) => (
-              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} ativa={atual?.id === c.id} ajustar={ajustar} irPara={irPara} />
+              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} capa={sb.capa} ativa={atual?.id === c.id} ajustar={ajustar} irPara={irPara} />
             ))}
           </div>
         </div>
@@ -182,12 +184,14 @@ export function Storyboard({ id }: { id: number }) {
 function CartaoCena({
   cena: c,
   tipos,
+  capa,
   ativa,
   ajustar,
   irPara,
 }: {
   cena: Cena
   tipos: string[]
+  capa: string | null
   ativa: boolean
   ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void>
   irPara: (s: number | null) => void
@@ -226,29 +230,7 @@ function CartaoCena({
           className="group relative h-[90px] w-[160px] shrink-0 overflow-hidden rounded-lg border border-borda bg-painel-2"
           title="Ver esta cena no player"
         >
-          {soItens && c.pecas.some((p) => p.escolhido) ? (
-            <span className="flex h-full w-full gap-0.5">
-              {c.pecas.filter((p) => p.escolhido).map((p) => (
-                <img key={p.j} src={arquivo(p.escolhido!.miniatura)} alt="" className="h-full min-w-0 flex-1 object-cover" />
-              ))}
-            </span>
-          ) : c.escolhido ? (
-            <img src={arquivo(c.escolhido.miniatura)} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span className="grid h-full place-items-center px-2 text-center text-[11px] text-apagado">
-              {c.tipo === 'capa'
-                ? 'capa do vídeo'
-                : c.tipo === 'hub'
-                  ? 'ícones da capa (transição)'
-                  : c.tipo === 'dialogo'
-                    ? 'diálogo (ícones da capa)'
-                    : c.tipo === 'texto'
-                      ? 'só texto'
-                      : ['dividida', 'lista'].includes(c.tipo)
-                        ? 'várias imagens (uma por item)'
-                        : 'sem imagem'}
-            </span>
-          )}
+          <MiniaturaDaCena c={c} capa={capa} />
           {c.inicio != null && (
             <span className="absolute inset-0 grid place-items-center bg-black/0 opacity-0 transition group-hover:bg-black/40 group-hover:opacity-100">
               <Play className="size-6 text-white" />
@@ -580,4 +562,99 @@ function ItemDaCena({ peca, ajustar }: { peca: Peca; ajustar: (acao: Record<stri
       )}
     </div>
   )
+}
+
+/**
+ * Miniatura que REPRESENTA a cena como ela fica na tela (esquema 16:9, fundo branco do canal): cartão, recorte,
+ * tela cheia, meio a meio, lista, tela dividida, mosaico, texto, capa/transição — com as imagens escolhidas.
+ */
+function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
+  const img = c.escolhido ? arquivo(c.escolhido.miniatura) : null
+  const itens = c.pecas.filter((p) => p.escolhido).map((p) => ({ j: p.j, src: arquivo(p.escolhido!.miniatura), rotulo: p.rotulo }))
+  const legenda = c.legenda ? <span className="line-clamp-1 px-1 text-center text-[7px] font-semibold leading-tight text-neutral-800">{c.legenda}</span> : null
+  const branco = 'h-full w-full bg-[#f4f1ea]'
+  const vazio = (txt: string) => (
+    <span className={`grid ${branco} place-items-center px-2 text-center text-[10px] text-neutral-500`}>{txt}</span>
+  )
+  switch (c.tipo) {
+    case 'capa':
+    case 'hub':
+      return capa ? <img src={arquivo(capa)} alt="" className="h-full w-full object-cover" /> : vazio('capa do vídeo')
+    case 'dialogo':
+      return capa ? <img src={arquivo(capa)} alt="" className="h-full w-full object-cover opacity-70" /> : vazio('diálogo')
+    case 'telacheia':
+    case 'clipe':
+      return img ? (
+        <span className="relative block h-full w-full">
+          <img src={img} alt="" className="h-full w-full object-cover" />
+          {c.tipo === 'clipe' && <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 text-[8px] text-white">clipe</span>}
+        </span>
+      ) : vazio('sem imagem')
+    case 'cartao':
+    case 'citacao':
+      return img ? (
+        <span className={`flex ${branco} flex-col items-center justify-center gap-1 p-1.5`}>
+          <img src={img} alt="" className="max-h-[62px] max-w-[120px] rounded-sm object-cover shadow" />
+          {legenda}
+        </span>
+      ) : vazio(c.legenda ? `“${c.legenda}” (sem imagem)` : 'sem imagem')
+    case 'recorte':
+      return img ? (
+        <span className={`flex ${branco} flex-col items-center justify-center gap-0.5 p-1`}>
+          <img src={img} alt="" className="max-h-[66px] max-w-[110px] object-contain" />
+          {legenda}
+        </span>
+      ) : vazio('sem imagem')
+    case 'meio':
+      return img ? (
+        <span className={`flex ${branco} ${c.lado === 'dir' ? 'flex-row-reverse' : ''}`}>
+          <img src={img} alt="" className="h-full w-1/2 object-cover" />
+          <span className="grid w-1/2 place-items-center">{legenda ?? <span className="text-[8px] text-neutral-500">texto</span>}</span>
+        </span>
+      ) : vazio('sem imagem')
+    case 'texto':
+      return (
+        <span className={`grid h-full w-full place-items-center p-2 ${c.fundo === 'escuro' ? 'bg-neutral-900 text-neutral-100' : 'bg-[#f4f1ea] text-neutral-800'}`}>
+          <span className="line-clamp-3 text-center text-[9px] font-semibold leading-tight">{c.legenda || 'só texto'}</span>
+        </span>
+      )
+    case 'lista':
+      return itens.length ? (
+        <span className={`flex ${branco} items-center justify-center gap-1 px-1.5`}>
+          {itens.map((p) => (
+            <span key={p.j} className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+              <img src={p.src} alt="" className="aspect-[4/3] w-full rounded-sm object-cover shadow" />
+              {p.rotulo && <span className="w-full truncate text-center text-[6px] font-semibold text-neutral-700">{p.rotulo}</span>}
+            </span>
+          ))}
+        </span>
+      ) : vazio('lista sem imagens')
+    case 'dividida':
+      return itens.length ? (
+        <span className="flex h-full w-full gap-0.5 bg-white">
+          {itens.map((p) => (
+            <img key={p.j} src={p.src} alt="" className="h-full min-w-0 flex-1 object-cover" />
+          ))}
+        </span>
+      ) : vazio('tela dividida sem imagens')
+    case 'mosaico':
+      return (
+        <span className="relative block h-full w-full bg-[#f4f1ea]">
+          {img && <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+          <span className="absolute inset-0 flex items-center justify-center gap-1 px-2">
+            {itens.map((p, k) => (
+              <img
+                key={p.j}
+                src={p.src}
+                alt=""
+                className="w-[30%] rounded-sm border border-white object-cover shadow"
+                style={{ transform: `rotate(${(k % 2 ? 1 : -1) * 4}deg)` }}
+              />
+            ))}
+          </span>
+        </span>
+      )
+    default:
+      return img ? <img src={img} alt="" className="h-full w-full object-cover" /> : vazio('sem imagem')
+  }
 }
