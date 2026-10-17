@@ -638,7 +638,9 @@ ARQUIVO_DA_CENA = {"capa": "Capa", "hub": "Hub", "cartao": "Cartao", "telacheia"
 def _codigo_que_desenha(arquivo: Path) -> bytes:
     """Conteúdo do arquivo SEM as linhas marcadas `impressao:ignorar` (ganchos de recursos opcionais, como as setas,
     que não desenham nada nas cenas que não os usam: acrescentá-los não pode invalidar o cache dos blocos)."""
-    bruto = arquivo.read_bytes()  # arquivo sem marcação: exatamente os mesmos bytes de antes (cache intacto)
+    # quebras de linha normalizadas: o Git no Windows pode trocar LF por CRLF no checkout, e isso não pode
+    # invalidar o cache dos blocos (o desenho é o mesmo)
+    bruto = arquivo.read_bytes().replace(b"\r\n", b"\n")
     if b"impressao:ignorar" not in bruto:
         return bruto
     return b"".join(ln for ln in bruto.splitlines(keepends=True) if b"impressao:ignorar" not in ln)
