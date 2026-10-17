@@ -191,9 +191,10 @@ export function Storyboard({ id }: { id: number }) {
               {enviando && direcao?.status !== 'andamento' ? 'Enviando…' : trabalhando ? direcao?.resumo ?? 'trabalhando…' : 'Gerar novo rascunho'}
             </button>
           </div>
-        </div>
-        <div className="mb-4">
-          <Progresso videoId={id} />
+          {/* barra do render junto do cabeçalho fixo: visível em qualquer ponto do storyboard */}
+          <div className="w-full empty:hidden">
+            <Progresso videoId={id} />
+          </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
