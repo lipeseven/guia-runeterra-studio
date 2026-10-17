@@ -18,6 +18,7 @@ type Cena = {
   fim: number | null
   busca: string | null
   escolhido: Candidato | null
+  metade2: { nome: string; miniatura: string } | null // meio a meio: imagem na outra metade (no lugar do texto)
   clipe: { midia_id: number; inicio: number; duracao: number } | null // vídeo original do clipe escolhido
   candidatos: Candidato[]
   pecas: Peca[] // itens de lista / tela dividida / mosaico (cada um com a própria imagem)
@@ -196,7 +197,7 @@ function CartaoCena({
   ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void>
   irPara: (s: number | null) => void
 }) {
-  const [aba, setAba] = useState<'nada' | 'trocar' | 'pedir' | 'itens'>('nada')
+  const [aba, setAba] = useState<'nada' | 'trocar' | 'pedir' | 'itens' | 'metade'>('nada')
   const [legenda, setLegenda] = useState(c.legenda ?? '')
   const [pedido, setPedido] = useState(c.comentario ?? '')
   const [consulta, setConsulta] = useState('')
@@ -264,6 +265,25 @@ function CartaoCena({
                     imagem à {l === 'esq' ? 'esquerda' : 'direita'}
                   </button>
                 ))}
+              </span>
+            )}
+            {c.tipo === 'meio' && (
+              <span className="flex items-center gap-1 text-[11px] text-suave" title="O que vai na OUTRA metade">
+                outra metade:
+                <span className="flex overflow-hidden rounded-md border border-borda">
+                  <button
+                    onClick={() => c.metade2 && ajustar(c.id, { acao: 'metade_texto' })}
+                    className={`px-2 py-0.5 ${!c.metade2 ? 'bg-ouro/20 text-ouro' : 'hover:text-texto'}`}
+                  >
+                    texto
+                  </button>
+                  <button
+                    onClick={() => setAba(aba === 'metade' ? 'nada' : 'metade')}
+                    className={`px-2 py-0.5 ${c.metade2 ? 'bg-ouro/20 text-ouro' : 'hover:text-texto'}`}
+                  >
+                    imagem{c.metade2 ? `: ${c.metade2.nome}` : ''}
+                  </button>
+                </span>
               </span>
             )}
             {c.recusada && !c.escolhido && (
@@ -430,6 +450,21 @@ function CartaoCena({
               )}
             </>
           )}
+        </div>
+      )}
+
+      {aba === 'metade' && (
+        <div className="mt-3 border-t border-borda pt-3">
+          <p className="mb-2 text-xs text-suave">
+            Imagem para a outra metade (no lugar do texto; a legenda, se houver, aparece como rótulo sobre ela):
+          </p>
+          <ItemDaCena
+            peca={{ j: 0, rotulo: 'outra metade', busca: null, escolhido: null, candidatos: [], ajustada: false }}
+            ajustar={async (acao) => {
+              await ajustar(c.id, { ...acao, acao: 'metade_usar_midia' })
+              setAba('nada')
+            }}
+          />
         </div>
       )}
 
@@ -635,7 +670,14 @@ function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
       return img ? (
         <span className={`flex ${branco} ${c.lado === 'dir' ? 'flex-row-reverse' : ''}`}>
           <img src={img} alt="" className="h-full w-1/2 object-cover" />
+          {c.metade2 ? (
+            <span className="relative w-1/2">
+              <img src={arquivo(c.metade2.miniatura)} alt="" className="h-full w-full object-cover" />
+              {c.legenda && <span className="absolute inset-x-0 bottom-0 bg-white/85">{legenda}</span>}
+            </span>
+          ) : (
           <span className="grid w-1/2 place-items-center">{legenda ?? <span className="text-[8px] text-neutral-500">texto</span>}</span>
+          )}
         </span>
       ) : vazio('sem imagem')
     case 'texto':

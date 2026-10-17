@@ -103,6 +103,8 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   "pendentes" (`direcao/ajustes_pendentes.json`, limpo quando o motor lê os ajustes), escolher o momento do clipe no
   vídeo original (`clipe_inicio` → `Midias.tomada(id, inicio)`; rota `/api/acervo/video/{id}`), CLIP pré-carregado.
   "Juntar com a próxima": a cena vira tela dividida (`ajustes[cid].juntar`; item 2 entra onde a próxima começava, peça com `frase`/`palavra`) e a próxima sai (`juntada_em`; "Desfazer" volta as duas).
+  Meio a meio: lado da imagem (`lado_felipe`) e outra metade texto OU imagem (`metade2` → nec `<cid>m2`; sai como dividida de 2).
+  Pendentes = ajustes diferentes da foto `direcao/ajustes_no_rascunho.json` (tirada quando o motor lê os ajustes).
   Itens de lista/dividida/mosaico: imagem por item no storyboard (`ajustes[cid].pecas[j].candidato` → escolha fixa de `<cid>p<j>`).
 - Atualizar acervo ✅ (2026-10-17): `tools/acervo/atualizar.py` (inventário → CLIP → tomadas → etiquetas pelo nome do
   arquivo; incremental, sem cota). Tarefa global "acervo" (vid 0) na fila do motor: botão "Atualizar acervo" no topo

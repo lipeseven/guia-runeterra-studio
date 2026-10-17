@@ -39,9 +39,18 @@ def _arq_pendentes(pasta: Path) -> Path:
     return pasta / "direcao" / "ajustes_pendentes.json"
 
 
+def _arq_foto(pasta: Path) -> Path:
+    return pasta / "direcao" / "ajustes_no_rascunho.json"
+
+
 def pendentes(pasta: Path) -> list[str]:
-    """Cenas mexidas depois que o último rascunho começou: ainda NÃO estão em nenhum rascunho (nem no que roda)."""
-    return _ler(_arq_pendentes(pasta), [])
+    """Cenas cujos ajustes estão DIFERENTES dos que o último rascunho usou (comparação com a foto tirada quando o
+    motor leu os ajustes). Mexer e desfazer volta a ficar igual → deixa de ser pendente."""
+    foto = _ler(_arq_foto(pasta), None)
+    if foto is None:  # projetos de antes da foto: lista de cenas mexidas
+        return _ler(_arq_pendentes(pasta), [])
+    atuais = _ler(pasta / "direcao" / "ajustes.json", {})
+    return [cid for cid in sorted(set(atuais) | set(foto)) if atuais.get(cid) != foto.get(cid)]
 
 
 def marcar_pendente(pasta: Path, cid: str) -> None:
@@ -51,7 +60,10 @@ def marcar_pendente(pasta: Path, cid: str) -> None:
 
 
 def limpar_pendentes(pasta: Path) -> None:
-    """O motor leu os ajustes para montar um rascunho: tudo o que estava pendente entrou nessa fila."""
+    """O motor leu os ajustes para montar um rascunho: tudo o que estava pendente entrou nessa fila (foto dos
+    ajustes usados, para comparar depois)."""
+    _arq_foto(pasta).write_text(json.dumps(_ler(pasta / "direcao" / "ajustes.json", {}), ensure_ascii=False),
+                                encoding="utf-8")
     _arq_pendentes(pasta).unlink(missing_ok=True)
 
 
@@ -109,6 +121,10 @@ def cenas(pasta: Path) -> list[dict]:
             pecas.append({"j": j, "rotulo": peca.get("rotulo") or peca.get("palavra") or "",
                           "busca": (peca.get("busca") or {}).get("o_que"), "escolhido": pesc, "candidatos": pcands,
                           "ajustada": bool(paj)})
+        metade2 = None
+        if aj.get("metade2") and necs.get(f"{cid}m2"):
+            x = necs[f"{cid}m2"]["candidatos"][aj["metade2"]["candidato"]]
+            metade2 = {"nome": x["nome"], "miniatura": _rel(x["miniatura"])}
         m = montadas.get(cid)
         inicio = palavras[m["de"]]["i"] if m and palavras else None
         inicios.append(inicio)
@@ -119,7 +135,7 @@ def cenas(pasta: Path) -> list[dict]:
             "k": k, "numero": numeros.get(cid, str(k)), "id": cid, "secao": c.get("secao"), "conferir": bool(c.get("conferir")) and not aj.get("conferido"),
             "tipo": aj.get("tipo", c["tipo"]), "legenda": aj.get("legenda", c.get("legenda")),
             "frase": frase, "inicio": inicio, "busca": (c.get("busca") or {}).get("o_que"),
-            "escolhido": escolhido, "clipe": clipe, "candidatos": cands, "pecas": pecas, "recusada": nec is not None and not esc.get("escolha"),
+            "escolhido": escolhido, "metade2": metade2, "clipe": clipe, "candidatos": cands, "pecas": pecas, "recusada": nec is not None and not esc.get("escolha"),
             "no_rascunho": m is not None, "removida": bool(aj.get("removida")),
             "comentario": aj.get("comentario"), "comentario_aplicado": bool(aj.get("comentario_aplicado")),
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
@@ -189,6 +205,19 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         aj.setdefault("pecas", {})[str(j)] = {"candidato": idx}
     elif tipo == "juntar_proxima":  # esta cena + a próxima viram uma tela dividida; a próxima sai do vídeo
         _juntar_com_a_proxima(pasta, d, cid, aj)
+    elif tipo == "metade_usar_midia":  # meio a meio: IMAGEM na outra metade (no lugar do texto)
+        necs = d["necs"]
+        mid = f"{cid}m2"
+        n2 = next((n for n in necs if n["id"] == mid), None)
+        if n2 is None:
+            n2 = {"id": mid, "cena": cid, "tipo": "metade", "busca": {}, "frase": "", "legenda": "", "candidatos": []}
+            necs.append(n2)
+        n2["candidatos"].append({"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0,
+                                 "miniatura": str(RAIZ / acao["miniatura"])})
+        aj["metade2"] = {"candidato": len(n2["candidatos"]) - 1}
+        (pasta / "direcao" / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
+    elif tipo == "metade_texto":  # meio a meio: a outra metade volta a ser o texto
+        aj.pop("metade2", None)
     elif tipo == "lado":  # meio a meio / citação: de que lado fica a imagem
         if acao["lado"] not in ("esq", "dir", "centro"):
             raise ValueError("lado inválido")
@@ -287,6 +316,9 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["legenda"] = aj["legenda"] or None
         if aj.get("lado"):
             c["lado_felipe"] = aj["lado"]
+        if aj.get("metade2"):  # meio a meio com imagem nas duas metades
+            c["metade2"] = True
+            escolhas[f"{cid}m2"] = {"escolha": aj["metade2"]["candidato"] + 1, "fixa": True, "foco": [0.5, 0.45]}
         if aj.get("juntar"):  # tela dividida montada pelo Felipe com a cena seguinte
             c["pecas"] = aj["juntar"]["pecas"]
         if "tipo" in aj:

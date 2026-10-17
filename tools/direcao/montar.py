@@ -324,6 +324,13 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         elif tipo == "recorte":
             cenas.append({**base, "tipo": "recorte", "midia": midia, "legenda": legenda,
                           "legenda_em": legenda_em or de, "entrada_img": var.imagem(), "entrada_legenda": var.texto()})
+        elif tipo == "meio" and c.get("metade2") and (e2 := escolhido(f"{cid}m2")) and e2["tipo"] == "midia":
+            # meio a meio com IMAGEM nas duas metades (escolha do Felipe): sai como tela dividida de 2, sem tocar no
+            # código do Meio (não invalida o render dos outros blocos); a legenda vira o rótulo da outra metade
+            lado = c.get("lado_felipe") or var.lado()
+            a = {"de": de, "midia": midia, "foco": esc["foco"], "rotulo": ""}
+            b = {"de": de, "midia": m.imagem(e2["id"]), "foco": e2["foco"], "rotulo": legenda or ""}
+            cenas.append({**base, "tipo": "dividida", "pecas": [a, b] if lado == "esq" else [b, a], **var.dividida()})
         elif tipo == "meio" and legenda:
             cenas.append({**base, "tipo": "meio", "midia": midia, "foco": esc["foco"], "lado": var.lado(),
                           "texto": legenda, "texto_em": legenda_em if legenda_em is not None else de,
