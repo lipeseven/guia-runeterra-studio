@@ -156,7 +156,7 @@ def cenas(pasta: Path) -> list[dict]:
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
-            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
+            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "so_texto_no_video": bool(m and m.get("sem_imagem")), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
         })
     # fim de cada cena = início da próxima montada
     for i, s in enumerate(saida):

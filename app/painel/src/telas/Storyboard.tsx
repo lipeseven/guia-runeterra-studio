@@ -32,6 +32,7 @@ type Cena = {
   pendente: boolean // mexida depois que o último rascunho começou
   lado: string | null // meio a meio / citação: lado da imagem no rascunho
   sem_fundo: boolean // imagem com o fundo de cor lisa removido (cópia à parte)
+  so_texto_no_video: boolean // no rascunho a cena entrou como texto (faltou imagem)
   fundo: string | null // texto: claro | escuro
   som: string | null
   som_no_rascunho: boolean
@@ -287,6 +288,11 @@ function CartaoCena({
                     imagem{c.metade2 ? `: ${c.metade2.nome}` : ''}
                   </button>
                 </span>
+              </span>
+            )}
+            {c.so_texto_no_video && !c.pendente && (c.escolhido || c.pecas.some((p) => p.escolhido)) && (
+              <span className="text-[11px] text-atencao">
+                no vídeo entrou só o texto: {c.pecas.length ? 'faltam imagens nos itens (mínimo 2)' : 'a imagem não pôde ser usada'}
               </span>
             )}
             {c.recusada && !c.escolhido && (
@@ -647,6 +653,12 @@ function ItemDaCena({ peca, ajustar }: { peca: Peca; ajustar: (acao: Record<stri
  * tela cheia, meio a meio, lista, tela dividida, mosaico, texto, capa/transição — com as imagens escolhidas.
  */
 function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
+  if (c.so_texto_no_video && !c.pendente)
+    return (
+      <span className="grid h-full w-full place-items-center bg-[#f4f1ea] p-2 text-center text-[9px] font-semibold leading-tight text-neutral-800">
+        {c.legenda || '[imagem pendente]'}
+      </span>
+    )
   const img = c.escolhido ? arquivo(c.escolhido.miniatura) : null
   const itens = c.pecas.filter((p) => p.escolhido).map((p) => ({ j: p.j, src: arquivo(p.escolhido!.miniatura), rotulo: p.rotulo }))
   const legenda = c.legenda ? <span className="line-clamp-1 px-1 text-center text-[7px] font-semibold leading-tight text-neutral-800">{c.legenda}</span> : null
