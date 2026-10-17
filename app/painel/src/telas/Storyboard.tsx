@@ -20,6 +20,7 @@ type Cena = {
   escolhido: Candidato | null
   clipe: { midia_id: number; inicio: number; duracao: number } | null // vídeo original do clipe escolhido
   candidatos: Candidato[]
+  pecas: Peca[] // itens de lista / tela dividida / mosaico (cada um com a própria imagem)
   recusada: boolean
   no_rascunho: boolean
   removida: boolean
@@ -31,6 +32,7 @@ type Cena = {
   som: string | null
   som_no_rascunho: boolean
 }
+type Peca = { j: number; rotulo: string; busca: string | null; escolhido: Candidato | null; candidatos: Candidato[]; ajustada: boolean }
 type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number; pendentes: number }
 
 const NOME_TIPO: Record<string, string> = {
@@ -190,7 +192,7 @@ function CartaoCena({
   ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void>
   irPara: (s: number | null) => void
 }) {
-  const [aba, setAba] = useState<'nada' | 'trocar' | 'pedir'>('nada')
+  const [aba, setAba] = useState<'nada' | 'trocar' | 'pedir' | 'itens'>('nada')
   const [legenda, setLegenda] = useState(c.legenda ?? '')
   const [pedido, setPedido] = useState(c.comentario ?? '')
   const [consulta, setConsulta] = useState('')
@@ -321,6 +323,11 @@ function CartaoCena({
                 <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
               </Botao>
             )}
+            {c.pecas.length > 0 && (
+              <Botao ativo={aba === 'itens'} onClick={() => setAba(aba === 'itens' ? 'nada' : 'itens')}>
+                <Search className="size-3.5" /> Trocar imagens ({c.pecas.length} itens)
+              </Botao>
+            )}
             <Botao ativo={aba === 'pedir'} onClick={() => setAba(aba === 'pedir' ? 'nada' : 'pedir')}>
               <MessageSquarePlus className="size-3.5" /> Pedir ao diretor
             </Botao>
@@ -410,6 +417,14 @@ function CartaoCena({
         </div>
       )}
 
+      {aba === 'itens' && (
+        <div className="mt-3 space-y-3 border-t border-borda pt-3">
+          {c.pecas.map((p) => (
+            <ItemDaCena key={p.j} peca={p} ajustar={(acao) => ajustar(c.id, { ...acao, j: p.j })} />
+          ))}
+        </div>
+      )}
+
       {aba === 'pedir' && (
         <div className="mt-3 border-t border-borda pt-3">
           <p className="mb-2 text-xs text-suave">
@@ -485,6 +500,76 @@ function MomentoDoClipe({ clipe, usar }: { clipe: { midia_id: number; inicio: nu
           {salvo ? 'salvo: entra no próximo rascunho' : `agora começa em ${mmss(clipe.inicio)}`}
         </span>
       </div>
+    </div>
+  )
+}
+
+/** Um item de lista / tela dividida / mosaico: imagem atual, candidatos do diretor e busca no acervo. */
+function ItemDaCena({ peca, ajustar }: { peca: Peca; ajustar: (acao: Record<string, unknown>) => Promise<void> }) {
+  const [consulta, setConsulta] = useState('')
+  const [resultados, setResultados] = useState<{ midia_id: number; nome: string; miniatura: string }[] | null>(null)
+  const [buscando, setBuscando] = useState(false)
+  const buscar = async (n: number) => {
+    if (!consulta.trim()) return
+    setBuscando(true)
+    setResultados(await api(`/acervo/buscar?q=${encodeURIComponent(consulta)}&n=${n}`))
+    setBuscando(false)
+  }
+  const miniatura = (cand: Candidato, ativo: boolean, onClick: () => void) => (
+    <button
+      key={`${cand.idx}-${cand.nome}`}
+      onClick={onClick}
+      className={`overflow-hidden rounded-md border text-left ${ativo ? 'border-ouro' : 'border-borda hover:border-suave'}`}
+    >
+      <img src={arquivo(cand.miniatura)} alt="" className="aspect-video w-full object-cover" />
+      <span className="block truncate px-1.5 py-1 font-mono text-[10px] text-suave">{cand.nome}</span>
+    </button>
+  )
+  return (
+    <div className="rounded-lg border border-borda/70 p-2">
+      <p className="mb-2 flex items-center gap-2 text-xs">
+        <span className="font-mono text-apagado">item {peca.j + 1}</span>
+        <b className="text-texto">{peca.rotulo || '(sem rótulo)'}</b>
+        {!peca.escolhido && <span className="text-atencao">sem imagem</span>}
+        {peca.ajustada && <span className="text-andamento">escolhida por você</span>}
+      </p>
+      <div className="grid grid-cols-6 gap-2">
+        {peca.candidatos.map((cand) =>
+          miniatura(cand, peca.escolhido?.idx === cand.idx, () => ajustar({ acao: 'peca_candidato', idx: cand.idx })),
+        )}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input
+          value={consulta}
+          onChange={(e) => setConsulta(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && buscar(16)}
+          placeholder={`Buscar no acervo para “${peca.rotulo || 'este item'}” e Enter`}
+          className="flex-1 rounded-md border border-borda bg-painel-2 px-2 py-1 text-xs outline-none focus:border-suave"
+        />
+        {buscando && <Loader2 className="size-4 animate-spin self-center text-suave" />}
+      </div>
+      {resultados && (
+        <>
+          <div className="mt-2 grid grid-cols-6 gap-2">
+            {resultados.map((r) =>
+              miniatura({ idx: -1, nome: r.nome, tipo: 'midia', miniatura: r.miniatura }, false, async () => {
+                await ajustar({ acao: 'peca_usar_midia', midia_id: r.midia_id, nome: r.nome, miniatura: r.miniatura })
+                setResultados(null)
+                setConsulta('')
+              }),
+            )}
+          </div>
+          {resultados.length > 0 && resultados.length % 16 === 0 && (
+            <button
+              disabled={buscando}
+              onClick={() => buscar(resultados.length + 16)}
+              className="mt-2 w-full rounded-md border border-borda py-1 text-[11px] text-suave hover:border-suave hover:text-texto"
+            >
+              Mostrar mais
+            </button>
+          )}
+        </>
+      )}
     </div>
   )
 }

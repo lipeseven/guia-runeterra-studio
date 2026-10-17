@@ -93,6 +93,22 @@ def cenas(pasta: Path) -> list[dict]:
                                "WHERE t.id=?", (nec["candidatos"][escolhido["idx"]]["id"],)).fetchone()
             if t:
                 clipe = {"midia_id": t[0], "inicio": aj.get("clipe_inicio", t[1]), "duracao": t[2]}
+        # itens de lista / tela dividida / mosaico: cada um com a própria imagem (necessidade "<cid>p<j>")
+        pecas = []
+        for j, peca in enumerate(c.get("pecas") or c.get("mosaico") or []):
+            pn = necs.get(f"{cid}p{j}")
+            pe = d["escolhas"].get(f"{cid}p{j}") or {}
+            pcands = [{"idx": i, "nome": x["nome"], "tipo": x["tipo"], "miniatura": _rel(x["miniatura"])}
+                      for i, x in enumerate(pn["candidatos"])] if pn else []
+            paj = (aj.get("pecas") or {}).get(str(j), {})
+            pesc = None
+            if "candidato" in paj and paj["candidato"] < len(pcands):
+                pesc = pcands[paj["candidato"]]
+            elif pe.get("escolha") and pcands:
+                pesc = pcands[pe["escolha"] - 1]
+            pecas.append({"j": j, "rotulo": peca.get("rotulo") or peca.get("palavra") or "",
+                          "busca": (peca.get("busca") or {}).get("o_que"), "escolhido": pesc, "candidatos": pcands,
+                          "ajustada": bool(paj)})
         m = montadas.get(cid)
         inicio = palavras[m["de"]]["i"] if m and palavras else None
         inicios.append(inicio)
@@ -103,7 +119,7 @@ def cenas(pasta: Path) -> list[dict]:
             "k": k, "numero": numeros.get(cid, str(k)), "id": cid, "secao": c.get("secao"), "conferir": bool(c.get("conferir")) and not aj.get("conferido"),
             "tipo": aj.get("tipo", c["tipo"]), "legenda": aj.get("legenda", c.get("legenda")),
             "frase": frase, "inicio": inicio, "busca": (c.get("busca") or {}).get("o_que"),
-            "escolhido": escolhido, "clipe": clipe, "candidatos": cands, "recusada": nec is not None and not esc.get("escolha"),
+            "escolhido": escolhido, "clipe": clipe, "candidatos": cands, "pecas": pecas, "recusada": nec is not None and not esc.get("escolha"),
             "no_rascunho": m is not None, "removida": bool(aj.get("removida")),
             "comentario": aj.get("comentario"), "comentario_aplicado": bool(aj.get("comentario_aplicado")),
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
@@ -150,6 +166,26 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         nec["candidatos"].append(cand)
         aj["candidato"] = len(nec["candidatos"]) - 1
         (pasta / "direcao" / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
+    elif tipo in ("peca_candidato", "peca_usar_midia"):  # imagem de UM item da lista/dividida/mosaico
+        j = int(acao["j"])
+        pid = f"{cid}p{j}"
+        if tipo == "peca_candidato":
+            idx = int(acao["idx"])
+        else:
+            necs = d["necs"]
+            pn = next((n for n in necs if n["id"] == pid), None)
+            if pn is None:  # item que o diretor não conseguiu buscar: passa a ter uma necessidade
+                cena = next(c for k, c in enumerate(d["plano"]["cenas"]) if _id(c, k) == cid)
+                peca = (cena.get("pecas") or cena.get("mosaico") or [])[j]
+                pn = {"id": pid, "cena": cid, "peca": j, "tipo": "peca", "busca": peca.get("busca") or {},
+                      "frase": "", "legenda": peca.get("rotulo") or peca.get("palavra"), "candidatos": []}
+                necs.append(pn)
+            pn["candidatos"].append({"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0,
+                                     "miniatura": str(RAIZ / acao["miniatura"])})
+            idx = len(pn["candidatos"]) - 1
+            (pasta / "direcao" / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1),
+                                                               encoding="utf-8")
+        aj.setdefault("pecas", {})[str(j)] = {"candidato": idx}
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -199,6 +235,10 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["tipo"] = aj["tipo"]
         if "candidato" in aj:
             escolhas[k] = {**(escolhas.get(k) or {}), "escolha": aj["candidato"] + 1, "fixa": True}
+        for j, pa in (aj.get("pecas") or {}).items():  # imagem escolhida pelo Felipe para um item da lista
+            if "candidato" in pa:
+                pid = f"{k}p{j}"
+                escolhas[pid] = {**(escolhas.get(pid) or {}), "escolha": pa["candidato"] + 1, "fixa": True}
         if "clipe_inicio" in aj:  # momento do clipe escolhido pelo Felipe (segundo do vídeo original)
             escolhas[k] = {**(escolhas.get(k) or {}), "inicio": aj["clipe_inicio"]}
     return plano, escolhas
