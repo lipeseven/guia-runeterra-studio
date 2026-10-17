@@ -202,7 +202,9 @@ function CartaoCena({
 
   const temImagem = c.candidatos.length > 0
   // cena de UMA imagem (ou só texto): sempre dá para buscar uma imagem no acervo
-  const aceitaImagem = temImagem || [...UMA_IMAGEM, 'texto'].includes(c.tipo)
+  // lista e tela dividida só mostram as imagens dos ITENS: uma imagem da cena inteira ficaria sem uso (o mosaico a usa de fundo)
+  const soItens = ['lista', 'dividida'].includes(c.tipo)
+  const aceitaImagem = !soItens && (temImagem || [...UMA_IMAGEM, 'texto'].includes(c.tipo))
   const foraDoVideo = !c.no_rascunho && !c.removida
   const usaLegenda = ['cartao', 'recorte', 'meio', 'texto'].includes(c.tipo)
   const borda = c.removida
@@ -224,7 +226,13 @@ function CartaoCena({
           className="group relative h-[90px] w-[160px] shrink-0 overflow-hidden rounded-lg border border-borda bg-painel-2"
           title="Ver esta cena no player"
         >
-          {c.escolhido ? (
+          {soItens && c.pecas.some((p) => p.escolhido) ? (
+            <span className="flex h-full w-full gap-0.5">
+              {c.pecas.filter((p) => p.escolhido).map((p) => (
+                <img key={p.j} src={arquivo(p.escolhido!.miniatura)} alt="" className="h-full min-w-0 flex-1 object-cover" />
+              ))}
+            </span>
+          ) : c.escolhido ? (
             <img src={arquivo(c.escolhido.miniatura)} alt="" className="h-full w-full object-cover" />
           ) : (
             <span className="grid h-full place-items-center px-2 text-center text-[11px] text-apagado">
@@ -320,7 +328,7 @@ function CartaoCena({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {aceitaImagem && (
               <Botao ativo={aba === 'trocar'} onClick={() => setAba(aba === 'trocar' ? 'nada' : 'trocar')}>
-                <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
+                <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.tipo === 'mosaico' ? 'Trocar fundo' : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
               </Botao>
             )}
             {c.pecas.length > 0 && (
