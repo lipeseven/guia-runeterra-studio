@@ -34,7 +34,8 @@ Ter um recurso não é motivo para usá-lo. Cada tipo de cena tem um gatilho:
 
 **Fundo branco é a assinatura do canal** (Felipe): cartões, recortes, listas, meio a meio e diálogos são sempre
 no branco. O escuro só aparece nas cenas de tela cheia (arte, clipe, citação, tela dividida) e no "só texto" em
-ocasião especial. Não existe vídeo "todo escuro".
+ocasião especial. Não existe vídeo "todo escuro". Quando uma imagem entra **depois** da outra na mesma cena (tela
+dividida, itens que chegam com a narração), o espaço ainda vazio fica **branco**, nunca preto (Felipe, 2026-10-17).
 
 Recursos "especiais" (mosaico, clipe, diálogo, citação, meio a meio, só texto, dividida, lista) devem parecer
 escolhas, não rotina. Nada de copiar as marcas registradas da referência (emoji amarelo apontando, boneco-bolha,

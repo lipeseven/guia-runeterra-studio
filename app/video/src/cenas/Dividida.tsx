@@ -3,6 +3,7 @@ import { Figura } from "../componentes/Figura";
 import { Credito, sombraTexto } from "../componentes/CabecalhoSecao";
 import { transformMovimento } from "../efeitos";
 import { fonte } from "../estilo";
+import { useCores } from "../tema";
 import type { CenaDividida } from "../tipos";
 
 /**
@@ -15,11 +16,13 @@ export const Dividida: React.FC<{ cena: CenaDividida; quadro: (palavra: number) 
   duracao,
 }) => {
   const frame = useCurrentFrame();
+  const cores = useCores();
   const n = cena.pecas.length;
   const larg = (1920 - cena.separador * (n - 1)) / n;
   const p = interpolate(frame, [0, duracao], [0, 1], { extrapolateRight: "clamp" });
   return (
-    <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
+    // fundo BRANCO do canal enquanto as outras imagens não entraram (pedido do Felipe: nunca preto)
+    <AbsoluteFill style={{ background: cores.fundo, overflow: "hidden" }}>
       {cena.pecas.map((peca, k) => {
         const inicio = k === 0 ? 0 : Math.max(0, quadro(peca.de));
         if (frame < inicio) return null;
