@@ -253,6 +253,19 @@ function CartaoCena({
                 <option key={t} value={t}>{NOME_TIPO[t] ?? t}</option>
               ))}
             </select>
+            {c.tipo === 'meio' && (
+              <span className="flex overflow-hidden rounded-md border border-borda text-[11px]" title="De que lado fica a imagem (o texto vai na outra metade)">
+                {(['esq', 'dir'] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => ajustar(c.id, { acao: 'lado', lado: l })}
+                    className={`px-2 py-0.5 ${c.lado === l ? 'bg-ouro/20 text-ouro' : 'text-suave hover:text-texto'}`}
+                  >
+                    imagem à {l === 'esq' ? 'esquerda' : 'direita'}
+                  </button>
+                ))}
+              </span>
+            )}
             {c.recusada && !c.escolhido && (
               <span className="text-[11px] text-atencao">
                 nenhuma imagem serviu{c.no_rascunho ? ' · no rascunho entra só o texto: escolha uma imagem' : ''}

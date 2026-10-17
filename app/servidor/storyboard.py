@@ -125,7 +125,7 @@ def cenas(pasta: Path) -> list[dict]:
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
-            "lado": (m or {}).get("lado"), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
+            "lado": aj.get("lado") or (m or {}).get("lado"), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
         })
     # fim de cada cena = início da próxima montada
     for i, s in enumerate(saida):
@@ -189,6 +189,10 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         aj.setdefault("pecas", {})[str(j)] = {"candidato": idx}
     elif tipo == "juntar_proxima":  # esta cena + a próxima viram uma tela dividida; a próxima sai do vídeo
         _juntar_com_a_proxima(pasta, d, cid, aj)
+    elif tipo == "lado":  # meio a meio / citação: de que lado fica a imagem
+        if acao["lado"] not in ("esq", "dir", "centro"):
+            raise ValueError("lado inválido")
+        aj["lado"] = acao["lado"]
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -281,6 +285,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["som"] = None
         if "legenda" in aj:
             c["legenda"] = aj["legenda"] or None
+        if aj.get("lado"):
+            c["lado_felipe"] = aj["lado"]
         if aj.get("juntar"):  # tela dividida montada pelo Felipe com a cena seguinte
             c["pecas"] = aj["juntar"]["pecas"]
         if "tipo" in aj:
