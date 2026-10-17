@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, Trash2, Wand2, X } from 'lucide-react'
+import { ArrowLeft, Columns2, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, Trash2, Wand2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, arquivo, useAoVivo, type Video } from '../api'
 import { Moldura } from '../componentes/Moldura'
@@ -311,6 +311,19 @@ function CartaoCena({
             {aceitaImagem && (
               <Botao ativo={aba === 'trocar'} onClick={() => setAba(aba === 'trocar' ? 'nada' : 'trocar')}>
                 <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.tipo === 'mosaico' ? 'Trocar fundo' : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
+              </Botao>
+            )}
+            {['cartao', 'telacheia', 'recorte', 'meio', 'citacao'].includes(c.tipo) && c.escolhido && !c.removida && (
+              <Botao
+                onClick={async () => {
+                  try {
+                    await ajustar(c.id, { acao: 'juntar_proxima' })
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : String(e))
+                  }
+                }}
+              >
+                <Columns2 className="size-3.5" /> Juntar com a próxima
               </Botao>
             )}
             {c.pecas.length > 0 && (

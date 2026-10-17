@@ -95,7 +95,7 @@ def cenas(pasta: Path) -> list[dict]:
                 clipe = {"midia_id": t[0], "inicio": aj.get("clipe_inicio", t[1]), "duracao": t[2]}
         # itens de lista / tela dividida / mosaico: cada um com a própria imagem (necessidade "<cid>p<j>")
         pecas = []
-        for j, peca in enumerate(c.get("pecas") or c.get("mosaico") or []):
+        for j, peca in enumerate((aj.get("juntar") or {}).get("pecas") or c.get("pecas") or c.get("mosaico") or []):
             pn = necs.get(f"{cid}p{j}")
             pe = d["escolhas"].get(f"{cid}p{j}") or {}
             pcands = [{"idx": i, "nome": x["nome"], "tipo": x["tipo"], "miniatura": _rel(x["miniatura"])}
@@ -187,6 +187,8 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             (pasta / "direcao" / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1),
                                                                encoding="utf-8")
         aj.setdefault("pecas", {})[str(j)] = {"candidato": idx}
+    elif tipo == "juntar_proxima":  # esta cena + a próxima viram uma tela dividida; a próxima sai do vídeo
+        _juntar_com_a_proxima(pasta, d, cid, aj)
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -202,7 +204,16 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
     elif tipo == "conferido":  # o Felipe olhou a cena cuja frase mudou no roteiro e está ok
         aj["conferido"] = True
     elif tipo == "restaurar":
-        d["ajustes"].pop(cid, None)
+        velho = d["ajustes"].pop(cid, None) or {}
+        outra = (velho.get("juntar") or {}).get("com")
+        if outra and outra in d["ajustes"]:  # desfaz a junção: a cena que tinha sido absorvida volta
+            oa = d["ajustes"][outra]
+            if oa.get("juntada_em") == cid:
+                oa.pop("juntada_em", None)
+                oa.pop("removida", None)
+                if not oa:
+                    d["ajustes"].pop(outra)
+                marcar_pendente(pasta, outra)
     elif tipo == "comentario":
         aj["comentario"] = acao["texto"].strip()
         aj["comentario_aplicado"] = False
@@ -213,6 +224,44 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
     salvar_ajustes(pasta, d["ajustes"])
     marcar_pendente(pasta, cid)
     return d["ajustes"].get(cid, {})
+
+
+def _juntar_com_a_proxima(pasta: Path, d: dict, cid: str, aj: dict) -> None:
+    """A cena vira TELA DIVIDIDA: item 1 = a imagem dela, item 2 = a imagem da próxima cena, entrando na palavra em
+    que a próxima começava (o efeito de entrada o editor de variedade escolhe). A próxima cena sai do vídeo (a
+    narração dela continua, agora sobre a tela dividida)."""
+    cenas_plano = d["plano"]["cenas"]
+    ids = [_id(c, k) for k, c in enumerate(cenas_plano)]
+    i = ids.index(cid)
+    prox = next((k for k in range(i + 1, len(ids)) if not cenas_plano[k].get("removida")
+                 and not d["ajustes"].get(ids[k], {}).get("removida")), None)
+    if prox is None:
+        raise ValueError("não há próxima cena para juntar")
+    necs = {n["id"]: n for n in d["necs"]}
+
+    def imagem(x: str) -> dict:
+        n, a, e = necs.get(x), d["ajustes"].get(x, {}), d["escolhas"].get(x) or {}
+        idx = a.get("candidato", (e.get("escolha") or 0) - 1)
+        if not n or idx < 0 or idx >= len(n["candidatos"]) or n["candidatos"][idx]["tipo"] != "midia":
+            raise ValueError("as duas cenas precisam ter uma imagem escolhida (escolha a imagem antes de juntar)")
+        return n["candidatos"][idx]
+
+    nid = ids[prox]
+    c, pc = cenas_plano[i], cenas_plano[prox]
+    pecas = [{"rotulo": aj.get("legenda", c.get("legenda")) or "", "busca": c.get("busca") or {}},
+             {"rotulo": d["ajustes"].get(nid, {}).get("legenda", pc.get("legenda")) or "", "busca": pc.get("busca") or {},
+              "frase": pc["frase"], "palavra": pc.get("comeca_na_palavra")}]
+    for j, img in enumerate((imagem(cid), imagem(nid))):
+        pid = f"{cid}p{j}"
+        d["necs"][:] = [n for n in d["necs"] if n["id"] != pid]
+        d["necs"].append({"id": pid, "cena": cid, "peca": j, "tipo": "peca", "busca": pecas[j]["busca"], "frase": "",
+                          "legenda": pecas[j]["rotulo"], "candidatos": [img]})
+    (pasta / "direcao" / "candidatos.json").write_text(json.dumps(d["necs"], ensure_ascii=False, indent=1), encoding="utf-8")
+    aj["tipo"] = "dividida"
+    aj["juntar"] = {"com": nid, "pecas": pecas}
+    aj["pecas"] = {"0": {"candidato": 0}, "1": {"candidato": 0}}
+    d["ajustes"].setdefault(nid, {}).update(removida=True, juntada_em=cid)
+    marcar_pendente(pasta, nid)
 
 
 def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
@@ -232,6 +281,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["som"] = None
         if "legenda" in aj:
             c["legenda"] = aj["legenda"] or None
+        if aj.get("juntar"):  # tela dividida montada pelo Felipe com a cena seguinte
+            c["pecas"] = aj["juntar"]["pecas"]
         if "tipo" in aj:
             c["tipo"] = aj["tipo"]
         if "candidato" in aj:
