@@ -324,6 +324,18 @@ def ver_storyboard(vid: int):
             "capa": next((p.relative_to(RAIZ).as_posix() for p in sorted((pasta / "direcao").glob("capa.*"))), None)}
 
 
+@app.post("/api/videos/{vid}/storyboard/descartar")
+def descartar_pendentes(vid: int):
+    """Desfaz tudo o que foi mexido no storyboard depois do último rascunho (a fila de pendentes)."""
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    try:
+        nao = storyboard.descartar_pendentes(pasta)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, "nao_desfeitas": len(nao)}
+
+
 @app.post("/api/videos/{vid}/storyboard/{cid}")
 def ajustar_cena(vid: int, cid: str, acao: dict):
     with conectar() as con:

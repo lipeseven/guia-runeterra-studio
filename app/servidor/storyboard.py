@@ -59,6 +59,27 @@ def marcar_pendente(pasta: Path, cid: str) -> None:
         _arq_pendentes(pasta).write_text(json.dumps(lista + [cid], ensure_ascii=False), encoding="utf-8")
 
 
+def descartar_pendentes(pasta: Path, ids: list[str] | None = None) -> list[str]:
+    """Volta os ajustes das cenas pendentes (ou só de `ids`) ao que estava no último rascunho. Cenas sem registro
+    confiável do último rascunho ficam como estão (devolvidas na lista de não desfeitas)."""
+    foto = _ler(_arq_foto(pasta), None)
+    if foto is None:
+        raise ValueError("ainda não há registro do último rascunho: gere um rascunho antes de descartar")
+    arq = pasta / "direcao" / "ajustes.json"
+    atuais = _ler(arq, {})
+    nao = []
+    for cid in ids or pendentes(pasta):
+        antes = foto.get(cid)
+        if isinstance(antes, dict) and any(k.startswith("__") for k in antes):
+            nao.append(cid)  # registro incerto (de antes da foto): não dá para saber como estava
+        elif antes is None:
+            atuais.pop(cid, None)
+        else:
+            atuais[cid] = antes
+    arq.write_text(json.dumps(atuais, ensure_ascii=False, indent=1), encoding="utf-8")
+    return nao
+
+
 def limpar_pendentes(pasta: Path) -> None:
     """O motor leu os ajustes para montar um rascunho: tudo o que estava pendente entrou nessa fila (foto dos
     ajustes usados, para comparar depois)."""

@@ -127,6 +127,24 @@ export function Storyboard({ id }: { id: number }) {
                     ? `${sb.pendentes} pendente${sb.pendentes === 1 ? '' : 's'} (${trabalhando ? 'ficam para o rascunho seguinte' : 'entram no próximo rascunho'})`
                     : trabalhando ? 'tudo o que você pediu está neste rascunho' : 'nada pendente'}
                 </span>
+                {sb.pendentes > 0 && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`Desfazer as ${sb.pendentes} alteração(ões) feitas depois do último rascunho?`)) return
+                      try {
+                        const r = await api<{ nao_desfeitas: number }>(`/videos/${id}/storyboard/descartar`, { method: 'POST' })
+                        if (r.nao_desfeitas) alert(`${r.nao_desfeitas} cena(s) não puderam ser desfeitas (sem registro do último rascunho).`)
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : String(e))
+                      }
+                      await carregar()
+                    }}
+                    className="rounded border border-borda px-1.5 py-0.5 text-[11px] text-suave hover:border-red-400/60 hover:text-red-300"
+                    title="Volta as cenas mexidas ao que está no último rascunho"
+                  >
+                    descartar pendentes
+                  </button>
+                )}
                 {sb.pedidos_pendentes > 0 && !trabalhando && (
                   <span className="text-atencao">· {sb.pedidos_pendentes} pedido(s) ao diretor (usa o Claude)</span>
                 )}
