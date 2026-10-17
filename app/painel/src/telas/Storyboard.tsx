@@ -47,6 +47,8 @@ const UMA_IMAGEM = ['cartao', 'telacheia', 'recorte', 'meio', 'citacao']
 function tiposPossiveis(atual: string, tipos: string[]): string[] {
   // "só texto" também pode virar cena com imagem (a imagem vem da busca no acervo)
   if (UMA_IMAGEM.includes(atual) || atual === 'texto') return tipos.filter((t) => UMA_IMAGEM.includes(t) || t === 'texto')
+  // clipe pode virar cena de imagem: usa um quadro parado do próprio clipe (no momento escolhido) ou a imagem buscada
+  if (atual === 'clipe') return ['clipe', ...tipos.filter((t) => UMA_IMAGEM.includes(t))]
   if (atual === 'mosaico') return ['mosaico', 'dividida', 'lista']
   if (atual === 'dividida' || atual === 'lista') return ['dividida', 'lista']
   return [atual]

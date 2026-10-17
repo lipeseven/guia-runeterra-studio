@@ -72,6 +72,18 @@ class Midias:
             w, h = im.size
         return {"arquivo": f"{self.slug}/{destino.name}", "w": w, "h": h}
 
+    def quadro_da_tomada(self, tomada_id: int, inicio: float | None = None) -> dict:
+        """Imagem parada tirada do clipe (no momento escolhido pelo Felipe, ou no meio da tomada)."""
+        mid, ini, fim = self.con.execute("SELECT midia_id, inicio, fim FROM tomadas WHERE id=?", (tomada_id,)).fetchone()
+        origem = PASTA_ACERVO / self.con.execute("SELECT caminho FROM midias WHERE id=?", (mid,)).fetchone()[0]
+        t = float(inicio) + 0.5 if inicio is not None else (ini + fim) / 2
+        destino = self.pasta / f"q{tomada_id}_{round(t * 10)}.png"
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", str(origem), "-frames:v", "1",
+                        "-vf", "scale=1920:-2", str(destino)], check=True)
+        with Image.open(destino) as im:
+            w, h = im.size
+        return {"arquivo": f"{self.slug}/{destino.name}", "w": w, "h": h}
+
     def tomada(self, tomada_id: int, inicio: float | None = None) -> tuple[str, float]:
         """Recorte da tomada. `inicio` = segundo do vídeo original escolhido pelo Felipe no storyboard ("escolher o
         momento"): o clipe começa ali e vai até o fim do vídeo."""
@@ -322,8 +334,14 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                               "movimento": var.movimento(), "entrada_img": var.imagem()})
                 continue
 
-        midia = m.imagem(esc["id"]) if esc["tipo"] == "midia" else None
+        if esc["tipo"] == "midia":
+            midia = m.imagem(esc["id"])
+        elif esc["tipo"] == "tomada":  # clipe que o Felipe trocou para cena de imagem: um quadro do próprio clipe
+            midia = m.quadro_da_tomada(esc["id"], (escolhas.get(cid) or {}).get("inicio"))
+        else:
+            midia = None
         if midia is None:
+            cenas.append(sem_imagem(base, legenda))
             continue
         if tipo == "telacheia":
             cena = {**base, "tipo": "telacheia", "midia": midia, "foco": esc["foco"],
