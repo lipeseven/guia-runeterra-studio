@@ -179,7 +179,8 @@ def _herdar(cena: dict, velha: dict | None) -> None:
         for k in ("entrada_img", "entrada_legenda", "movimento"):
             if k in iv and not (k == "movimento" and (iv[k] or {}).get("tipo") == "parado"):
                 item[k] = iv[k]
-    if cena["tipo"] == "mosaico" and len(cena.get("pecas", [])) == len(velha.get("pecas", [])):
+    # layout 2 = itens maiores quando são poucos; mosaicos do layout antigo são refeitos uma vez
+    if cena["tipo"] == "mosaico" and len(cena.get("pecas", [])) == len(velha.get("pecas", [])) and velha.get("layout") == 2:
         for p, pv in zip(cena["pecas"], velha["pecas"]):
             p.update({k: pv[k] for k in ("x", "y", "largura", "rotacao", "de_onde", "quadros") if k in pv})
 
@@ -296,6 +297,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
     def pecas_montadas(cid: str, c: dict, f: dict, de: int) -> list[dict]:
         saida = []
         for j, peca in enumerate(pecas_da_cena(c)):
+            if peca.get("removida"):  # item tirado pelo Felipe no storyboard
+                continue
             ep = escolhido(f"{cid}p{j}")
             if not (ep and ep["tipo"] == "midia"):
                 continue
@@ -429,7 +432,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             e0 = escolhido(cid)
             fundo = m.imagem(e0["id"]) if e0 and e0["tipo"] == "midia" else m.arquivo(_fundo_branco(), "fundo_branco")
             posicoes, borda = var.mosaico([pm["midia"]["w"] / pm["midia"]["h"] for pm in pecas_mos])
-            cenas.append({**base, "tipo": "mosaico", "fundo": fundo, "movimento": var.movimento(), "borda": borda,
+            cenas.append({**base, "tipo": "mosaico", "fundo": fundo, "movimento": var.movimento(), "borda": borda, "layout": 2,
                           "pecas": [{"de": pm["de"], "midia": pm["midia"], **pos} for pm, pos in zip(pecas_mos, posicoes)]})
             continue
 

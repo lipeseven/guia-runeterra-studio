@@ -540,8 +540,25 @@ function CartaoCena({
       {aba === 'itens' && (
         <div className="mt-3 space-y-3 border-t border-borda pt-3">
           {c.pecas.map((p) => (
-            <ItemDaCena key={p.j} peca={p} ajustar={(acao) => ajustar(c.id, { ...acao, j: p.j })} />
+            <ItemDaCena
+              key={p.j}
+              peca={p}
+              ajustar={(acao) => ajustar(c.id, { ...acao, j: p.j })}
+              remover={c.pecas.length > 1 ? () => ajustar(c.id, { acao: 'item_remover', j: p.j }) : undefined}
+            />
           ))}
+          <button
+            onClick={async () => {
+              try {
+                await ajustar(c.id, { acao: 'item_novo' })
+              } catch (e) {
+                alert(e instanceof Error ? e.message.replace(/^\d+ /, '') : String(e))
+              }
+            }}
+            className="w-full rounded-md border border-dashed border-borda py-1.5 text-xs text-suave hover:border-suave hover:text-texto"
+          >
+            + adicionar item
+          </button>
         </div>
       )}
 
@@ -625,7 +642,7 @@ function MomentoDoClipe({ clipe, usar }: { clipe: { midia_id: number; inicio: nu
 }
 
 /** Um item de lista / tela dividida / mosaico: imagem atual, candidatos do diretor e busca no acervo. */
-function ItemDaCena({ peca, ajustar }: { peca: Peca; ajustar: (acao: Record<string, unknown>) => Promise<void> }) {
+function ItemDaCena({ peca, ajustar, remover }: { peca: Peca; ajustar: (acao: Record<string, unknown>) => Promise<void>; remover?: () => void }) {
   const [consulta, setConsulta] = useState('')
   const [resultados, setResultados] = useState<{ midia_id: number; nome: string; miniatura: string }[] | null>(null)
   const [buscando, setBuscando] = useState(false)
@@ -652,6 +669,11 @@ function ItemDaCena({ peca, ajustar }: { peca: Peca; ajustar: (acao: Record<stri
         <b className="text-texto">{peca.rotulo || '(sem rótulo)'}</b>
         {!peca.escolhido && <span className="text-atencao">sem imagem</span>}
         {peca.ajustada && <span className="text-andamento">escolhida por você</span>}
+        {remover && (
+          <button onClick={remover} className="ml-auto rounded px-1.5 text-apagado hover:text-red-300" title="Tirar este item da cena">
+            remover item
+          </button>
+        )}
       </p>
       <div className="grid grid-cols-6 gap-2">
         {peca.candidatos.map((cand) =>

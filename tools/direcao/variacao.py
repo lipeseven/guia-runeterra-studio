@@ -78,7 +78,8 @@ class Variador:
         r = self.rng
         pecas = []
         if layout == "faixa":
-            largura = min(520, 1760 / n - 40)
+            # poucos itens ocupam mais espaço (Felipe: 2 imagens ficavam pequenas demais)
+            largura = min(760 if n <= 2 else 600 if n == 3 else 520, 1760 / n - 40)
             lado = r.choice(["baixo", "alternado"])
             for k in range(n):
                 pecas.append({"x": 960 + (k - (n - 1) / 2) * (largura + 40), "y": r.uniform(760, 820),
@@ -86,7 +87,7 @@ class Variador:
                               "de_onde": "baixo" if lado == "baixo" else ("esq" if k % 2 == 0 else "dir")})
         elif layout == "lateral":
             x = r.choice([360, 1560])
-            largura = min(560, 900 / max(1, n) * aspectos[0])
+            largura = min(700 if n <= 2 else 560, 900 / max(1, n) * aspectos[0])
             for k in range(n):
                 pecas.append({"x": x, "y": 540 + (k - (n - 1) / 2) * (largura / aspectos[k] + 30),
                               "largura": largura, "rotacao": r.uniform(-1.5, 1.5),
@@ -98,7 +99,8 @@ class Variador:
                 x, y = ancoras[k]
                 lado = "esq" if x < 700 else "dir" if x > 1220 else ("cima" if y < 540 else "baixo")
                 pecas.append({"x": x + r.uniform(-60, 60), "y": y + r.uniform(-40, 40),
-                              "largura": r.uniform(460, 600), "rotacao": r.uniform(-7, 7), "de_onde": lado})
+                              "largura": r.uniform(*((640, 760) if n <= 2 else (540, 660) if n == 3 else (460, 600))),
+                              "rotacao": r.uniform(-7, 7), "de_onde": lado})
         else:  # grade 2x2
             for k, (x, y) in enumerate([(500, 290), (1420, 290), (500, 790), (1420, 790)]):
                 pecas.append({"x": x, "y": y, "largura": 820, "rotacao": 0,

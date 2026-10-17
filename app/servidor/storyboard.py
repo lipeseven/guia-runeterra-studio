@@ -142,6 +142,8 @@ def cenas(pasta: Path) -> list[dict]:
         # itens de lista / tela dividida / mosaico: cada um com a própria imagem (necessidade "<cid>p<j>")
         pecas = []
         for j, peca in enumerate(_pecas(c, aj)):
+            if peca.get("removida"):
+                continue
             pn = necs.get(f"{cid}p{j}")
             pe = d["escolhas"].get(f"{cid}p{j}") or {}
             pcands = [{"idx": i, "nome": x["nome"], "tipo": x["tipo"], "miniatura": _rel(x["miniatura"])}
@@ -191,7 +193,7 @@ def cenas(pasta: Path) -> list[dict]:
 
 def _pecas(c: dict, aj: dict) -> list[dict]:
     """Itens (lista/dividida/mosaico) da cena: os do diretor, os da junção ou os criados no storyboard."""
-    return ((aj.get("juntar") or {}).get("pecas") or c.get("pecas") or c.get("mosaico") or aj.get("pecas_def") or [])
+    return (aj.get("pecas_lista") or (aj.get("juntar") or {}).get("pecas") or c.get("pecas") or c.get("mosaico") or aj.get("pecas_def") or [])
 
 
 def _texto_em(m: dict | None) -> int | None:
@@ -295,6 +297,18 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             aj.pop("sem_fundo", None)
     elif tipo == "legenda_em":  # quando o texto entra: -1 = junto com a imagem; senão, índice da palavra no roteiro
         aj["legenda_indice"] = int(acao["indice"])
+    elif tipo in ("item_novo", "item_remover"):  # quantos itens tem a lista / tela dividida / mosaico
+        cena = next(c for k, c in enumerate(d["plano"]["cenas"]) if _id(c, k) == cid)
+        lista = [dict(p) for p in _pecas(cena, aj)]
+        if tipo == "item_novo":
+            limite = {"dividida": 3, "lista": 5}.get(aj.get("tipo", cena["tipo"]), 7)
+            if sum(1 for p in lista if not p.get("removida")) >= limite:
+                raise ValueError(f"este tipo de cena comporta no máximo {limite} itens")
+            lista.append({"rotulo": "", "busca": {}})
+        else:
+            lista[int(acao["j"])]["removida"] = True
+            (aj.get("pecas") or {}).pop(str(acao["j"]), None)
+        aj["pecas_lista"] = lista
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -428,6 +442,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["pecas"] = aj["juntar"]["pecas"]
         elif aj.get("pecas_def") and not (c.get("pecas") or c.get("mosaico")):  # itens criados no storyboard
             c["pecas"] = aj["pecas_def"]
+        if aj.get("pecas_lista"):  # itens acrescentados/tirados à mão (o item tirado fica marcado, os índices não mudam)
+            c["pecas"] = aj["pecas_lista"]
         if "tipo" in aj:
             c["tipo"] = aj["tipo"]
         if "candidato" in aj:
