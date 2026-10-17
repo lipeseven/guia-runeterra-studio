@@ -5,6 +5,7 @@ import { EntradaTexto, estiloEntradaImagem, transformMovimento } from "../efeito
 import { fonte } from "../estilo";
 import type { CenaTelaCheia } from "../tipos";
 import { variar } from "../tempo";
+import { Setas, type ComSetas } from "./Setas"; // impressao:ignorar
 
 /** Arte ocupando a tela inteira, com o movimento de câmera escolhido pela direção.
  * Opcional: nome grande + subtítulo pequeno sobre a arte ("Raum" / "o demônio dos segredos"). */
@@ -57,6 +58,7 @@ export const TelaCheia: React.FC<{ cena: CenaTelaCheia; duracao: number; quadro:
         </div>
       )}
       <Credito texto={cena.midia.credito} />
+      {/* impressao:ignorar */ (cena as ComSetas).setas && <Setas cena={cena as ComSetas} quadro={quadro} />}
     </AbsoluteFill>
   );
 };

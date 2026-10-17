@@ -99,6 +99,47 @@ class Midias:
         return f"{self.slug}/{destino.name}", round(fim - ini, 3)
 
 
+def _setas_do_acervo() -> list[tuple[Path, float]]:
+    """Desenhos de seta do Felipe (acervo: seta1.avif, seta2.png…): fundo branco removido e recortados em
+    dados/acervo/derivados/ (o acervo nunca é alterado). Devolve (png, ângulo para onde o desenho aponta, em graus,
+    y para baixo): pela forma — a ponta é a extremidade mais "pesada" do eixo principal."""
+    import numpy as np
+
+    destino = RAIZ / "dados" / "acervo" / "derivados"
+    destino.mkdir(parents=True, exist_ok=True)
+    saida = []
+    for f in sorted(PASTA_ACERVO.iterdir()):
+        if not re.fullmatch(r"seta\d*\.(png|webp|avif|jpe?g)", f.name.lower()):
+            continue
+        png = destino / f"{f.stem.lower()}.png"
+        if not png.exists() or png.stat().st_mtime < f.stat().st_mtime:
+            a = np.asarray(Image.open(f).convert("RGBA")).astype(np.float32)
+            alfa = np.minimum(a[:, :, 3], np.clip((255 - a[:, :, :3].min(axis=2)) * 3.0, 0, 255))
+            im = Image.fromarray(np.dstack([a[:, :, :3], alfa]).astype(np.uint8), "RGBA")
+            caixa = Image.fromarray((alfa > 40).astype(np.uint8) * 255).getbbox()
+            (im.crop(caixa) if caixa else im).save(png)
+        m = np.asarray(Image.open(png))[:, :, 3] > 128
+        ys, xs = np.nonzero(m)
+        pts = np.stack([xs, ys], 1).astype(float)
+        amostra = pts[np.random.default_rng(0).choice(len(pts), min(2500, len(pts)), replace=False)]
+        dist = np.linalg.norm(amostra[:, None] - amostra[None], axis=2)
+        i, j = np.unravel_index(dist.argmax(), dist.shape)  # as duas extremidades (cauda e ponta)
+        raio = dist[i, j] * 0.18
+        massa = lambda p: int((np.linalg.norm(pts - p, axis=1) < raio).sum())  # noqa: E731
+        cauda, ponta = (amostra[i], amostra[j]) if massa(amostra[i]) < massa(amostra[j]) else (amostra[j], amostra[i])
+        saida.append((png, float(np.degrees(np.arctan2(ponta[1] - cauda[1], ponta[0] - cauda[0])))))
+    return saida
+
+
+# onde fica o personagem (alvo) e o nome (rótulo) para cada posição dita na narração, em px (1920x1080)
+POSICOES_SETA = {"cima": ((960, 250), (1330, 600)), "esquerda": ((430, 560), (430, 905)),
+                 "direita": ((1490, 560), (1490, 905)), "baixo": ((960, 850), (1330, 520)),
+                 "centro": ((960, 540), (1330, 860))}
+# recorte: onde fica o personagem DENTRO da imagem (frações da largura/altura)
+ALVO_NA_IMAGEM = {"cima": (0.5, 0.17), "esquerda": (0.22, 0.7), "direita": (0.78, 0.7), "baixo": (0.5, 0.86),
+                  "centro": (0.5, 0.5)}
+
+
 FPS = 60  # igual ao Root.tsx
 
 # efeitos sorteados que uma cena HERDA da versão anterior do rascunho (mesmo id e mesmo tipo): mexer numa cena não
@@ -244,6 +285,46 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         saida.sort(key=lambda p: p["de"])
         return saida
 
+    desenhos_de_seta: list = []
+
+    def setas_da_cena(c: dict, f: dict, de: int, cid: str, midia: dict | None = None) -> dict:
+        """Setas com nome pedidas pelo diretor/Felipe ("em cima é a Lissandra…"): cada uma entra na palavra do nome.
+        Tela cheia: posições na tela, seta/nome brancos. Recorte (`midia` = imagem inteira sobre o branco, como no
+        Recorte.tsx): o alvo fica DENTRO da imagem e o nome no espaço branco ao lado, seta escura."""
+        import zlib
+
+        caixa = None
+        if midia:
+            alt = 760
+            larg = midia["w"] / midia["h"] * alt
+            caixa = ((1920 - larg) / 2, 160, larg, alt)
+        lista = []
+        for s in c.get("setas") or []:
+            chave = str(s.get("posicao") or "").lower()
+            pos = POSICOES_SETA.get(chave)
+            if not pos:
+                continue
+            if caixa:
+                x0, y0, w, h = caixa
+                fx, fy = ALVO_NA_IMAGEM[chave]
+                fora = max(170, x0 - 250)  # nome no branco ao lado (sem sair da tela)
+                rot = {"cima": (min(1750, x0 + w + 230), y0 + 0.14 * h), "esquerda": (fora, y0 + fy * h),
+                       "direita": (min(1750, x0 + w + 250), y0 + fy * h), "baixo": (min(1750, x0 + w + 230), y0 + 0.9 * h),
+                       "centro": (fora, y0 + 0.4 * h)}[chave]
+                pos = ((x0 + fx * w, y0 + fy * h), rot)
+            i = indice_na_frase(f, toks, s.get("palavra"))
+            lista.append({"de": i if i is not None else de, "rotulo": s.get("rotulo") or s.get("palavra") or "",
+                          "alvo_xy": list(pos[0]), "rotulo_xy": list(pos[1])})
+        if not lista:
+            return {}
+        if not desenhos_de_seta:
+            desenhos_de_seta.extend(_setas_do_acervo() or [None])
+        if desenhos_de_seta[0] is None:
+            return {}
+        png, ang = desenhos_de_seta[zlib.crc32(cid.encode()) % len(desenhos_de_seta)]  # varia entre os desenhos
+        return {"setas": sorted(lista, key=lambda s: s["de"]), "seta_img": m.arquivo(png, f"seta_{png.stem}")["arquivo"],
+                "seta_angulo": round(ang, 1), "seta_tema": "claro" if caixa else "escuro"}
+
     def sem_imagem(base: dict, legenda: str | None) -> dict:
         """Nenhuma imagem serviu: a cena entra assim mesmo, no tempo dela, como texto (a legenda ou um aviso), e o
         Felipe escolhe a imagem no storyboard — sem precisar de outra chamada ao Claude."""
@@ -349,10 +430,12 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             if c.get("rotulo"):
                 cena.update({"rotulo": c["rotulo"], "subrotulo": c.get("subrotulo") or "",
                              "rotulo_em": legenda_em if legenda_em is not None else de, "entrada_rotulo": var.texto()})
+            cena.update(setas_da_cena(c, f, de, cid))
             cenas.append(cena)
         elif tipo == "recorte":
             cenas.append({**base, "tipo": "recorte", "midia": midia, "legenda": legenda,
-                          "legenda_em": legenda_em or de, "entrada_img": var.imagem(), "entrada_legenda": var.texto()})
+                          "legenda_em": legenda_em or de, "entrada_img": var.imagem(), "entrada_legenda": var.texto(),
+                          **setas_da_cena(c, f, de, cid, midia)})
         elif tipo == "meio" and c.get("metade2") and (e2 := escolhido(f"{cid}m2")) and e2["tipo"] == "midia":
             # meio a meio com IMAGEM nas duas metades (escolha do Felipe): sai como tela dividida de 2, sem tocar no
             # código do Meio (não invalida o render dos outros blocos); a legenda vira o rótulo da outra metade
@@ -506,7 +589,16 @@ def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = 
 
 ARQUIVO_DA_CENA = {"capa": "Capa", "hub": "Hub", "cartao": "Cartao", "telacheia": "TelaCheia", "recorte": "Recorte",
                    "dialogo": "Dialogo", "clipe": "Clipe", "mosaico": "Mosaico", "dividida": "Dividida", "lista": "Lista",
-                   "meio": "Meio", "texto": "Texto", "citacao": "Citacao"}
+                   "meio": "Meio", "texto": "Texto", "citacao": "Citacao", "setas": "Setas"}
+
+
+def _codigo_que_desenha(arquivo: Path) -> bytes:
+    """Conteúdo do arquivo SEM as linhas marcadas `impressao:ignorar` (ganchos de recursos opcionais, como as setas,
+    que não desenham nada nas cenas que não os usam: acrescentá-los não pode invalidar o cache dos blocos)."""
+    bruto = arquivo.read_bytes()  # arquivo sem marcação: exatamente os mesmos bytes de antes (cache intacto)
+    if b"impressao:ignorar" not in bruto:
+        return bruto
+    return b"".join(ln for ln in bruto.splitlines(keepends=True) if b"impressao:ignorar" not in ln)
 
 
 def _dependencias(arquivo: Path, pular_cenas: bool = False, vistos: set | None = None) -> set[Path]:
@@ -515,7 +607,7 @@ def _dependencias(arquivo: Path, pular_cenas: bool = False, vistos: set | None =
     if arquivo in vistos or not arquivo.exists():
         return vistos
     vistos.add(arquivo)
-    for alvo in re.findall(r"""from\s+["'](\.{1,2}/[^"']+)["']""", arquivo.read_text(encoding="utf-8")):
+    for alvo in re.findall(r"""from\s+["'](\.{1,2}/[^"']+)["']""", _codigo_que_desenha(arquivo).decode("utf-8")):
         base = (arquivo.parent / alvo).resolve()
         for cand in (base.with_suffix(".tsx"), base.with_suffix(".ts"), base / "index.ts"):
             if cand.exists():
@@ -538,7 +630,7 @@ def _versao_do_codigo(tipos: set[str]) -> str:
     h = hashlib.sha1()
     for p in sorted(arquivos):
         h.update(p.relative_to(src).as_posix().encode())
-        h.update(p.read_bytes())
+        h.update(_codigo_que_desenha(p))
     return h.hexdigest()[:12]
 
 
@@ -608,7 +700,8 @@ def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
     capa_id = hashlib.sha1(capa.read_bytes()).hexdigest()[:12] if capa else ""
     blocos = _blocos_do_trecho(trecho)
     for b in blocos:
-        codigo = _versao_do_codigo({c["tipo"] for c in b["cenas"]})  # só o código das cenas deste bloco
+        tipos = {c["tipo"] for c in b["cenas"]} | ({"setas"} if any(c.get("setas") for c in b["cenas"]) else set())
+        codigo = _versao_do_codigo(tipos)  # só o código das cenas (e recursos) deste bloco
         b["arquivo"] = cache / f"{_impressao(b, trecho, codigo, capa_id)}.mp4"
         antigo = cache / f"{_impressao(b, trecho, codigo, capa_id, com_k=True)}.mp4"
         if not b["arquivo"].exists() and antigo.exists():  # cache feito antes da correção do "k": mesmo vídeo

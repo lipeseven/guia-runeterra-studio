@@ -7,6 +7,7 @@ direto, sem passar pela escolha do Claude.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from pathlib import Path
 
@@ -94,8 +95,19 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
         afetados += [s["id"] for s in substitutas]
         aj = ajustes[cid]
         aj["comentario_aplicado"] = True
-        for campo in ("candidato", "tipo", "legenda"):  # o diretor refez a cena: valem as escolhas novas dele
-            aj.pop(campo, None)
+        # o que o Felipe fez À MÃO continua valendo, a não ser que o pedido seja justamente sobre aquilo
+        # (antes o diretor apagava tipo/imagem/legenda escolhidos por ele a cada pedido)
+        texto = ajustes[cid].get("comentario", "").lower()
+        sobre = {
+            "candidato": r"image|foto|arte|arquivo|\.(png|jpe?g|webp|gif|avif)|clipe|v[ií]deo|troc",
+            "tipo": r"tela cheia|cart[aã]o|recorte|meio a meio|lista|dividid|mosaico|clipe|tipo|formato|cita[cç]",
+            "legenda": r"legenda|texto|escrit|letreiro",
+        }
+        for campo, padrao in sobre.items():
+            if re.search(padrao, texto) or len(lista) > 1:  # dividida em várias: a cena original mudou de verdade
+                aj.pop(campo, None)
+                if campo == "candidato":
+                    aj.pop("midia", None)
     nova_lista = []
     for i, x in enumerate(plano["cenas"]):
         xid = id_da_cena(x, i)

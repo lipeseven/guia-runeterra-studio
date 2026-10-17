@@ -52,6 +52,9 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
   cartao    — fundo branco, imagem emoldurada no centro e LEGENDA curta embaixo (o "feijão com arroz").
   telacheia — arte ocupando a tela toda (impacto, atmosfera). Pode ter "rotulo" (nome grande) e "subrotulo"
               (descrição curta) sobre a arte, para APRESENTAR um personagem/lugar ("Raum" / "o demônio dos segredos").
+              Arte com VÁRIOS personagens que a narração nomeia um a um pode ter "setas": lista de objetos com
+              "palavra" (o nome na frase), "rotulo" e "posicao" (cima | esquerda | direita | baixo | centro, onde a
+              pessoa está na arte) — uma seta com o nome aponta para cada um quando é falado. Use pouco.
   recorte   — personagem recortado sobre fundo branco + legenda (apresentar/descrever um personagem).
   meio      — meio a meio: arte numa metade da tela e uma FRASE curta (campo "legenda", até ~6 palavras) na outra.
               Para ideias/conceitos fortes ("o poder de criar", "amaldiçoou a família real").

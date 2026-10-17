@@ -4,6 +4,7 @@ import { CabecalhoSecao, Legenda } from "../componentes/CabecalhoSecao";
 import { estiloEntradaImagem } from "../efeitos";
 import { useCores } from "../tema";
 import type { CenaRecorte, Secao } from "../tipos";
+import { Setas, type ComSetas } from "./Setas"; // impressao:ignorar
 
 /** Personagem recortado sobre o fundo branco; a legenda entra quando a palavra é falada. */
 export const Recorte: React.FC<{
@@ -33,6 +34,7 @@ export const Recorte: React.FC<{
       </div>
       <Legenda texto={cena.legenda} desde={quadro(cena.legenda_em)} entrada={cena.entrada_legenda} />
       {secao && <CabecalhoSecao secao={secao} />}
+      {/* impressao:ignorar */ (cena as ComSetas).setas && <Setas cena={cena as ComSetas} quadro={quadro} />}
     </AbsoluteFill>
   );
 };

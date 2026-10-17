@@ -97,6 +97,9 @@ def cenas(pasta: Path) -> list[dict]:
         escolhido = None
         if aj.get("midia") and nec:  # pela identidade (a posição muda se a busca for refeita)
             escolhido = next((cands[i] for i, x in enumerate(nec["candidatos"]) if [x["tipo"], x["id"]] == list(aj["midia"])), None)
+            if escolhido is None and aj["midia"][0] == "midia":  # escolha sua que saiu da lista (busca refeita)
+                escolhido = {"idx": -1, "nome": "(sua escolha)", "tipo": "midia",
+                             "miniatura": f"dados/acervo/miniaturas/{aj['midia'][1]}.jpg"}
         elif "candidato" in aj and cands:
             escolhido = cands[aj["candidato"]] if aj["candidato"] < len(cands) else None
         elif esc.get("escolha") and cands:
