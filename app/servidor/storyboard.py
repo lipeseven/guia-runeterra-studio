@@ -179,7 +179,7 @@ def cenas(pasta: Path) -> list[dict]:
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
-            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "so_texto_no_video": bool(m and m.get("sem_imagem")),
+            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo_lista": bool(aj.get("fundo_lista")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")),
             "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
             "texto_em": _texto_em(m),
             "texto_em_escolhido": aj.get("legenda_indice"),  # escolha sua ainda não renderizada (-1 = junto) "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
@@ -220,6 +220,10 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         raise ValueError("cena não encontrada (o plano mudou? recarregue o storyboard)")
     aj = d["ajustes"].setdefault(cid, {})
     tipo = acao["acao"]
+    if tipo in ("candidato", "usar_midia"):
+        cena_ = next(c for k, c in enumerate(d["plano"]["cenas"]) if _id(c, k) == cid)
+        if aj.get("tipo", cena_["tipo"]) == "lista":  # na lista, a imagem da cena é o FUNDO (escolhido de propósito)
+            aj["fundo_lista"] = True
     if tipo == "candidato":
         aj["candidato"] = int(acao["idx"])
         n_ = next((n for n in d["necs"] if n["id"] == cid), None)
@@ -231,13 +235,14 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         if nec is None:  # cena que nasceu sem imagem (ex.: "só texto"): passa a ter uma
             cena = next(c for k, c in enumerate(d["plano"]["cenas"]) if _id(c, k) == cid)
             tipo_atual = aj.get("tipo", cena["tipo"])
-            if tipo_atual in ("capa", "hub", "dialogo", "mosaico", "dividida", "lista"):
+            if tipo_atual in ("capa", "hub", "dialogo", "dividida"):
                 raise ValueError("este tipo de cena não usa uma imagem só")
             if tipo_atual == "texto":
                 aj["tipo"] = "cartao"  # o texto continua como legenda do cartão
             nec = {"id": cid, "cena": cid, "tipo": aj.get("tipo", tipo_atual), "frase": "",
                    "busca": {"o_que": cena.get("legenda") or ""}, "legenda": cena.get("legenda"), "candidatos": []}
             necs.append(nec)
+        aj.pop("fundo_branco", None)
         cand = {"tipo": "tomada" if acao.get("tomada_id") else "midia",
                 "id": int(acao.get("tomada_id") or acao["midia_id"]), "nome": acao["nome"], "nota": 1.0, "manual": True,
                 "miniatura": str(RAIZ / acao["miniatura"])}
@@ -309,6 +314,11 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             lista[int(acao["j"])]["removida"] = True
             (aj.get("pecas") or {}).pop(str(acao["j"]), None)
         aj["pecas_lista"] = lista
+    elif tipo == "tirar_fundo":  # mosaico/lista: volta ao fundo branco do canal
+        for k_ in ("candidato", "midia", "sem_fundo"):
+            aj.pop(k_, None)
+        aj["fundo_branco"] = True
+        aj.pop("fundo_lista", None)
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -433,6 +443,10 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["legenda_indice"] = aj["legenda_indice"]
         if aj.get("lado"):
             c["lado_felipe"] = aj["lado"]
+        if aj.get("fundo_lista"):
+            c["fundo_lista"] = True
+        if aj.get("fundo_branco"):
+            c["fundo_branco"] = True
         if aj.get("sem_fundo"):
             escolhas[k] = {**(escolhas.get(k) or {}), "sem_fundo": True}
         if aj.get("metade2"):  # meio a meio com imagem nas duas metades

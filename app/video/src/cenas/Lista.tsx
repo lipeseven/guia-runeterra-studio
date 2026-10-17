@@ -6,6 +6,7 @@ import { fonte } from "../estilo";
 import { useCores } from "../tema";
 import { variar } from "../tempo";
 import type { CenaLista, Secao } from "../tipos";
+import { Img, staticFile } from "remotion"; // impressao:ignorar
 
 /**
  * Lista acumulada (guia de estilo §10.2): painéis com legenda entrando lado a lado conforme a narração
@@ -33,6 +34,8 @@ export const Lista: React.FC<{ cena: CenaLista; secao?: Secao; quadro: (palavra:
   const topo = secao ? 330 : 280;
   return (
     <AbsoluteFill style={{ background: cores.fundo }}>
+      {/* impressao:ignorar */ (cena as { fundo?: { arquivo: string } }).fundo && <Img src={staticFile((cena as unknown as { fundo: { arquivo: string } }).fundo.arquivo)} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />}
+      {/* impressao:ignorar */ !!(cena as { fundo?: unknown }).fundo && <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.55)" }} />}
       {cena.pecas.map((peca, k) => {
         const inicio = inicios[k];
         if (frame < inicio) return null;

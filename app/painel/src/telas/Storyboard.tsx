@@ -33,6 +33,8 @@ type Cena = {
   lado: string | null // meio a meio / citação: lado da imagem no rascunho
   sem_fundo: boolean // imagem com o fundo de cor lisa removido (cópia à parte)
   so_texto_no_video: boolean // no rascunho a cena entrou como texto (faltou imagem)
+  fundo_lista: boolean // lista com imagem de fundo escolhida por você
+  fundo_branco: boolean // mosaico/lista no branco do canal (fundo tirado)
   palavras: { i: number; t: string }[] // narração da cena no rascunho (para escolher quando o texto entra)
   texto_em: number | null // palavra em que o texto entrou (null = junto com a imagem)
   texto_em_escolhido: number | null // sua escolha (-1 = junto com a imagem); vale no próximo rascunho
@@ -257,7 +259,7 @@ function CartaoCena({
   const temImagem = c.candidatos.length > 0
   // cena de UMA imagem (ou só texto): sempre dá para buscar uma imagem no acervo
   // lista e tela dividida só mostram as imagens dos ITENS: uma imagem da cena inteira ficaria sem uso (o mosaico a usa de fundo)
-  const soItens = ['lista', 'dividida'].includes(c.tipo)
+  const soItens = c.tipo === 'dividida'
   const aceitaImagem = !soItens && (temImagem || [...UMA_IMAGEM, 'texto'].includes(c.tipo))
   const foraDoVideo = !c.no_rascunho && !c.removida
   const usaLegenda = ['cartao', 'recorte', 'meio', 'texto'].includes(c.tipo)
@@ -398,7 +400,7 @@ function CartaoCena({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {aceitaImagem && (
               <Botao ativo={aba === 'trocar'} onClick={() => setAba(aba === 'trocar' ? 'nada' : 'trocar')}>
-                <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.tipo === 'mosaico' ? 'Trocar fundo' : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
+                <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.tipo === 'mosaico' ? (c.escolhido && !c.fundo_branco ? 'Trocar fundo' : 'Pôr fundo') : c.tipo === 'lista' ? (c.fundo_lista ? 'Trocar fundo' : 'Pôr fundo') : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
               </Botao>
             )}
             {['cartao', 'telacheia', 'recorte', 'meio', 'citacao'].includes(c.tipo) && c.escolhido && !c.removida && (
@@ -426,6 +428,11 @@ function CartaoCena({
                 }}
               >
                 <Eraser className="size-3.5" /> {c.sem_fundo ? 'Voltar o fundo' : 'Remover fundo'}
+              </Botao>
+            )}
+            {((c.tipo === 'mosaico' && c.escolhido && !c.fundo_branco) || (c.tipo === 'lista' && c.fundo_lista)) && (
+              <Botao onClick={() => ajustar(c.id, { acao: 'tirar_fundo' })}>
+                <Eraser className="size-3.5" /> Fundo branco
               </Botao>
             )}
             {c.pecas.length > 0 && (
@@ -785,9 +792,15 @@ function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
       )
     case 'lista':
       return itens.length ? (
-        <span className={`flex ${branco} items-center justify-center gap-1 px-1.5`}>
+        <span className={`relative flex ${branco} items-center justify-center gap-1 px-1.5`}>
+          {c.fundo_lista && img && (
+            <>
+              <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <span className="absolute inset-0 bg-white/55" />
+            </>
+          )}
           {itens.map((p) => (
-            <span key={p.j} className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+            <span key={p.j} className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5">
               <img src={p.src} alt="" className="aspect-[4/3] w-full rounded-sm object-cover shadow" />
               {p.rotulo && <span className="w-full truncate text-center text-[6px] font-semibold text-neutral-700">{p.rotulo}</span>}
             </span>
@@ -805,7 +818,7 @@ function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
     case 'mosaico':
       return (
         <span className="relative block h-full w-full bg-[#f4f1ea]">
-          {img && <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" />}
+          {img && !c.fundo_branco && <img src={img} alt="" className="absolute inset-0 h-full w-full object-cover" />}
           <span className="absolute inset-0 flex items-center justify-center gap-1 px-2">
             {itens.map((p, k) => (
               <img

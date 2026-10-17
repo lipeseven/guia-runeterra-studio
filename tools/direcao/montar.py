@@ -419,6 +419,10 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 pecas = pecas[:3] if tipo == "dividida" else pecas[:5]
                 pecas[0]["de"] = de
                 extra = var.dividida() if tipo == "dividida" else var.lista()
+                if tipo == "lista" and c.get("fundo_lista"):  # fundo escolhido pelo Felipe (véu branco por cima)
+                    e0 = escolhido(cid)
+                    if e0 and e0["tipo"] == "midia":
+                        extra["fundo"] = m.imagem(e0["id"])
                 cenas.append({**base, "tipo": tipo, "pecas": pecas, **extra})
             else:
                 pendencias.append({"titulo": "Cena com poucas imagens",
@@ -430,7 +434,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         if tipo == "mosaico" and len(pecas_mos := pecas_montadas(cid, c, f, de)) >= 2:
             # mosaico: os itens por cima de um FUNDO (a imagem da cena); sem imagem de cena, fundo branco do canal
             e0 = escolhido(cid)
-            fundo = m.imagem(e0["id"]) if e0 and e0["tipo"] == "midia" else m.arquivo(_fundo_branco(), "fundo_branco")
+            fundo = (m.imagem(e0["id"]) if e0 and e0["tipo"] == "midia" and not c.get("fundo_branco")
+                     else m.arquivo(_fundo_branco(), "fundo_branco"))
             posicoes, borda = var.mosaico([pm["midia"]["w"] / pm["midia"]["h"] for pm in pecas_mos])
             cenas.append({**base, "tipo": "mosaico", "fundo": fundo, "movimento": var.movimento(), "borda": borda, "layout": 2,
                           "pecas": [{"de": pm["de"], "midia": pm["midia"], **pos} for pm, pos in zip(pecas_mos, posicoes)]})
