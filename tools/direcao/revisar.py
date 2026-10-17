@@ -99,9 +99,10 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
         # (antes o diretor apagava tipo/imagem/legenda escolhidos por ele a cada pedido)
         texto = ajustes[cid].get("comentario", "").lower()
         sobre = {
-            "candidato": r"image|foto|arte|arquivo|\.(png|jpe?g|webp|gif|avif)|clipe|v[ií]deo|troc",
-            "tipo": r"tela cheia|cart[aã]o|recorte|meio a meio|lista|dividid|mosaico|clipe|tipo|formato|cita[cç]",
-            "legenda": r"legenda|texto|escrit|letreiro",
+            # palavras INTEIRAS ("parte direita" não é "arte"; "zoom na imagem que já estava" pede outra coisa)
+            "candidato": r"\b(outra imagem|nova imagem|troc\w*|troq\w*|substitu\w*|foto|arquivo|clipe|v[ií]deo)\b|\.(png|jpe?g|webp|gif|avif)\b",
+            "tipo": r"\b(tela cheia|cart[aã]o|recorte|meio a meio|lista|dividid\w*|mosaico|clipe|tipo de cena|formato|cita[cç][aã]o)\b",
+            "legenda": r"\b(legenda|texto|escrit\w*|letreiro)\b",
         }
         for campo, padrao in sobre.items():
             if re.search(padrao, texto) or len(lista) > 1:  # dividida em várias: a cena original mudou de verdade
