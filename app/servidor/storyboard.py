@@ -85,6 +85,7 @@ def cenas(pasta: Path) -> list[dict]:
     montadas = {c.get("id") or f"C{c.get('k')}": c for c in d["direcao"].get("cenas", [])}
     sons = {s.get("id") or f"C{s.get('k')}" for s in d["direcao"].get("sons", [])}
     necs = {n["id"]: n for n in d["necs"]}
+    fontes = d["direcao"].get("fontes") or {}  # imagem automática que cada cena usou no último rascunho
     inicios = []
     saida = []
     for k, c in enumerate(d["plano"].get("cenas", [])):
@@ -102,6 +103,8 @@ def cenas(pasta: Path) -> list[dict]:
                              "miniatura": f"dados/acervo/miniaturas/{aj['midia'][1]}.jpg"}
         elif "candidato" in aj and cands:
             escolhido = cands[aj["candidato"]] if aj["candidato"] < len(cands) else None
+        elif cid in fontes and nec:  # o que o VÍDEO usa (a montagem pode ter mantido a imagem de antes)
+            escolhido = next((cands[i] for i, x in enumerate(nec["candidatos"]) if [x["tipo"], x["id"]] == fontes[cid][:2]), None)
         elif esc.get("escolha") and cands:
             escolhido = cands[esc["escolha"] - 1] if esc["escolha"] - 1 < len(cands) else None
         if escolhido and aj.get("sem_fundo"):
@@ -126,6 +129,8 @@ def cenas(pasta: Path) -> list[dict]:
             pesc = None
             if "candidato" in paj and paj["candidato"] < len(pcands):
                 pesc = pcands[paj["candidato"]]
+            elif f"{cid}p{j}" in fontes and pn:
+                pesc = next((pcands[i] for i, x in enumerate(pn["candidatos"]) if [x["tipo"], x["id"]] == fontes[f"{cid}p{j}"][:2]), None)
             elif pe.get("escolha") and pcands:
                 pesc = pcands[pe["escolha"] - 1]
             pecas.append({"j": j, "rotulo": peca.get("rotulo") or peca.get("palavra") or "",

@@ -245,12 +245,17 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
             e = {k: v for k, v in e.items() if k != "fixa"}  # escolha perdida: segue como automática
         usados = usados_por_bloco.setdefault(bloco_da_cena.get(n.get("cena"), ""), set())
-        # cena automática que já tinha imagem na versão anterior MANTÉM essa imagem, sem condição
+        # cena automática que já tinha imagem na versão anterior MANTÉM essa imagem — enquanto o diretor não mudar a
+        # escolha dele (ex.: "Pedir ao diretor" trocou a imagem: aí vale a nova). fontes = [tipo, id, tipo, id da
+        # escolha do diretor naquela versão]; as antigas, só com 2 itens, mantêm sem condição.
+        quer = n["candidatos"][e["escolha"] - 1] if 1 <= e["escolha"] <= len(n["candidatos"]) else None
+        quer_chave = [quer["tipo"], quer["id"]] if quer else None
         antes = fontes_velhas.get(nec_id)
-        cand = next((c for c in n["candidatos"] if [c["tipo"], c["id"]] == antes), None) if antes else None
+        mudou = bool(antes and len(antes) == 4 and list(antes[2:]) != (quer_chave or [None, None]))
+        cand = next((c for c in n["candidatos"] if [c["tipo"], c["id"]] == list(antes[:2])), None) if antes and not mudou else None
         if cand:
             usados.add((cand["tipo"], cand["id"]))
-            fontes[nec_id] = list(antes)
+            fontes[nec_id] = list(antes[:2]) + (quer_chave or [None, None])
             return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         # cena nova: escolha do diretor; se já usada NESTE bloco, a próxima candidata livre do bloco
         ordem = [e["escolha"] - 1] + [i for i in range(len(n["candidatos"])) if i != e["escolha"] - 1]
@@ -260,13 +265,13 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             chave = (cand["tipo"], cand["id"])
             if chave not in usados:
                 usados.add(chave)
-                fontes[nec_id] = list(chave)
+                fontes[nec_id] = list(chave) + (quer_chave or [None, None])
                 return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         # todas as candidatas já usadas no bloco: melhor REPETIR a escolha do diretor do que deixar a cena sem imagem
         if not ordem:
             return None
         cand = n["candidatos"][ordem[0]]
-        fontes[nec_id] = [cand["tipo"], cand["id"]]
+        fontes[nec_id] = [cand["tipo"], cand["id"]] + (quer_chave or [None, None])
         return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
 
     nomes_capa = [x.get("nome", "").lower() for x in circulos]
