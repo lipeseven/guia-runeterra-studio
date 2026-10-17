@@ -699,9 +699,32 @@ def tarefa_roteiro(vid: int) -> None:
         con.commit()
 
 
+ACERVO = {"ultima": None}  # última atualização do acervo: {"quando", "resultado"} ou {"quando", "erro"}
+
+
+def tarefa_acervo(_vid: int) -> None:
+    """Atualiza o catálogo com o que entrou na pasta do acervo (local, sem cota). Tarefa GLOBAL (vid 0): roda na
+    mesma fila do motor para não disputar a GPU com um render."""
+    sys.path.insert(0, str(RAIZ / "tools" / "acervo"))
+    from atualizar import atualizar
+
+    definir_progresso("Acervo", "procurando arquivos novos")
+    try:
+        r = atualizar(aviso=lambda txt: definir_progresso("Acervo", txt))
+        ACERVO["ultima"] = {"quando": agora(), "resultado": r}
+    except Exception as e:
+        ACERVO["ultima"] = {"quando": agora(), "erro": str(e)[:300]}
+        raise
+
+
+def pedir_acervo() -> None:
+    if not any(nome == "acervo" for _, nome in list(FILA.queue)):
+        FILA.put((0, "acervo"))
+
+
 TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
-           "roteiro": tarefa_roteiro}
+           "roteiro": tarefa_roteiro, "acervo": tarefa_acervo}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 
@@ -711,6 +734,17 @@ def _trabalhador() -> None:
         vid, nome = FILA.get()
         with conectar() as con:
             v = con.execute("SELECT coluna FROM videos WHERE id=?", (vid,)).fetchone()
+        if vid == 0:  # tarefa global (acervo): não pertence a nenhum card
+            ESTADO["executando"] = {"video": 0, "tarefa": nome, "desde": agora()}
+            try:
+                TAREFAS[nome](vid)
+            except Exception:
+                traceback.print_exc()
+            finally:
+                ESTADO["executando"] = None
+                ESTADO["progresso"] = None
+                FILA.task_done()
+            continue
         if not v or v["coluna"] == "publicado":  # excluído ou já arquivado: tarefa que sobrou na fila não roda
             continue
         ESTADO["executando"] = {"video": vid, "tarefa": nome, "desde": agora()}

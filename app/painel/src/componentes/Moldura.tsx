@@ -1,8 +1,8 @@
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { Activity, FolderOpen, LayoutGrid, Search, Settings } from 'lucide-react'
+import { Activity, FolderOpen, LayoutGrid, RefreshCw, Search, Settings } from 'lucide-react'
 import type { ReactNode } from 'react'
-import type { Recursos } from '../api'
-import { useAoVivo } from '../api'
+import type { Motor, Recursos } from '../api'
+import { api, useAoVivo } from '../api'
 
 type Item = { icone: typeof LayoutGrid; rotulo: string; href?: string; emBreve?: boolean }
 const ITENS: Item[] = [
@@ -50,6 +50,7 @@ export function Moldura({ trilha, children }: { trilha: ReactNode; children: Rea
               <span className="size-1.5 animate-pulse rounded-full bg-ok" /> Ao vivo
             </span>
             <div className="ml-auto flex items-center gap-2">
+              <BotaoAcervo />
               <Chip>
                 GPU <b className="text-texto">{rec?.gpu.ok ? `${rec.gpu.uso}%` : '—'}</b>
               </Chip>
@@ -70,4 +71,43 @@ export function Moldura({ trilha, children }: { trilha: ReactNode; children: Rea
 
 function Chip({ children }: { children: ReactNode }) {
   return <span className="flex h-8 items-center gap-1.5 rounded-lg border border-borda bg-painel px-3 font-mono text-[11px] text-suave">{children}</span>
+}
+
+type SituacaoAcervo = {
+  quando?: string
+  erro?: string
+  resultado?: { novos: string[]; etiquetadas_pelo_nome: number; sem_etiqueta: string[] }
+}
+
+/** Atualiza o catálogo com o que entrou na pasta do acervo (local, sem cota). Também roda sozinho a cada card novo. */
+function BotaoAcervo() {
+  const { dados: m } = useAoVivo<Motor>('/motor', 3000)
+  const { dados: s } = useAoVivo<SituacaoAcervo>('/acervo/situacao', 5000)
+  const rodando = m?.executando?.tarefa === 'acervo'
+  const r = s?.resultado
+  const resumo = s?.erro
+    ? `Falhou: ${s.erro}`
+    : r
+      ? `Última verificação: ${r.novos.length} arquivo(s) novo(s)` +
+        (r.etiquetadas_pelo_nome ? ` · ${r.etiquetadas_pelo_nome} etiquetado(s) pelo nome` : '') +
+        (r.sem_etiqueta.length ? ` · sem etiqueta (o diretor quase não acha): ${r.sem_etiqueta.slice(0, 12).join(', ')}` : '')
+      : 'Procura arquivos novos na pasta do acervo e cataloga (miniatura, busca, tomadas, etiquetas pelo nome). Sem cota.'
+  return (
+    <Tooltip.Root>
+      <Tooltip.Trigger asChild>
+        <button
+          onClick={() => !rodando && api('/acervo/atualizar', { method: 'POST' })}
+          className="flex h-8 items-center gap-1.5 rounded-lg border border-borda bg-painel px-3 text-xs text-suave hover:border-suave hover:text-texto"
+        >
+          <RefreshCw className={`size-3.5 ${rodando ? 'animate-spin text-ouro' : ''}`} />
+          {rodando ? (m?.progresso?.texto ?? 'atualizando acervo…') : 'Atualizar acervo'}
+        </button>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Content side="bottom" sideOffset={6} className="max-w-sm rounded-md border border-borda bg-painel-2 px-2 py-1.5 text-xs text-texto">
+          {resumo}
+        </Tooltip.Content>
+      </Tooltip.Portal>
+    </Tooltip.Root>
+  )
 }

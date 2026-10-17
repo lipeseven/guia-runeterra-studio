@@ -105,7 +105,20 @@ class NovoVideo(BaseModel):
 @app.post("/api/videos")
 def novo_video(corpo: NovoVideo):
     with conectar() as con:
-        return {"id": criar_video(con, corpo.titulo.strip(), corpo.coluna)}
+        vid = criar_video(con, corpo.titulo.strip(), corpo.coluna)
+    motor.pedir_acervo()  # card novo: confere se entrou coisa nova no acervo (o acervo muda pouco; não roda toda hora)
+    return {"id": vid}
+
+
+@app.post("/api/acervo/atualizar")
+def atualizar_acervo():
+    motor.pedir_acervo()
+    return {"ok": True}
+
+
+@app.get("/api/acervo/situacao")
+def situacao_acervo():
+    return motor.ACERVO["ultima"] or {}
 
 
 class Mover(BaseModel):
