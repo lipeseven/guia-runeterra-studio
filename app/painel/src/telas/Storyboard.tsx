@@ -52,15 +52,10 @@ const NOME_TIPO: Record<string, string> = {
 /** Para quais tipos uma cena pode virar sem perder as imagens que já tem. */
 const UMA_IMAGEM = ['cartao', 'telacheia', 'recorte', 'meio', 'citacao']
 function tiposPossiveis(atual: string, tipos: string[]): string[] {
-  // "só texto" também pode virar cena com imagem (a imagem vem da busca no acervo)
-  // de uma imagem para vários itens: a cena ganha 2 itens vazios (a imagem atual vira o fundo, no mosaico)
-  if (UMA_IMAGEM.includes(atual) || atual === 'texto')
-    return tipos.filter((t) => UMA_IMAGEM.includes(t) || ['texto', 'mosaico', 'dividida', 'lista'].includes(t))
-  // clipe pode virar cena de imagem: usa um quadro parado do próprio clipe (no momento escolhido) ou a imagem buscada
-  if (atual === 'clipe') return ['clipe', ...tipos.filter((t) => UMA_IMAGEM.includes(t))]
-  if (atual === 'mosaico') return ['mosaico', 'dividida', 'lista']
-  if (atual === 'dividida' || atual === 'lista') return ['dividida', 'lista', 'mosaico']
-  return [atual]
+  // todas as opções sempre disponíveis (pedido do Felipe). Capa, transição e diálogo dependem da capa do vídeo:
+  // só aparecem na própria cena. Cena que fica sem imagem entra como texto até você escolher uma.
+  const especiais = ['capa', 'hub', 'dialogo']
+  return tipos.filter((t) => t === atual || !especiais.includes(t))
 }
 const mmss = (s: number | null) => (s == null ? '—' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`)
 

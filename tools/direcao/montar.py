@@ -442,6 +442,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             continue
 
         esc = escolhido(cid)
+        if not esc and pecas_da_cena(c):  # cena de itens que o Felipe trocou para uma imagem só: usa a do 1º item
+            esc = next((e_ for j_ in range(len(pecas_da_cena(c))) if (e_ := escolhido(f"{cid}p{j_}"))), None)
         if not esc:
             pendencias.append({"titulo": "Cena sem imagem boa",
                                "texto": f"Cena {numeros.get(cid, k)} (“{f['texto'][:90]}…”): nenhum candidato do acervo serviu. "
