@@ -91,7 +91,9 @@ def duracao(arquivo: Path) -> float:
     return float(s)
 
 
-def gerar(roteiro: str, saida: Path, motor: str = "fish", ppm_alvo: float = PPM_FELIPE) -> dict:
+def gerar(roteiro: str, saida: Path, motor: str = "fish", ppm_alvo: float = PPM_FELIPE, fator: float | None = None) -> dict:
+    """ator` = aceleração da versão anterior: com ela fixa, editar um parágrafo não desloca o áudio dos outros
+    (o render por blocos reaproveita os capítulos antes da edição)."""
     load_dotenv(RAIZ / ".env")
     preparar_ffmpeg()
     CACHE.mkdir(parents=True, exist_ok=True)
@@ -131,12 +133,12 @@ def gerar(roteiro: str, saida: Path, motor: str = "fish", ppm_alvo: float = PPM_
     # Calibra para o ritmo do Felipe sem alterar o tom (atempo).
     n_palavras = len(re.findall(r"\w+", roteiro))
     ppm_bruto = n_palavras / (duracao(bruto) / 60)
-    fator = max(0.75, min(1.35, ppm_alvo / ppm_bruto))
+    fator = fator or max(0.75, min(1.35, ppm_alvo / ppm_bruto))
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(bruto), "-filter:a", f"atempo={fator:.4f}",
                     str(saida)], check=True)
     bruto.unlink()
     info = {"motores": sorted(usados), "blocos": len(partes), "palavras": n_palavras,
-            "ppm_original": round(ppm_bruto, 1), "fator_tempo": round(fator, 3),
+            "ppm_original": round(ppm_bruto, 1), "fator_tempo": round(fator, 3), "fator_exato": float(f"{fator:.4f}"),
             "duracao": round(duracao(saida), 2), "aviso": "VOZ GUIA - nunca publicar"}
     saida.with_suffix(".json").write_text(json.dumps(info, ensure_ascii=False, indent=1), encoding="utf-8")
     return info

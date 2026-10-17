@@ -95,10 +95,12 @@ def cenas(pasta: Path) -> list[dict]:
         cands = [{"idx": i, "nome": x["nome"], "tipo": x["tipo"], "miniatura": _rel(x["miniatura"])}
                  for i, x in enumerate(nec["candidatos"])] if nec else []
         escolhido = None
-        if "candidato" in aj and cands:
+        if aj.get("midia") and nec:  # pela identidade (a posição muda se a busca for refeita)
+            escolhido = next((cands[i] for i, x in enumerate(nec["candidatos"]) if [x["tipo"], x["id"]] == list(aj["midia"])), None)
+        elif "candidato" in aj and cands:
             escolhido = cands[aj["candidato"]] if aj["candidato"] < len(cands) else None
         elif esc.get("escolha") and cands:
-            escolhido = cands[esc["escolha"] - 1]
+            escolhido = cands[esc["escolha"] - 1] if esc["escolha"] - 1 < len(cands) else None
         clipe = None
         if escolhido and escolhido["tipo"] == "tomada":  # para o Felipe escolher o momento do clipe no vídeo original
             t = acervo.execute("SELECT t.midia_id, t.inicio, m.duracao FROM tomadas t JOIN midias m ON m.id=t.midia_id "
@@ -165,6 +167,9 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
     tipo = acao["acao"]
     if tipo == "candidato":
         aj["candidato"] = int(acao["idx"])
+        n_ = next((n for n in d["necs"] if n["id"] == cid), None)
+        if n_ and aj["candidato"] < len(n_["candidatos"]):
+            aj["midia"] = [n_["candidatos"][aj["candidato"]]["tipo"], n_["candidatos"][aj["candidato"]]["id"]]
     elif tipo == "usar_midia":  # resultado de uma busca manual no acervo: vira um candidato novo
         necs = d["necs"]
         nec = next((n for n in necs if n["id"] == cid), None)
@@ -178,10 +183,11 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             nec = {"id": cid, "cena": cid, "tipo": aj.get("tipo", tipo_atual), "frase": "",
                    "busca": {"o_que": cena.get("legenda") or ""}, "legenda": cena.get("legenda"), "candidatos": []}
             necs.append(nec)
-        cand = {"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0,
+        cand = {"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0, "manual": True,
                 "miniatura": str(RAIZ / acao["miniatura"])}
         nec["candidatos"].append(cand)
         aj["candidato"] = len(nec["candidatos"]) - 1
+        aj["midia"] = [cand["tipo"], cand["id"]]
         (pasta / "direcao" / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
     elif tipo in ("peca_candidato", "peca_usar_midia"):  # imagem de UM item da lista/dividida/mosaico
         j = int(acao["j"])
@@ -197,12 +203,14 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
                 pn = {"id": pid, "cena": cid, "peca": j, "tipo": "peca", "busca": peca.get("busca") or {},
                       "frase": "", "legenda": peca.get("rotulo") or peca.get("palavra"), "candidatos": []}
                 necs.append(pn)
-            pn["candidatos"].append({"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0,
+            pn["candidatos"].append({"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0, "manual": True,
                                      "miniatura": str(RAIZ / acao["miniatura"])})
             idx = len(pn["candidatos"]) - 1
             (pasta / "direcao" / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1),
                                                                encoding="utf-8")
-        aj.setdefault("pecas", {})[str(j)] = {"candidato": idx}
+        pn_ = next((n for n in d["necs"] if n["id"] == pid), None)
+        cand_ = pn_["candidatos"][idx] if pn_ and idx < len(pn_["candidatos"]) else None
+        aj.setdefault("pecas", {})[str(j)] = {"candidato": idx, **({"midia": [cand_["tipo"], cand_["id"]]} if cand_ else {})}
     elif tipo == "juntar_proxima":  # esta cena + a próxima viram uma tela dividida; a próxima sai do vídeo
         _juntar_com_a_proxima(pasta, d, cid, aj)
     elif tipo == "metade_usar_midia":  # meio a meio: IMAGEM na outra metade (no lugar do texto)
@@ -212,7 +220,7 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         if n2 is None:
             n2 = {"id": mid, "cena": cid, "tipo": "metade", "busca": {}, "frase": "", "legenda": "", "candidatos": []}
             necs.append(n2)
-        n2["candidatos"].append({"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0,
+        n2["candidatos"].append({"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0, "manual": True,
                                  "miniatura": str(RAIZ / acao["miniatura"])})
         aj["metade2"] = {"candidato": len(n2["candidatos"]) - 1}
         (pasta / "direcao" / "candidatos.json").write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -324,11 +332,13 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
         if "tipo" in aj:
             c["tipo"] = aj["tipo"]
         if "candidato" in aj:
-            escolhas[k] = {**(escolhas.get(k) or {}), "escolha": aj["candidato"] + 1, "fixa": True}
+            escolhas[k] = {**(escolhas.get(k) or {}), "escolha": aj["candidato"] + 1, "fixa": True,
+                           **({"midia": aj["midia"]} if aj.get("midia") else {})}
         for j, pa in (aj.get("pecas") or {}).items():  # imagem escolhida pelo Felipe para um item da lista
             if "candidato" in pa:
                 pid = f"{k}p{j}"
-                escolhas[pid] = {**(escolhas.get(pid) or {}), "escolha": pa["candidato"] + 1, "fixa": True}
+                escolhas[pid] = {**(escolhas.get(pid) or {}), "escolha": pa["candidato"] + 1, "fixa": True,
+                                 **({"midia": pa["midia"]} if pa.get("midia") else {})}
         if "clipe_inicio" in aj:  # momento do clipe escolhido pelo Felipe (segundo do vídeo original)
             escolhas[k] = {**(escolhas.get(k) or {}), "inicio": aj["clipe_inicio"]}
     return plano, escolhas

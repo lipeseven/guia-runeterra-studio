@@ -258,6 +258,11 @@ def folhas(necs: list[dict], destino: Path, por_folha: int = 7) -> list[Path]:
     return caminhos
 
 
+def _manual(c: dict) -> bool:
+    """Candidato acrescentado pelo Felipe (busca do storyboard): marcado "manual" (ou, nos antigos, nota exata 1.0)."""
+    return bool(c.get("manual")) or (c.get("tipo") == "midia" and c.get("nota") == 1.0)
+
+
 def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: list[dict] | None = None,
              escolhas: dict | None = None) -> tuple[list[dict], list[dict], list[Path]]:
     """Candidatos de todas as necessidades + quais ainda precisam da escolha do Claude. Devolve (todas, as que
@@ -296,7 +301,20 @@ def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: 
                 escolhas[n["id"]] = fixa  # arquivo pedido pelo Felipe (nota/pedido): não vai ao Claude
             else:
                 sem_escolha.append(n)
+        if v:  # imagens que o FELIPE pôs pela busca do storyboard nunca se perdem (a escolha dele aponta para elas)
+            ids = {(c["tipo"], c["id"]) for c in n["candidatos"]}
+            for c in v.get("candidatos", []):
+                if _manual(c) and (c["tipo"], c["id"]) not in ids:
+                    n["candidatos"].append(c)
         necs.append(n)
+    # necessidades criadas pelo Felipe no storyboard (juntar cenas, outra metade do meio a meio, item buscado à mão)
+    # não saem do plano do diretor: continuam enquanto a cena existir
+    cenas_vivas = {id_da_cena(c, k) for k, c in enumerate(plano.get("cenas", []))}
+    geradas = {n["id"] for n in necs}
+    for v in anteriores or []:
+        if v["id"] not in geradas and v.get("cena") in cenas_vivas and any(_manual(c) or v["tipo"] in ("peca", "metade")
+                                                                          for c in v.get("candidatos", [])):
+            necs.append(v)
     destino = pasta_trabalho / "candidatos"
     if destino.exists():
         shutil.rmtree(destino)  # folhas antigas não podem ir de novo para o Claude

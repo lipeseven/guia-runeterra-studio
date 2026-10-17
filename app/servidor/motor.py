@@ -276,7 +276,10 @@ def tarefa_voz_guia(vid: int) -> None:
         con.commit()
     pasta = PASTA_PROJETOS / slug
     roteiro = (pasta / "direcao" / "roteiro.txt").read_text(encoding="utf-8")
-    info = gerar(roteiro, pasta / "trabalho" / "voz_guia.wav")
+    # mesma aceleração da voz guia anterior: os parágrafos que não mudaram saem idênticos (blocos reaproveitados)
+    info_antes = pasta / "trabalho" / "voz_guia.json"
+    fator = json.loads(info_antes.read_text(encoding="utf-8")).get("fator_exato") if info_antes.exists() else None
+    info = gerar(roteiro, pasta / "trabalho" / "voz_guia.wav", fator=fator)
     with conectar() as con:
         atualizar_etapa(con, vid, "voz_guia", "concluido", f"{mmss(info['duracao'])} · {', '.join(info['motores'])}",
                         f"{info['ppm_original']} → {PPM_FELIPE} palavras/min",

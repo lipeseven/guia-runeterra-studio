@@ -171,8 +171,16 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             return None
         if e.get("fixa"):  # escolhida pelo Felipe no storyboard: vale mesmo se repetir e NÃO ocupa a imagem
             # (a escolha dele não empurra as cenas automáticas para outro candidato → não mexe em outros blocos)
-            cand = n["candidatos"][e["escolha"] - 1]
-            return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
+            # pela IDENTIDADE da mídia (a posição muda se a busca do diretor for refeita); posição só nos antigos
+            cands = n["candidatos"]
+            cand = next((c for c in cands if e.get("midia") and [c["tipo"], c["id"]] == list(e["midia"])), None)
+            if cand is None and e.get("midia"):
+                cand = {"tipo": e["midia"][0], "id": e["midia"][1], "nome": ""}
+            if cand is None and 1 <= e["escolha"] <= len(cands):
+                cand = cands[e["escolha"] - 1]
+            if cand is not None:
+                return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
+            e = {k: v for k, v in e.items() if k != "fixa"}  # escolha perdida: segue como automática
         usados = usados_por_bloco.setdefault(bloco_da_cena.get(n.get("cena"), ""), set())
         # cena automática que já tinha imagem na versão anterior MANTÉM essa imagem, sem condição
         antes = fontes_velhas.get(nec_id)
@@ -183,6 +191,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         # cena nova: escolha do diretor; se já usada NESTE bloco, a próxima candidata livre do bloco
         ordem = [e["escolha"] - 1] + [i for i in range(len(n["candidatos"])) if i != e["escolha"] - 1]
+        ordem = [i for i in ordem if 0 <= i < len(n["candidatos"])]
         for i in ordem:
             cand = n["candidatos"][i]
             chave = (cand["tipo"], cand["id"])
@@ -191,7 +200,9 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 fontes[nec_id] = list(chave)
                 return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         # todas as candidatas já usadas no bloco: melhor REPETIR a escolha do diretor do que deixar a cena sem imagem
-        cand = n["candidatos"][e["escolha"] - 1]
+        if not ordem:
+            return None
+        cand = n["candidatos"][ordem[0]]
         fontes[nec_id] = [cand["tipo"], cand["id"]]
         return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
 
