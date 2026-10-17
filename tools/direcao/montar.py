@@ -54,6 +54,17 @@ class Midias:
             midia["credito"] = f"arte: {autor}"
         return midia
 
+    def imagem_sem_fundo(self, mid: int) -> dict:
+        """A imagem com o fundo de cor lisa removido (pedido do Felipe no storyboard); o acervo não muda."""
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "acervo"))
+        from sem_fundo import sem_fundo_da_midia
+
+        caminho, autor = self.con.execute("SELECT caminho, autor FROM midias WHERE id=?", (mid,)).fetchone()
+        midia = self.arquivo(sem_fundo_da_midia(mid, PASTA_ACERVO / caminho), f"m{mid}_sf")
+        if autor:
+            midia["credito"] = f"arte: {autor}"
+        return midia
+
     def arquivo(self, origem: Path, nome: str) -> dict:
         ext = origem.suffix.lower()
         animado = False
@@ -113,11 +124,10 @@ def _setas_do_acervo() -> list[tuple[Path, float]]:
             continue
         png = destino / f"{f.stem.lower()}.png"
         if not png.exists() or png.stat().st_mtime < f.stat().st_mtime:
-            a = np.asarray(Image.open(f).convert("RGBA")).astype(np.float32)
-            alfa = np.minimum(a[:, :, 3], np.clip((255 - a[:, :, :3].min(axis=2)) * 3.0, 0, 255))
-            im = Image.fromarray(np.dstack([a[:, :, :3], alfa]).astype(np.uint8), "RGBA")
-            caixa = Image.fromarray((alfa > 40).astype(np.uint8) * 255).getbbox()
-            (im.crop(caixa) if caixa else im).save(png)
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "acervo"))
+            from sem_fundo import remover_fundo  # o mesmo "remover fundo" do storyboard
+
+            remover_fundo(f, png)
         m = np.asarray(Image.open(png))[:, :, 3] > 128
         ys, xs = np.nonzero(m)
         pts = np.stack([xs, ys], 1).astype(float)
@@ -416,7 +426,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 continue
 
         if esc["tipo"] == "midia":
-            midia = m.imagem(esc["id"])
+            midia = (m.imagem_sem_fundo(esc["id"]) if (escolhas.get(cid) or {}).get("sem_fundo") else m.imagem(esc["id"]))
         elif esc["tipo"] == "tomada":  # clipe que o Felipe trocou para cena de imagem: um quadro do próprio clipe
             midia = m.quadro_da_tomada(esc["id"], (escolhas.get(cid) or {}).get("inicio"))
         else:

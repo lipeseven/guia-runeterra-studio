@@ -1,4 +1,4 @@
-import { ArrowLeft, Columns2, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, Trash2, Wand2, X } from 'lucide-react'
+import { ArrowLeft, Columns2, Eraser, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, Trash2, Wand2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, arquivo, useAoVivo, type Video } from '../api'
 import { Moldura } from '../componentes/Moldura'
@@ -31,6 +31,7 @@ type Cena = {
   ajustada: boolean
   pendente: boolean // mexida depois que o último rascunho começou
   lado: string | null // meio a meio / citação: lado da imagem no rascunho
+  sem_fundo: boolean // imagem com o fundo de cor lisa removido (cópia à parte)
   fundo: string | null // texto: claro | escuro
   som: string | null
   som_no_rascunho: boolean
@@ -359,6 +360,20 @@ function CartaoCena({
                 }}
               >
                 <Columns2 className="size-3.5" /> Juntar com a próxima
+              </Botao>
+            )}
+            {['cartao', 'telacheia', 'recorte', 'meio', 'citacao'].includes(c.tipo) && c.escolhido && !c.clipe && !c.removida && (
+              <Botao
+                ativo={c.sem_fundo}
+                onClick={async () => {
+                  try {
+                    await ajustar(c.id, { acao: 'sem_fundo', ligar: !c.sem_fundo })
+                  } catch (e) {
+                    alert(e instanceof Error ? e.message : String(e))
+                  }
+                }}
+              >
+                <Eraser className="size-3.5" /> {c.sem_fundo ? 'Voltar o fundo' : 'Remover fundo'}
               </Botao>
             )}
             {c.pecas.length > 0 && (

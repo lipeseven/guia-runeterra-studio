@@ -104,6 +104,11 @@ def cenas(pasta: Path) -> list[dict]:
             escolhido = cands[aj["candidato"]] if aj["candidato"] < len(cands) else None
         elif esc.get("escolha") and cands:
             escolhido = cands[esc["escolha"] - 1] if esc["escolha"] - 1 < len(cands) else None
+        if escolhido and aj.get("sem_fundo"):
+            mid_ = _midia_escolhida(d, cid, aj)
+            sf = RAIZ / "dados" / "acervo" / "derivados" / f"sem_fundo_{mid_}.png"
+            if sf.exists():
+                escolhido = {**escolhido, "miniatura": _rel(str(sf))}
         clipe = None
         if escolhido and escolhido["tipo"] == "tomada":  # para o Felipe escolher o momento do clipe no vídeo original
             t = acervo.execute("SELECT t.midia_id, t.inicio, m.duracao FROM tomadas t JOIN midias m ON m.id=t.midia_id "
@@ -146,7 +151,7 @@ def cenas(pasta: Path) -> list[dict]:
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
-            "lado": aj.get("lado") or (m or {}).get("lado"), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
+            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
         })
     # fim de cada cena = início da próxima montada
     for i, s in enumerate(saida):
@@ -233,6 +238,15 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         if acao["lado"] not in ("esq", "dir", "centro"):
             raise ValueError("lado inválido")
         aj["lado"] = acao["lado"]
+    elif tipo == "sem_fundo":  # remove o fundo de cor lisa da imagem da cena (cópia à parte; o acervo não muda)
+        if acao.get("ligar", True):
+            mid = _midia_escolhida(d, cid, aj)
+            if mid is None:
+                raise ValueError("escolha uma imagem do acervo antes de remover o fundo")
+            _gerar_sem_fundo(mid)
+            aj["sem_fundo"] = True
+        else:
+            aj.pop("sem_fundo", None)
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -268,6 +282,30 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
     salvar_ajustes(pasta, d["ajustes"])
     marcar_pendente(pasta, cid)
     return d["ajustes"].get(cid, {})
+
+
+def _midia_escolhida(d: dict, cid: str, aj: dict) -> int | None:
+    """Id (no acervo) da imagem que a cena usa: a escolhida à mão ou a do diretor."""
+    if aj.get("midia") and aj["midia"][0] == "midia":
+        return int(aj["midia"][1])
+    n = next((x for x in d["necs"] if x["id"] == cid), None)
+    e = d["escolhas"].get(cid) or {}
+    idx = aj.get("candidato", (e.get("escolha") or 0) - 1)
+    if n and 0 <= idx < len(n["candidatos"]) and n["candidatos"][idx]["tipo"] == "midia":
+        return int(n["candidatos"][idx]["id"])
+    return None
+
+
+def _gerar_sem_fundo(mid: int) -> Path:
+    import sys
+
+    sys.path.insert(0, str(RAIZ / "tools"))
+    sys.path.insert(0, str(RAIZ / "tools" / "acervo"))
+    from comum import PASTA_ACERVO, abrir_acervo
+    from sem_fundo import sem_fundo_da_midia
+
+    caminho = abrir_acervo().execute("SELECT caminho FROM midias WHERE id=?", (mid,)).fetchone()[0]
+    return sem_fundo_da_midia(mid, PASTA_ACERVO / caminho)
 
 
 def _juntar_com_a_proxima(pasta: Path, d: dict, cid: str, aj: dict) -> None:
@@ -327,6 +365,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["legenda"] = aj["legenda"] or None
         if aj.get("lado"):
             c["lado_felipe"] = aj["lado"]
+        if aj.get("sem_fundo"):
+            escolhas[k] = {**(escolhas.get(k) or {}), "sem_fundo": True}
         if aj.get("metade2"):  # meio a meio com imagem nas duas metades
             c["metade2"] = True
             escolhas[f"{cid}m2"] = {"escolha": aj["metade2"]["candidato"] + 1, "fixa": True, "foco": [0.5, 0.45]}
