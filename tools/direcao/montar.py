@@ -150,6 +150,15 @@ ALVO_NA_IMAGEM = {"cima": (0.5, 0.17), "esquerda": (0.22, 0.7), "direita": (0.78
                   "centro": (0.5, 0.5)}
 
 
+def _fundo_branco() -> Path:
+    """Imagem branca 1920x1080 (fundo do canal) para mosaico sem imagem de fundo."""
+    arq = RAIZ / "dados" / "acervo" / "derivados" / "fundo_branco.png"
+    if not arq.exists():
+        arq.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (1920, 1080), (255, 255, 255)).save(arq)
+    return arq
+
+
 FPS = 60  # igual ao Root.tsx
 
 # efeitos sorteados que uma cena HERDA da versão anterior do rascunho (mesmo id e mesmo tipo): mexer numa cena não
@@ -413,6 +422,15 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                                    "texto": f"Cena {numeros.get(cid, k)} ({tipo}, “{f['texto'][:80]}…”): menos de 2 imagens serviram. "
                                             "No rascunho, um texto ocupa o lugar dela: escolha as imagens no storyboard."})
                 cenas.append(sem_imagem(base, legenda))
+            continue
+
+        if tipo == "mosaico" and len(pecas_mos := pecas_montadas(cid, c, f, de)) >= 2:
+            # mosaico: os itens por cima de um FUNDO (a imagem da cena); sem imagem de cena, fundo branco do canal
+            e0 = escolhido(cid)
+            fundo = m.imagem(e0["id"]) if e0 and e0["tipo"] == "midia" else m.arquivo(_fundo_branco(), "fundo_branco")
+            posicoes, borda = var.mosaico([pm["midia"]["w"] / pm["midia"]["h"] for pm in pecas_mos])
+            cenas.append({**base, "tipo": "mosaico", "fundo": fundo, "movimento": var.movimento(), "borda": borda,
+                          "pecas": [{"de": pm["de"], "midia": pm["midia"], **pos} for pm, pos in zip(pecas_mos, posicoes)]})
             continue
 
         esc = escolhido(cid)

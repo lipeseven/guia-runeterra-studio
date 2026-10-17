@@ -51,11 +51,13 @@ const NOME_TIPO: Record<string, string> = {
 const UMA_IMAGEM = ['cartao', 'telacheia', 'recorte', 'meio', 'citacao']
 function tiposPossiveis(atual: string, tipos: string[]): string[] {
   // "só texto" também pode virar cena com imagem (a imagem vem da busca no acervo)
-  if (UMA_IMAGEM.includes(atual) || atual === 'texto') return tipos.filter((t) => UMA_IMAGEM.includes(t) || t === 'texto')
+  // de uma imagem para vários itens: a cena ganha 2 itens vazios (a imagem atual vira o fundo, no mosaico)
+  if (UMA_IMAGEM.includes(atual) || atual === 'texto')
+    return tipos.filter((t) => UMA_IMAGEM.includes(t) || ['texto', 'mosaico', 'dividida', 'lista'].includes(t))
   // clipe pode virar cena de imagem: usa um quadro parado do próprio clipe (no momento escolhido) ou a imagem buscada
   if (atual === 'clipe') return ['clipe', ...tipos.filter((t) => UMA_IMAGEM.includes(t))]
   if (atual === 'mosaico') return ['mosaico', 'dividida', 'lista']
-  if (atual === 'dividida' || atual === 'lista') return ['dividida', 'lista']
+  if (atual === 'dividida' || atual === 'lista') return ['dividida', 'lista', 'mosaico']
   return [atual]
 }
 const mmss = (s: number | null) => (s == null ? '—' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`)

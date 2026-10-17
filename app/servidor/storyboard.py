@@ -141,7 +141,7 @@ def cenas(pasta: Path) -> list[dict]:
                 clipe = {"midia_id": t[0], "inicio": aj.get("clipe_inicio", t[1]), "duracao": t[2]}
         # itens de lista / tela dividida / mosaico: cada um com a própria imagem (necessidade "<cid>p<j>")
         pecas = []
-        for j, peca in enumerate((aj.get("juntar") or {}).get("pecas") or c.get("pecas") or c.get("mosaico") or []):
+        for j, peca in enumerate(_pecas(c, aj)):
             pn = necs.get(f"{cid}p{j}")
             pe = d["escolhas"].get(f"{cid}p{j}") or {}
             pcands = [{"idx": i, "nome": x["nome"], "tipo": x["tipo"], "miniatura": _rel(x["miniatura"])}
@@ -187,6 +187,11 @@ def cenas(pasta: Path) -> list[dict]:
         prox = next((x["inicio"] for x in saida[i + 1:] if x["inicio"] is not None), None)
         s["fim"] = prox if prox is not None else (palavras[-1]["f"] if palavras else None)
     return saida
+
+
+def _pecas(c: dict, aj: dict) -> list[dict]:
+    """Itens (lista/dividida/mosaico) da cena: os do diretor, os da junção ou os criados no storyboard."""
+    return ((aj.get("juntar") or {}).get("pecas") or c.get("pecas") or c.get("mosaico") or aj.get("pecas_def") or [])
 
 
 def _texto_em(m: dict | None) -> int | None:
@@ -248,7 +253,7 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             pn = next((n for n in necs if n["id"] == pid), None)
             if pn is None:  # item que o diretor não conseguiu buscar: passa a ter uma necessidade
                 cena = next(c for k, c in enumerate(d["plano"]["cenas"]) if _id(c, k) == cid)
-                peca = (cena.get("pecas") or cena.get("mosaico") or [])[j]
+                peca = _pecas(cena, aj)[j]
                 pn = {"id": pid, "cena": cid, "peca": j, "tipo": "peca", "busca": peca.get("busca") or {},
                       "frase": "", "legenda": peca.get("rotulo") or peca.get("palavra"), "candidatos": []}
                 necs.append(pn)
@@ -298,6 +303,10 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         if acao["tipo"] not in TIPOS:
             raise ValueError("tipo inválido")
         aj["tipo"] = acao["tipo"]
+        cena = next(c for k, c in enumerate(d["plano"]["cenas"]) if _id(c, k) == cid)
+        if acao["tipo"] in ("mosaico", "dividida", "lista") and not _pecas(cena, aj):
+            # cena de uma imagem virando cena de vários itens: 2 itens vazios para o Felipe escolher as imagens
+            aj["pecas_def"] = [{"rotulo": "", "busca": {}}, {"rotulo": "", "busca": {}}]
     elif tipo == "remover":
         aj["removida"] = True
     elif tipo == "sem_som":
@@ -417,6 +426,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             escolhas[f"{cid}m2"] = {"escolha": aj["metade2"]["candidato"] + 1, "fixa": True, "foco": [0.5, 0.45]}
         if aj.get("juntar"):  # tela dividida montada pelo Felipe com a cena seguinte
             c["pecas"] = aj["juntar"]["pecas"]
+        elif aj.get("pecas_def") and not (c.get("pecas") or c.get("mosaico")):  # itens criados no storyboard
+            c["pecas"] = aj["pecas_def"]
         if "tipo" in aj:
             c["tipo"] = aj["tipo"]
         if "candidato" in aj:
