@@ -118,8 +118,8 @@ export function Storyboard({ id }: { id: number }) {
 
   return (
     <Moldura trilha={trilha}>
-      <div className="mx-auto max-w-[1680px] px-6 py-5">
-        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+      <div className="mx-auto max-w-[1680px] px-6 pb-5">
+        <div className="sticky top-0 z-30 -mx-6 mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-borda bg-fundo/95 px-6 py-3 backdrop-blur">
           <a href={`#/video/${id}`} className="flex items-center gap-1.5 whitespace-nowrap text-sm text-suave hover:text-texto">
             <ArrowLeft className="size-4" /> voltar ao vídeo
           </a>
@@ -190,7 +190,7 @@ export function Storyboard({ id }: { id: number }) {
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
           {/* player fixo */}
-          <div className="lg:sticky lg:top-4 lg:self-start">
+          <div className="lg:sticky lg:top-24 lg:self-start">
             {video ? (
               <video
                 ref={player}
