@@ -231,7 +231,8 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             nec = {"id": cid, "cena": cid, "tipo": aj.get("tipo", tipo_atual), "frase": "",
                    "busca": {"o_que": cena.get("legenda") or ""}, "legenda": cena.get("legenda"), "candidatos": []}
             necs.append(nec)
-        cand = {"tipo": "midia", "id": int(acao["midia_id"]), "nome": acao["nome"], "nota": 1.0, "manual": True,
+        cand = {"tipo": "tomada" if acao.get("tomada_id") else "midia",
+                "id": int(acao.get("tomada_id") or acao["midia_id"]), "nome": acao["nome"], "nota": 1.0, "manual": True,
                 "miniatura": str(RAIZ / acao["miniatura"])}
         nec["candidatos"].append(cand)
         aj["candidato"] = len(nec["candidatos"]) - 1
@@ -501,3 +502,70 @@ def buscar_no_acervo(consulta: str, n: int = 16) -> list[dict]:
     melhores = sorted(pontos.items(), key=lambda x: -x[1])[:n]
     return [{"midia_id": mid, "nome": info[mid]["nome"], "nota": round(nota, 2), "categoria": info[mid]["categoria"],
              "miniatura": f"dados/acervo/miniaturas/{mid}.jpg"} for mid, nota in melhores]
+
+def buscar_clipes(consulta: str, n: int = 16) -> list[dict]:
+    """Busca do storyboard em cena de CLIPE: vídeos do acervo (uma tomada por vídeo, a mais longa ou a que mais combina
+    com o texto) + GIFs animados. Mesma ordem da busca de imagens: nome exato → começa com → contém → etiquetas →
+    semelhança (CLIP das tomadas)."""
+    import re
+    import sys
+
+    sys.path.insert(0, str(RAIZ / "tools"))
+    sys.path.insert(0, str(RAIZ / "tools" / "acervo"))
+    from comum import PASTA_ACERVO, abrir_acervo
+
+    con = abrir_acervo()
+    q = _sem_acento(consulta)
+    q_base = re.sub(r"\.(mp4|webm|mov|mkv|gif)$", "", q)
+    termos = [t for t in re.split(r"[^a-z0-9]+", q_base) if len(t) >= 2]
+    pontos: dict[tuple, float] = {}
+    info: dict[tuple, dict] = {}
+    tomadas = {}
+    for r in con.execute("SELECT midia_id, id, n, fim - inicio AS dur FROM tomadas ORDER BY midia_id, dur DESC"):
+        tomadas.setdefault(r[0], (r[1], r[2]))  # a mais longa de cada vídeo
+    for r in con.execute("SELECT id, caminho, nome, tipo, personagens, descricao, uso, categoria FROM midias "
+                         "WHERE tipo IN ('video','gif')"):
+        if not (PASTA_ACERVO / r["caminho"]).exists() or (r["tipo"] == "video" and r["id"] not in tomadas):
+            continue
+        if r["tipo"] == "video":
+            tid, tn = tomadas[r["id"]]
+            chave = ("tomada", tid)
+            info[chave] = {"nome": r["nome"], "midia_id": r["id"], "tomada_id": tid,
+                           "miniatura": f"dados/acervo/tomadas/{r['id']}_{tn}.jpg"}
+        else:
+            chave = ("midia", r["id"])
+            info[chave] = {"nome": r["nome"], "midia_id": r["id"], "miniatura": f"dados/acervo/miniaturas/{r['id']}.jpg"}
+        nome = _sem_acento(r["nome"])
+        base = nome.rsplit(".", 1)[0]
+        nota = 0.0
+        if q_base and (nome == q or base == q_base):
+            nota = 100
+        elif q_base and base.startswith(q_base):
+            nota = 50 + 10 * len(q_base) / max(1, len(base))
+        elif q_base and q_base in base:
+            nota = 30
+        if termos:
+            etiquetas = " " + re.sub(r"[^a-z0-9]+", " ", _sem_acento(" ".join(
+                str(r[x] or "") for x in ("personagens", "descricao", "uso", "categoria")))) + " "
+            nota += 10 * sum(1 for t in termos if t in base or f" {t} " in etiquetas) / len(termos)
+        if nota:
+            pontos[chave] = nota
+    try:  # semelhança: a tomada que mais combina com o texto (troca a "mais longa" daquele vídeo)
+        from indexar_clipes import buscar as buscar_tomadas
+
+        for t in buscar_tomadas(consulta, max(40, 2 * n)):
+            mid = t["midia_id"]
+            velha = next((k for k in info if k[0] == "tomada" and info[k]["midia_id"] == mid), None)
+            if velha is None:
+                continue
+            nota = pontos.pop(velha, 0) + 5 * t["nota"]
+            info.pop(velha)
+            chave = ("tomada", t["id"])
+            if chave not in info:
+                info[chave] = {"nome": t["nome"], "midia_id": mid, "tomada_id": t["id"],
+                               "miniatura": f"dados/acervo/tomadas/{mid}_{t['n']}.jpg"}
+            pontos[chave] = max(pontos.get(chave, 0), nota)
+    except Exception:
+        pass
+    melhores = sorted(pontos.items(), key=lambda x: -x[1])[:n]
+    return [{**info[k], "nota": round(v, 2)} for k, v in melhores]

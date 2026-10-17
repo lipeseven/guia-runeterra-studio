@@ -248,7 +248,7 @@ function CartaoCena({
   const [legenda, setLegenda] = useState(c.legenda ?? '')
   const [pedido, setPedido] = useState(c.comentario ?? '')
   const [consulta, setConsulta] = useState('')
-  const [resultados, setResultados] = useState<{ midia_id: number; nome: string; miniatura: string }[] | null>(null)
+  const [resultados, setResultados] = useState<{ midia_id: number; tomada_id?: number; nome: string; miniatura: string }[] | null>(null)
   const [buscando, setBuscando] = useState(false)
   useEffect(() => setLegenda(c.legenda ?? ''), [c.legenda])
 
@@ -465,7 +465,7 @@ function CartaoCena({
             ))}
           </div>
           {c.clipe && <MomentoDoClipe clipe={c.clipe} usar={(s) => ajustar(c.id, { acao: 'clipe_inicio', segundos: s })} />}
-          {c.tipo !== 'clipe' && (
+          {(
             <>
               <div className="mt-3 flex gap-2">
                 <input
@@ -474,10 +474,10 @@ function CartaoCena({
                   onKeyDown={async (e) => {
                     if (e.key !== 'Enter' || !consulta.trim()) return
                     setBuscando(true)
-                    setResultados(await api(`/acervo/buscar?q=${encodeURIComponent(consulta)}&n=16`))
+                    setResultados(await api(`/acervo/buscar?q=${encodeURIComponent(consulta)}&n=16${c.tipo === 'clipe' ? '&clipes=1' : ''}`))
                     setBuscando(false)
                   }}
-                  placeholder="Buscar outra no acervo (ex.: fiddlesticks milharal, corvos ao pôr do sol) e Enter"
+                  placeholder={c.tipo === 'clipe' ? 'Buscar outro clipe ou GIF no acervo (nome ou descrição) e Enter' : 'Buscar outra no acervo (ex.: fiddlesticks milharal, corvos ao pôr do sol) e Enter'}
                   className="flex-1 rounded-md border border-borda bg-painel-2 px-2 py-1.5 text-sm outline-none focus:border-suave"
                 />
                 {buscando && <Loader2 className="size-5 animate-spin self-center text-suave" />}
@@ -488,7 +488,7 @@ function CartaoCena({
                     <button
                       key={r.midia_id}
                       onClick={async () => {
-                        await ajustar(c.id, { acao: 'usar_midia', midia_id: r.midia_id, nome: r.nome, miniatura: r.miniatura })
+                        await ajustar(c.id, { acao: 'usar_midia', midia_id: r.midia_id, tomada_id: r.tomada_id, nome: r.nome, miniatura: r.miniatura })
                         setResultados(null)
                         setAba('nada')
                       }}
@@ -506,7 +506,7 @@ function CartaoCena({
                   onClick={async () => {
                     // pede a lista maior e acrescenta só as novas (mesma ordem de relevância)
                     setBuscando(true)
-                    const mais = await api<typeof resultados>(`/acervo/buscar?q=${encodeURIComponent(consulta)}&n=${resultados.length + 16}`)
+                    const mais = await api<typeof resultados>(`/acervo/buscar?q=${encodeURIComponent(consulta)}&n=${resultados.length + 16}${c.tipo === 'clipe' ? '&clipes=1' : ''}`)
                     setResultados(mais)
                     setBuscando(false)
                   }}
