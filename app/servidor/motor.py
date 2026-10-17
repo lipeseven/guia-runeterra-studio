@@ -131,6 +131,17 @@ PENDENCIAS_DEPOIS_DO_ROTEIRO = ("cena_sem_imagem", "obs_diretor", "ver_rascunho"
                                 "erro_publicacao")
 
 
+def direcao_anterior(dirc: Path) -> dict | None:
+    """Direção da versão anterior, para a montagem HERDAR efeitos e imagens por id de cena. Depois de uma troca de
+    roteiro a montagem foi arquivada em direcao/anteriores/: usa a mais recente de lá (senão, mexer numa frase do
+    bloco 3 sortearia de novo os efeitos de todos os blocos, inclusive os já finalizados)."""
+    atual = dirc / "direcao.json"
+    if not atual.exists():
+        arquivadas = sorted(dirc.glob("anteriores/*/direcao.json"))
+        atual = arquivadas[-1] if arquivadas else None
+    return json.loads(atual.read_text(encoding="utf-8")) if atual else None
+
+
 def invalidar_depois_do_roteiro(con, vid: int, pasta: Path) -> None:
     """O roteiro mudou: a direção montada aponta para palavras que não existem mais (cenas ancoradas em índices
     do roteiro). A montagem antiga é arquivada (não apagada) e as etapas voltam a pendente; a Direção recomeça
@@ -379,7 +390,7 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
     limpar_pendentes(pasta)  # o que o Felipe mexer daqui em diante fica para o PRÓXIMO rascunho
     plano_final, escolhas_finais = aplicar(plano, escolhas, ajustes)
     roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
-    anterior = json.loads((dirc / "direcao.json").read_text(encoding="utf-8")) if (dirc / "direcao.json").exists() else None
+    anterior = direcao_anterior(dirc)
     trecho, pendencias = montar(slug, roteiro, palavras, frases, plano_final, necs, escolhas_finais, capa, circulos,
                                 trab / "voz_guia.wav", anterior=anterior)
     (dirc / "direcao.json").write_text(json.dumps(trecho, ensure_ascii=False, indent=1), encoding="utf-8")
@@ -528,7 +539,7 @@ def tarefa_final(vid: int) -> None:
     capa = next(iter(sorted(dirc.glob("capa.*"))))
     frases = frases_do_roteiro(roteiro, palavras)
     # o vídeo final mantém os efeitos que o Felipe viu e aprovou no rascunho
-    anterior = ler("direcao.json") if (dirc / "direcao.json").exists() else None
+    anterior = direcao_anterior(dirc)
     trecho, _ = montar(slug, roteiro, palavras, frases, plano, ler("candidatos.json"), escolhas, capa,
                        ler("capa_circulos.json"), trab / "gravacao" / "limpa.wav", anterior=anterior)
     (dirc / "direcao_final.json").write_text(json.dumps(trecho, ensure_ascii=False, indent=1), encoding="utf-8")
