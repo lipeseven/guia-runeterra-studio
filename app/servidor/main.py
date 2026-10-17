@@ -321,8 +321,9 @@ def ajustar_cena(vid: int, cid: str, acao: dict):
 
 
 @app.get("/api/acervo/buscar")
-def buscar_acervo(q: str):
-    return storyboard.buscar_no_acervo(q)
+def buscar_acervo(q: str, n: int = 16):
+    """`n` cresce de 16 em 16 com o "mostrar mais" do storyboard."""
+    return storyboard.buscar_no_acervo(q, min(max(n, 1), 400))
 
 
 @app.post("/api/videos/{vid}/rascunho/refazer")

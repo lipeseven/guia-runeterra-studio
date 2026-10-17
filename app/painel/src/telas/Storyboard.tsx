@@ -364,7 +364,7 @@ function CartaoCena({
                   onKeyDown={async (e) => {
                     if (e.key !== 'Enter' || !consulta.trim()) return
                     setBuscando(true)
-                    setResultados(await api(`/acervo/buscar?q=${encodeURIComponent(consulta)}`))
+                    setResultados(await api(`/acervo/buscar?q=${encodeURIComponent(consulta)}&n=16`))
                     setBuscando(false)
                   }}
                   placeholder="Buscar outra no acervo (ex.: fiddlesticks milharal, corvos ao pôr do sol) e Enter"
@@ -389,6 +389,21 @@ function CartaoCena({
                     </button>
                   ))}
                 </div>
+              )}
+              {resultados && resultados.length > 0 && resultados.length % 16 === 0 && (
+                <button
+                  disabled={buscando}
+                  onClick={async () => {
+                    // pede a lista maior e acrescenta só as novas (mesma ordem de relevância)
+                    setBuscando(true)
+                    const mais = await api<typeof resultados>(`/acervo/buscar?q=${encodeURIComponent(consulta)}&n=${resultados.length + 16}`)
+                    setResultados(mais)
+                    setBuscando(false)
+                  }}
+                  className="mt-2 w-full rounded-md border border-borda py-1.5 text-xs text-suave hover:border-suave hover:text-texto disabled:opacity-50"
+                >
+                  {buscando ? 'buscando…' : 'Mostrar mais'}
+                </button>
               )}
             </>
           )}

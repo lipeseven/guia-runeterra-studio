@@ -268,7 +268,7 @@ def buscar_no_acervo(consulta: str, n: int = 16) -> list[dict]:
         if nota:
             pontos[r["id"]] = nota
     # semelhança (CLIP): completa com o que nome e etiquetas não dizem; pesa pouco perto de um acerto de nome
-    for mid, nota in buscar(consulta, 80):
+    for mid, nota in buscar(consulta, max(80, 2 * n)):
         if mid in info:
             pontos[mid] = pontos.get(mid, 0) + 5 * nota
     melhores = sorted(pontos.items(), key=lambda x: -x[1])[:n]
