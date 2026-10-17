@@ -122,7 +122,7 @@ export function Storyboard({ id }: { id: number }) {
               </span>
             )}
             <button
-              disabled={trabalhando || !sb || (sb.pendentes === 0 && sb.pedidos_pendentes === 0)}
+              disabled={trabalhando || !sb}
               onClick={async () => {
                 setEnviando(true) // reação imediata; o motor confirma em seguida
                 try {
