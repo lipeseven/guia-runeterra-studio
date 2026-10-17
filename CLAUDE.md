@@ -102,6 +102,9 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   Storyboard: número fixo por cena (`direcao/numeros.json`; dividida → 40.1, 40.2), contadores "ajustadas no total" e
   "pendentes" (`direcao/ajustes_pendentes.json`, limpo quando o motor lê os ajustes), escolher o momento do clipe no
   vídeo original (`clipe_inicio` → `Midias.tomada(id, inicio)`; rota `/api/acervo/video/{id}`), CLIP pré-carregado.
+- Atualizar acervo ✅ (2026-10-17): `tools/acervo/atualizar.py` (inventário → CLIP → tomadas → etiquetas pelo nome do
+  arquivo; incremental, sem cota). Tarefa global "acervo" (vid 0) na fila do motor: botão "Atualizar acervo" no topo
+  do painel e automática a cada card NOVO (o acervo muda pouco). Resultado em `/api/acervo/situacao`.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).
