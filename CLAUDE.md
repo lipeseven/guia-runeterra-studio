@@ -94,6 +94,14 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   (página do vídeo, storyboard e cards do quadro). Avisos da versão anterior somem ao pedir versão nova
   (`motor.limpar_avisos`). Busca do storyboard: nome exato → começa com → contém → etiquetas → CLIP, sem acento,
   inclui categoria "canal". Revisão usa o trecho do RASCUNHO (cenas sem imagem dentro dele saem do plano).
+- **Blocos desacoplados** ✅ (2026-10-16): mexer num capítulo só refaz o bloco dele. Em `montar.montar()` a regra
+  de não repetir imagem e o sorteio de efeitos (Variador) recomeçam a cada bloco; cena automática MANTÉM a imagem da
+  versão anterior (`trecho["fontes"]`, sem condição); escolha manual ("fixa") vale sempre ("poder de Deus"). A
+  impressão do bloco não inclui o `k` (posição no plano). Áudio (voz + efeitos) mixado no FFmpeg (`_mixar_audio`), sem
+  Remotion. Cena sem imagem entra como texto (`sem_imagem`) no tempo dela para o Felipe escolher no storyboard.
+  Storyboard: número fixo por cena (`direcao/numeros.json`; dividida → 40.1, 40.2), contadores "ajustadas no total" e
+  "pendentes" (`direcao/ajustes_pendentes.json`, limpo quando o motor lê os ajustes), escolher o momento do clipe no
+  vídeo original (`clipe_inicio` → `Midias.tomada(id, inicio)`; rota `/api/acervo/video/{id}`), CLIP pré-carregado.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).
