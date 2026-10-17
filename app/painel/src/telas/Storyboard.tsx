@@ -79,10 +79,24 @@ export function Storyboard({ id }: { id: number }) {
     if (!trabalhando) carregar()
   }, [trabalhando, rascunho?.atualizado_em]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // confirmação visual de cada ajuste: aviso "foi para a fila" + a cena pisca (some sozinho)
+  const [aviso, setAviso] = useState<{ texto: string; cid: string; n: number } | null>(null)
   const ajustar = async (cid: string, acao: Record<string, unknown>) => {
     await api(`/videos/${id}/storyboard/${encodeURIComponent(cid)}`, { method: 'POST', body: JSON.stringify(acao) })
     await carregar()
+    const numero = sb?.cenas.find((c) => c.id === cid)?.numero ?? ''
+    const desfez = acao.acao === 'restaurar'
+    setAviso({
+      cid,
+      n: Date.now(),
+      texto: desfez ? `Cena ${numero}: ajustes desfeitos` : `Cena ${numero}: ajuste na fila · entra no próximo rascunho`,
+    })
   }
+  useEffect(() => {
+    if (!aviso) return
+    const t = setTimeout(() => setAviso(null), 2600)
+    return () => clearTimeout(t)
+  }, [aviso])
   const irPara = (s: number | null) => {
     if (s == null || !player.current) return
     player.current.currentTime = s
@@ -197,11 +211,16 @@ export function Storyboard({ id }: { id: number }) {
           {/* lista de cenas */}
           <div className="flex flex-col gap-3">
             {sb?.cenas.map((c) => (
-              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} capa={sb.capa} ativa={atual?.id === c.id} ajustar={ajustar} irPara={irPara} />
+              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} capa={sb.capa} ativa={atual?.id === c.id} ajustar={ajustar} irPara={irPara} piscar={aviso?.cid === c.id ? aviso.n : 0} />
             ))}
           </div>
         </div>
       </div>
+      {aviso && (
+        <div key={aviso.n} className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-ok/50 bg-painel-2 px-4 py-2 text-sm text-ok shadow-lg">
+          ✓ {aviso.texto}
+        </div>
+      )}
     </Moldura>
   )
 }
@@ -210,6 +229,7 @@ function CartaoCena({
   cena: c,
   tipos,
   capa,
+  piscar,
   ativa,
   ajustar,
   irPara,
@@ -217,6 +237,7 @@ function CartaoCena({
   cena: Cena
   tipos: string[]
   capa: string | null
+  piscar: number
   ativa: boolean
   ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void>
   irPara: (s: number | null) => void
@@ -247,7 +268,7 @@ function CartaoCena({
           : 'border-borda'
 
   return (
-    <article className={`rounded-xl border bg-painel p-3 ${borda}`}>
+    <article key={piscar || undefined} className={`rounded-xl border bg-painel p-3 ${borda} ${piscar ? 'ring-2 ring-ok/70 transition' : ''}`}>
       <div className="flex gap-3">
         <button
           onClick={() => irPara(c.inicio)}
