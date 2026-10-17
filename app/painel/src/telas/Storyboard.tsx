@@ -42,7 +42,16 @@ type Cena = {
   som: string | null
   som_no_rascunho: boolean
 }
-type Peca = { j: number; rotulo: string; busca: string | null; escolhido: Candidato | null; candidatos: Candidato[]; ajustada: boolean }
+type Peca = {
+  j: number
+  rotulo: string
+  busca: string | null
+  escolhido: Candidato | null
+  candidatos: Candidato[]
+  ajustada: boolean
+  em?: number | null // palavra em que o item entra no rascunho (null = junto com a cena)
+  em_escolhido?: number | null // sua escolha (-1 = junto)
+}
 type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number; pendentes: number; capa: string | null }
 
 const NOME_TIPO: Record<string, string> = {
@@ -547,6 +556,11 @@ function CartaoCena({
               peca={p}
               ajustar={(acao) => ajustar(c.id, { ...acao, j: p.j })}
               remover={c.pecas.length > 1 ? () => ajustar(c.id, { acao: 'item_remover', j: p.j }) : undefined}
+              momento={
+                (c.palavras ?? []).length > 1 && !(p.j === 0 && c.tipo !== 'mosaico') ? (
+                  <QuandoOItemEntra c={c} p={p} escolher={(indice) => ajustar(c.id, { acao: 'item_em', j: p.j, indice })} />
+                ) : undefined
+              }
             />
           ))}
           <button
@@ -644,7 +658,17 @@ function MomentoDoClipe({ clipe, usar }: { clipe: { midia_id: number; inicio: nu
 }
 
 /** Um item de lista / tela dividida / mosaico: imagem atual, candidatos do diretor e busca no acervo. */
-function ItemDaCena({ peca, ajustar, remover }: { peca: Peca; ajustar: (acao: Record<string, unknown>) => Promise<void>; remover?: () => void }) {
+function ItemDaCena({
+  peca,
+  ajustar,
+  remover,
+  momento,
+}: {
+  peca: Peca
+  ajustar: (acao: Record<string, unknown>) => Promise<void>
+  remover?: () => void
+  momento?: React.ReactNode
+}) {
   const [consulta, setConsulta] = useState('')
   const [resultados, setResultados] = useState<{ midia_id: number; nome: string; miniatura: string }[] | null>(null)
   const [buscando, setBuscando] = useState(false)
@@ -677,6 +701,7 @@ function ItemDaCena({ peca, ajustar, remover }: { peca: Peca; ajustar: (acao: Re
           </button>
         )}
       </p>
+      {momento}
       <div className="grid grid-cols-6 gap-2">
         {peca.candidatos.map((cand) =>
           miniatura(cand, peca.escolhido?.idx === cand.idx, () => ajustar({ acao: 'peca_candidato', idx: cand.idx })),
@@ -875,6 +900,51 @@ function QuandoOTextoEntra({ c, ajustar }: { c: Cena; ajustar: (cid: string, aca
             </button>
           ))}
           {naFila && <span className="ml-1 text-apagado">dourado = como está no rascunho · verde = sua escolha (próximo rascunho)</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+/** Quando um item (lista / tela dividida / mosaico) entra: junto com a cena ou numa palavra. Dourado = rascunho, verde = sua escolha. */
+function QuandoOItemEntra({ c, p, escolher }: { c: Cena; p: Peca; escolher: (indice: number) => Promise<void> }) {
+  const [aberto, setAberto] = useState(false)
+  const noRascunho = p.em == null || p.em === c.palavras[0]?.i ? -1 : p.em
+  const escolha = p.em_escolhido ?? null
+  const naFila = escolha != null && escolha !== noRascunho
+  const nome = (i: number) => (i < 0 ? 'junto com a cena' : `em “${c.palavras.find((x) => x.i === i)?.t ?? '…'}”`)
+  const estilo = (i: number) =>
+    naFila && escolha === i
+      ? 'border border-ok bg-ok/15 text-ok'
+      : noRascunho === i
+        ? naFila
+          ? 'border border-ouro/40 text-ouro/60'
+          : 'border border-ouro bg-ouro/20 text-ouro'
+        : 'border border-transparent hover:bg-painel-2 hover:text-texto'
+  return (
+    <div className="mb-2 text-[11px] text-suave">
+      <button onClick={() => setAberto(!aberto)} className="hover:text-texto">
+        entra: <b className="text-texto">{nome(noRascunho)}</b>
+        {naFila && (
+          <>
+            {' '}→ <b className="text-ok">{nome(escolha!)}</b> <span className="text-ok">(na fila)</span>
+          </>
+        )}{' '}
+        <span className="text-apagado">({aberto ? 'fechar' : 'mudar'})</span>
+      </button>
+      {aberto && (
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <button onClick={() => escolher(-1)} className={`rounded px-1.5 py-0.5 ${estilo(-1)}`}>
+            {naFila && escolha === -1 ? '✓ ' : ''}junto com a cena
+          </button>
+          <span className="text-apagado">ou na palavra:</span>
+          {c.palavras.slice(1).map((x) => (
+            <button key={x.i} onClick={() => escolher(x.i)} className={`rounded px-1 py-0.5 ${estilo(x.i)}`}>
+              {naFila && escolha === x.i ? '✓ ' : ''}
+              {x.t}
+            </button>
+          ))}
         </div>
       )}
     </div>

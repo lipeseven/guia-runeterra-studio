@@ -305,6 +305,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             # item que veio de OUTRA frase (cena juntada pelo Felipe): entra onde aquela cena começava
             pf = frases[peca["frase"]] if isinstance(peca.get("frase"), int) and peca["frase"] < len(frases) else None
             pi = indice_na_frase(pf or f, toks, peca.get("palavra"))
+            if peca.get("indice") is not None:  # momento escolhido pelo Felipe: -1 = junto com a cena
+                pi = de if peca["indice"] < 0 else max(de, int(peca["indice"]))
             if pi is None and pf is not None:
                 pi = pf["de"]
             saida.append({"de": pi if pi is not None else de, "midia": m.imagem(ep["id"]), "foco": ep["foco"],

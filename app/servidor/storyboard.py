@@ -156,7 +156,8 @@ def cenas(pasta: Path) -> list[dict]:
                 pesc = next((pcands[i] for i, x in enumerate(pn["candidatos"]) if [x["tipo"], x["id"]] == fontes[f"{cid}p{j}"][:2]), None)
             elif pe.get("escolha") and pcands:
                 pesc = pcands[pe["escolha"] - 1]
-            pecas.append({"j": j, "rotulo": peca.get("rotulo") or peca.get("palavra") or "",
+            pecas.append({"j": j, "em": _palavra_na_cena(peca.get("palavra"), m, toks), "em_escolhido": paj.get("indice"),
+                          "rotulo": peca.get("rotulo") or peca.get("palavra") or "",
                           "busca": (peca.get("busca") or {}).get("o_que"), "escolhido": pesc, "candidatos": pcands,
                           "ajustada": bool(paj)})
         metade2 = None
@@ -194,6 +195,17 @@ def cenas(pasta: Path) -> list[dict]:
 def _pecas(c: dict, aj: dict) -> list[dict]:
     """Itens (lista/dividida/mosaico) da cena: os do diretor, os da junção ou os criados no storyboard."""
     return (aj.get("pecas_lista") or (aj.get("juntar") or {}).get("pecas") or c.get("pecas") or c.get("mosaico") or aj.get("pecas_def") or [])
+
+
+def _palavra_na_cena(palavra: str | None, m: dict | None, toks: list[str]) -> int | None:
+    """Índice (no roteiro) da palavra em que um item entra, procurada dentro do trecho da cena no rascunho."""
+    import re
+
+    if not (palavra and m and toks):
+        return None
+    alvo = re.sub(r"[^\wÀ-ú-]", "", palavra).lower()
+    return next((i for i in range(m["de"], min(m["ate"] + 1, len(toks)))
+                 if re.sub(r"[^\wÀ-ú-]", "", toks[i]).lower() == alvo), None)
 
 
 def _texto_em(m: dict | None) -> int | None:
@@ -319,6 +331,8 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             aj.pop(k_, None)
         aj["fundo_branco"] = True
         aj.pop("fundo_lista", None)
+    elif tipo == "item_em":  # quando o item j entra: -1 = junto com a cena; senão, índice da palavra no roteiro
+        aj.setdefault("pecas", {}).setdefault(str(int(acao["j"])), {})["indice"] = int(acao["indice"])
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -458,6 +472,10 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["pecas"] = aj["pecas_def"]
         if aj.get("pecas_lista"):  # itens acrescentados/tirados à mão (o item tirado fica marcado, os índices não mudam)
             c["pecas"] = aj["pecas_lista"]
+        momentos = {j: pa["indice"] for j, pa in (aj.get("pecas") or {}).items() if "indice" in pa}
+        if momentos:  # momento de entrada de cada item escolhido à mão
+            c["pecas"] = [{**pc, "indice": momentos[str(j)]} if str(j) in momentos else pc
+                          for j, pc in enumerate(c.get("pecas") or c.get("mosaico") or [])]
         if "tipo" in aj:
             c["tipo"] = aj["tipo"]
         if "candidato" in aj:
