@@ -118,28 +118,27 @@ export function Storyboard({ id }: { id: number }) {
   return (
     <Moldura trilha={trilha}>
       <div className="mx-auto max-w-[1680px] px-6 py-5">
-        <div className="mb-4 flex items-center gap-3">
-          <a href={`#/video/${id}`} className="flex items-center gap-1.5 text-sm text-suave hover:text-texto">
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <a href={`#/video/${id}`} className="flex items-center gap-1.5 whitespace-nowrap text-sm text-suave hover:text-texto">
             <ArrowLeft className="size-4" /> voltar ao vídeo
           </a>
           <h1 className="font-titulo text-3xl font-medium tracking-tight">Storyboard</h1>
-          <span className="font-mono text-xs text-suave">
+          <span className="whitespace-nowrap font-mono text-xs text-suave">
             {sb ? `${sb.cenas.length} cenas · ${rascunho?.detalhe ?? ''}` : '…'}
           </span>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             {sb && (sb.ajustes > 0 || sb.pendentes > 0) && (
-              <span className="flex items-center gap-2 font-mono text-xs">
-                <span className="text-suave" title="Todas as cenas que você já ajustou neste vídeo">
-                  {sb.ajustes} ajustada{sb.ajustes === 1 ? '' : 's'} no total
+              <span className="flex flex-wrap items-center gap-1.5 whitespace-nowrap font-mono text-xs">
+                <span className="rounded border border-borda px-2 py-1 text-suave" title="Todas as cenas que você já ajustou neste vídeo">
+                  {sb.ajustes} ajustada{sb.ajustes === 1 ? '' : 's'}
                 </span>
-                <span className="text-apagado">·</span>
-                <span
-                  className={sb.pendentes > 0 ? 'text-atencao' : 'text-ok'}
+               <span
+                  className={`rounded border px-2 py-1 ${sb.pendentes > 0 ? 'border-atencao/50 text-atencao' : 'border-ok/40 text-ok'}`}
                   title="Cenas mexidas depois que o último rascunho começou: entram só no PRÓXIMO rascunho"
                 >
                   {sb.pendentes > 0
-                    ? `${sb.pendentes} pendente${sb.pendentes === 1 ? '' : 's'} (${trabalhando ? 'ficam para o rascunho seguinte' : 'entram no próximo rascunho'})`
-                    : trabalhando ? 'tudo o que você pediu está neste rascunho' : 'nada pendente'}
+                    ? `${sb.pendentes} pendente${sb.pendentes === 1 ? '' : 's'}${trabalhando ? ' (p/ o seguinte)' : ''}`
+                    : trabalhando ? 'tudo neste rascunho' : 'nada pendente'}
                 </span>
                 {sb.pendentes > 0 && (
                   <button
@@ -153,14 +152,16 @@ export function Storyboard({ id }: { id: number }) {
                       }
                       await carregar()
                     }}
-                    className="rounded border border-borda px-1.5 py-0.5 text-[11px] text-suave hover:border-red-400/60 hover:text-red-300"
+                    className="rounded border border-borda px-2 py-1 text-suave hover:border-red-400/60 hover:text-red-300"
                     title="Volta as cenas mexidas ao que está no último rascunho"
                   >
-                    descartar pendentes
+                    descartar
                   </button>
                 )}
                 {sb.pedidos_pendentes > 0 && !trabalhando && (
-                  <span className="text-atencao">· {sb.pedidos_pendentes} pedido(s) ao diretor (usa o Claude)</span>
+                  <span className="rounded border border-atencao/50 px-2 py-1 text-atencao" title="Pedidos ao diretor usam o Claude (gastam cota)">
+                    {sb.pedidos_pendentes} pedido{sb.pedidos_pendentes === 1 ? '' : 's'} ao diretor · cota
+                  </span>
                 )}
               </span>
             )}
@@ -175,7 +176,7 @@ export function Storyboard({ id }: { id: number }) {
                   setTimeout(() => setEnviando(false), 1500)
                 }
               }}
-              className="flex items-center gap-2 rounded-lg bg-ouro px-4 py-2 text-sm font-semibold text-fundo enabled:hover:brightness-110 disabled:opacity-40"
+              className="flex items-center gap-2 whitespace-nowrap rounded-lg bg-ouro px-4 py-2 text-sm font-semibold text-fundo enabled:hover:brightness-110 disabled:opacity-40"
             >
               {trabalhando ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
               {enviando && direcao?.status !== 'andamento' ? 'Enviando…' : trabalhando ? direcao?.resumo ?? 'trabalhando…' : 'Gerar novo rascunho'}
