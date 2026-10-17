@@ -179,7 +179,8 @@ def cenas(pasta: Path) -> list[dict]:
             "som_no_rascunho": cid in sons,
             "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "so_texto_no_video": bool(m and m.get("sem_imagem")),
             "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
-            "texto_em": _texto_em(m), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
+            "texto_em": _texto_em(m),
+            "texto_em_escolhido": aj.get("legenda_indice"),  # escolha sua ainda não renderizada (-1 = junto) "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
         })
     # fim de cada cena = início da próxima montada
     for i, s in enumerate(saida):

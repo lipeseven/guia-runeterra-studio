@@ -35,6 +35,7 @@ type Cena = {
   so_texto_no_video: boolean // no rascunho a cena entrou como texto (faltou imagem)
   palavras: { i: number; t: string }[] // narração da cena no rascunho (para escolher quando o texto entra)
   texto_em: number | null // palavra em que o texto entrou (null = junto com a imagem)
+  texto_em_escolhido: number | null // sua escolha (-1 = junto com a imagem); vale no próximo rascunho
   fundo: string | null // texto: claro | escuro
   som: string | null
   som_no_rascunho: boolean
@@ -799,36 +800,49 @@ function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
   }
 }
 
-/** Quando o texto da cena entra: junto com a imagem ou numa palavra da narração (clique na palavra). Sem cota. */
+/**
+ * Quando o texto da cena entra: junto com a imagem ou numa palavra da narração (clique na palavra). Sem cota.
+ * Dourado = como está no rascunho; verde com ✓ = sua escolha, na fila para o próximo rascunho.
+ */
 function QuandoOTextoEntra({ c, ajustar }: { c: Cena; ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void> }) {
   const [aberto, setAberto] = useState(false)
   const primeira = c.palavras[0]?.i
-  const junto = c.texto_em == null || c.texto_em === primeira
-  const palavra = c.palavras.find((p) => p.i === c.texto_em)?.t
+  const noRascunho = c.texto_em == null || c.texto_em === primeira ? -1 : c.texto_em
+  const escolha = c.texto_em_escolhido ?? null
+  const naFila = escolha != null && escolha !== noRascunho
+  const nome = (i: number) => (i < 0 ? 'junto com a imagem' : `em “${c.palavras.find((p) => p.i === i)?.t ?? '…'}”`)
+  const estilo = (i: number) =>
+    naFila && escolha === i
+      ? 'border border-ok bg-ok/15 text-ok'
+      : noRascunho === i
+        ? naFila
+          ? 'border border-ouro/40 text-ouro/60'
+          : 'border border-ouro bg-ouro/20 text-ouro'
+        : 'border border-transparent hover:bg-painel-2 hover:text-texto'
   return (
     <div className="mt-1.5 text-[11px] text-suave">
       <button onClick={() => setAberto(!aberto)} className="hover:text-texto">
-        o texto entra: <b className="text-texto">{junto ? 'junto com a imagem' : `em “${palavra ?? '…'}”`}</b>{' '}
+        o texto entra: <b className="text-texto">{nome(noRascunho)}</b>
+        {naFila && (
+          <>
+            {' '}→ <b className="text-ok">{nome(escolha!)}</b> <span className="text-ok">(na fila)</span>
+          </>
+        )}{' '}
         <span className="text-apagado">({aberto ? 'fechar' : 'mudar'})</span>
       </button>
       {aberto && (
         <div className="mt-1 flex flex-wrap items-center gap-1">
-          <button
-            onClick={() => ajustar(c.id, { acao: 'legenda_em', indice: -1 })}
-            className={`rounded border px-1.5 py-0.5 ${junto ? 'border-ouro text-ouro' : 'border-borda hover:border-suave'}`}
-          >
-            junto com a imagem
+          <button onClick={() => ajustar(c.id, { acao: 'legenda_em', indice: -1 })} className={`rounded px-1.5 py-0.5 ${estilo(-1)}`}>
+            {naFila && escolha === -1 ? '✓ ' : ''}junto com a imagem
           </button>
           <span className="text-apagado">ou na palavra:</span>
           {c.palavras.slice(1).map((p) => (
-            <button
-              key={p.i}
-              onClick={() => ajustar(c.id, { acao: 'legenda_em', indice: p.i })}
-              className={`rounded px-1 py-0.5 ${c.texto_em === p.i ? 'bg-ouro/20 text-ouro' : 'hover:bg-painel-2 hover:text-texto'}`}
-            >
+            <button key={p.i} onClick={() => ajustar(c.id, { acao: 'legenda_em', indice: p.i })} className={`rounded px-1 py-0.5 ${estilo(p.i)}`}>
+              {naFila && escolha === p.i ? '✓ ' : ''}
               {p.t}
             </button>
           ))}
+          {naFila && <span className="ml-1 text-apagado">dourado = como está no rascunho · verde = sua escolha (próximo rascunho)</span>}
         </div>
       )}
     </div>
