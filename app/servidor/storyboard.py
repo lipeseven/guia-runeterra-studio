@@ -156,13 +156,26 @@ def cenas(pasta: Path) -> list[dict]:
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
-            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "so_texto_no_video": bool(m and m.get("sem_imagem")), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
+            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "so_texto_no_video": bool(m and m.get("sem_imagem")),
+            "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
+            "texto_em": _texto_em(m), "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
         })
     # fim de cada cena = início da próxima montada
     for i, s in enumerate(saida):
         prox = next((x["inicio"] for x in saida[i + 1:] if x["inicio"] is not None), None)
         s["fim"] = prox if prox is not None else (palavras[-1]["f"] if palavras else None)
     return saida
+
+
+def _texto_em(m: dict | None) -> int | None:
+    """Palavra (índice no roteiro) em que o texto da cena entrou no rascunho."""
+    if not m:
+        return None
+    for chave in ("legenda_em", "texto_em", "rotulo_em"):
+        if m.get(chave) is not None:
+            return m[chave]
+    item = (m.get("itens") or [{}])[0]
+    return item.get("legenda_em")
 
 
 def _id(c: dict, k: int) -> str:
@@ -252,6 +265,8 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             aj["sem_fundo"] = True
         else:
             aj.pop("sem_fundo", None)
+    elif tipo == "legenda_em":  # quando o texto entra: -1 = junto com a imagem; senão, índice da palavra no roteiro
+        aj["legenda_indice"] = int(acao["indice"])
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -368,6 +383,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["som"] = None
         if "legenda" in aj:
             c["legenda"] = aj["legenda"] or None
+        if "legenda_indice" in aj:
+            c["legenda_indice"] = aj["legenda_indice"]
         if aj.get("lado"):
             c["lado_felipe"] = aj["lado"]
         if aj.get("sem_fundo"):

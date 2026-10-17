@@ -357,6 +357,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         f = frases[c["frase"]]
         de = indice_na_frase(f, toks, c.get("comeca_na_palavra")) or f["de"]
         legenda_em = indice_na_frase(f, toks, c.get("legenda_na_palavra"))
+        if c.get("legenda_indice") is not None:  # escolhido à mão no storyboard: -1 = junto com a imagem
+            legenda_em = de if c["legenda_indice"] < 0 else max(de, int(c["legenda_indice"]))
         cid = id_da_cena(c, k)
         base = {"k": k, "id": cid, "bloco": c.get("secao") or "", "de": de, "ate": de, "semente": cid,
                 "secao": secao_da_frase(c["frase"])}

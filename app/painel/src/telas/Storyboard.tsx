@@ -33,6 +33,8 @@ type Cena = {
   lado: string | null // meio a meio / citação: lado da imagem no rascunho
   sem_fundo: boolean // imagem com o fundo de cor lisa removido (cópia à parte)
   so_texto_no_video: boolean // no rascunho a cena entrou como texto (faltou imagem)
+  palavras: { i: number; t: string }[] // narração da cena no rascunho (para escolher quando o texto entra)
+  texto_em: number | null // palavra em que o texto entrou (null = junto com a imagem)
   fundo: string | null // texto: claro | escuro
   som: string | null
   som_no_rascunho: boolean
@@ -339,6 +341,7 @@ function CartaoCena({
               </button>
             </p>
           )}
+          {usaLegenda && c.tipo !== 'texto' && (c.palavras ?? []).length > 0 && <QuandoOTextoEntra c={c} ajustar={ajustar} />}
           {usaLegenda && (
             <input
               value={legenda}
@@ -754,4 +757,40 @@ function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
     default:
       return img ? <img src={img} alt="" className="h-full w-full object-cover" /> : vazio('sem imagem')
   }
+}
+
+/** Quando o texto da cena entra: junto com a imagem ou numa palavra da narração (clique na palavra). Sem cota. */
+function QuandoOTextoEntra({ c, ajustar }: { c: Cena; ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void> }) {
+  const [aberto, setAberto] = useState(false)
+  const primeira = c.palavras[0]?.i
+  const junto = c.texto_em == null || c.texto_em === primeira
+  const palavra = c.palavras.find((p) => p.i === c.texto_em)?.t
+  return (
+    <div className="mt-1.5 text-[11px] text-suave">
+      <button onClick={() => setAberto(!aberto)} className="hover:text-texto">
+        o texto entra: <b className="text-texto">{junto ? 'junto com a imagem' : `em “${palavra ?? '…'}”`}</b>{' '}
+        <span className="text-apagado">({aberto ? 'fechar' : 'mudar'})</span>
+      </button>
+      {aberto && (
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <button
+            onClick={() => ajustar(c.id, { acao: 'legenda_em', indice: -1 })}
+            className={`rounded border px-1.5 py-0.5 ${junto ? 'border-ouro text-ouro' : 'border-borda hover:border-suave'}`}
+          >
+            junto com a imagem
+          </button>
+          <span className="text-apagado">ou na palavra:</span>
+          {c.palavras.slice(1).map((p) => (
+            <button
+              key={p.i}
+              onClick={() => ajustar(c.id, { acao: 'legenda_em', indice: p.i })}
+              className={`rounded px-1 py-0.5 ${c.texto_em === p.i ? 'bg-ouro/20 text-ouro' : 'hover:bg-painel-2 hover:text-texto'}`}
+            >
+              {p.t}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
