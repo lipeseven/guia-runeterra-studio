@@ -277,7 +277,7 @@ function CartaoCena({
     ? 'border-dashed border-borda opacity-50'
     : ativa
       ? 'border-ouro'
-      : c.recusada && !c.escolhido
+      : c.recusada && !c.escolhido && !['dividida', 'lista', 'mosaico'].includes(c.tipo)
         ? 'border-atencao/50'
         : c.ajustada
           ? 'border-andamento/50'
@@ -352,7 +352,7 @@ function CartaoCena({
                 no vídeo entrou só o texto: {c.pecas.length ? 'faltam imagens nos itens (mínimo 2)' : 'a imagem não pôde ser usada'}
               </span>
             )}
-            {c.recusada && !c.escolhido && (
+            {c.recusada && !c.escolhido && !['dividida', 'lista', 'mosaico'].includes(c.tipo) && (
               <span className="text-[11px] text-atencao">
                 nenhuma imagem serviu{c.no_rascunho ? ' · no rascunho entra só o texto: escolha uma imagem' : ''}
               </span>
