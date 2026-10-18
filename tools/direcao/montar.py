@@ -46,6 +46,21 @@ class Midias:
             shutil.rmtree(self.pasta)
         self.pasta.mkdir(parents=True)
         self.con = abrir_acervo()
+        self._existe: dict = {}
+
+    def existe(self, cand: dict) -> bool:
+        """O arquivo do candidato ainda está na pasta do acervo? (o Felipe pode apagar/renomear arquivos)"""
+        chave = (cand.get("tipo"), cand.get("id"))
+        if chave not in self._existe:
+            if cand.get("tipo") == "tomada":
+                r = self.con.execute("SELECT m.caminho FROM tomadas t JOIN midias m ON m.id=t.midia_id WHERE t.id=?",
+                                     (cand["id"],)).fetchone()
+            elif cand.get("tipo") == "midia":
+                r = self.con.execute("SELECT caminho FROM midias WHERE id=?", (cand["id"],)).fetchone()
+            else:
+                r = ("",)
+            self._existe[chave] = bool(r) and (r[0] == "" or (PASTA_ACERVO / r[0]).exists())
+        return self._existe[chave]
 
     def imagem(self, mid: int) -> dict:
         caminho, autor = self.con.execute("SELECT caminho, autor FROM midias WHERE id=?", (mid,)).fetchone()
@@ -247,9 +262,14 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             # pela IDENTIDADE da mídia (a posição muda se a busca do diretor for refeita); posição só nos antigos
             cands = n["candidatos"]
             cand = next((c for c in cands if e.get("midia") and [c["tipo"], c["id"]] == list(e["midia"])), None)
+            if cand is not None and not m.existe(cand):
+                cand = None
+                e = {**e, "midia": None, "escolha": 0}  # o arquivo sumiu da pasta: segue como automática
             if cand is None and e.get("midia"):
                 cand = {"tipo": e["midia"][0], "id": e["midia"][1], "nome": ""}
-            if cand is None and 1 <= e["escolha"] <= len(cands):
+                if not m.existe(cand):
+                    cand = None
+            if cand is None and 1 <= (e.get("escolha") or 0) <= len(cands) and m.existe(cands[e["escolha"] - 1]):
                 cand = cands[e["escolha"] - 1]
             if cand is not None:
                 return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
@@ -262,14 +282,14 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         quer_chave = [quer["tipo"], quer["id"]] if quer else None
         antes = fontes_velhas.get(nec_id)
         mudou = bool(antes and len(antes) == 4 and list(antes[2:]) != (quer_chave or [None, None]))
-        cand = next((c for c in n["candidatos"] if [c["tipo"], c["id"]] == list(antes[:2])), None) if antes and not mudou else None
+        cand = next((c for c in n["candidatos"] if [c["tipo"], c["id"]] == list(antes[:2]) and m.existe(c)), None) if antes and not mudou else None
         if cand:
             usados.add((cand["tipo"], cand["id"]))
             fontes[nec_id] = list(antes[:2]) + (quer_chave or [None, None])
             return {**cand, "foco": e.get("foco") or [0.5, 0.45]}
         # cena nova: escolha do diretor; se já usada NESTE bloco, a próxima candidata livre do bloco
         ordem = [e["escolha"] - 1] + [i for i in range(len(n["candidatos"])) if i != e["escolha"] - 1]
-        ordem = [i for i in ordem if 0 <= i < len(n["candidatos"])]
+        ordem = [i for i in ordem if 0 <= i < len(n["candidatos"]) and m.existe(n["candidatos"][i])]  # sem arquivos sumidos
         for i in ordem:
             cand = n["candidatos"][i]
             chave = (cand["tipo"], cand["id"])
