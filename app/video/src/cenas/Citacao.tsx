@@ -32,6 +32,8 @@ export const Citacao: React.FC<{
       : cena.lado === "esq"
         ? { left: 60, width: 940, top: 200 }
         : { right: 60, width: 940, top: 200 };
+  if ((cena as { vertical?: string }).vertical === "baixo") Object.assign(caixa, { top: undefined, bottom: 110 }); // impressao:ignorar
+  if ((cena as { vertical?: string }).vertical === "cima") Object.assign(caixa, { top: 120, bottom: undefined }); // impressao:ignorar
   return (
     <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
       <Figura

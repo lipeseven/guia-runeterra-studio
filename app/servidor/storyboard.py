@@ -64,7 +64,7 @@ NOMES_AJUSTE = {
     "sem_som": "sem efeito sonoro", "conferido": "conferida", "comentario": "pedido ao diretor", "comentario_aplicado": None,
     "clipe_inicio": "momento do clipe", "lado": "lado da imagem", "metade2": "outra metade", "juntar": "juntada com a próxima",
     "juntada_em": "juntada na anterior", "sem_fundo": "fundo removido", "fundo_lista": "fundo da lista",
-    "fundo_branco": "fundo branco", "legenda_indice": "quando o texto entra", "pecas": "itens", "pecas_def": "itens",
+    "fundo_branco": "fundo branco", "vertical": "posição da citação", "legenda_indice": "quando o texto entra", "pecas": "itens", "pecas_def": "itens",
     "pecas_lista": "itens (adicionados/removidos)", "foco": "enquadramento", "movimento": "movimento de câmera",
     "resolvido": None, "reaberto": None,
 }
@@ -240,7 +240,7 @@ def cenas(pasta: Path) -> list[dict]:
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
-            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo_lista": bool(aj.get("fundo_lista")), "foco": aj.get("foco") or _foco(m), "foco_escolhido": bool(aj.get("foco")),
+            "lado": aj.get("lado") or (m or {}).get("lado"), "vertical": aj.get("vertical") or (m or {}).get("vertical"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo_lista": bool(aj.get("fundo_lista")), "foco": aj.get("foco") or _foco(m), "foco_escolhido": bool(aj.get("foco")),
             "movimento": aj.get("movimento") or _movimento(m), "movimento_escolhido": bool(aj.get("movimento")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")), "arquivo_sumiu": sumiu,
             "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
             "texto_em": _texto_em(m),
@@ -377,6 +377,10 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         if acao["lado"] not in ("esq", "dir", "centro"):
             raise ValueError("lado inválido")
         aj["lado"] = acao["lado"]
+    elif tipo == "vertical":  # citação: em cima ou embaixo
+        if acao["vertical"] not in ("cima", "baixo"):
+            raise ValueError("posição inválida")
+        aj["vertical"] = acao["vertical"]
     elif tipo == "sem_fundo":  # remove o fundo de cor lisa da imagem da cena (cópia à parte; o acervo não muda)
         if acao.get("ligar", True):
             mid = _midia_escolhida(d, cid, aj)
@@ -541,6 +545,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["legenda_indice"] = aj["legenda_indice"]
         if aj.get("lado"):
             c["lado_felipe"] = aj["lado"]
+        if aj.get("vertical"):
+            c["vertical_felipe"] = aj["vertical"]
         if aj.get("fundo_lista"):
             c["fundo_lista"] = True
         if aj.get("foco"):

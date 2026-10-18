@@ -31,6 +31,7 @@ type Cena = {
   ajustada: boolean
   pendente: boolean // mexida depois que o último rascunho começou
   lado: string | null // meio a meio / citação: lado da imagem no rascunho
+  vertical?: string | null // citação: em cima ou embaixo
   sem_fundo: boolean // imagem com o fundo de cor lisa removido (cópia à parte)
   so_texto_no_video: boolean // no rascunho a cena entrou como texto (faltou imagem)
   arquivo_sumiu?: boolean // a imagem escolhida não está mais na pasta do acervo
@@ -342,6 +343,26 @@ function CartaoCena({
                 <option key={t} value={t}>{NOME_TIPO[t] ?? t}</option>
               ))}
             </select>
+            {c.tipo === 'citacao' && (
+              <span className="flex items-center gap-1 text-[11px] text-suave" title="Onde fica o texto da citação">
+                <span className="flex overflow-hidden rounded-md border border-borda">
+                  {(['esq', 'centro', 'dir'] as const).map((l) => (
+                    <button key={l} onClick={() => ajustar(c.id, { acao: 'lado', lado: l })}
+                      className={`px-2 py-0.5 ${c.lado === l ? 'bg-ouro/20 text-ouro' : 'hover:text-texto'}`}>
+                      {l === 'esq' ? 'esquerda' : l === 'dir' ? 'direita' : 'centro'}
+                    </button>
+                  ))}
+                </span>
+                <span className="flex overflow-hidden rounded-md border border-borda">
+                  {(['cima', 'baixo'] as const).map((v) => (
+                    <button key={v} onClick={() => ajustar(c.id, { acao: 'vertical', vertical: v })}
+                      className={`px-2 py-0.5 ${(c.vertical ?? 'cima') === v ? 'bg-ouro/20 text-ouro' : 'hover:text-texto'}`}>
+                      {v === 'cima' ? 'em cima' : 'embaixo'}
+                    </button>
+                  ))}
+                </span>
+              </span>
+            )}
             {c.tipo === 'meio' && (
               <span className="flex overflow-hidden rounded-md border border-borda text-[11px]" title="De que lado fica a imagem (o texto vai na outra metade)">
                 {(['esq', 'dir'] as const).map((l) => (

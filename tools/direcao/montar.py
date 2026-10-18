@@ -165,6 +165,12 @@ ALVO_NA_IMAGEM = {"cima": (0.5, 0.17), "esquerda": (0.22, 0.7), "direita": (0.78
                   "centro": (0.5, 0.5)}
 
 
+def _posicao_citacao(c: dict) -> dict:
+    """Altura da citação (cima/baixo) pedida pelo Felipe ou pelo diretor ("baixo-direita"); o lado vem no lado_felipe."""
+    pos = str(c.get("vertical_felipe") or c.get("posicao") or "").lower()
+    return {"vertical": "baixo"} if "baixo" in pos else {"vertical": "cima"} if "cima" in pos else {}
+
+
 def _fundo_branco() -> Path:
     """Imagem branca 1920x1080 (fundo do canal) para mosaico sem imagem de fundo."""
     arq = RAIZ / "dados" / "acervo" / "derivados" / "fundo_branco.png"
@@ -518,7 +524,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             destaques = [i for w in (c.get("destaques") or []) if (i := indice_na_frase(f, toks, w)) is not None]
             cenas.append({**base, "secao": None, "tipo": "citacao", "midia": midia, "foco": esc["foco"],
                           "autor": c.get("autor") or "", "destaques": destaques, "lado": var.lado_citacao(),
-                          "movimento": var.movimento()})
+                          "movimento": var.movimento(),
+                          **_posicao_citacao(c)})
         elif tipo == "mosaico":
             pecas = pecas_montadas(cid, c, f, de)
             if len(pecas) >= 2:
@@ -546,6 +553,10 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         cenas[-1]["ate"] = len(toks) - 1
     velhas = {c.get("id"): c for c in (anterior or {}).get("cenas", [])}
     movimentos_fixos = {id_da_cena(c, k): c["movimento_felipe"] for k, c in enumerate(plano["cenas"]) if c.get("movimento_felipe")}
+    for c_ in plano["cenas"]:  # citação: o diretor pode dizer "baixo-direita" (lado) — o Felipe manda por cima
+        pos_ = str(c_.get("posicao") or "").lower()
+        if c_.get("tipo") == "citacao" and not c_.get("lado_felipe") and pos_:
+            c_["lado_felipe"] = "dir" if "dir" in pos_ else "esq" if "esq" in pos_ else "centro" if "centro" in pos_ else None
     lados_fixos = {id_da_cena(c, k): c.get("lado_felipe") for k, c in enumerate(plano["cenas"]) if c.get("lado_felipe")}
     for i, c in enumerate(cenas):
         _herdar(c, velhas.get(c["id"]))

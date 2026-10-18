@@ -78,6 +78,7 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
     novas = chamar_json(prompt, SISTEMA.format(regras=regras), modelo="opus", etiqueta="direcao-revisao")["cenas"]
 
     afetados: list[str] = []
+    manter_imagem: set[str] = set()  # pedido que não é sobre a imagem: a imagem da cena fica a mesma
     trocas: dict[str, list[dict]] = {}
     sumir: set[str] = set()
     for cid in (c for c in novas if c in por_id):
@@ -114,6 +115,8 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
             "tipo": r"\b(tela cheia|cart[aã]o|recorte|meio a meio|lista|dividid\w*|mosaico|clipe|tipo de cena|formato|cita[cç][aã]o)\b",
             "legenda": r"\b(legenda|texto|escrit\w*|letreiro)\b",
         }
+        if not re.search(sobre["candidato"], texto) and not pediu_dividir:
+            manter_imagem.add(cid)
         for campo, padrao in sobre.items():
             if re.search(padrao, texto) or (len(lista) > 1 and campo != "tipo"):  # dividida a pedido: imagem/legenda novas
                 aj.pop(campo, None)
@@ -131,7 +134,9 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
 
     # novos candidatos e nova escolha, só para as necessidades dessas cenas
     ac = Acervo(abrir_acervo())
-    alvo = [n for n in necessidades(plano, frases) if n["cena"] in afetados]
+    velhas_ids = {n["id"] for n in necs}
+    alvo = [n for n in necessidades(plano, frases) if n["cena"] in afetados
+            and not (n["cena"] in manter_imagem and n["id"] in velhas_ids)]  # (re)busca só o que é novo
     para_o_claude = []
     for n in alvo:
         n["candidatos"] = buscar(ac, n)
@@ -145,6 +150,8 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
     # necessidades criadas pelo Felipe (itens buscados à mão, outra metade, junção) continuam
     manuais = [n for n in necs if n["cena"] in afetados and n["id"] not in {a["id"] for a in alvo}
                and any(c.get("manual") or (c.get("tipo") == "midia" and c.get("nota") == 1.0) for c in n.get("candidatos", []))]
-    necs[:] = [n for n in necs if n["cena"] not in afetados and n["cena"] not in sumir] + alvo + manuais
+    mantidas = [n for n in necs if n["cena"] in manter_imagem and n["id"] not in {a["id"] for a in alvo}]
+    necs[:] = [n for n in necs if n["cena"] not in afetados and n["cena"] not in sumir] + alvo + manuais + \
+        [n for n in mantidas if n not in manuais]
     ordem = {id_da_cena(c, k): k for k, c in enumerate(plano["cenas"])}
     necs.sort(key=lambda n: (ordem.get(n["cena"], 1e9), n.get("peca", -1)))
