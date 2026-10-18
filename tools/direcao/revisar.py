@@ -58,12 +58,18 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
         pedidos.append({"cena": cid,
                         "trecho": [f"[{i}] {f['texto']}" + "".join(f"  ↳ NOTA: {n}" for n in f.get("notas", []))
                                    for i, f in enumerate(trechos[cid])],
-                        "cena_atual": {**cena, "frase": 0}, "pedido_do_felipe": ajustes[cid]["comentario"]})
+                        "cena_atual": {**cena, "frase": 0}, "pedido_do_felipe": ajustes[cid]["comentario"],
+                        # o que o Felipe já montou à mão (tipo, itens): o diretor atende o pedido SEM desmanchar
+                        **({"montado_pelo_felipe": {x: ajustes[cid][x] for x in ("tipo", "pecas_def", "juntar") if x in ajustes[cid]}}
+                           if any(x in ajustes[cid] for x in ("tipo", "pecas_def", "juntar")) else {})})
     prompt = ("O Felipe revisou o rascunho e fez pedidos para algumas cenas. Refaça SÓ essas cenas atendendo ao pedido.\n"
               "Cada cena cobre um TRECHO (frases numeradas a partir de [0]). Você pode devolver UMA cena ou uma LISTA de "
               "cenas para dividir o trecho em várias imagens (ex.: \"a partir de 'Se você já jogou' outra imagem\"): "
               "cada cena com \"frase\" (número no trecho) e, se começar no meio da frase, \"comeca_na_palavra\" "
               "(palavra exata). A 1ª cena começa na frase [0].\n"
+              "SÓ divida a cena se o Felipe PEDIR para dividir/separar (\"a partir de...\", \"outra cena\", \"outra imagem\" "
+              "num trecho). Pedido de ajuste fino (centralizar, zoom, foco, texto junto) NÃO é motivo para dividir nem "
+              "para mudar o tipo da cena; se a cena tem \"montado_pelo_felipe\", mantenha o tipo e a estrutura dele.\n"
               "Se o Felipe citar um arquivo do acervo pelo nome (ex.: illaoi2.gif), ponha o nome em \"busca.arquivo\".\n"
               f"Personagens na capa: {', '.join(nomes_capa)}.\n\n"
               f"PEDIDOS:\n{json.dumps(pedidos, ensure_ascii=False, indent=1)}\n\n"
@@ -77,6 +83,10 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
     for cid in (c for c in novas if c in por_id):
         velha = plano["cenas"][por_id[cid]]
         lista = novas[cid] if isinstance(novas[cid], list) else [novas[cid]]
+        pediu_dividir = re.search(r"\b(divid\w*|separ\w*|a partir d[eo]|outra cena|nova cena|duas cenas|outra imagem)\b",
+                                  ajustes[cid].get("comentario", "").lower())
+        if len(lista) > 1 and not pediu_dividir:  # o diretor quis dividir sem o Felipe pedir: fica só a 1ª
+            lista = lista[:1]
         trecho = trechos[cid]
         validas = [c for c in lista if isinstance(c, dict) and c.get("tipo") in TIPOS]
         if not validas:
@@ -105,7 +115,7 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
             "legenda": r"\b(legenda|texto|escrit\w*|letreiro)\b",
         }
         for campo, padrao in sobre.items():
-            if re.search(padrao, texto) or len(lista) > 1:  # dividida em várias: a cena original mudou de verdade
+            if re.search(padrao, texto) or (len(lista) > 1 and campo != "tipo"):  # dividida a pedido: imagem/legenda novas
                 aj.pop(campo, None)
                 if campo == "candidato":
                     aj.pop("midia", None)
@@ -132,6 +142,9 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
             para_o_claude.append(n)
     if para_o_claude:
         escolhas.update(escolher(para_o_claude, folhas(para_o_claude, pasta_trabalho / "candidatos_revisao")))
-    necs[:] = [n for n in necs if n["cena"] not in afetados and n["cena"] not in sumir] + alvo
+    # necessidades criadas pelo Felipe (itens buscados à mão, outra metade, junção) continuam
+    manuais = [n for n in necs if n["cena"] in afetados and n["id"] not in {a["id"] for a in alvo}
+               and any(c.get("manual") or (c.get("tipo") == "midia" and c.get("nota") == 1.0) for c in n.get("candidatos", []))]
+    necs[:] = [n for n in necs if n["cena"] not in afetados and n["cena"] not in sumir] + alvo + manuais
     ordem = {id_da_cena(c, k): k for k, c in enumerate(plano["cenas"])}
     necs.sort(key=lambda n: (ordem.get(n["cena"], 1e9), n.get("peca", -1)))
