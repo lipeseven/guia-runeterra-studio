@@ -515,7 +515,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             lado = c.get("lado_felipe") or var.lado()
             a = {"de": de, "midia": midia, "foco": esc["foco"], "rotulo": ""}
             b = {"de": de, "midia": m.imagem(e2["id"]), "foco": e2["foco"], "rotulo": legenda or ""}
-            cenas.append({**base, "tipo": "dividida", "pecas": [a, b] if lado == "esq" else [b, a], **var.dividida()})
+            cenas.append({**base, "tipo": "dividida", "pecas": [a, b] if lado == "esq" else [b, a], **var.dividida(),
+                          "lado": lado})  # o storyboard mostra de que lado ficou a imagem da cena
         elif tipo == "meio" and legenda:
             cenas.append({**base, "tipo": "meio", "midia": midia, "foco": esc["foco"], "lado": var.lado(),
                           "texto": legenda, "texto_em": legenda_em if legenda_em is not None else de,

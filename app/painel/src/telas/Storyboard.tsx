@@ -38,6 +38,7 @@ type Cena = {
   fundo_lista: boolean // lista com imagem de fundo escolhida por você
   foco: [number, number] | null // ponto da imagem no centro do enquadramento (e para onde o zoom vai)
   foco_escolhido: boolean
+  foco_metade2?: [number, number] | null // meio a meio: enquadramento da outra metade (imagem)
   movimento: string | null // movimento de câmera
   movimento_escolhido: boolean
   fundo_branco: boolean // mosaico/lista no branco do canal (fundo tirado)
@@ -605,6 +606,17 @@ function CartaoCena({
             escolhido={c.foco_escolhido}
             focar={(x, y) => ajustar(c.id, { acao: 'foco', x, y })}
           />
+          {c.tipo === 'meio' && c.metade2 && (
+            <div className="mt-3">
+              <p className="mb-1 text-[11px] text-suave">Outra metade ({c.metade2.nome}):</p>
+              <Enquadrar
+                src={arquivo(c.metade2.miniatura)}
+                foco={c.foco_metade2 ?? null}
+                escolhido={!!c.foco_metade2}
+                focar={(x, y) => ajustar(c.id, { acao: 'foco', metade2: true, x, y })}
+              />
+            </div>
+          )}
           <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-suave">
             movimento:
             {[['aproximar', 'aproximar'], ['afastar', 'afastar'], ['pan_esq', '← pan'], ['pan_dir', 'pan →'], ['subir', 'subir'], ['descer', 'descer']].map(([v, r]) => (

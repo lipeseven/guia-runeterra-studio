@@ -241,6 +241,7 @@ def cenas(pasta: Path) -> list[dict]:
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
             "lado": aj.get("lado") or (m or {}).get("lado"), "vertical": aj.get("vertical") or (m or {}).get("vertical"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo_lista": bool(aj.get("fundo_lista")), "foco": aj.get("foco") or _foco(m), "foco_escolhido": bool(aj.get("foco")),
+            "foco_metade2": aj.get("foco_metade2"),
             "movimento": aj.get("movimento") or _movimento(m), "movimento_escolhido": bool(aj.get("movimento")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")), "arquivo_sumiu": sumiu,
             "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
             "texto_em": _texto_em(m),
@@ -261,7 +262,7 @@ def _pecas(c: dict, aj: dict) -> list[dict]:
 def _foco(m: dict | None):
     if not m:
         return None
-    return m.get("foco") or ((m.get("itens") or [{}])[0].get("foco"))
+    return m.get("foco") or ((m.get("itens") or m.get("pecas") or [{}])[0].get("foco"))
 
 
 def _movimento(m: dict | None):
@@ -413,7 +414,9 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         aj.setdefault("pecas", {}).setdefault(str(int(acao["j"])), {})["indice"] = int(acao["indice"])
     elif tipo == "foco":  # enquadramento: ponto da imagem que fica no centro (e para onde o zoom vai); j = item
         ponto = [round(min(1, max(0, float(acao["x"]))), 3), round(min(1, max(0, float(acao["y"]))), 3)]
-        if acao.get("j") is not None:
+        if acao.get("metade2"):  # meio a meio com imagem nas duas metades: a outra metade
+            aj["foco_metade2"] = ponto
+        elif acao.get("j") is not None:
             aj.setdefault("pecas", {}).setdefault(str(int(acao["j"])), {})["foco"] = ponto
         else:
             aj["foco"] = ponto
@@ -562,7 +565,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             escolhas[k] = {**(escolhas.get(k) or {}), "sem_fundo": True}
         if aj.get("metade2"):  # meio a meio com imagem nas duas metades
             c["metade2"] = True
-            escolhas[f"{cid}m2"] = {"escolha": aj["metade2"]["candidato"] + 1, "fixa": True, "foco": [0.5, 0.45]}
+            escolhas[f"{cid}m2"] = {"escolha": aj["metade2"]["candidato"] + 1, "fixa": True,
+                                    "foco": aj.get("foco_metade2") or [0.5, 0.45]}
         if aj.get("juntar"):  # tela dividida montada pelo Felipe com a cena seguinte
             c["pecas"] = aj["juntar"]["pecas"]
         elif aj.get("pecas_def") and not (c.get("pecas") or c.get("mosaico")):  # itens criados no storyboard
