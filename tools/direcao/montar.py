@@ -525,9 +525,16 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
     if cenas:
         cenas[-1]["ate"] = len(toks) - 1
     velhas = {c.get("id"): c for c in (anterior or {}).get("cenas", [])}
+    movimentos_fixos = {id_da_cena(c, k): c["movimento_felipe"] for k, c in enumerate(plano["cenas"]) if c.get("movimento_felipe")}
     lados_fixos = {id_da_cena(c, k): c.get("lado_felipe") for k, c in enumerate(plano["cenas"]) if c.get("lado_felipe")}
     for i, c in enumerate(cenas):
         _herdar(c, velhas.get(c["id"]))
+        if movimentos_fixos.get(c["id"]):  # movimento escolhido à mão no storyboard
+            mv = {"tipo": movimentos_fixos[c["id"]], "intensidade": 0.07}
+            if "movimento" in c:
+                c["movimento"] = mv
+            for it in c.get("itens", []):
+                it["movimento"] = mv
         if lados_fixos.get(c["id"]) and "lado" in c:  # lado escolhido pelo Felipe no storyboard (meio a meio/citação)
             c["lado"] = lados_fixos[c["id"]]
         # quadro em que a cena começa (o Montagem.tsx usa este valor): o Python sabe onde cada bloco começa

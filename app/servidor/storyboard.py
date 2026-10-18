@@ -156,7 +156,7 @@ def cenas(pasta: Path) -> list[dict]:
                 pesc = next((pcands[i] for i, x in enumerate(pn["candidatos"]) if [x["tipo"], x["id"]] == fontes[f"{cid}p{j}"][:2]), None)
             elif pe.get("escolha") and pcands:
                 pesc = pcands[pe["escolha"] - 1]
-            pecas.append({"j": j, "em": _palavra_na_cena(peca.get("palavra"), m, toks), "em_escolhido": paj.get("indice"),
+            pecas.append({"j": j, "foco": paj.get("foco"), "em": _palavra_na_cena(peca.get("palavra"), m, toks), "em_escolhido": paj.get("indice"),
                           "rotulo": peca.get("rotulo") or peca.get("palavra") or "",
                           "busca": (peca.get("busca") or {}).get("o_que"), "escolhido": pesc, "candidatos": pcands,
                           "ajustada": bool(paj)})
@@ -180,7 +180,8 @@ def cenas(pasta: Path) -> list[dict]:
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
-            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo_lista": bool(aj.get("fundo_lista")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")),
+            "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo_lista": bool(aj.get("fundo_lista")), "foco": aj.get("foco") or _foco(m), "foco_escolhido": bool(aj.get("foco")),
+            "movimento": aj.get("movimento") or _movimento(m), "movimento_escolhido": bool(aj.get("movimento")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")),
             "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
             "texto_em": _texto_em(m),
             "texto_em_escolhido": aj.get("legenda_indice"),  # escolha sua ainda não renderizada (-1 = junto) "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
@@ -195,6 +196,19 @@ def cenas(pasta: Path) -> list[dict]:
 def _pecas(c: dict, aj: dict) -> list[dict]:
     """Itens (lista/dividida/mosaico) da cena: os do diretor, os da junção ou os criados no storyboard."""
     return (aj.get("pecas_lista") or (aj.get("juntar") or {}).get("pecas") or c.get("pecas") or c.get("mosaico") or aj.get("pecas_def") or [])
+
+
+def _foco(m: dict | None):
+    if not m:
+        return None
+    return m.get("foco") or ((m.get("itens") or [{}])[0].get("foco"))
+
+
+def _movimento(m: dict | None):
+    if not m:
+        return None
+    mv = m.get("movimento") or ((m.get("itens") or [{}])[0].get("movimento"))
+    return (mv or {}).get("tipo")
 
 
 def _palavra_na_cena(palavra: str | None, m: dict | None, toks: list[str]) -> int | None:
@@ -333,6 +347,16 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         aj.pop("fundo_lista", None)
     elif tipo == "item_em":  # quando o item j entra: -1 = junto com a cena; senão, índice da palavra no roteiro
         aj.setdefault("pecas", {}).setdefault(str(int(acao["j"])), {})["indice"] = int(acao["indice"])
+    elif tipo == "foco":  # enquadramento: ponto da imagem que fica no centro (e para onde o zoom vai); j = item
+        ponto = [round(min(1, max(0, float(acao["x"]))), 3), round(min(1, max(0, float(acao["y"]))), 3)]
+        if acao.get("j") is not None:
+            aj.setdefault("pecas", {}).setdefault(str(int(acao["j"])), {})["foco"] = ponto
+        else:
+            aj["foco"] = ponto
+    elif tipo == "movimento":  # movimento de câmera escolhido à mão
+        if acao["tipo"] not in ("aproximar", "afastar", "pan_esq", "pan_dir", "subir", "descer"):
+            raise ValueError("movimento inválido")
+        aj["movimento"] = acao["tipo"]
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -459,6 +483,13 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["lado_felipe"] = aj["lado"]
         if aj.get("fundo_lista"):
             c["fundo_lista"] = True
+        if aj.get("foco"):
+            escolhas[k] = {**(escolhas.get(k) or {}), "foco": aj["foco"]}
+        for j_, pa_ in (aj.get("pecas") or {}).items():
+            if pa_.get("foco"):
+                escolhas[f"{k}p{j_}"] = {**(escolhas.get(f"{k}p{j_}") or {}), "foco": pa_["foco"]}
+        if aj.get("movimento"):
+            c["movimento_felipe"] = aj["movimento"]
         if aj.get("fundo_branco"):
             c["fundo_branco"] = True
         if aj.get("sem_fundo"):

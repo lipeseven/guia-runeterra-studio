@@ -1,4 +1,4 @@
-import { ArrowLeft, Columns2, Eraser, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, Trash2, Wand2, X } from 'lucide-react'
+import { ArrowLeft, Columns2, Crosshair, Eraser, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, Trash2, Wand2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, arquivo, useAoVivo, type Video } from '../api'
 import { Moldura } from '../componentes/Moldura'
@@ -34,6 +34,10 @@ type Cena = {
   sem_fundo: boolean // imagem com o fundo de cor lisa removido (cópia à parte)
   so_texto_no_video: boolean // no rascunho a cena entrou como texto (faltou imagem)
   fundo_lista: boolean // lista com imagem de fundo escolhida por você
+  foco: [number, number] | null // ponto da imagem no centro do enquadramento (e para onde o zoom vai)
+  foco_escolhido: boolean
+  movimento: string | null // movimento de câmera
+  movimento_escolhido: boolean
   fundo_branco: boolean // mosaico/lista no branco do canal (fundo tirado)
   palavras: { i: number; t: string }[] // narração da cena no rascunho (para escolher quando o texto entra)
   texto_em: number | null // palavra em que o texto entrou (null = junto com a imagem)
@@ -50,6 +54,7 @@ type Peca = {
   candidatos: Candidato[]
   ajustada: boolean
   em?: number | null // palavra em que o item entra no rascunho (null = junto com a cena)
+  foco?: [number, number] | null // enquadramento escolhido para o item
   em_escolhido?: number | null // sua escolha (-1 = junto)
 }
 type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number; pendentes: number; capa: string | null }
@@ -253,7 +258,7 @@ function CartaoCena({
   ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void>
   irPara: (s: number | null) => void
 }) {
-  const [aba, setAba] = useState<'nada' | 'trocar' | 'pedir' | 'itens' | 'metade'>('nada')
+  const [aba, setAba] = useState<'nada' | 'trocar' | 'pedir' | 'itens' | 'metade' | 'enquadrar'>('nada')
   const [legenda, setLegenda] = useState(c.legenda ?? '')
   const [pedido, setPedido] = useState(c.comentario ?? '')
   const [consulta, setConsulta] = useState('')
@@ -440,6 +445,11 @@ function CartaoCena({
                 <Eraser className="size-3.5" /> Fundo branco
               </Botao>
             )}
+            {['telacheia', 'cartao', 'meio', 'citacao'].includes(c.tipo) && c.escolhido && !c.clipe && !c.removida && (
+              <Botao ativo={aba === 'enquadrar'} onClick={() => setAba(aba === 'enquadrar' ? 'nada' : 'enquadrar')}>
+                <Crosshair className="size-3.5" /> Enquadrar
+              </Botao>
+            )}
             {c.pecas.length > 0 && (
               <Botao ativo={aba === 'itens'} onClick={() => setAba(aba === 'itens' ? 'nada' : 'itens')}>
                 <Search className="size-3.5" /> Trocar imagens ({c.pecas.length} itens)
@@ -534,6 +544,29 @@ function CartaoCena({
         </div>
       )}
 
+      {aba === 'enquadrar' && c.escolhido && (
+        <div className="mt-3 border-t border-borda pt-3">
+          <Enquadrar
+            src={arquivo(c.escolhido.miniatura)}
+            foco={c.foco}
+            escolhido={c.foco_escolhido}
+            focar={(x, y) => ajustar(c.id, { acao: 'foco', x, y })}
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-suave">
+            movimento:
+            {[['aproximar', 'aproximar'], ['afastar', 'afastar'], ['pan_esq', '← pan'], ['pan_dir', 'pan →'], ['subir', 'subir'], ['descer', 'descer']].map(([v, r]) => (
+              <button
+                key={v}
+                onClick={() => ajustar(c.id, { acao: 'movimento', tipo: v })}
+                className={`rounded border px-1.5 py-0.5 ${c.movimento === v ? (c.movimento_escolhido ? 'border-ok bg-ok/15 text-ok' : 'border-ouro bg-ouro/20 text-ouro') : 'border-borda hover:border-suave hover:text-texto'}`}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {aba === 'metade' && (
         <div className="mt-3 border-t border-borda pt-3">
           <p className="mb-2 text-xs text-suave">
@@ -557,6 +590,7 @@ function CartaoCena({
               peca={p}
               ajustar={(acao) => ajustar(c.id, { ...acao, j: p.j })}
               remover={c.pecas.length > 1 ? () => ajustar(c.id, { acao: 'item_remover', j: p.j }) : undefined}
+              focar={(x, y) => ajustar(c.id, { acao: 'foco', j: p.j, x, y })}
               momento={
                 (c.palavras ?? []).length > 1 && !(p.j === 0 && c.tipo !== 'mosaico') ? (
                   <QuandoOItemEntra c={c} p={p} escolher={(indice) => ajustar(c.id, { acao: 'item_em', j: p.j, indice })} />
@@ -664,11 +698,13 @@ function ItemDaCena({
   ajustar,
   remover,
   momento,
+  focar,
 }: {
   peca: Peca
   ajustar: (acao: Record<string, unknown>) => Promise<void>
   remover?: () => void
   momento?: React.ReactNode
+  focar?: (x: number, y: number) => Promise<void>
 }) {
   const [consulta, setConsulta] = useState('')
   const [resultados, setResultados] = useState<{ midia_id: number; nome: string; miniatura: string }[] | null>(null)
@@ -703,6 +739,14 @@ function ItemDaCena({
         )}
       </p>
       {momento}
+      {focar && peca.escolhido && (
+        <details className="mb-2 text-[11px] text-suave">
+          <summary className="cursor-pointer hover:text-texto">enquadrar este item{peca.foco ? ' (escolhido)' : ''}</summary>
+          <div className="mt-1 max-w-[260px]">
+            <Enquadrar src={arquivo(peca.escolhido.miniatura)} foco={peca.foco ?? null} escolhido={!!peca.foco} focar={focar} />
+          </div>
+        </details>
+      )}
       <div className="grid grid-cols-6 gap-2">
         {peca.candidatos.map((cand) =>
           miniatura(cand, peca.escolhido?.idx === cand.idx, () => ajustar({ acao: 'peca_candidato', idx: cand.idx })),
@@ -948,6 +992,38 @@ function QuandoOItemEntra({ c, p, escolher }: { c: Cena; p: Peca; escolher: (ind
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+
+/** Enquadramento: clique no ponto da imagem que deve ficar no centro (e para onde o zoom vai). */
+function Enquadrar({ src, foco, escolhido, focar }: { src: string; foco: [number, number] | null; escolhido: boolean; focar: (x: number, y: number) => Promise<void> }) {
+  const [ponto, setPonto] = useState<[number, number] | null>(foco)
+  useEffect(() => setPonto(foco), [foco?.[0], foco?.[1]]) // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div>
+      <p className="mb-1 text-[11px] text-suave">Clique no ponto que deve ficar no centro da tela (o zoom vai na direção dele):</p>
+      <div className="relative inline-block cursor-crosshair overflow-hidden rounded-md border border-borda">
+        <img
+          src={src}
+          alt=""
+          className="block max-h-[260px] w-auto"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            const x = (e.clientX - r.left) / r.width
+            const y = (e.clientY - r.top) / r.height
+            setPonto([x, y])
+            focar(x, y)
+          }}
+        />
+        {ponto && (
+          <span
+            className={`pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${escolhido ? 'border-ok' : 'border-ouro'} shadow-[0_0_0_2px_rgba(0,0,0,0.6)]`}
+            style={{ left: `${ponto[0] * 100}%`, top: `${ponto[1] * 100}%` }}
+          />
+        )}
+      </div>
     </div>
   )
 }
