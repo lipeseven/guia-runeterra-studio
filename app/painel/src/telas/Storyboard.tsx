@@ -299,7 +299,7 @@ function CartaoCena({
   // cena de UMA imagem (ou só texto): sempre dá para buscar uma imagem no acervo
   // lista e tela dividida só mostram as imagens dos ITENS: uma imagem da cena inteira ficaria sem uso (o mosaico a usa de fundo)
   const soItens = c.tipo === 'dividida'
-  const aceitaImagem = !soItens && (temImagem || [...UMA_IMAGEM, 'texto'].includes(c.tipo))
+  const aceitaImagem = !soItens && (temImagem || [...UMA_IMAGEM, 'texto', 'clipe'].includes(c.tipo))
   const foraDoVideo = !c.no_rascunho && !c.removida
   const usaLegenda = ['cartao', 'recorte', 'meio', 'texto'].includes(c.tipo)
   const borda = c.removida
@@ -406,6 +406,11 @@ function CartaoCena({
                 o arquivo {c.escolhido?.nome} não está mais na pasta do acervo: o vídeo usa outra imagem. Escolha de novo.
               </span>
             )}
+            {c.tipo === 'clipe' && !c.clipe && (
+              <span className="text-[11px] text-atencao">
+                nenhum vídeo escolhido: no rascunho entra {c.escolhido || c.pecas.some((p) => p.escolhido) ? 'a imagem parada' : 'só o texto'}. Clique em “Escolher clipe”.
+              </span>
+            )}
             {c.recusada && !c.escolhido && !['dividida', 'lista', 'mosaico'].includes(c.tipo) && (
               <span className="text-[11px] text-atencao">
                 nenhuma imagem serviu{c.no_rascunho ? ' · no rascunho entra só o texto: escolha uma imagem' : ''}
@@ -464,7 +469,7 @@ function CartaoCena({
           <div className="mt-2 flex flex-wrap gap-1.5">
             {aceitaImagem && (
               <Botao ativo={aba === 'trocar'} onClick={() => setAba(aba === 'trocar' ? 'nada' : 'trocar')}>
-                <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.tipo === 'mosaico' ? (c.escolhido && !c.fundo_branco ? 'Trocar fundo' : 'Pôr fundo') : c.tipo === 'lista' ? (c.fundo_lista ? 'Trocar fundo' : 'Pôr fundo') : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
+                <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.tipo === 'clipe' ? 'Escolher clipe' : c.tipo === 'mosaico' ? (c.escolhido && !c.fundo_branco ? 'Trocar fundo' : 'Pôr fundo') : c.tipo === 'lista' ? (c.fundo_lista ? 'Trocar fundo' : 'Pôr fundo') : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
               </Botao>
             )}
             {['cartao', 'telacheia', 'recorte', 'meio', 'citacao'].includes(c.tipo) && c.escolhido && !c.removida && (
