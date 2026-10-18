@@ -151,7 +151,7 @@ def cenas(pasta: Path) -> list[dict]:
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     from candidatos import numeros_das_cenas
     sys.path.insert(0, str(RAIZ / "tools"))
-    from comum import abrir_acervo
+    from comum import PASTA_ACERVO, abrir_acervo
 
     acervo = abrir_acervo()
     pend = set(pendentes(pasta))
@@ -189,6 +189,10 @@ def cenas(pasta: Path) -> list[dict]:
             sf = RAIZ / "dados" / "acervo" / "derivados" / f"sem_fundo_{mid_}.png"
             if sf.exists():
                 escolhido = {**escolhido, "miniatura": _rel(str(sf))}
+        sumiu = False
+        if escolhido and escolhido["tipo"] == "midia" and nec and 0 <= escolhido["idx"] < len(nec["candidatos"]):
+            r_ = acervo.execute("SELECT caminho FROM midias WHERE id=?", (nec["candidatos"][escolhido["idx"]]["id"],)).fetchone()
+            sumiu = bool(r_) and not (PASTA_ACERVO / r_[0]).exists()  # o arquivo saiu da pasta: o vídeo usa outra
         clipe = None
         if escolhido and escolhido["tipo"] == "tomada":  # para o Felipe escolher o momento do clipe no vídeo original
             t = acervo.execute("SELECT t.midia_id, t.inicio, m.duracao FROM tomadas t JOIN midias m ON m.id=t.midia_id "
@@ -237,7 +241,7 @@ def cenas(pasta: Path) -> list[dict]:
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
             "lado": aj.get("lado") or (m or {}).get("lado"), "sem_fundo": bool(aj.get("sem_fundo")), "fundo_lista": bool(aj.get("fundo_lista")), "foco": aj.get("foco") or _foco(m), "foco_escolhido": bool(aj.get("foco")),
-            "movimento": aj.get("movimento") or _movimento(m), "movimento_escolhido": bool(aj.get("movimento")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")),
+            "movimento": aj.get("movimento") or _movimento(m), "movimento_escolhido": bool(aj.get("movimento")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")), "arquivo_sumiu": sumiu,
             "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
             "texto_em": _texto_em(m),
             "texto_em_escolhido": aj.get("legenda_indice"),  # escolha sua ainda não renderizada (-1 = junto) "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,

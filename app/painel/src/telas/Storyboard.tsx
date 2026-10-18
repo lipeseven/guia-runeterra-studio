@@ -33,6 +33,7 @@ type Cena = {
   lado: string | null // meio a meio / citação: lado da imagem no rascunho
   sem_fundo: boolean // imagem com o fundo de cor lisa removido (cópia à parte)
   so_texto_no_video: boolean // no rascunho a cena entrou como texto (faltou imagem)
+  arquivo_sumiu?: boolean // a imagem escolhida não está mais na pasta do acervo
   fundo_lista: boolean // lista com imagem de fundo escolhida por você
   foco: [number, number] | null // ponto da imagem no centro do enquadramento (e para onde o zoom vai)
   foco_escolhido: boolean
@@ -376,6 +377,11 @@ function CartaoCena({
             {c.so_texto_no_video && !c.pendente && (c.escolhido || c.pecas.some((p) => p.escolhido)) && (
               <span className="text-[11px] text-atencao">
                 no vídeo entrou só o texto: {c.pecas.length ? 'faltam imagens nos itens (mínimo 2)' : 'a imagem não pôde ser usada'}
+              </span>
+            )}
+            {c.arquivo_sumiu && (
+              <span className="text-[11px] text-red-300">
+                o arquivo {c.escolhido?.nome} não está mais na pasta do acervo: o vídeo usa outra imagem. Escolha de novo.
               </span>
             )}
             {c.recusada && !c.escolhido && !['dividida', 'lista', 'mosaico'].includes(c.tipo) && (
