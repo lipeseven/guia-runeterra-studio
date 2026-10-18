@@ -59,6 +59,62 @@ def marcar_pendente(pasta: Path, cid: str) -> None:
         _arq_pendentes(pasta).write_text(json.dumps(lista + [cid], ensure_ascii=False), encoding="utf-8")
 
 
+NOMES_AJUSTE = {
+    "candidato": "imagem", "midia": None, "tipo": "tipo de cena", "legenda": "legenda", "removida": "cena removida",
+    "sem_som": "sem efeito sonoro", "conferido": "conferida", "comentario": "pedido ao diretor", "comentario_aplicado": None,
+    "clipe_inicio": "momento do clipe", "lado": "lado da imagem", "metade2": "outra metade", "juntar": "juntada com a próxima",
+    "juntada_em": "juntada na anterior", "sem_fundo": "fundo removido", "fundo_lista": "fundo da lista",
+    "fundo_branco": "fundo branco", "legenda_indice": "quando o texto entra", "pecas": "itens", "pecas_def": "itens",
+    "pecas_lista": "itens (adicionados/removidos)", "foco": "enquadramento", "movimento": "movimento de câmera",
+    "resolvido": None, "reaberto": None,
+}
+
+
+def detalhe_dos_pendentes(pasta: Path) -> list[dict]:
+    """O que exatamente mudou em cada cena pendente (para conferir antes de gerar o rascunho)."""
+    import sys
+
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from candidatos import numeros_das_cenas
+
+    foto = _ler(_arq_foto(pasta), {}) or {}
+    atuais = _ler(pasta / "direcao" / "ajustes.json", {})
+    d = carregar(pasta)
+    numeros = numeros_das_cenas(d["plano"], pasta / "direcao")
+    saida = []
+    for cid in pendentes(pasta):
+        antes, agora_ = foto.get(cid) or {}, atuais.get(cid) or {}
+        if not agora_:
+            mudancas = ["ajustes desfeitos (volta ao que o diretor fez)"]
+        else:
+            mudancas = []
+            for k in sorted(set(antes) | set(agora_)):
+                if antes.get(k) == agora_.get(k) or NOMES_AJUSTE.get(k, k) is None or k.startswith("__"):
+                    continue
+                nome = NOMES_AJUSTE.get(k, k)
+                if k == "pecas":
+                    for j in sorted(set(antes.get(k) or {}) | set(agora_.get(k) or {})):
+                        a, b = (antes.get(k) or {}).get(j) or {}, (agora_.get(k) or {}).get(j) or {}
+                        for kk in sorted(set(a) | set(b)):
+                            if a.get(kk) != b.get(kk) and kk != "midia":
+                                mudancas.append(f"item {int(j) + 1}: " + {"candidato": "imagem", "indice": "quando entra",
+                                                                         "foco": "enquadramento"}.get(kk, kk))
+                    continue
+                if k == "tipo":
+                    nome = f"tipo de cena → {agora_.get(k) or 'o do diretor'}"
+                elif k == "comentario":
+                    nome = f"pedido ao diretor: “{(agora_.get(k) or '')[:60]}”"
+                elif k == "legenda":
+                    nome = f"legenda → “{(agora_.get(k) or '')[:40]}”"
+                if nome not in mudancas:
+                    mudancas.append(nome)
+            if not mudancas:
+                mudancas = ["ajuste"]
+        saida.append({"id": cid, "numero": numeros.get(cid, cid), "mudancas": mudancas})
+    saida.sort(key=lambda x: [int(p) if p.isdigit() else 0 for p in str(x["numero"]).split(".")])
+    return saida
+
+
 def descartar_pendentes(pasta: Path, ids: list[str] | None = None) -> list[str]:
     """Volta os ajustes das cenas pendentes (ou só de `ids`) ao que estava no último rascunho. Cenas sem registro
     confiável do último rascunho ficam como estão (devolvidas na lista de não desfeitas)."""

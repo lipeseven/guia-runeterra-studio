@@ -57,7 +57,15 @@ type Peca = {
   foco?: [number, number] | null // enquadramento escolhido para o item
   em_escolhido?: number | null // sua escolha (-1 = junto)
 }
-type Dados = { cenas: Cena[]; tipos: string[]; pedidos_pendentes: number; ajustes: number; pendentes: number; capa: string | null }
+type Dados = {
+  cenas: Cena[]
+  tipos: string[]
+  pedidos_pendentes: number
+  ajustes: number
+  pendentes: number
+  capa: string | null
+  pendentes_detalhe?: { id: string; numero: string; mudancas: string[] }[] // o que mudou em cada cena pendente
+}
 
 const NOME_TIPO: Record<string, string> = {
   capa: 'Capa', cartao: 'Cartão', telacheia: 'Tela cheia', recorte: 'Recorte', mosaico: 'Mosaico', clipe: 'Clipe', dialogo: 'Diálogo',
@@ -95,6 +103,7 @@ export function Storyboard({ id }: { id: number }) {
 
   // confirmação visual de cada ajuste: aviso "foi para a fila" + a cena pisca (some sozinho)
   const [aviso, setAviso] = useState<{ texto: string; cid: string; n: number } | null>(null)
+  const [verPendentes, setVerPendentes] = useState(false)
   const ajustar = async (cid: string, acao: Record<string, unknown>) => {
     await api(`/videos/${id}/storyboard/${encodeURIComponent(cid)}`, { method: 'POST', body: JSON.stringify(acao) })
     await carregar()
@@ -146,14 +155,16 @@ export function Storyboard({ id }: { id: number }) {
                 <span className="rounded border border-borda px-2 py-1 text-suave" title="Todas as cenas que você já ajustou neste vídeo">
                   {sb.ajustes} ajustada{sb.ajustes === 1 ? '' : 's'}
                 </span>
-               <span
-                  className={`rounded border px-2 py-1 ${sb.pendentes > 0 ? 'border-atencao/50 text-atencao' : 'border-ok/40 text-ok'}`}
-                  title="Cenas mexidas depois que o último rascunho começou: entram só no PRÓXIMO rascunho"
+                <button
+                  onClick={() => sb.pendentes > 0 && setVerPendentes(!verPendentes)}
+                  className={`rounded border px-2 py-1 ${sb.pendentes > 0 ? 'border-atencao/50 text-atencao hover:bg-atencao/10' : 'border-ok/40 text-ok'}`}
+                  title="Cenas mexidas depois que o último rascunho começou: clique para ver o que muda"
                 >
                   {sb.pendentes > 0
                     ? `${sb.pendentes} pendente${sb.pendentes === 1 ? '' : 's'}${trabalhando ? ' (p/ o seguinte)' : ''}`
                     : trabalhando ? 'tudo neste rascunho' : 'nada pendente'}
-                </span>
+                  {sb.pendentes > 0 && (verPendentes ? ' ▴' : ' ▾')}
+                </button>
                 {sb.pendentes > 0 && (
                   <button
                     onClick={async () => {
@@ -196,6 +207,21 @@ export function Storyboard({ id }: { id: number }) {
               {enviando && direcao?.status !== 'andamento' ? 'Enviando…' : trabalhando ? direcao?.resumo ?? 'trabalhando…' : 'Gerar novo rascunho'}
             </button>
           </div>
+          {verPendentes && sb && sb.pendentes > 0 && (
+            <div className="max-h-64 w-full overflow-auto rounded-lg border border-atencao/30 bg-painel px-3 py-2 text-xs">
+              <p className="mb-1 text-suave">O que vai mudar no próximo rascunho (por cena · clique para ir até ela):</p>
+              {(sb.pendentes_detalhe ?? []).map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => document.getElementById(`cena-${p.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                  className="flex w-full gap-2 rounded px-1 py-0.5 text-left hover:bg-painel-2"
+                >
+                  <span className="w-14 shrink-0 font-mono text-apagado">#{p.numero}</span>
+                  <span className="text-texto/90">{p.mudancas.join(' · ')}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {/* barra do render junto do cabeçalho fixo: visível em qualquer ponto do storyboard */}
           <div className="w-full empty:hidden">
             <Progresso videoId={id} />
@@ -284,7 +310,7 @@ function CartaoCena({
           : 'border-borda'
 
   return (
-    <article key={piscar || undefined} className={`rounded-xl border bg-painel p-3 ${borda} ${piscar ? 'ring-2 ring-ok/70 transition' : ''}`}>
+    <article id={`cena-${c.id}`} key={piscar || undefined} className={`rounded-xl border bg-painel p-3 ${borda} ${piscar ? 'ring-2 ring-ok/70 transition' : ''}`}>
       <div className="flex gap-3">
         <button
           onClick={() => irPara(c.inicio)}

@@ -321,6 +321,7 @@ def ver_storyboard(vid: int):
             "pedidos_pendentes": len(storyboard.pendentes_para_o_diretor(storyboard.carregar(pasta)["ajustes"])),
             "ajustes": len(storyboard.carregar(pasta)["ajustes"]),
             "pendentes": len(storyboard.pendentes(pasta)),  # mexidas depois que o último rascunho começou
+            "pendentes_detalhe": storyboard.detalhe_dos_pendentes(pasta),
             "capa": next((p.relative_to(RAIZ).as_posix() for p in sorted((pasta / "direcao").glob("capa.*"))), None)}
 
 
