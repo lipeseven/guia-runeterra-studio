@@ -18,3 +18,5 @@ internet = "dados/acervo_internet"          # mídias baixadas da internet
 projetos = "projetos"
 studio = "dados/studio.db"
 docs = "docs"                               # regras_de_direcao.md, estilo_roteiro.md, guia_de_estilo.md
+referencias = "recursos de vídeo para aprender"   # vídeos dos canais de referência
+analise = "dados/analise_referencias"

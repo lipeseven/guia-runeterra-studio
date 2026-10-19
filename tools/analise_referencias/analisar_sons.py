@@ -26,7 +26,10 @@ from scipy.signal import resample_poly
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from comum import RAIZ  # noqa: E402
 
-PASTA = RAIZ / "dados" / "analise_referencias"
+sys.path.insert(0, str(RAIZ / "tools"))
+from canal import caminho  # noqa: E402
+
+PASTA = caminho("analise")
 EXEMPLOS = PASTA / "sons_exemplos"
 SR = 44100
 PASSO = 0.01  # 10 ms

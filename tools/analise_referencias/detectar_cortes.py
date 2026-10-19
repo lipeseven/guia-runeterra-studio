@@ -22,8 +22,11 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 RAIZ = Path(__file__).resolve().parents[2]
-PASTA_VIDEOS = RAIZ / "recursos de vídeo para aprender"
-PASTA_SAIDA = RAIZ / "dados" / "analise_referencias"
+sys.path.insert(0, str(RAIZ / "tools"))
+from canal import caminho  # noqa: E402  (pasta de referências DO CANAL: GRS_CANAL)
+
+PASTA_VIDEOS = caminho("referencias")
+PASTA_SAIDA = caminho("analise")
 
 LIMIAR_CENA = 0.30          # sensibilidade do detector de corte (0-1)
 LARGURA_MINIATURA = 320

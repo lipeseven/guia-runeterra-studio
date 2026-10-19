@@ -675,6 +675,8 @@ def marcar_publicado(con, vid: int, url: str | None) -> None:
     con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND resolvida=0", (vid,))
     registrar(con, vid, f"Publicado{' — ' + url if url else ''}. {n} mídias registradas na memória de uso.", "ok")
     registrar(con, vid, f"Arquivado: tudo para a Lixeira menos a capa ({r['liberado'] / 1e9:.2f} GB liberados)", "ok")
+    if (RAIZ / "dados" / "apos_publicar.json").exists():  # trabalho pesado que o Felipe deixou para depois da publicação
+        FILA.put((0, "apos_publicar"))
 
 
 def tarefa_rascunho(vid: int) -> None:
@@ -889,6 +891,29 @@ def tarefa_importar_pokemon(_vid: int) -> None:
     ACERVO["ultima"] = {"quando": agora(), "resultado": {"importacao_pokemon": r}}
 
 
+def tarefa_apos_publicar(_vid: int) -> None:
+    """Roda os trabalhos agendados para "depois de publicar" (dados/apos_publicar.json: [{descricao, comando, env,
+    log}]), um por vez, cada um num processo próprio (pode ser de outro canal: env GRS_CANAL). Feito = sai da lista."""
+    import os
+    import subprocess
+
+    arq = RAIZ / "dados" / "apos_publicar.json"
+    while arq.exists():
+        tarefas = json.loads(arq.read_text(encoding="utf-8"))
+        if not tarefas:
+            arq.unlink()
+            break
+        t = tarefas[0]
+        definir_progresso("Depois da publicação", t["descricao"])
+        log = RAIZ / t["log"]
+        log.parent.mkdir(parents=True, exist_ok=True)
+        with log.open("a", encoding="utf-8") as f:
+            cmd = [sys.executable if c == "python" else c for c in t["comando"]]  # "python" = o Python do .venv
+            subprocess.run(cmd, cwd=RAIZ, env={**os.environ, **t.get("env", {})}, stdout=f, stderr=subprocess.STDOUT)
+        restantes = json.loads(arq.read_text(encoding="utf-8"))[1:]
+        arq.write_text(json.dumps(restantes, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 def pedir_clipe(url: str) -> None:
     CLIPES_PEDIDOS.append(url)
     if not any(nome == "clipes" for _, nome in list(FILA.queue)):
@@ -904,7 +929,8 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": t
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
            "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
-           "importar_riot": tarefa_importar_riot, "importar_pokemon": tarefa_importar_pokemon}
+           "importar_riot": tarefa_importar_riot, "importar_pokemon": tarefa_importar_pokemon,
+           "apos_publicar": tarefa_apos_publicar}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 
 

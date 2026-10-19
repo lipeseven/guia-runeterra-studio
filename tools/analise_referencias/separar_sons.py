@@ -21,8 +21,11 @@ from comum import RAIZ, preparar_ffmpeg  # noqa: E402
 
 from detectar_cortes import slug  # noqa: E402
 
-PASTA_VIDEOS = RAIZ / "recursos de vídeo para aprender"
-PASTA_SAIDA = RAIZ / "dados" / "analise_referencias"
+sys.path.insert(0, str(RAIZ / "tools"))
+from canal import caminho  # noqa: E402  (pasta de referências DO CANAL: GRS_CANAL)
+
+PASTA_VIDEOS = caminho("referencias")
+PASTA_SAIDA = caminho("analise")
 SR = 44100
 BLOCO = 300  # segundos por vez (cabe folgado em 16 GB de RAM)
 
