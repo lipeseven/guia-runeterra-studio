@@ -1,7 +1,7 @@
 """Importa as splash arts oficiais de TODOS os campeões e skins (CommunityDragon, espelho dos arquivos do cliente do
 LoL; grátis, sem chave) para o acervo — sem tocar na pasta do Felipe:
 
-    dados/acervo_internet/riot/splash/<campeao>_<n>.jpg   (n = número da skin; 0 = splash base)
+    <catálogo sequencial LOL>/_oficial_riot/splash/<campeao>_<n>.jpg   (n = skin; 0 = base) e .../universo/
 
 Cada imagem entra no acervo.db já etiquetada: personagem, categoria ("splash" para a base, "skin" para as outras —
 skins são universos alternativos, não lore, e por isso ficam atrás na busca do diretor), nome da skin em PT-BR,
@@ -21,11 +21,13 @@ from pathlib import Path
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import PASTA_INTERNET, RAIZ, abrir_acervo  # noqa: E402
+from comum import PASTA_ACERVO, RAIZ, abrir_acervo  # noqa: E402
 
 CDRAGON = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/"
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/pt_br/champions/{slug}/index.json"
-DESTINO = PASTA_INTERNET / "riot" / "splash"
+# subpasta própria DENTRO do catálogo do Felipe (pedido dele, 2026-10-19): ele vê, organiza e apaga como as dele;
+# nada do que já existe na pasta é tocado
+DESTINO = PASTA_ACERVO / "_oficial_riot" / "splash"
 LICENCA = "Riot Games — Legal Jibber Jabber (uso de fã)"
 
 
@@ -108,13 +110,17 @@ def catalogar(itens: list[dict], aviso=print) -> dict:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     from atualizar import atualizar
 
+    from inventariar import caminho_no_banco
+
     atualizar(aviso)
     con = abrir_acervo()
-    meus = [imagehash.hex_to_hash(r[0]) for r in con.execute(
-        "SELECT phash FROM midias WHERE phash IS NOT NULL AND tipo='imagem' AND COALESCE(origem,'acervo')='acervo'")]
+    baixados = {caminho_no_banco(i["arquivo"]) for i in itens}
+    meus = [imagehash.hex_to_hash(r[1]) for r in con.execute(  # as imagens do Felipe (não as que acabaram de chegar)
+        "SELECT caminho, phash FROM midias WHERE phash IS NOT NULL AND tipo='imagem' AND COALESCE(origem,'acervo')='acervo'")
+        if r[0] not in baixados]
     novos, repetidos = 0, []
     for i in itens:
-        r = con.execute("SELECT id, phash FROM midias WHERE caminho=?", (i["arquivo"].as_posix(),)).fetchone()
+        r = con.execute("SELECT id, phash FROM midias WHERE caminho=?", (caminho_no_banco(i["arquivo"]),)).fetchone()
         if not r:
             continue
         if r["phash"] and any(imagehash.hex_to_hash(r["phash"]) - h <= 6 for h in meus):
@@ -129,7 +135,7 @@ def catalogar(itens: list[dict], aviso=print) -> dict:
         novos += 1
     for mid in repetidos:  # arquivo baixado sai do disco e do catálogo
         cam = con.execute("SELECT caminho FROM midias WHERE id=?", (mid,)).fetchone()[0]
-        Path(cam).unlink(missing_ok=True)
+        (PASTA_ACERVO / cam).unlink(missing_ok=True)  # só arquivos que ESTE importador baixou (subpasta _oficial_riot)
         con.execute("DELETE FROM midias WHERE id=?", (mid,))
     con.commit()
     return {"catalogadas": novos, "repetidas_descartadas": len(repetidos)}
