@@ -83,11 +83,11 @@ type SituacaoAcervo = {
 function BotaoAcervo() {
   const { dados: m } = useAoVivo<Motor>('/motor', 3000)
   const { dados: s } = useAoVivo<SituacaoAcervo>('/acervo/situacao', 5000)
-  const rodando = m?.executando?.tarefa === 'acervo'
+  const rodando = m?.executando?.video === 0 // tarefas do acervo: atualizar, importar artes, baixar clipes
   const r = s?.resultado
   const resumo = s?.erro
     ? `Falhou: ${s.erro}`
-    : r
+    : r && r.novos
       ? `Última verificação: ${r.novos.length} arquivo(s) novo(s)` +
         (r.etiquetadas_pelo_nome ? ` · ${r.etiquetadas_pelo_nome} etiquetado(s) pelo nome` : '') +
         (r.sem_etiqueta.length ? ` · sem etiqueta (o diretor quase não acha): ${r.sem_etiqueta.slice(0, 12).join(', ')}` : '')
@@ -100,7 +100,7 @@ function BotaoAcervo() {
           className="flex h-8 items-center gap-1.5 rounded-lg border border-borda bg-painel px-3 text-xs text-suave hover:border-suave hover:text-texto"
         >
           <RefreshCw className={`size-3.5 ${rodando ? 'animate-spin text-ouro' : ''}`} />
-          {rodando ? (m?.progresso?.texto ?? 'atualizando acervo…') : 'Atualizar acervo'}
+          {rodando ? `${m?.progresso?.titulo ?? 'Acervo'}: ${(m?.progresso?.texto ?? 'trabalhando…').trim()}` : 'Atualizar acervo'}
         </button>
       </Tooltip.Trigger>
       <Tooltip.Portal>
