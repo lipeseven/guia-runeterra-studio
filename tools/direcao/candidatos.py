@@ -249,7 +249,8 @@ def folhas(necs: list[dict], destino: Path, por_folha: int = 7) -> list[Path]:
                 d.rectangle([x, y, x + 34, y + 32], fill="#000")
                 d.text((x + 9, y + 2), str(c + 1), fill="#ffd400", font=f_num)
                 # nome do arquivo: diz de qual personagem/vídeo o candidato vem
-                rotulo = cand["nome"] + (f" {cand['inicio']:.0f}-{cand['fim']:.0f}s" if cand["tipo"] == "tomada" else "")
+                rotulo = cand["nome"] + (f" {cand['inicio']:.0f}-{cand['fim']:.0f}s"  # clipe posto à mão: sem início/fim
+                                         if cand["tipo"] == "tomada" and "inicio" in cand and "fim" in cand else "")
                 d.rectangle([x, y + H - 20, x + W, y + H], fill="#000")
                 d.text((x + 4, y + H - 19), rotulo[:38], fill="#bbbbbb", font=f_texto)
         arq = destino / f"candidatos_{i // por_folha + 1:02d}.jpg"
@@ -264,13 +265,15 @@ def _manual(c: dict) -> bool:
 
 
 def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: list[dict] | None = None,
-             escolhas: dict | None = None) -> tuple[list[dict], list[dict], list[Path]]:
+             escolhas: dict | None = None, blocos_iguais: set[str] | None = None) -> tuple[list[dict], list[dict], list[Path]]:
     """Candidatos de todas as necessidades + quais ainda precisam da escolha do Claude. Devolve (todas, as que
     precisam de escolha, folhas só dessas). Por cena:
       escolha feita e busca igual        → reaproveita candidatos e escolha (a escolha aponta para a POSIÇÃO)
       "folha não recebida" (falha nossa) → mesmos candidatos, volta para a escolha
       recusada de verdade                → busca de novo; só volta ao Claude se vierem candidatos DIFERENTES
-      nova ou busca mudou                → busca e escolha"""
+      nova ou busca mudou                → busca e escolha
+    `blocos_iguais`: capítulos que não mudaram nesta direção — recusa neles continua valendo (blocos desacoplados:
+    mexer num capítulo não pode trocar imagem/enquadramento dos outros nem gastar cota com eles)."""
     import shutil
 
     from escolher import NAO_VIU
@@ -278,6 +281,7 @@ def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: 
     escolhas = escolhas or {}
     ac = Acervo(abrir_acervo())
     velhas = {n["id"]: n for n in (anteriores or [])}
+    bloco_da_cena = {id_da_cena(c, k): c.get("secao") for k, c in enumerate(plano.get("cenas", []))}
     necs, sem_escolha = [], []
     for n in necessidades(plano, frases):
         v = velhas.get(n["id"])
@@ -288,6 +292,8 @@ def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: 
         elif mesma and e and NAO_VIU.search(e.get("motivo") or ""):
             n["candidatos"] = v["candidatos"]
             sem_escolha.append(n)
+        elif mesma and e and bloco_da_cena.get(n.get("cena")) in (blocos_iguais or set()):
+            n["candidatos"] = v["candidatos"]  # capítulo intocado: fica como estava
         elif mesma and e:  # recusada: a busca melhorou?
             n["candidatos"] = buscar(ac, n)
             if [c["id"] for c in n["candidatos"]] != [c["id"] for c in v["candidatos"]]:

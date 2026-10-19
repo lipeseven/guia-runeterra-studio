@@ -358,7 +358,8 @@ def tarefa_direcao(vid: int) -> None:
 
     passo(3, "buscando mídias no acervo")
     escolhas_velhas = ler(arq_esc) or {}
-    necs, sem_escolha, folhas = preparar(plano, frases, trab, ler(arq_cand), escolhas_velhas)
+    iguais = {b["id"] for b in plano.get("blocos", []) if (b["titulo"] or "introdução") in rel["iguais"]}
+    necs, sem_escolha, folhas = preparar(plano, frases, trab, ler(arq_cand), escolhas_velhas, blocos_iguais=iguais)
     arq_cand.write_text(json.dumps(necs, ensure_ascii=False, indent=1), encoding="utf-8")
     ids = {n["id"] for n in necs}
     escolhas = {k: v for k, v in escolhas_velhas.items() if k in ids}  # cenas que sumiram saem
