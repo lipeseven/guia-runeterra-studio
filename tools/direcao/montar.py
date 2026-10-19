@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import PASTA_ACERVO, abrir_acervo, preparar_ffmpeg  # noqa: E402
+from comum import DADOS_ACERVO, PASTA_ACERVO, abrir_acervo, preparar_ffmpeg  # noqa: E402
 from direcao.variacao import Variador  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -131,7 +131,7 @@ def _setas_do_acervo() -> list[tuple[Path, float]]:
     y para baixo): pela forma — a ponta é a extremidade mais "pesada" do eixo principal."""
     import numpy as np
 
-    destino = RAIZ / "dados" / "acervo" / "derivados"
+    destino = DADOS_ACERVO / "derivados"
     destino.mkdir(parents=True, exist_ok=True)
     saida = []
     for f in sorted(PASTA_ACERVO.iterdir()):
@@ -173,7 +173,7 @@ def _posicao_citacao(c: dict) -> dict:
 
 def _fundo_branco() -> Path:
     """Imagem branca 1920x1080 (fundo do canal) para mosaico sem imagem de fundo."""
-    arq = RAIZ / "dados" / "acervo" / "derivados" / "fundo_branco.png"
+    arq = DADOS_ACERVO / "derivados" / "fundo_branco.png"
     if not arq.exists():
         arq.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (1920, 1080), (255, 255, 255)).save(arq)

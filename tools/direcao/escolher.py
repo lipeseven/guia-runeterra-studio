@@ -7,11 +7,15 @@ folhas: 161 respostas "folha não recebida"). Cada lote leva poucas folhas; o qu
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 from claude_cli import chamar_json
 
-SISTEMA = """Você é o diretor visual do canal "Guia de Runeterra" (lore de League of Legends) escolhendo imagens.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from canal import CANAL  # noqa: E402
+
+SISTEMA = f"""Você é o diretor visual do canal "{CANAL['nome']}" ({CANAL['assunto']}) escolhendo imagens.
 Cada linha das folhas é uma necessidade (id em amarelo, a frase narrada e a legenda) com até 4 candidatos numerados.
 Critérios, em ordem:
 1. A imagem ilustra o SENTIDO da frase no contexto (metáforas não são literais).

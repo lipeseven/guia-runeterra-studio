@@ -19,12 +19,17 @@ import sys
 import threading
 from pathlib import Path
 
-from .banco import RAIZ, agora
+from .banco import CANAL, RAIZ, agora, caminho
 
 sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
-CACHE_WEB = RAIZ / "dados" / "pesquisa_cache"
+CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/pesquisa_cache
 WIKI = "https://leagueoflegends.fandom.com/api.php"
+BULBAPEDIA = "https://bulbapedia.bulbagarden.net/w/api.php"
+# fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
+FONTES = {"lol": {"wiki": WIKI, "nome": "wiki do LoL / biografia oficial", "quem": "campeões envolvidos"},
+          "pokemon": {"wiki": BULBAPEDIA, "nome": "Bulbapedia / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
+FONTE = FONTES[CANAL.get("fatos", "lol")]
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/en_us/champions/{slug}/index.json"
 AGENTE = {"User-Agent": "GuiaRuneterraStudio/1.0 (uso pessoal; conferencia de roteiro)"}
 QUASE_IGUAL, PARECIDA = 0.78, 0.70  # cosseno entre frases (medido: tradução literal PT×EN ≈ 0,75–0,9; assunto igual ≈ 0,5)
@@ -99,12 +104,12 @@ def _limpar_wikitexto(t: str) -> str:
 
 
 def _wiki(busca: str) -> list[tuple[str, str]]:
-    """(fonte, texto) das 2 páginas da wiki mais relevantes para a busca."""
-    r = _baixar(WIKI, {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 2})
+    """(fonte, texto) das 2 páginas da wiki do canal mais relevantes para a busca."""
+    r = _baixar(FONTE["wiki"], {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 2})
     saida = []
     for item in ((r or {}).get("query") or {}).get("search", []):
         titulo = item["title"]
-        p = _baixar(WIKI, {"action": "query", "prop": "revisions", "rvprop": "content", "rvslots": "main",
+        p = _baixar(FONTE["wiki"], {"action": "query", "prop": "revisions", "rvprop": "content", "rvslots": "main",
                            "titles": titulo, "format": "json", "formatversion": 2})
         try:
             texto = p["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
@@ -136,7 +141,23 @@ def _trechos(fontes: list[tuple[str, str]]) -> list[tuple[str, str]]:
 
 
 # ------------------------------------------------------------------------------------------------ fatos
-SISTEMA = ("Você confere roteiros do canal \"Guia de Runeterra\" (lore de League of Legends). Responda SOMENTE JSON.")
+SISTEMA = f"Você confere roteiros do canal \"{CANAL['nome']}\" ({CANAL['assunto']}). Responda SOMENTE JSON."
+
+
+def _pokedex(nome: str) -> list[tuple[str, str]]:
+    """Ficha da Pokédex local (PokeAPI) do Pokémon citado — dados oficiais de tipo, geração, evolução."""
+    arq = RAIZ / "dados" / "canais" / "pokemon" / "pokedex.json"
+    if not arq.exists():
+        return []
+    alvo = re.sub(r"[^a-z0-9]", "", nome.lower())
+    for e in json.loads(arq.read_text(encoding="utf-8")):
+        if re.sub(r"[^a-z0-9]", "", e["nome"].lower()) == alvo:
+            texto = (f"{e['nome']} (#{e['numero']}), {e['categoria_en']}, tipos {'/'.join(e['tipos'])}, "
+                     f"geração {e['geracao']} ({e['regiao']}), "
+                     f"{'lendário' if e['lendario'] else 'mítico' if e['mitico'] else 'comum'}"
+                     + (f", evolui de {e['evolui_de']}" if e['evolui_de'] else "") + f". Pokédex: {e['pokedex_en']}")
+            return [(f"Pokédex: {e['nome']}", texto)]
+    return []
 
 
 def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
@@ -150,7 +171,7 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
         r = chamar_json(
             "Liste as afirmações de LORE checáveis destes parágrafos (nomes, datas, eras, quem fez o quê, parentesco, "
             "lugares). Ignore piadas, opiniões, ganchos e comentários do narrador. No máximo 4 por parágrafo, só as "
-            "que importam. Para cada uma, dê termos de busca em INGLÊS para a wiki do LoL e os campeões envolvidos.\n\n"
+            f"que importam. Para cada uma, dê termos de busca em INGLÊS para a wiki ({FONTE['nome']}) e os {FONTE['quem']}.\n\n"
             + "\n\n".join(f"[{i}] {p}" for i, p in novos)
             + '\n\nJSON: {"afirmacoes": [{"p": 0, "trecho": "palavras do roteiro", "afirmacao": "o fato, curto", '
               '"busca": "english search terms", "campeoes": ["Mordekaiser"]}]}',
@@ -161,7 +182,7 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
         for k, a in enumerate(afirm):
             fontes = _wiki(a.get("busca") or a["afirmacao"])
             for c in (a.get("campeoes") or [])[:2]:
-                fontes += _universe(c)
+                fontes += _universe(c) if CANAL.get("fatos", "lol") == "lol" else _pokedex(c)
             tr = _trechos(fontes)
             escolhidos = []
             if tr:
@@ -176,7 +197,7 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
         if afirm:
             aviso("comparando com as fontes")
             v = chamar_json(
-                "Para cada afirmação do roteiro, compare com os trechos das fontes (wiki do LoL / biografia oficial):\n"
+                f"Para cada afirmação do roteiro, compare com os trechos das fontes ({FONTE['nome']}):\n"
                 "- confere: os trechos sustentam o essencial da afirmação (detalhe a mais sem fonte não impede);\n"
                 "- diverge: os trechos CONTRADIZEM a afirmação (outra data, outro autor, outro lugar) — explique;\n"
                 "- sem_fonte: os trechos não falam disso, ou só de parte (não julgue pelo seu conhecimento).\n"

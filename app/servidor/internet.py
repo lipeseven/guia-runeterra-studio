@@ -12,7 +12,6 @@ from pathlib import Path
 
 from .banco import RAIZ
 
-PASTA = RAIZ / "dados" / "acervo_internet" / "busca"
 AGENTE = {"User-Agent": "Mozilla/5.0 (GuiaRuneterraStudio; uso pessoal)"}
 EXTS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image/gif": ".gif"}
 
@@ -70,8 +69,12 @@ def baixar(url: str, titulo: str = "", pagina: str = "", fonte: str = "", licenc
     if ext not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
         raise ValueError("o link não é uma imagem (jpg, png, webp ou gif)")
     base = re.sub(r"[^a-z0-9]+", "-", (titulo or Path(url).stem).lower())[:40].strip("-") or "imagem"
-    PASTA.mkdir(parents=True, exist_ok=True)
-    arq = PASTA / f"{base}-{hashlib.sha1(url.encode()).hexdigest()[:8]}{ext}"
+    sys.path.insert(0, str(RAIZ / "tools"))
+    from comum import PASTA_INTERNET
+
+    pasta = PASTA_INTERNET / "busca"
+    pasta.mkdir(parents=True, exist_ok=True)
+    arq = pasta / f"{base}-{hashlib.sha1(url.encode()).hexdigest()[:8]}{ext}"
     arq.write_bytes(r.content)
 
     sys.path.insert(0, str(RAIZ / "tools"))
@@ -99,4 +102,5 @@ def baixar(url: str, titulo: str = "", pagina: str = "", fonte: str = "", licenc
     PASTA_MINIATURAS.mkdir(parents=True, exist_ok=True)
     if mini is not None:
         mini.save(PASTA_MINIATURAS / f"{mid}.jpg", quality=85)
-    return {"midia_id": mid, "nome": arq.name, "miniatura": f"dados/acervo/miniaturas/{mid}.jpg"}
+    return {"midia_id": mid, "nome": arq.name,
+            "miniatura": (PASTA_MINIATURAS / f"{mid}.jpg").relative_to(RAIZ).as_posix()}

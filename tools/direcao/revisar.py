@@ -14,7 +14,7 @@ from pathlib import Path
 from candidatos import Acervo, abrir_acervo, buscar, escolha_fixa, folhas, id_da_cena, necessidades
 from claude_cli import chamar_json
 from escolher import escolher
-from planejar import FORMATO, SISTEMA, TIPOS
+from planejar import FORMATO, TIPOS, sistema_do_diretor
 
 RAIZ = Path(__file__).resolve().parents[2]
 
@@ -46,7 +46,9 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
     """Atualiza plano/necs/escolhas/ajustes NO LUGAR para as cenas `ids` (ids estáveis das cenas).
     `montadas` = cenas do rascunho atual por id ({"de", "ate"} em palavras): define o trecho que o Felipe viu."""
     montadas = montadas or {}
-    regras = (RAIZ / "docs" / "regras_de_direcao.md").read_text(encoding="utf-8")
+    from canal import caminho
+
+    regras = (caminho("docs") / "regras_de_direcao.md").read_text(encoding="utf-8")
     por_id = {id_da_cena(c, k): k for k, c in enumerate(plano["cenas"])}
     ids = [i for i in ids if i in por_id]
     pedidos, trechos = [], {}
@@ -75,7 +77,7 @@ def revisar(plano: dict, frases: list[dict], necs: list[dict], escolhas: dict, a
               f"PEDIDOS:\n{json.dumps(pedidos, ensure_ascii=False, indent=1)}\n\n"
               'Responda: {"cenas": {"<id da cena>": {cena} ou [{cena}, {cena}, ...]}}\n\n'
               "Formato de cada cena (referência):\n" + FORMATO)
-    novas = chamar_json(prompt, SISTEMA.format(regras=regras), modelo="opus", etiqueta="direcao-revisao")["cenas"]
+    novas = chamar_json(prompt, sistema_do_diretor(regras), modelo="opus", etiqueta="direcao-revisao")["cenas"]
 
     afetados: list[str] = []
     manter_imagem: set[str] = set()  # pedido que não é sobre a imagem: a imagem da cena fica a mesma

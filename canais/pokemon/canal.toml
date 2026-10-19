@@ -1,0 +1,20 @@
+# Perfil do canal Pokémon (nome a definir). Não conhece o Guia de Runeterra: só compartilha o motor.
+chave = "pokemon"
+nome = "Pokémon"
+porta = 8766
+assunto = "o universo Pokémon (jogos, anime, lendas e curiosidades)"
+personagens_de = "Pokémon (espécies, treinadores e personagens)"
+exemplo_secao = '"Mewtwo.", "Os Lendários de Kanto."'
+fatos = "pokemon"                           # Bulbapedia + Pokédex local (PokeAPI)
+aviso_legal = "pokemon"
+exemplo_titulo = "Todos os Pokémon LENDÁRIOS Explicados em 20 minutos"
+glossario = "Pokémon, Pokédex, Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea"
+
+[pastas]
+acervo = "dados/canais/pokemon/acervo_felipe"   # pasta para imagens suas, se quiser (pode ficar vazia)
+dados_acervo = "dados/canais/pokemon/acervo"
+banco_acervo = "dados/canais/pokemon/acervo.db"
+internet = "dados/canais/pokemon/acervo_internet"
+projetos = "projetos_pokemon"
+studio = "dados/canais/pokemon/studio.db"
+docs = "canais/pokemon/docs"

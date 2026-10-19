@@ -12,8 +12,15 @@ from .banco import RAIZ
 sys.path.insert(0, str(RAIZ / "tools"))
 sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
-AVISO_RIOT = ("O Guia de Runeterra foi criado sob a política “Legal Jibber Jabber” da Riot Games, usando recursos "
-              "pertencentes à Riot Games. A Riot Games não endossa nem patrocina este projeto.")
+from canal import CANAL  # noqa: E402
+
+AVISOS = {  # aviso legal no fim da descrição, por canal (canal.toml: aviso_legal)
+    "riot": ("O Guia de Runeterra foi criado sob a política “Legal Jibber Jabber” da Riot Games, usando recursos "
+             "pertencentes à Riot Games. A Riot Games não endossa nem patrocina este projeto."),
+    "pokemon": ("Pokémon e todos os nomes, imagens e marcas relacionados pertencem à Nintendo, Creatures Inc. e "
+                "GAME FREAK inc. Este é um canal de fã, sem fins de afiliação, não endossado pelas empresas."),
+}
+AVISO_LEGAL = AVISOS.get(CANAL.get("aviso_legal", ""), "")
 
 
 def _mmss(s: float) -> str:
@@ -105,9 +112,9 @@ def creditos(ids: list[int]) -> list[str]:
     return sorted(set(linhas))
 
 
-SISTEMA = """Você escreve os textos de YouTube do canal brasileiro "Guia de Runeterra" (lore de League of Legends).
+SISTEMA = f"""Você escreve os textos de YouTube do canal brasileiro "{CANAL['nome']}" ({CANAL['assunto']}).
 Tom: português do Brasil, natural, curioso, sem clickbait mentiroso, sem emojis em excesso.
-Padrão de título que funciona no canal: "Todos os DEMÔNIOS de League of Legends Explicados em 22 minutos"
+Padrão de título que funciona no canal: "{CANAL['exemplo_titulo']}"
 (tema forte, uma palavra em CAIXA ALTA no máximo, promessa clara, até ~70 caracteres).
 Responda SOMENTE com JSON."""
 
@@ -135,7 +142,8 @@ def gerar_textos(pasta: Path, titulo_card: str, duracao: float) -> dict:
     cred_sons = creditos_sons(sons_usados(pasta))
     if cred_sons:
         partes.append("Efeitos sonoros (freesound.org):\n" + "\n".join(f"• {c}" for c in cred_sons))
-    partes.append(AVISO_RIOT)
+    if AVISO_LEGAL:
+        partes.append(AVISO_LEGAL)
     return {"titulos": r["titulos"], "titulo": r["titulos"][0], "descricao": "\n\n".join(partes),
             "tags": r["tags"], "comentario_fixado": r.get("comentario_fixado", ""), "capitulos": caps,
             "midias_usadas": len(ids)}

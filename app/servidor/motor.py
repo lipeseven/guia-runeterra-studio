@@ -14,12 +14,12 @@ import time
 import traceback
 from pathlib import Path
 
-from .banco import RAIZ, agora, atualizar_etapa, conectar, registrar
+from .banco import RAIZ, agora, caminho, atualizar_etapa, conectar, registrar
 
 sys.path.insert(0, str(RAIZ / "tools"))
 sys.path.insert(0, str(RAIZ / "tools" / "audio"))
 
-PASTA_PROJETOS = RAIZ / "projetos"
+PASTA_PROJETOS = caminho("projetos")
 PPM_FELIPE = 162
 SUBPASTAS = ("entrada", "trabalho", "direcao", "saida")
 
@@ -836,7 +836,9 @@ def tarefa_clipes(_vid: int) -> None:
     from comum import preparar_ffmpeg
 
     preparar_ffmpeg()
-    pasta = RAIZ / "dados" / "acervo_internet" / "clipes"
+    from comum import PASTA_INTERNET
+
+    pasta = PASTA_INTERNET / "clipes"
     pasta.mkdir(parents=True, exist_ok=True)
     baixados = []
     while CLIPES_PEDIDOS:
@@ -894,6 +896,38 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": t
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
            "importar_riot": tarefa_importar_riot}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
+
+
+class _TravaGlobal:
+    """Uma tarefa por vez na MÁQUINA: cada canal roda o motor no próprio servidor, mas a GPU/CPU é uma só. Trava de
+    arquivo (dados/motor.lock) compartilhada entre os processos; quem chega depois espera a vez."""
+
+    def __enter__(self):
+        import msvcrt
+
+        arq = RAIZ / "dados" / "motor.lock"
+        arq.parent.mkdir(parents=True, exist_ok=True)
+        self.f = open(arq, "a+b")
+        avisou = False
+        while True:
+            try:
+                self.f.seek(0)
+                msvcrt.locking(self.f.fileno(), msvcrt.LK_NBLCK, 1)
+                return self
+            except OSError:
+                if not avisou:
+                    definir_progresso("Aguardando", "o outro canal está usando o motor; esta tarefa vem em seguida")
+                    avisou = True
+                time.sleep(2)
+
+    def __exit__(self, *_):
+        import msvcrt
+
+        try:
+            self.f.seek(0)
+            msvcrt.locking(self.f.fileno(), msvcrt.LK_UNLCK, 1)
+        finally:
+            self.f.close()
 ESTADO = {"executando": None}
 
 
@@ -905,7 +939,8 @@ def _trabalhador() -> None:
         if vid == 0:  # tarefa global (acervo): não pertence a nenhum card
             ESTADO["executando"] = {"video": 0, "tarefa": nome, "desde": agora()}
             try:
-                TAREFAS[nome](vid)
+                with _TravaGlobal():
+                    TAREFAS[nome](vid)
             except Exception:
                 traceback.print_exc()
             finally:
@@ -917,7 +952,8 @@ def _trabalhador() -> None:
             continue
         ESTADO["executando"] = {"video": vid, "tarefa": nome, "desde": agora()}
         try:
-            TAREFAS[nome](vid)
+            with _TravaGlobal():
+                TAREFAS[nome](vid)
         except Exception as e:  # erro vira pendência visível, nunca some em silêncio
             traceback.print_exc()
             with conectar() as con:

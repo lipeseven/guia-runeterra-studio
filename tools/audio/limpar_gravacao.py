@@ -33,6 +33,11 @@ SR = 48000
 GLOSSARIO = ("Runeterra, Fiddlesticks, Azakana, Nocturne, Tahm Kench, Evelynn, Raum, Camphor, Tybaulk, "
              "Atakhan, Ashlesh, Darkin, Aatrox, Xolaani, Zaahen, Rhaast, Varus, Naafiri, Kinkou, Yone, "
              "Ionia, Noxus, Demacia, Freljord, Shurima, Targon, Ixtal, Zaun, Piltover, Vazio")
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from canal import CANAL  # noqa: E402
+
+if CANAL["chave"] != "runeterra":  # glossário do canal (canal.toml); o resto vem do próprio roteiro
+    GLOSSARIO = CANAL.get("glossario", "")
 
 PAUSA_MAX_FIM_FRASE = 0.80  # pausa dramática preservada até aqui
 PAUSA_MAX_MEIO = 0.45

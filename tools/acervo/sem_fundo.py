@@ -16,9 +16,9 @@ import numpy as np
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import RAIZ  # noqa: E402
+from comum import DADOS_ACERVO, RAIZ  # noqa: E402
 
-DERIVADOS = RAIZ / "dados" / "acervo" / "derivados"
+DERIVADOS = DADOS_ACERVO / "derivados"
 
 
 def remover_fundo(origem: Path, destino: Path, tolerancia: float = 42.0) -> Path:

@@ -21,11 +21,11 @@ from pathlib import Path
 import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import RAIZ, abrir_acervo  # noqa: E402
+from comum import PASTA_INTERNET, RAIZ, abrir_acervo  # noqa: E402
 
 CDRAGON = "https://raw.communitydragon.org/latest/plugins/rcp-be-lol-game-data/global/"
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/pt_br/champions/{slug}/index.json"
-DESTINO = RAIZ / "dados" / "acervo_internet" / "riot" / "splash"
+DESTINO = PASTA_INTERNET / "riot" / "splash"
 LICENCA = "Riot Games — Legal Jibber Jabber (uso de fã)"
 
 

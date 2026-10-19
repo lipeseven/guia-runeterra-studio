@@ -47,7 +47,17 @@ async def _ciclo_de_vida(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Guia de Runeterra Studio", lifespan=_ciclo_de_vida)
+from .banco import CANAL  # noqa: E402
+
+app = FastAPI(title=f"{CANAL['nome']} Studio", lifespan=_ciclo_de_vida)
+
+
+@app.get("/api/canal")
+def ver_canal():
+    """Canal deste servidor + a lista de canais (só nome e porta) para o seletor do painel."""
+    from canal import todos
+
+    return {"chave": CANAL["chave"], "nome": CANAL["nome"], "porta": CANAL["porta"], "canais": todos()}
 motor.iniciar()
 
 

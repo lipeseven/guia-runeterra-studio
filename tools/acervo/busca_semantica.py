@@ -18,10 +18,10 @@ import torch
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import PASTA_MINIATURAS, RAIZ, abrir_acervo  # noqa: E402
+from comum import DADOS_ACERVO, PASTA_MINIATURAS, RAIZ, abrir_acervo  # noqa: E402
 
 MODELO, PESOS = "ViT-L-14", "laion2b_s32b_b82k"
-ARQUIVO = RAIZ / "dados" / "acervo" / "clip.npz"
+ARQUIVO = DADOS_ACERVO / "clip.npz"
 DISPOSITIVO = "cuda" if torch.cuda.is_available() else "cpu"
 
 _cache: dict = {}

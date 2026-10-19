@@ -7,9 +7,13 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from pathlib import Path
 
 from claude_cli import chamar_json
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from canal import CANAL, caminho  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[2]
 TIPOS = ("capa", "hub", "cartao", "telacheia", "recorte", "mosaico", "clipe", "dialogo",
@@ -36,7 +40,7 @@ def frases_do_roteiro(texto: str, palavras: list[dict]) -> list[dict]:
     return frases
 
 
-SISTEMA = """Você é o diretor visual do canal brasileiro "Guia de Runeterra" (lore de League of Legends).
+SISTEMA = """Você é o diretor visual do canal brasileiro "{canal}" ({assunto}).
 Transforma o roteiro narrado em uma lista de cenas para um editor automático. Responda SOMENTE com JSON.
 
 {regras}
@@ -96,10 +100,17 @@ Transforma o roteiro narrado em uma lista de cenas para um editor automático. R
 
 === COMO DESCREVER A BUSCA ===
 "busca.o_que" é a descrição VISUAL, em inglês, do que a imagem deve mostrar segundo o SENTIDO da frase
-(metáforas não são literais). "busca.personagens" são nomes de LoL que devem aparecer (pode ser vazio).
+(metáforas não são literais). "busca.personagens" são nomes de {personagens_de} que devem aparecer (pode ser vazio).
 "busca.categorias" prefere entre: splash, arte, recorte, icone, meme, foto, mapa, hq, cinematica, carta.
 Para "clipe", a busca descreve a ação da tomada.
 """
+
+
+def sistema_do_diretor(regras: str) -> str:
+    """Prompt do diretor com a identidade do canal deste processo (canais/<chave>/canal.toml)."""
+    return SISTEMA.format(regras=regras, canal=CANAL["nome"], assunto=CANAL["assunto"],
+                          personagens_de="LoL" if CANAL["chave"] == "runeterra" else CANAL["personagens_de"])
+
 
 FORMATO = """Responda com este JSON. OMITA os campos que não se aplicam (nada de null, [] ou "" à toa: JSON enxuto).
 {
@@ -195,7 +206,7 @@ def pecas_da_cena(c: dict) -> list[dict]:
 #   bloco novo/reescrito    → só ele volta para o Claude
 # Cada cena tem um "id" estável: escolhas de imagem, candidatos e ajustes do storyboard são guardados por id.
 
-SISTEMA_SEGMENTAR = """Você divide roteiros do canal "Guia de Runeterra" em seções. Responda SOMENTE com JSON."""
+SISTEMA_SEGMENTAR = f"""Você divide roteiros do canal "{CANAL['nome']}" em seções. Responda SOMENTE com JSON."""
 
 
 def _norm_frase(t: str) -> str:
@@ -419,8 +430,8 @@ def _contexto_bloco(b: dict, blocos: list[dict], tipos_antes: dict[str, int]) ->
 
 def planejar_bloco(b: dict, frases_bloco: list[dict], nomes_capa: list[str], contexto: str,
                    modelo: str = "opus") -> dict:
-    regras = (RAIZ / "docs" / "regras_de_direcao.md").read_text(encoding="utf-8")
-    sistema = SISTEMA.format(regras=regras)
+    regras = (caminho("docs") / "regras_de_direcao.md").read_text(encoding="utf-8")
+    sistema = sistema_do_diretor(regras)
     prompt = montar_prompt(frases_bloco, nomes_capa, contexto)
     plano = chamar_json(prompt, sistema, modelo=modelo, etiqueta=f"direcao-plano:{b['id']}")
     problemas = validar(plano, frases_bloco)

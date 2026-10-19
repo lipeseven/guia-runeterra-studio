@@ -20,10 +20,10 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import PASTA_ACERVO, RAIZ, abrir_acervo, preparar_ffmpeg  # noqa: E402
+from comum import DADOS_ACERVO, PASTA_ACERVO, RAIZ, abrir_acervo, preparar_ffmpeg  # noqa: E402
 
-PASTA_TOMADAS = RAIZ / "dados" / "acervo" / "tomadas"
-ARQUIVO = RAIZ / "dados" / "acervo" / "clip_tomadas.npz"
+PASTA_TOMADAS = DADOS_ACERVO / "tomadas"
+ARQUIVO = DADOS_ACERVO / "clip_tomadas.npz"
 LIMIAR = 0.30
 MINIMA = 0.6  # tomadas mais curtas que isso (flashes, transições) não entram
 

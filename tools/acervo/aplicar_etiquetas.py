@@ -16,9 +16,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import RAIZ, abrir_acervo  # noqa: E402
+from comum import DADOS_ACERVO, RAIZ, abrir_acervo  # noqa: E402
 
-PASTA = RAIZ / "dados" / "acervo" / "etiquetas"
+PASTA = DADOS_ACERVO / "etiquetas"
 CATEGORIAS = {"splash", "arte", "icone", "recorte", "meme", "foto", "mapa", "hq", "cinematica",
               "gameplay", "carta", "texto", "canal", "fundo"}
 

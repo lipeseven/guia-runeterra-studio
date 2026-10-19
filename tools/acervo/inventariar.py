@@ -21,7 +21,7 @@ import imagehash
 from PIL import Image, ImageOps
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import PASTA_ACERVO, PASTA_MINIATURAS, CONFIG, RAIZ, abrir_acervo, preparar_ffmpeg  # noqa: E402
+from comum import PASTA_ACERVO, PASTA_INTERNET, PASTA_MINIATURAS, CONFIG, RAIZ, abrir_acervo, preparar_ffmpeg  # noqa: E402
 
 TIPOS = {
     ".jpg": "imagem", ".jpeg": "imagem", ".jfif": "imagem", ".jpg_large": "imagem",
@@ -84,7 +84,7 @@ def sobre_branco(img: Image.Image) -> Image.Image:
 
 # Acervo baixado da internet (importadores, busca no storyboard): fora da pasta do Felipe, que só é lida. O caminho
 # fica ABSOLUTO no banco — `PASTA_ACERVO / caminho` continua funcionando em todo o sistema.
-PASTAS_EXTRA = [RAIZ / "dados" / "acervo_internet"]
+PASTAS_EXTRA = [PASTA_INTERNET]
 
 
 def caminho_no_banco(p: Path) -> str:

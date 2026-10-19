@@ -20,8 +20,10 @@ PPM = 162  # palavras por minuto narrado do Felipe
 
 
 def _sistema() -> str:
-    estilo = (RAIZ / "docs" / "estilo_roteiro.md").read_text(encoding="utf-8")
-    return ("Você é o roteirista do canal brasileiro de YouTube \"Guia de Runeterra\" (lore de League of Legends). "
+    from .banco import CANAL, caminho
+
+    estilo = (caminho("docs") / "estilo_roteiro.md").read_text(encoding="utf-8")
+    return (f"Você é o roteirista do canal brasileiro de YouTube \"{CANAL['nome']}\" ({CANAL['assunto']}). "
             "Escreve roteiros para o Felipe NARRAR com a própria voz.\n\n" + estilo)
 
 
@@ -44,7 +46,7 @@ def gerar(titulo: str, minutos: float, notas: str, base: str | None) -> str:
         partes.append(f"Orientações do Felipe para este vídeo:\n{notas.strip()}")
     if base and base.strip():
         partes.append("ROTEIRO BASE (fonte de FATOS e temas — NÃO traduza frases, piadas, ganchos ou analogias; "
-                      "reestruture e escreva do jeito do Guia de Runeterra):\n<<<\n" + base.strip()[:60000] + "\n>>>")
+                      "reestruture e escreva do jeito do canal):\n<<<\n" + base.strip()[:60000] + "\n>>>")
     partes.append("Escreva o roteiro COMPLETO agora, no formato do canal. Responda SOMENTE com o texto do roteiro.")
     texto = chamar("\n\n".join(partes), _sistema(), modelo="opus", etiqueta="roteiro-gerar", timeout=1500)
     return _limpar(texto)

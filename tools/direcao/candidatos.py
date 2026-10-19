@@ -9,10 +9,10 @@ from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "acervo"))
-from comum import PASTA_ACERVO, PASTA_MINIATURAS, abrir_acervo  # noqa: E402
+from comum import DADOS_ACERVO, PASTA_ACERVO, PASTA_MINIATURAS, abrir_acervo  # noqa: E402
 
 POR_NECESSIDADE = 4
-PASTA_TOMADAS = Path(__file__).resolve().parents[2] / "dados" / "acervo" / "tomadas"
+PASTA_TOMADAS = DADOS_ACERVO / "tomadas"
 
 
 SEM_MIDIA = ("capa", "hub", "dialogo", "texto")

@@ -8,8 +8,8 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { AlertTriangle, Lock, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { AlertTriangle, ChevronDown, Lock, Plus } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { api, arquivo, AVISO_PUBLICAR, quando, useAoVivo, type Coluna, type Motor, type Status, type VideoResumo } from '../api'
 import { FUNDO } from '../componentes/Estado'
 import { MenuCard } from '../componentes/MenuCard'
@@ -42,7 +42,7 @@ export function Quadro() {
   return (
     <Moldura trilha={<span className="text-texto">Quadro de vídeos</span>}>
       <div className="px-6 pt-6 pb-3">
-        <h1 className="font-titulo text-4xl font-medium tracking-tight">Guia de Runeterra</h1>
+        <SeletorDeCanal />
         <p className="mt-1 font-mono text-xs text-suave">
           {dados ? `${dados.videos.length} vídeos · arraste os cards entre as colunas` : 'carregando…'}
         </p>
@@ -67,6 +67,43 @@ export function Quadro() {
         <DragOverlay dropAnimation={null}>{arrastando && <CardVideo video={arrastando} flutuando />}</DragOverlay>
       </DndContext>
     </Moldura>
+  )
+}
+
+type Canal = { chave: string; nome: string; porta: number; canais: { chave: string; nome: string; porta: number }[] }
+
+/** Nome do canal deste servidor; os outros canais abrem no servidor deles (os canais não se misturam). */
+function SeletorDeCanal() {
+  const [canal, setCanal] = useState<Canal | null>(null)
+  const [aberto, setAberto] = useState(false)
+  useEffect(() => {
+    api<Canal>('/canal').then((c) => {
+      setCanal(c)
+      document.title = `${c.nome} Studio`
+    })
+  }, [])
+  const outros = (canal?.canais ?? []).filter((c) => c.chave !== canal?.chave)
+  return (
+    <div className="relative inline-block">
+      <button onClick={() => outros.length && setAberto(!aberto)} className="flex items-center gap-2">
+        <h1 className="font-titulo text-4xl font-medium tracking-tight">{canal?.nome ?? '…'}</h1>
+        {outros.length > 0 && <ChevronDown className="mt-1 size-5 text-suave" />}
+      </button>
+      {aberto && (
+        <div className="absolute left-0 top-full z-40 mt-1 min-w-56 rounded-lg border border-borda bg-painel p-1 shadow-xl">
+          {outros.map((c) => (
+            <a
+              key={c.chave}
+              href={`http://127.0.0.1:${c.porta}/`}
+              className="block rounded px-3 py-2 text-sm hover:bg-painel-2"
+              title="Abre o painel deste canal (servidor próprio). Se não abrir, ligue o canal pelo iniciar.bat."
+            >
+              {c.nome}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
 

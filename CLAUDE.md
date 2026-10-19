@@ -128,6 +128,13 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   que o Felipe já tem; tarefa "importar_riot"). Storyboard: "buscar na internet" (`app/servidor/internet.py`:
   DuckDuckGo `ddgs` + Wikimedia Commons; baixa e cataloga na hora) e "colar link" de vídeo (yt-dlp → tomadas, tarefa
   "clipes"). Gravação por capítulos: vários arquivos em entrada/ são juntados na ordem dos nomes.
+- **Perfil de canal ✅ (2026-10-19)**: os canais NÃO se conhecem — cada um roda o MESMO código num servidor próprio
+  com `GRS_CANAL=<chave>` (`canais/<chave>/canal.toml`: nome, porta, assunto, pastas de acervo/banco/projetos/docs,
+  fontes de fatos, aviso legal). `tools/canal.py` (CANAL, caminho) alimenta `comum.py`, `banco.py`, `motor.py`,
+  prompts (planejar/escolher/revisar/roteirista/publicacao/conferencia). Sem GRS_CANAL = runeterra, caminhos de
+  sempre (`iniciar.bat`, porta 8765). Pokémon: `iniciar_pokemon.bat` (porta 8766), dados em dados/canais/pokemon/,
+  projetos em projetos_pokemon/, docs em canais/pokemon/docs/, `tools/pokemon/` (pokedex.py, preparar_canal.py).
+  Trava `dados/motor.lock` = uma tarefa por vez na máquina entre os canais. Seletor de canal no título do quadro.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

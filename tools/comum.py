@@ -10,9 +10,14 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 CONFIG = tomllib.loads((RAIZ / "projeto.toml").read_text(encoding="utf-8"))
 
-PASTA_ACERVO = Path(CONFIG["pastas"]["acervo"])
-BANCO_ACERVO = RAIZ / CONFIG["acervo"]["banco"]
-PASTA_MINIATURAS = RAIZ / CONFIG["acervo"]["miniaturas"]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from canal import CANAL, caminho  # noqa: E402  (perfil do canal deste processo: GRS_CANAL)
+
+PASTA_ACERVO = caminho("acervo")  # pasta do Felipe (só leitura)
+DADOS_ACERVO = caminho("dados_acervo")  # miniaturas, índices CLIP, tomadas, derivados — do canal
+BANCO_ACERVO = caminho("banco_acervo")
+PASTA_MINIATURAS = DADOS_ACERVO / "miniaturas"
+PASTA_INTERNET = caminho("internet")  # mídias baixadas da internet (fora da pasta do Felipe)
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS midias (

@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+import sys
 import unicodedata
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +12,11 @@ from pathlib import Path
 from .etapas import ETAPAS, EM_BREVE
 
 RAIZ = Path(__file__).resolve().parents[2]
-BANCO = RAIZ / "dados" / "studio.db"
+sys.path.insert(0, str(RAIZ / "tools"))
+from canal import CANAL, caminho  # noqa: E402  (perfil do canal deste servidor: GRS_CANAL)
+
+BANCO = caminho("studio")
+BANCO.parent.mkdir(parents=True, exist_ok=True)
 
 ESQUEMA = """
 CREATE TABLE IF NOT EXISTS videos (

@@ -15,11 +15,11 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import PASTA_ACERVO, PASTA_MINIATURAS, RAIZ, abrir_acervo  # noqa: E402
+from comum import DADOS_ACERVO, PASTA_ACERVO, PASTA_MINIATURAS, RAIZ, abrir_acervo  # noqa: E402
 
 COLUNAS, LINHAS = 8, 5
 CEL_W, CEL_H, ROTULO = 300, 230, 22
-SAIDA = RAIZ / "dados" / "acervo" / "folhas"
+SAIDA = DADOS_ACERVO / "folhas"
 BORDA = {"video": "#2f6fff", "gif": "#20b050"}
 
 

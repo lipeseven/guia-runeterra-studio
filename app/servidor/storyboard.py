@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .banco import RAIZ
+from .banco import RAIZ, caminho
+
+_ACERVO = caminho("dados_acervo").relative_to(RAIZ).as_posix()  # dados do acervo DO CANAL (miniaturas, tomadas…)
 
 TIPOS = ["cartao", "telacheia", "recorte", "meio", "texto", "citacao", "mosaico", "dividida", "lista", "clipe",
          "dialogo", "hub", "capa"]
@@ -240,7 +242,7 @@ def cenas(pasta: Path) -> list[dict]:
             escolhido = next((cands[i] for i, x in enumerate(nec["candidatos"]) if [x["tipo"], x["id"]] == list(aj["midia"])), None)
             if escolhido is None and aj["midia"][0] == "midia":  # escolha sua que saiu da lista (busca refeita)
                 escolhido = {"idx": -1, "nome": "(sua escolha)", "tipo": "midia",
-                             "miniatura": f"dados/acervo/miniaturas/{aj['midia'][1]}.jpg"}
+                             "miniatura": f"{_ACERVO}/miniaturas/{aj['midia'][1]}.jpg"}
         elif "candidato" in aj and cands:
             escolhido = cands[aj["candidato"]] if aj["candidato"] < len(cands) else None
         elif cid in fontes and nec:  # o que o VÍDEO usa (a montagem pode ter mantido a imagem de antes)
@@ -249,7 +251,7 @@ def cenas(pasta: Path) -> list[dict]:
             escolhido = cands[esc["escolha"] - 1] if esc["escolha"] - 1 < len(cands) else None
         if escolhido and aj.get("sem_fundo"):
             mid_ = _midia_escolhida(d, cid, aj)
-            sf = RAIZ / "dados" / "acervo" / "derivados" / f"sem_fundo_{mid_}.png"
+            sf = RAIZ / _ACERVO / "derivados" / f"sem_fundo_{mid_}.png"
             if sf.exists():
                 escolhido = {**escolhido, "miniatura": _rel(str(sf))}
         sumiu = False
@@ -786,7 +788,7 @@ def buscar_no_acervo(consulta: str, n: int = 16) -> list[dict]:
             pontos[mid] = pontos.get(mid, 0) + 5 * nota
     melhores = sorted(pontos.items(), key=lambda x: -x[1])[:n]
     return [{"midia_id": mid, "nome": info[mid]["nome"], "nota": round(nota, 2), "categoria": info[mid]["categoria"],
-             "miniatura": f"dados/acervo/miniaturas/{mid}.jpg"} for mid, nota in melhores]
+             "miniatura": f"{_ACERVO}/miniaturas/{mid}.jpg"} for mid, nota in melhores]
 
 def buscar_clipes(consulta: str, n: int = 16) -> list[dict]:
     """Busca do storyboard em cena de CLIPE: vídeos do acervo (uma tomada por vídeo, a mais longa ou a que mais combina
@@ -816,10 +818,10 @@ def buscar_clipes(consulta: str, n: int = 16) -> list[dict]:
             tid, tn = tomadas[r["id"]]
             chave = ("tomada", tid)
             info[chave] = {"nome": r["nome"], "midia_id": r["id"], "tomada_id": tid,
-                           "miniatura": f"dados/acervo/tomadas/{r['id']}_{tn}.jpg"}
+                           "miniatura": f"{_ACERVO}/tomadas/{r['id']}_{tn}.jpg"}
         else:
             chave = ("midia", r["id"])
-            info[chave] = {"nome": r["nome"], "midia_id": r["id"], "miniatura": f"dados/acervo/miniaturas/{r['id']}.jpg"}
+            info[chave] = {"nome": r["nome"], "midia_id": r["id"], "miniatura": f"{_ACERVO}/miniaturas/{r['id']}.jpg"}
         nome = _sem_acento(r["nome"])
         base = nome.rsplit(".", 1)[0]
         nota = 0.0
@@ -848,7 +850,7 @@ def buscar_clipes(consulta: str, n: int = 16) -> list[dict]:
             chave = ("tomada", t["id"])
             if chave not in info:
                 info[chave] = {"nome": t["nome"], "midia_id": mid, "tomada_id": t["id"],
-                               "miniatura": f"dados/acervo/tomadas/{mid}_{t['n']}.jpg"}
+                               "miniatura": f"{_ACERVO}/tomadas/{mid}_{t['n']}.jpg"}
             pontos[chave] = max(pontos.get(chave, 0), nota)
     except Exception:
         pass
