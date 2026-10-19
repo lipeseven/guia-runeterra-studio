@@ -728,10 +728,14 @@ def preaquecer_busca() -> None:
     import sys
 
     sys.path.insert(0, str(RAIZ / "tools" / "acervo"))
-    try:
-        from busca_semantica import modelo
+    from .conferencia import IMPORTS
 
-        modelo()
+    try:
+        with IMPORTS:  # um import pesado de cada vez (ver conferencia.IMPORTS)
+            from busca_semantica import modelo
+
+            modelo()
+            import sentence_transformers  # noqa: F401  (conferência do roteiro)
     except Exception as e:  # sem GPU/modelo: a busca por nome continua funcionando, só a 1ª fica lenta
         print(f"[busca] não consegui pré-carregar o CLIP: {e}")
 

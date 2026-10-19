@@ -229,6 +229,7 @@ def receber_roteiro(con, vid: int, texto: str, nome: str) -> dict:
                     f"Versão {n}: {est['palavras']} palavras, ~{mmss(est['segundos'])} narrado. "
                     "Confira o texto no painel “Roteiro” e clique em “Aprovar roteiro”.")
     registrar(con, vid, f"Roteiro v{n} recebido ({nome})", "info")
+    FILA.put((vid, "conferencia"))  # semelhança com o roteiro base + checagem de fatos (antes de aprovar)
     return est
 
 
@@ -729,6 +730,8 @@ def tarefa_roteiro(vid: int) -> None:
     pasta = pasta_do_video(v["slug"])
     pedido = json.loads((pasta / "direcao" / "pedido_roteiro.json").read_text(encoding="utf-8"))
     if pedido["acao"] == "gerar":
+        if pedido.get("base"):  # guardado para o detector de semelhança
+            (pasta / "direcao" / "roteiro_base.txt").write_text(pedido["base"], encoding="utf-8")
         texto = roteirista.gerar(pedido.get("titulo") or v["titulo"], float(pedido.get("minutos") or 20),
                                  pedido.get("notas") or "", pedido.get("base"))
         nome, resumo = ("gerado a partir do roteiro base" if pedido.get("base") else "gerado pelo Claude"), "roteiro gerado"
@@ -744,6 +747,33 @@ def tarefa_roteiro(vid: int) -> None:
         roteirista.anotar(pasta, {"quando": agora(), "acao": pedido["acao"], "pedido": pedido.get("pedido") or
                                   pedido.get("notas") or "", "resumo": resumo, "versao": versao,
                                   "palavras": est["palavras"]})
+        con.commit()
+
+
+def tarefa_conferencia(vid: int) -> None:
+    """Confere o roteiro atual: semelhança com o roteiro base (local) e fatos de lore × wiki/Universe (Sonnet)."""
+    from . import conferencia
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    pasta = pasta_do_video(slug)
+    if not (pasta / "direcao" / "roteiro.txt").exists():
+        return
+    try:  # conferência é ajuda, não etapa: falha vira aviso, nunca trava o card
+        r = conferencia.conferir(pasta, aviso=lambda m: definir_progresso("Conferindo o roteiro", m))
+    except Exception as e:
+        traceback.print_exc()
+        with conectar() as con:
+            registrar(con, vid, f"Conferência do roteiro falhou: {e}", "alerta")
+            con.commit()
+        return
+    fat = r.get("fatos") or []
+    div = sum(1 for f in fat if f["veredito"] == "diverge")
+    sem = r.get("semelhanca") or {}
+    with conectar() as con:
+        registrar(con, vid, f"Roteiro conferido: {len(fat)} fato(s) checado(s), {div} divergente(s)"
+                  + (f"; {len(sem.get('frases', []))} frase(s) parecida(s) com o roteiro base" if sem else ""),
+                  "alerta" if div or sem.get("frases") else "ok")
         con.commit()
 
 
@@ -772,7 +802,8 @@ def pedir_acervo() -> None:
 
 TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
-           "roteiro": tarefa_roteiro, "acervo": tarefa_acervo}
+           "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
+           "conferencia": tarefa_conferencia}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 

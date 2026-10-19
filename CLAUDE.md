@@ -118,6 +118,10 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   Storyboard: "a cena começa em" (mover corte), juntar até 4 cenas, movimento "nenhum", lista "sem imagem".
   Cópia de segurança automática (`motor.copia_de_seguranca`, direcao/seguranca/, últimas 15) antes de roteiro
   novo/direção/pedido ao diretor; cache guarda os blocos da versão anterior também. Card "Vídeo já publicado".
+- Conferência do roteiro ✅ (2026-10-19, `app/servidor/conferencia.py`, tarefa "conferencia" a cada roteiro novo):
+  semelhança com o roteiro base (`direcao/roteiro_base.txt`; embeddings multilíngues locais, sentence-transformers)
+  + fatos de lore (Sonnet extrai afirmações → wiki do LoL/Universe buscados localmente, cache em dados/pesquisa_cache
+  → Sonnet dá confere/diverge/sem fonte; cache por parágrafo). Painel: bloco "Conferência do roteiro" no Roteiro.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

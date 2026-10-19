@@ -1,0 +1,162 @@
+import { AlertTriangle, CheckCircle2, CopyCheck, HelpCircle, Loader2, RefreshCw } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { api } from '../api'
+
+type Fato = {
+  paragrafo: number
+  trecho?: string
+  afirmacao: string
+  veredito: 'confere' | 'diverge' | 'sem_fonte'
+  explicacao: string
+  fonte: { fonte: string; texto: string } | null
+}
+type Semelhanca = { geral: number; total: number; frases: { frase: string; base: string; nota: number; nivel: string }[] }
+type Dados = {
+  conferencia: { quando: string; semelhanca?: Semelhanca; fatos?: Fato[]; erro_fatos?: string } | null
+  atual: boolean
+  base: string | null
+}
+
+const ICONE = {
+  diverge: <AlertTriangle className="size-3.5 shrink-0 text-atencao" />,
+  sem_fonte: <HelpCircle className="size-3.5 shrink-0 text-suave" />,
+  confere: <CheckCircle2 className="size-3.5 shrink-0 text-ok" />,
+}
+const NOMES = { diverge: 'a fonte diz diferente', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com a fonte' }
+
+/** Conferência do roteiro antes de aprovar: fatos de lore × wiki/Universe e semelhança com o roteiro base. */
+export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versao: number }) {
+  const [d, setD] = useState<Dados | null>(null)
+  const [aberto, setAberto] = useState<Record<string, boolean>>({ diverge: true })
+  const [editBase, setEditBase] = useState(false)
+  const [base, setBase] = useState('')
+  const [fonteAberta, setFonteAberta] = useState<number | null>(null)
+  const carregar = () => api<Dados>(`/videos/${videoId}/roteiro/conferencia`).then(setD)
+  useEffect(() => {
+    carregar()
+  }, [videoId, versao]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!d || d.atual) return
+    const t = setInterval(carregar, 4000) // conferindo: atualiza sozinho
+    return () => clearInterval(t)
+  }, [d?.atual]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!d) return null
+  const c = d.conferencia
+  const fatos = c?.fatos ?? []
+  const grupos = (['diverge', 'sem_fonte', 'confere'] as const).map((v) => [v, fatos.filter((f) => f.veredito === v)] as const)
+
+  return (
+    <div className="mt-3 rounded-lg border border-borda bg-painel-2 p-3 text-xs">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <CopyCheck className="size-4 text-suave" />
+        <span className="text-sm font-medium">Conferência do roteiro</span>
+        {!d.atual && (
+          <span className="flex items-center gap-1 text-andamento">
+            <Loader2 className="size-3.5 animate-spin" /> conferindo esta versão…
+          </span>
+        )}
+        <span className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => {
+              setBase(d.base ?? '')
+              setEditBase(!editBase)
+            }}
+            className="text-suave underline hover:text-texto"
+          >
+            {d.base ? 'roteiro base ✓' : '+ roteiro base (detector de semelhança)'}
+          </button>
+          <button
+            onClick={async () => {
+              await api(`/videos/${videoId}/roteiro/conferir`, { method: 'POST' })
+              setD({ ...d, atual: false })
+            }}
+            className="flex items-center gap-1 text-suave hover:text-texto"
+            title="Conferir de novo (só os parágrafos que mudaram usam o Claude)"
+          >
+            <RefreshCw className="size-3.5" />
+          </button>
+        </span>
+      </div>
+
+      {editBase && (
+        <div className="mb-3 flex flex-col gap-1.5">
+          <textarea
+            value={base}
+            onChange={(e) => setBase(e.target.value)}
+            placeholder="Cole o roteiro/transcrição do vídeo modelado (canal gringo). Fica só para comparar — nada é copiado."
+            className="h-32 w-full resize-y rounded-md border border-borda bg-painel p-2 font-mono text-[11px] outline-none focus:border-suave"
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setEditBase(false)} className="px-2 py-1 text-suave">
+              cancelar
+            </button>
+            <button
+              onClick={async () => {
+                await api(`/videos/${videoId}/roteiro/base`, { method: 'POST', body: JSON.stringify({ texto: base }) })
+                setEditBase(false)
+                setD({ ...d, atual: false, base: base.trim() ? base : null })
+              }}
+              className="rounded bg-ouro/20 px-2.5 py-1 text-ouro hover:bg-ouro/30"
+            >
+              {base.trim() ? 'guardar e comparar' : 'remover base'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {c?.semelhanca && (
+        <div className="mb-3">
+          <p className={c.semelhanca.frases.length ? 'text-atencao' : 'text-ok'}>
+            {c.semelhanca.frases.length
+              ? `${c.semelhanca.frases.length} de ${c.semelhanca.total} frases (${c.semelhanca.geral}%) parecidas com o roteiro base — reescreva com as suas palavras:`
+              : 'Nenhuma frase parecida demais com o roteiro base. ✓'}
+          </p>
+          {c.semelhanca.frases.map((f, k) => (
+            <div key={k} className="mt-1.5 rounded border border-atencao/30 p-1.5">
+              <p className="text-texto/90">
+                <span className={`mr-1 rounded px-1 ${f.nivel === 'quase igual' ? 'bg-red-500/20 text-red-300' : 'bg-atencao/15 text-atencao'}`}>
+                  {f.nivel}
+                </span>
+                {f.frase}
+              </p>
+              <p className="mt-0.5 text-apagado">base: {f.base}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {c?.erro_fatos && <p className="text-atencao">Checagem de fatos falhou: {c.erro_fatos}</p>}
+      {c && !c.erro_fatos && fatos.length === 0 && d.atual && <p className="text-apagado">Nenhuma afirmação de lore para checar.</p>}
+      {grupos.map(([v, lista]) =>
+        lista.length === 0 ? null : (
+          <div key={v} className="mb-1.5">
+            <button onClick={() => setAberto({ ...aberto, [v]: !aberto[v] })} className="flex items-center gap-1.5 hover:text-texto">
+              {ICONE[v]} <b>{lista.length}</b> {NOMES[v]} {aberto[v] ? '▴' : '▾'}
+            </button>
+            {aberto[v] && (
+              <ul className="mt-1 flex flex-col gap-1.5 pl-5">
+                {lista.map((f) => {
+                  const id = fatos.indexOf(f)
+                  return (
+                    <li key={id}>
+                      <p className="text-texto/90">
+                        <span className="font-mono text-apagado">¶{f.paragrafo + 1}</span> {f.afirmacao}
+                      </p>
+                      {f.explicacao && <p className="text-suave">{f.explicacao}</p>}
+                      {f.fonte && (
+                        <button onClick={() => setFonteAberta(fonteAberta === id ? null : id)} className="text-apagado underline hover:text-texto">
+                          {f.fonte.fonte}
+                        </button>
+                      )}
+                      {fonteAberta === id && f.fonte && <p className="mt-1 rounded bg-painel p-1.5 text-apagado">“{f.fonte.texto}”</p>}
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        ),
+      )}
+    </div>
+  )
+}

@@ -1,6 +1,7 @@
 import { CheckCircle2, ClipboardPaste, FileText, History, Loader2, Pencil, Send, Sparkles, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, quando, type Etapa } from '../api'
+import { ConferenciaRoteiro } from './ConferenciaRoteiro'
 
 type DadosRoteiro = { texto: string | null; paragrafos?: number; palavras?: number; segundos?: number }
 type Conversa = { quando: string; acao: 'gerar' | 'ajustar'; pedido: string; resumo: string; versao: number; palavras: number }
@@ -273,6 +274,8 @@ export function PainelRoteiro({ videoId, etapa, aoMudar }: { videoId: number; et
           ))}
         </div>
       )}
+
+      {temRoteiro && !trabalhando && modo !== 'editar' && <ConferenciaRoteiro videoId={videoId} versao={versao} />}
 
       {/* ajuste fino com o Claude: devolve só os parágrafos alterados */}
       {temRoteiro && !trabalhando && modo === 'nada' && (

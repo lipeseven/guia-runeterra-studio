@@ -211,6 +211,48 @@ def ler_roteiro(vid: int):
         return {"texto": texto, **est}
 
 
+@app.get("/api/videos/{vid}/roteiro/conferencia")
+def ver_conferencia(vid: int):
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    arq, base = pasta / "direcao" / "conferencia.json", pasta / "direcao" / "roteiro_base.txt"
+    dados = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else None
+    import hashlib
+
+    narr = pasta / "direcao" / "roteiro.txt"  # a conferência é do roteiro ATUAL? (senão, está rodando de novo)
+    atual = narr.exists() and dados and dados.get("roteiro") == hashlib.sha1(
+        narr.read_text(encoding="utf-8").encode()).hexdigest()[:16]
+    return {"conferencia": dados, "atual": bool(atual),
+            "base": base.read_text(encoding="utf-8") if base.exists() else None}
+
+
+class Base(BaseModel):
+    texto: str
+
+
+@app.post("/api/videos/{vid}/roteiro/base")
+def guardar_base(vid: int, corpo: Base):
+    """Roteiro base (canal gringo) para o detector de semelhança — também quando o roteiro veio de fora."""
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+        arq = pasta / "direcao" / "roteiro_base.txt"
+        arq.parent.mkdir(parents=True, exist_ok=True)
+        if corpo.texto.strip():
+            arq.write_text(corpo.texto.replace("\r\n", "\n").strip() + "\n",encoding="utf-8")
+        else:
+            arq.unlink(missing_ok=True)
+        motor.FILA.put((vid, "conferencia"))
+    return {"ok": True}
+
+
+@app.post("/api/videos/{vid}/roteiro/conferir")
+def conferir_roteiro(vid: int):
+    with conectar() as con:
+        _pasta(con, vid)
+    motor.FILA.put((vid, "conferencia"))
+    return {"ok": True}
+
+
 @app.post("/api/videos/{vid}/roteiro")
 def enviar_roteiro(vid: int, corpo: Roteiro):
     if len(corpo.texto.strip()) < 20:
