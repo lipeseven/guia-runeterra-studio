@@ -79,3 +79,9 @@ Aprendido nos storyboards do Felipe (regras de edição, valem para qualquer can
   irmãs, Força/Visão/Astúcia), cada nome aparece escrito (setas ou legendas), e o padrão vale para TODOS os itens
   da enumeração (ele cobrou o "Sem-Face" que ficou sem texto).
 - **Imagem pedida pelo nome do arquivo é lei** (`busca.arquivo`): ele usa muito ("use a imagem floresta1.jpg").
+
+## 6. Direitos autorais (Nintendo / The Pokémon Company)
+
+- Clipe do anime ou dos jogos: **curto (até ~6 s), mudo, poucos por vídeo** e sempre com a narração comentando
+  por cima — trecho longo é o que faz o vídeo ser derrubado. Prefira **screenshot** (imagem parada) a clipe.
+- Nada de música do anime ou dos jogos, nem trecho com dublagem.

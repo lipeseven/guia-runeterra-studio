@@ -19,6 +19,11 @@ EXTS = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp", "image
 def buscar(consulta: str, n: int = 24) -> list[dict]:
     """[{imagem, miniatura, titulo, pagina, fonte, largura, altura}] — DuckDuckGo primeiro, Commons para completar."""
     saida: list[dict] = []
+    sys.path.insert(0, str(RAIZ / "tools"))
+    from canal import CANAL
+
+    if CANAL["chave"] == "pokemon":  # screenshots do anime e dos jogos, com nome do arquivo descritivo
+        saida += _wiki_fandom("https://pokemon.fandom.com/api.php", consulta, max(8, n // 2))
     from ddgs import DDGS
 
     for tentativa in range(3):  # o ddgs sorteia um "navegador" por sessão e às vezes sai um que falha: tenta de novo
@@ -33,6 +38,26 @@ def buscar(consulta: str, n: int = 24) -> list[dict]:
     if len(saida) < n:
         saida += _commons(consulta, n - len(saida))
     return saida[:n]
+
+
+def _wiki_fandom(api: str, consulta: str, n: int) -> list[dict]:
+    """Arquivos (namespace File) de uma wiki do Fandom: imagens do anime, dos jogos e artes, com URL direta."""
+    import requests
+
+    try:
+        r = requests.get(api, headers=AGENTE, timeout=20, params={
+            "action": "query", "generator": "search", "gsrnamespace": 6, "gsrsearch": consulta, "gsrlimit": n,
+            "prop": "imageinfo", "iiprop": "url|size", "iiurlwidth": 320, "format": "json"}).json()
+    except Exception:
+        return []
+    saida = []
+    for p in ((r.get("query") or {}).get("pages") or {}).values():
+        ii = (p.get("imageinfo") or [{}])[0]
+        if ii.get("url") and ii.get("width", 0) >= 300:
+            saida.append({"imagem": ii["url"], "miniatura": ii.get("thumburl") or ii["url"],
+                          "titulo": p.get("title", "").replace("File:", ""), "pagina": ii.get("descriptionurl", ""),
+                          "fonte": "Pokémon Wiki", "largura": ii.get("width", 0), "altura": ii.get("height", 0)})
+    return saida
 
 
 def _commons(consulta: str, n: int) -> list[dict]:

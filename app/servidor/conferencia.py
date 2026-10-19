@@ -25,10 +25,10 @@ sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
 CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/pesquisa_cache
 WIKI = "https://leagueoflegends.fandom.com/api.php"
-BULBAPEDIA = "https://bulbapedia.bulbagarden.net/w/api.php"
+POKEWIKI = "https://pokemon.fandom.com/api.php"  # a Bulbapedia bloqueia acesso automático (Cloudflare)
 # fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
 FONTES = {"lol": {"wiki": WIKI, "nome": "wiki do LoL / biografia oficial", "quem": "campeões envolvidos"},
-          "pokemon": {"wiki": BULBAPEDIA, "nome": "Bulbapedia / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
+          "pokemon": {"wiki": POKEWIKI, "nome": "Pokémon Wiki / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
 FONTE = FONTES[CANAL.get("fatos", "lol")]
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/en_us/champions/{slug}/index.json"
 AGENTE = {"User-Agent": "GuiaRuneterraStudio/1.0 (uso pessoal; conferencia de roteiro)"}
