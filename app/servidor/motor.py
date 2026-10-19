@@ -879,6 +879,16 @@ def tarefa_importar_riot(_vid: int) -> None:
     ACERVO["ultima"] = {"quando": agora(), "resultado": {"importacao_riot": r}}
 
 
+def tarefa_importar_pokemon(_vid: int) -> None:
+    """Arte oficial + render do HOME de todas as formas → acervo do canal Pokémon (tools/pokemon/importar.py)."""
+    sys.path.insert(0, str(RAIZ / "tools" / "pokemon"))
+    from importar import baixar, catalogar, listar
+
+    aviso = lambda txt: definir_progresso("Importando artes oficiais", txt)  # noqa: E731
+    r = catalogar(baixar(listar(), aviso), aviso)
+    ACERVO["ultima"] = {"quando": agora(), "resultado": {"importacao_pokemon": r}}
+
+
 def pedir_clipe(url: str) -> None:
     CLIPES_PEDIDOS.append(url)
     if not any(nome == "clipes" for _, nome in list(FILA.queue)):
@@ -894,7 +904,7 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": t
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
            "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
-           "importar_riot": tarefa_importar_riot}
+           "importar_riot": tarefa_importar_riot, "importar_pokemon": tarefa_importar_pokemon}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 
 

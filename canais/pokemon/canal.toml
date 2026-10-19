@@ -11,7 +11,7 @@ exemplo_titulo = "Todos os Pokémon LENDÁRIOS Explicados em 20 minutos"
 glossario = "Pokémon, Pokédex, Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea"
 
 [pastas]
-acervo = "dados/canais/pokemon/acervo_felipe"   # pasta para imagens suas, se quiser (pode ficar vazia)
+acervo = 'C:\Users\Felipe\Downloads\catálogo sequencial POKEMON'   # pasta do Felipe (só leitura; _oficial/ = importador)
 dados_acervo = "dados/canais/pokemon/acervo"
 banco_acervo = "dados/canais/pokemon/acervo.db"
 internet = "dados/canais/pokemon/acervo_internet"
