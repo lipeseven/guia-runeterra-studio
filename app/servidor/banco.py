@@ -78,6 +78,7 @@ def conectar() -> sqlite3.Connection:
         con.execute("ALTER TABLE videos ADD COLUMN capa_aprovada INTEGER NOT NULL DEFAULT 0")
     if "chave" not in {r["name"] for r in con.execute("PRAGMA table_info(pendencias)")}:
         con.execute("ALTER TABLE pendencias ADD COLUMN chave TEXT")  # identifica o tipo (ex.: aprovar_roteiro)
+    con.execute("DELETE FROM etapas WHERE chave='pesquisa'")  # etapa removida: virou a conferência do Roteiro
     return con
 
 

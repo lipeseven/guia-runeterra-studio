@@ -1,8 +1,7 @@
 """Etapas do fluxo de um vídeo (os cards do topo da tela do vídeo). Ordem = ordem de exibição."""
 
 ETAPAS = [
-    {"chave": "pesquisa", "titulo": "Pesquisa", "descricao": "Referências, fatos levantados e conferidos"},
-    {"chave": "roteiro", "titulo": "Roteiro", "descricao": "Texto final + detector de semelhança"},
+    {"chave": "roteiro", "titulo": "Roteiro", "descricao": "Texto final, fatos conferidos e detector de semelhança"},
     {"chave": "voz_guia", "titulo": "Voz guia", "descricao": "Leitura provisória para o rascunho"},
     {"chave": "direcao", "titulo": "Direção", "descricao": "Cenas, legendas e destaques"},
     {"chave": "midias", "titulo": "Mídias", "descricao": "Acervo, internet e IA"},
@@ -14,7 +13,7 @@ ETAPAS = [
 ]
 
 # Etapas cujo código ainda não existe aparecem como "em breve".
-EM_BREVE = {"pesquisa", "midias"}
+EM_BREVE = {"midias"}  # "pesquisa" saiu (2026-10-19): virou a conferência dentro do Roteiro
 
 STATUS = ("pendente", "andamento", "concluido", "atencao", "em_breve")
 

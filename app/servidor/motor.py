@@ -770,7 +770,13 @@ def tarefa_conferencia(vid: int) -> None:
     fat = r.get("fatos") or []
     div = sum(1 for f in fat if f["veredito"] == "diverge")
     sem = r.get("semelhanca") or {}
+    resumo_conf = f"conferido: {div} ⚠️ fato(s)" + (f" · {len(sem.get('frases', []))} parecida(s)" if sem else "")
     with conectar() as con:
+        e = con.execute("SELECT detalhe FROM etapas WHERE video_id=? AND chave='roteiro'", (vid,)).fetchone()
+        if e:  # card do Roteiro: "~20:00 narrado · v3 · conferido: 1 ⚠️ fato(s)"
+            base = (e["detalhe"] or "").split(" · conferido:")[0]
+            con.execute("UPDATE etapas SET detalhe=? WHERE video_id=? AND chave='roteiro'",
+                        (f"{base} · {resumo_conf}" if base else resumo_conf, vid))
         registrar(con, vid, f"Roteiro conferido: {len(fat)} fato(s) checado(s), {div} divergente(s)"
                   + (f"; {len(sem.get('frases', []))} frase(s) parecida(s) com o roteiro base" if sem else ""),
                   "alerta" if div or sem.get("frases") else "ok")
