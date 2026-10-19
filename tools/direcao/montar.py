@@ -206,6 +206,45 @@ def _herdar(cena: dict, velha: dict | None) -> None:
             p.update({k: pv[k] for k in ("x", "y", "largura", "rotacao", "de_onde", "quadros") if k in pv})
 
 
+def estilo_do_projeto(dirc: Path | None) -> int:
+    """Versão visual do vídeo. 1 = como o 1º vídeo foi aprovado (sem transições empurrar/sobrepor, cartão recortado);
+    2 = recursos novos. Vídeo antigo fica em 1 por direcao/estilo_visual.json — mudar o código não muda o vídeo dele."""
+    arq = dirc / "estilo_visual.json" if dirc else None
+    if arq and arq.exists():
+        return int(json.loads(arq.read_text(encoding="utf-8")).get("versao", 2))
+    return 2
+
+
+TRANSICAO_EM = 7  # ~1 em cada 7 cenas elegíveis entra com transição (tempero, não regra)
+TIPOS_COM_TRANSICAO = {"cartao", "telacheia", "recorte", "meio", "citacao", "clipe", "dividida", "mosaico", "lista", "texto"}
+
+
+def transicoes(cenas: list[dict], fixas: dict[str, str]) -> None:
+    """Estilo 2: algumas cenas entram de fora da tela empurrando ou sobrepondo a anterior. Escolha estável pelo id da
+    cena (mexer numa cena não muda as outras); nunca na 1ª cena do bloco, nunca em duas seguidas. `fixas` = escolha
+    do Felipe no storyboard ("nenhuma" | "empurrar" | "sobrepor")."""
+    import hashlib
+
+    anterior_tem = False
+    for i, c in enumerate(cenas):
+        c.pop("transicao", None)
+        h = int(hashlib.sha1(f"transicao:{c['id']}".encode()).hexdigest()[:8], 16)
+        lado = ("esq", "dir", "esq", "dir", "cima")[h % 5]
+        pode = (i > 0 and cenas[i - 1].get("bloco") == c.get("bloco") and c["tipo"] in TIPOS_COM_TRANSICAO
+                and cenas[i - 1]["tipo"] in TIPOS_COM_TRANSICAO)
+        fixa = fixas.get(c["id"])
+        if fixa and pode:
+            if fixa != "nenhuma":
+                c["transicao"] = f"{fixa}_{lado}"
+        elif pode and not anterior_tem and (h >> 8) % TRANSICAO_EM == 0:
+            c["transicao"] = f"{('empurrar', 'sobrepor')[(h >> 4) % 2]}_{lado}"
+        anterior_tem = "transicao" in c
+        if anterior_tem:  # a cena já entra em movimento: o efeito de entrada da imagem vira corte seco
+            for alvo in [c, *(c.get("itens") or [])[:1]]:
+                if "entrada_img" in alvo:
+                    alvo["entrada_img"] = {"efeito": "corte", "quadros": 1}
+
+
 def _folga(cid: str) -> int:
     """"Imperfeição humana" no corte (0 a 4 quadros antes da palavra), estável pelo id da cena."""
     import hashlib
@@ -220,6 +259,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
     (efeitos herdados por id de cena)."""
     preparar_ffmpeg()
     toks = roteiro.split()
+    estilo = estilo_do_projeto(Path(capa).parent if capa else None)
     m = Midias(slug)
     var = Variador(semente=slug)
     pendencias: list[dict] = []
@@ -399,6 +439,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         if c.get("inicio_indice") is not None:  # corte movido pelo Felipe no storyboard
             de = max(int(c["inicio_indice"]), cenas[-1]["de"] + 1 if cenas else 0)
         legenda_em = indice_na_frase(f, toks, c.get("legenda_na_palavra"))
+        if estilo >= 2:  # retrospectiva do 1º vídeo: o texto entra junto com a imagem (o Felipe muda à mão se quiser)
+            legenda_em = None
         if c.get("legenda_indice") is not None:  # escolhido à mão no storyboard: -1 = junto com a imagem
             legenda_em = de if c["legenda_indice"] < 0 else max(de, int(c["legenda_indice"]))
         cid = id_da_cena(c, k)
@@ -573,10 +615,14 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             c["lado"] = lados_fixos[c["id"]]
         # quadro em que a cena começa (o Montagem.tsx usa este valor): o Python sabe onde cada bloco começa
         c["q"] = 0 if i == 0 else max(cenas[i - 1]["q"] + 1, int(palavras[c["de"]]["i"] * FPS + 0.5) - _folga(c["id"]))
+    if estilo >= 2:
+        transicoes(cenas, {id_da_cena(c, k): c["transicao_felipe"] for k, c in enumerate(plano["cenas"]) if c.get("transicao_felipe")})
     montadas = {c["k"] for c in cenas}
     sons = efeitos_sonoros(plano, frases, toks, palavras, montadas, m, var)
     trecho = {"audio": f"{slug}/voz.wav", "palavras": palavras, "cenas": cenas, "tema": modo, "sons": sons,
               "fontes": fontes}  # fora das cenas: não entra na impressão dos blocos
+    if estilo >= 2:
+        trecho["estilo"] = 2
     return trecho, pendencias
 
 
@@ -677,7 +723,8 @@ def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = 
 
 ARQUIVO_DA_CENA = {"capa": "Capa", "hub": "Hub", "cartao": "Cartao", "telacheia": "TelaCheia", "recorte": "Recorte",
                    "dialogo": "Dialogo", "clipe": "Clipe", "mosaico": "Mosaico", "dividida": "Dividida", "lista": "Lista",
-                   "meio": "Meio", "texto": "Texto", "citacao": "Citacao", "setas": "Setas"}
+                   "meio": "Meio", "texto": "Texto", "citacao": "Citacao", "setas": "Setas",
+                   "estilo2": "Estilo2"}
 
 
 def _codigo_que_desenha(arquivo: Path) -> bytes:
@@ -791,6 +838,8 @@ def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
     blocos = _blocos_do_trecho(trecho)
     for b in blocos:
         tipos = {c["tipo"] for c in b["cenas"]} | ({"setas"} if any(c.get("setas") for c in b["cenas"]) else set())
+        if trecho.get("estilo") == 2:  # recursos da versão 2 (transições, cartão livre): só vídeos novos
+            tipos.add("estilo2")
         codigo = _versao_do_codigo(tipos)  # só o código das cenas (e recursos) deste bloco
         b["arquivo"] = cache / f"{_impressao(b, trecho, codigo, capa_id)}.mp4"
         antigo = cache / f"{_impressao(b, trecho, codigo, capa_id, com_k=True)}.mp4"
@@ -827,8 +876,17 @@ def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
                     str(temporario)], check=True)
     temporario.replace(saida)
     usados = {b["arquivo"].name for b in blocos}
-    for velho in cache.glob("*.mp4"):  # cache só dos blocos da versão atual
-        if velho.name not in usados:
+    # cache = blocos desta versão + os da versão ANTERIOR (desfazer um ajuste volta ao bloco antigo sem render)
+    arq_ant = cache / "versao_anterior.json"
+    anteriores = set(json.loads(arq_ant.read_text(encoding="utf-8"))) if arq_ant.exists() else set()
+    arq_atual = cache / "versao_atual.json"
+    atuais = set(json.loads(arq_atual.read_text(encoding="utf-8"))) if arq_atual.exists() else set()
+    if atuais != usados:  # versão nova: a atual vira a anterior
+        anteriores = atuais
+        arq_ant.write_text(json.dumps(sorted(anteriores)), encoding="utf-8")
+        arq_atual.write_text(json.dumps(sorted(usados)), encoding="utf-8")
+    for velho in cache.glob("*.mp4"):
+        if velho.name not in usados and velho.name not in anteriores:
             velho.unlink(missing_ok=True)
     ULTIMO_RENDER.clear()
     ULTIMO_RENDER.update(blocos=len(blocos), renderizados=len(faltam), reaproveitados=len(blocos) - len(faltam))

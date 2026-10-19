@@ -109,6 +109,15 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - Atualizar acervo ✅ (2026-10-17): `tools/acervo/atualizar.py` (inventário → CLIP → tomadas → etiquetas pelo nome do
   arquivo; incremental, sem cota). Tarefa global "acervo" (vid 0) na fila do motor: botão "Atualizar acervo" no topo
   do painel e automática a cada card NOVO (o acervo muda pouco). Resultado em `/api/acervo/situacao`.
+- Pacote pós-1º vídeo ✅ (2026-10-19): **estilo visual por vídeo** (`direcao/estilo_visual.json`; o 1º vídeo ficou
+  na versão 1, vídeos novos = 2): transições de entrada empurrar/sobrepor (`app/video/src/cenas/Estilo2.tsx`,
+  ~1 em 7 cenas, nunca na 1ª do bloco; storyboard "entrada"), cartão sem recorte, texto entra junto com a imagem
+  (retrospectiva: docs/regras_de_direcao.md §5). Linhas que ligam o Estilo2 são `impressao:ignorar` → cache dos
+  vídeos antigos intacto. Roteiro mudou: só o trecho alterado volta ao Claude (`planejar.remendar_bloco`) e ajustes
+  presos a palavras seguem a palavra (`storyboard.remapear_ajustes`); capítulo intocado não reenvia recusadas.
+  Storyboard: "a cena começa em" (mover corte), juntar até 4 cenas, movimento "nenhum", lista "sem imagem".
+  Cópia de segurança automática (`motor.copia_de_seguranca`, direcao/seguranca/, últimas 15) antes de roteiro
+  novo/direção/pedido ao diretor; cache guarda os blocos da versão anterior também. Card "Vídeo já publicado".
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

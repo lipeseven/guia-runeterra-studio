@@ -57,3 +57,27 @@ Poro no final) — ver guia de estilo §10.4.
 - Efeitos de entrada, movimentos e layouts vêm do editor de variedade
   (`tools/direcao/variacao.py`): sem repetição seguida, corte seco frequente.
 - Ícones das seções e a abertura vêm da **capa feita pelo Felipe**.
+
+## 5. Aprendizados do 1º vídeo (retrospectiva de ~300 ajustes do Felipe, 2026-10-19)
+
+Medido no storyboard de "A História de Runeterra" (352 cenas): o que o Felipe mais corrigiu à mão.
+
+- **Texto entra JUNTO com a imagem.** Em 82 de 91 vezes que ele mexeu no momento do texto, foi para "junto com a
+  imagem" (e vários pedidos ao diretor eram só isso). Padrão: legenda/rótulo aparecem no corte. Use
+  `legenda_na_palavra` só quando o texto é uma PIADA ou REVELAÇÃO que precisa esperar a palavra (raro).
+  (Nos vídeos novos a montagem já faz assim; o Felipe escolhe outra palavra no storyboard se quiser.)
+- **Mais tela cheia, menos cartão.** As trocas mais comuns: cartão → tela cheia (14), texto → cartão (7),
+  meio a meio → cartão (6), clipe → tela cheia (5). Arte boa (splash, cinemática, paisagem) merece tela cheia;
+  "texto" só quando não existe imagem que sirva; "meio" só para frase forte de verdade.
+- **Clipe só com tomada forte.** Clipe que não mostra exatamente a ação vira tela cheia. Tomada escura ou de
+  transição não serve.
+- **Legenda específica, com o nome próprio da lore.** Ele trocou textos genéricos por nomes: "a língua dos mortos"
+  → "Ochnun - língua dos mortos", "um reino feito de almas" → "… chamado Mitna Rachnun", "Disco destruído" →
+  "Disco Solar destruído", "guarda essa arma" → "Chalikar". Se a frase fala de algo com nome na lore, o nome vai
+  na legenda.
+- **Humor do canal = gíria gamer/internet BR curta**: "vapo", "SUPERA!", "lá ele", "o maior flip da história",
+  "nossa guys, bad call". Nada de explicação dentro da piada.
+- **Listas que a narração enumera viram texto na tela.** Quando o roteiro apresenta nomes um a um (as três
+  irmãs, Força/Visão/Astúcia), cada nome aparece escrito (setas ou legendas), e o padrão vale para TODOS os itens
+  da enumeração (ele cobrou o "Sem-Face" que ficou sem texto).
+- **Imagem pedida pelo nome do arquivo é lei** (`busca.arquivo`): ele usa muito ("use a imagem floresta1.jpg").

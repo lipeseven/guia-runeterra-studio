@@ -65,7 +65,7 @@ NOMES_AJUSTE = {
     "clipe_inicio": "momento do clipe", "lado": "lado da imagem", "metade2": "outra metade", "juntar": "juntada com a próxima",
     "juntada_em": "juntada na anterior", "sem_fundo": "fundo removido", "fundo_lista": "fundo da lista",
     "fundo_branco": "fundo branco", "vertical": "posição da citação", "legenda_indice": "quando o texto entra", "inicio_indice": "onde a cena começa", "pecas": "itens", "pecas_def": "itens",
-    "pecas_lista": "itens (adicionados/removidos)", "foco": "enquadramento", "movimento": "movimento de câmera",
+    "pecas_lista": "itens (adicionados/removidos)", "foco": "enquadramento", "movimento": "movimento de câmera", "transicao": "transição de entrada",
     "resolvido": None, "reaberto": None,
 }
 
@@ -312,7 +312,11 @@ def cenas(pasta: Path) -> list[dict]:
             "movimento": aj.get("movimento") or _movimento(m), "movimento_escolhido": bool(aj.get("movimento")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")), "arquivo_sumiu": sumiu,
             "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
             "texto_em": _texto_em(m),
-            "palavras_antes": antes,  # fim da cena anterior: o corte pode vir para trás
+            "palavras_antes": antes,
+            "personagens": (c.get("busca") or {}).get("personagens") or [],
+            "juntou": len(_pecas(c, aj)) if aj.get("juntar") else 0,  # nº de itens de uma junção sua (pode juntar mais)
+            "transicao": ((m or {}).get("transicao") or "").split("_")[0] or None,
+            "transicao_escolhida": aj.get("transicao"),  # fim da cena anterior: o corte pode vir para trás
             "inicio_escolhido": aj.get("inicio_indice"),
             "texto_em_escolhido": aj.get("legenda_indice"),  # escolha sua ainda não renderizada (-1 = junto) "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
         })
@@ -502,9 +506,16 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         else:
             aj["foco"] = ponto
     elif tipo == "movimento":  # movimento de câmera escolhido à mão
-        if acao["tipo"] not in ("aproximar", "afastar", "pan_esq", "pan_dir", "subir", "descer"):
+        if acao["tipo"] not in ("aproximar", "afastar", "pan_esq", "pan_dir", "subir", "descer", "parado"):  # parado = "nenhum"
             raise ValueError("movimento inválido")
         aj["movimento"] = acao["tipo"]
+    elif tipo == "transicao":  # como a cena entra (vídeos novos): auto | nenhuma | empurrar | sobrepor
+        if acao["tipo"] == "auto":
+            aj.pop("transicao", None)
+        elif acao["tipo"] in ("nenhuma", "empurrar", "sobrepor"):
+            aj["transicao"] = acao["tipo"]
+        else:
+            raise ValueError("transição inválida")
     elif tipo == "clipe_inicio":
         aj["clipe_inicio"] = round(max(0.0, float(acao["segundos"])), 2)
     elif tipo == "legenda":
@@ -525,15 +536,16 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
         aj["conferido"] = True
     elif tipo == "restaurar":
         velho = d["ajustes"].pop(cid, None) or {}
-        outra = (velho.get("juntar") or {}).get("com")
-        if outra and outra in d["ajustes"]:  # desfaz a junção: a cena que tinha sido absorvida volta
-            oa = d["ajustes"][outra]
-            if oa.get("juntada_em") == cid:
-                oa.pop("juntada_em", None)
-                oa.pop("removida", None)
-                if not oa:
-                    d["ajustes"].pop(outra)
-                marcar_pendente(pasta, outra)
+        jt = velho.get("juntar") or {}
+        for outra in [jt.get("com"), *jt.get("mais", [])]:  # desfaz a junção: as cenas absorvidas voltam
+            if outra and outra in d["ajustes"]:
+                oa = d["ajustes"][outra]
+                if oa.get("juntada_em") == cid:
+                    oa.pop("juntada_em", None)
+                    oa.pop("removida", None)
+                    if not oa:
+                        d["ajustes"].pop(outra)
+                    marcar_pendente(pasta, outra)
     elif tipo == "comentario":
         aj["comentario"] = acao["texto"].strip()
         aj["comentario_aplicado"] = False
@@ -592,6 +604,30 @@ def _juntar_com_a_proxima(pasta: Path, d: dict, cid: str, aj: dict) -> None:
 
     nid = ids[prox]
     c, pc = cenas_plano[i], cenas_plano[prox]
+    if aj.get("juntar"):  # já é uma junção: a próxima cena vira MAIS UM item (3 = tela dividida, 4 = mosaico no branco)
+        lista = aj.get("pecas_lista") or aj["juntar"]["pecas"]
+        if sum(1 for x in lista if not x.get("removida")) >= 4:
+            raise ValueError("no máximo 4 imagens juntas (mosaico)")
+        j = len(lista)
+        nova = {"rotulo": d["ajustes"].get(nid, {}).get("legenda", pc.get("legenda")) or "", "busca": pc.get("busca") or {},
+                "frase": pc["frase"], "palavra": pc.get("comeca_na_palavra")}
+        img = imagem(nid)
+        pid = f"{cid}p{j}"
+        d["necs"][:] = [n for n in d["necs"] if n["id"] != pid]
+        d["necs"].append({"id": pid, "cena": cid, "peca": j, "tipo": "peca", "busca": nova["busca"], "frase": "",
+                          "legenda": nova["rotulo"], "candidatos": [img]})
+        (pasta / "direcao" / "candidatos.json").write_text(json.dumps(d["necs"], ensure_ascii=False, indent=1), encoding="utf-8")
+        aj["juntar"]["pecas"].append(nova)
+        if aj.get("pecas_lista"):
+            aj["pecas_lista"].append(nova)
+        aj["juntar"].setdefault("mais", []).append(nid)
+        aj.setdefault("pecas", {})[str(j)] = {"candidato": 0}
+        if sum(1 for x in (aj.get("pecas_lista") or aj["juntar"]["pecas"]) if not x.get("removida")) >= 4:
+            aj["tipo"] = "mosaico"
+            aj["fundo_branco"] = True
+        d["ajustes"].setdefault(nid, {}).update(removida=True, juntada_em=cid)
+        marcar_pendente(pasta, nid)
+        return
     pecas = [{"rotulo": aj.get("legenda", c.get("legenda")) or "", "busca": c.get("busca") or {}},
              {"rotulo": d["ajustes"].get(nid, {}).get("legenda", pc.get("legenda")) or "", "busca": pc.get("busca") or {},
               "frase": pc["frase"], "palavra": pc.get("comeca_na_palavra")}]
@@ -642,6 +678,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
                 escolhas[f"{k}p{j_}"] = {**(escolhas.get(f"{k}p{j_}") or {}), "foco": pa_["foco"]}
         if aj.get("movimento"):
             c["movimento_felipe"] = aj["movimento"]
+        if aj.get("transicao"):
+            c["transicao_felipe"] = aj["transicao"]
         if aj.get("fundo_branco"):
             c["fundo_branco"] = True
         if aj.get("sem_fundo"):

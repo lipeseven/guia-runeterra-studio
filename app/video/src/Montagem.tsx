@@ -13,6 +13,7 @@ import { Recorte } from "./cenas/Recorte";
 import { TelaCheia } from "./cenas/TelaCheia";
 import { Texto } from "./cenas/Texto";
 import { CORES, TemaCtx } from "./tema";
+import { CenaEstilo2 } from "./cenas/Estilo2"; // impressao:ignorar
 import { folgaDeCorte, quadroDaPalavra } from "./tempo";
 import type { Cena, Trecho } from "./tipos";
 
@@ -39,6 +40,7 @@ export const Montagem: React.FC<{ trecho: Trecho }> = ({ trecho }) => {
           const de = inicio(k);
           const ate = k + 1 < cenas.length ? inicio(k + 1) : durationInFrames;
           const quadro = (palavra: number) => quadroDaPalavra(palavras, palavra, fps) - de;
+          if ((trecho as { estilo?: number }).estilo === 2) return <CenaEstilo2 key={k} cenas={cenas} k={k} de={de} ate={ate}><CenaPorTipo cena={cena} trecho={trecho} quadro={quadro} duracao={ate - de} secao={cena.secao ?? secao} /></CenaEstilo2>; // impressao:ignorar
           return (
             <Sequence key={k} from={de} durationInFrames={Math.max(1, ate - de)} name={`${k + 1}. ${cena.tipo}`}>
               <CenaPorTipo cena={cena} trecho={trecho} quadro={quadro} duracao={ate - de} secao={cena.secao ?? secao} />

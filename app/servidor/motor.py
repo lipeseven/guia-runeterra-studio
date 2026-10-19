@@ -142,6 +142,31 @@ def direcao_anterior(dirc: Path) -> dict | None:
     return json.loads(atual.read_text(encoding="utf-8")) if atual else None
 
 
+COPIAS_GUARDADAS = 15
+
+
+def copia_de_seguranca(pasta: Path, motivo: str) -> None:
+    """Antes de operação arriscada (roteiro novo, direção, pedido ao diretor): copia o trabalho do storyboard
+    (ajustes, escolhas, candidatos, números, plano) para direcao/seguranca/<quando>_<motivo>/. Pequeno (~1 MB);
+    guarda as últimas COPIAS_GUARDADAS."""
+    import shutil
+
+    dirc = pasta / "direcao"
+    if not (dirc / "plano.json").exists() and not (dirc / "ajustes.json").exists():
+        return  # nada para proteger ainda
+    raiz = dirc / "seguranca"
+    destino = raiz / f"{agora().replace(':', '-')}_{motivo}"
+    destino.mkdir(parents=True, exist_ok=True)
+    for a in ("ajustes.json", "ajustes_no_rascunho.json", "escolhas.json", "candidatos.json", "numeros.json",
+              "plano.json", "roteiro.txt", "roteiro_fonte.txt", "notas.json", "estilo_visual.json"):
+        if (dirc / a).exists():
+            shutil.copy2(dirc / a, destino / a)
+    if (dirc / "plano_secoes").exists():
+        shutil.copytree(dirc / "plano_secoes", destino / "plano_secoes", dirs_exist_ok=True)
+    for velha in sorted(p for p in raiz.iterdir() if p.is_dir())[:-COPIAS_GUARDADAS]:
+        shutil.rmtree(velha, ignore_errors=True)
+
+
 def invalidar_depois_do_roteiro(con, vid: int, pasta: Path) -> None:
     """O roteiro mudou: a direção montada aponta para palavras que não existem mais (cenas ancoradas em índices
     do roteiro). A montagem antiga é arquivada (não apagada) e as etapas voltam a pendente; a Direção recomeça
@@ -178,6 +203,7 @@ def receber_roteiro(con, vid: int, texto: str, nome: str) -> dict:
     texto = texto.replace("\r\n", "\n").strip() + "\n"
     anterior = ler_roteiro(v["slug"])  # com as notas: mudar só uma nota também muda a direção daquele bloco
     if anterior is not None and anterior != texto:
+        copia_de_seguranca(pasta.parent, "roteiro")
         invalidar_depois_do_roteiro(con, vid, pasta.parent)
     versoes = sorted(pasta.glob("roteiro_v*.txt"))
     n = len(versoes) + 1
@@ -327,6 +353,7 @@ def tarefa_direcao(vid: int) -> None:
             con.commit()
 
     roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
+    copia_de_seguranca(pasta, "direcao")
     with conectar() as con:
         limpar_avisos(con, vid, AVISOS_DO_RASCUNHO)  # avisos da direção/rascunho anterior ficaram obsoletos
         con.commit()
@@ -652,6 +679,8 @@ def tarefa_rascunho(vid: int) -> None:
         circulos, _ = ler_nomes_da_capa(capa, detectar, chamar_json)
         (dirc / "capa_circulos.json").write_text(json.dumps(circulos, ensure_ascii=False, indent=1), encoding="utf-8")
     ks = pendentes_para_o_diretor(ajustes)
+    if ks:  # o diretor vai mexer em cenas: guarda o estado antes
+        copia_de_seguranca(pasta, "pedido-ao-diretor")
     with conectar() as con:
         atualizar_etapa(con, vid, "direcao", "andamento",
                         f"refazendo {len(ks)} cena(s) (Claude)" if ks else "aplicando seus ajustes", "storyboard")

@@ -47,6 +47,10 @@ type Cena = {
   texto_em_escolhido: number | null // sua escolha (-1 = junto com a imagem); vale no próximo rascunho
   palavras_antes?: { i: number; t: string }[] // fim da cena anterior (para trazer o corte para trás)
   inicio_escolhido?: number | null // onde a cena começa (escolha sua)
+  personagens?: string[] // quem a busca do diretor pedia (lista do que falta no acervo)
+  juntou?: number // nº de itens de uma junção sua (dá para juntar mais até 4)
+  transicao?: string | null // como entrou no rascunho: empurrar | sobrepor | null (corte normal)
+  transicao_escolhida?: string | null // sua escolha: nenhuma | empurrar | sobrepor
   fundo: string | null // texto: claro | escuro
   som: string | null
   som_no_rascunho: boolean
@@ -69,6 +73,7 @@ type Dados = {
   ajustes: number
   pendentes: number
   capa: string | null
+  estilo?: number // 2 = vídeo com os recursos novos (transições de entrada)
   pendentes_detalhe?: { id: string; numero: string; mudancas: string[] }[] // o que mudou em cada cena pendente
 }
 
@@ -109,6 +114,7 @@ export function Storyboard({ id }: { id: number }) {
   // confirmação visual de cada ajuste: aviso "foi para a fila" + a cena pisca (some sozinho)
   const [aviso, setAviso] = useState<{ texto: string; cid: string; n: number } | null>(null)
   const [verPendentes, setVerPendentes] = useState(false)
+  const [verFaltas, setVerFaltas] = useState(false)
   const ajustar = async (cid: string, acao: Record<string, unknown>) => {
     await api(`/videos/${id}/storyboard/${encodeURIComponent(cid)}`, { method: 'POST', body: JSON.stringify(acao) })
     await carregar()
@@ -195,6 +201,15 @@ export function Storyboard({ id }: { id: number }) {
                 )}
               </span>
             )}
+            {sb && faltas(sb.cenas).total > 0 && (
+              <button
+                onClick={() => setVerFaltas(!verFaltas)}
+                className="whitespace-nowrap rounded border border-borda px-2 py-1 font-mono text-xs text-suave hover:text-texto"
+                title="Cenas que entraram só com texto porque o acervo não tinha imagem: o que procurar para completar o acervo"
+              >
+                {faltas(sb.cenas).total} sem imagem {verFaltas ? '▴' : '▾'}
+              </button>
+            )}
             <button
               disabled={trabalhando || !sb}
               onClick={async () => {
@@ -224,6 +239,31 @@ export function Storyboard({ id }: { id: number }) {
                   <span className="w-14 shrink-0 font-mono text-apagado">#{p.numero}</span>
                   <span className="text-texto/90">{p.mudancas.join(' · ')}</span>
                 </button>
+              ))}
+            </div>
+          )}
+          {verFaltas && sb && (
+            <div className="max-h-72 w-full overflow-auto rounded-lg border border-borda bg-painel px-3 py-2 text-xs">
+              <p className="mb-1 text-suave">
+                O que falta no acervo (cenas que entraram só com texto). Coloque as imagens na pasta, clique em “Atualizar acervo” e
+                escolha pela busca da cena:
+              </p>
+              {faltas(sb.cenas).grupos.map(([quem, cs]) => (
+                <div key={quem} className="flex gap-2 py-0.5">
+                  <span className="w-40 shrink-0 font-medium text-texto">{quem}</span>
+                  <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+                    {cs.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => document.getElementById(`cena-${c.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                        className="text-left text-texto/80 hover:text-texto"
+                        title={c.busca ?? ''}
+                      >
+                        <span className="font-mono text-apagado">#{c.numero}</span> {(c.busca ?? '').slice(0, 60)}
+                      </button>
+                    ))}
+                  </span>
+                </div>
               ))}
             </div>
           )}
@@ -258,7 +298,7 @@ export function Storyboard({ id }: { id: number }) {
           {/* lista de cenas */}
           <div className="flex flex-col gap-3">
             {sb?.cenas.map((c) => (
-              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} capa={sb.capa} ativa={atual?.id === c.id} ajustar={ajustar} irPara={irPara} piscar={aviso?.cid === c.id ? aviso.n : 0} />
+              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} capa={sb.capa} estilo={sb.estilo ?? 1} ativa={atual?.id === c.id} ajustar={ajustar} irPara={irPara} piscar={aviso?.cid === c.id ? aviso.n : 0} />
             ))}
           </div>
         </div>
@@ -276,6 +316,7 @@ function CartaoCena({
   cena: c,
   tipos,
   capa,
+  estilo,
   piscar,
   ativa,
   ajustar,
@@ -284,6 +325,7 @@ function CartaoCena({
   cena: Cena
   tipos: string[]
   capa: string | null
+  estilo: number
   piscar: number
   ativa: boolean
   ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void>
@@ -461,6 +503,26 @@ function CartaoCena({
           {!c.removida && (c.palavras ?? []).length > 0 && ((c.palavras_antes ?? []).length > 0 || c.palavras.length > 1) && (
             <OndeACenaComeca c={c} ajustar={ajustar} />
           )}
+          {estilo >= 2 && !c.removida && !['capa', 'hub'].includes(c.tipo) && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-1 text-[11px] text-suave">
+              entrada:
+              {[['auto', 'automática'], ['nenhuma', 'corte'], ['empurrar', 'empurrar'], ['sobrepor', 'sobrepor']].map(([v, r]) => {
+                const atual = c.transicao_escolhida ?? 'auto'
+                const noRascunho = c.transicao ?? 'nenhuma'
+                return (
+                  <button
+                    key={v}
+                    onClick={() => ajustar(c.id, { acao: 'transicao', tipo: v })}
+                    title={v === 'auto' ? `o sistema decide (no rascunho: ${noRascunho === 'nenhuma' ? 'corte' : noRascunho})` : undefined}
+                    className={`rounded border px-1.5 py-0.5 ${atual === v ? (v === 'auto' ? 'border-ouro bg-ouro/20 text-ouro' : 'border-ok bg-ok/15 text-ok') : 'border-borda hover:border-suave hover:text-texto'}`}
+                  >
+                    {r}
+                    {v === 'auto' && atual === 'auto' && noRascunho !== 'nenhuma' ? ` (${noRascunho})` : ''}
+                  </button>
+                )
+              })}
+            </div>
+          )}
           {usaLegenda && (
             <input
               value={legenda}
@@ -477,7 +539,7 @@ function CartaoCena({
                 <Search className="size-3.5" /> {c.clipe ? 'Trocar clipe / momento' : c.tipo === 'clipe' ? 'Escolher clipe' : c.tipo === 'mosaico' ? (c.escolhido && !c.fundo_branco ? 'Trocar fundo' : 'Pôr fundo') : c.tipo === 'lista' ? (c.fundo_lista ? 'Trocar fundo' : 'Pôr fundo') : c.escolhido ? 'Trocar imagem' : c.tipo === 'texto' ? 'Pôr uma imagem' : 'Buscar imagem'}
               </Botao>
             )}
-            {['cartao', 'telacheia', 'recorte', 'meio', 'citacao'].includes(c.tipo) && c.escolhido && !c.removida && (
+            {((['cartao', 'telacheia', 'recorte', 'meio', 'citacao'].includes(c.tipo) && c.escolhido) || ((c.juntou ?? 0) > 0 && (c.juntou ?? 0) < 4)) && !c.removida && (
               <Botao
                 onClick={async () => {
                   try {
@@ -629,7 +691,7 @@ function CartaoCena({
           )}
           <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-suave">
             movimento:
-            {[['aproximar', 'aproximar'], ['afastar', 'afastar'], ['pan_esq', '← pan'], ['pan_dir', 'pan →'], ['subir', 'subir'], ['descer', 'descer']].map(([v, r]) => (
+            {[['aproximar', 'aproximar'], ['afastar', 'afastar'], ['pan_esq', '← pan'], ['pan_dir', 'pan →'], ['subir', 'subir'], ['descer', 'descer'], ['parado', 'nenhum']].map(([v, r]) => (
               <button
                 key={v}
                 onClick={() => ajustar(c.id, { acao: 'movimento', tipo: v })}
@@ -1026,6 +1088,17 @@ function QuandoOTextoEntra({ c, ajustar }: { c: Cena; ajustar: (cid: string, aca
   )
 }
 
+
+/** Cenas que entraram só com texto por falta de imagem, agrupadas por personagem (lista do que procurar). */
+function faltas(cenas: Cena[]) {
+  const sem = cenas.filter((c) => c.so_texto_no_video && !c.escolhido && !c.removida && c.busca)
+  const grupos = new Map<string, Cena[]>()
+  for (const c of sem) {
+    const quem = c.personagens?.[0] ?? 'outros (arte / conceito)'
+    grupos.set(quem, [...(grupos.get(quem) ?? []), c])
+  }
+  return { total: sem.length, grupos: [...grupos.entries()].sort((a, b) => b[1].length - a[1].length) }
+}
 
 /** Onde a cena começa: o corte com a cena anterior pode ir para trás (fim da anterior) ou para a frente (dentro desta).
  *  Dourado = como está no rascunho, verde = sua escolha (próximo rascunho). */

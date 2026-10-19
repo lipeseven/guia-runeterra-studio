@@ -4,6 +4,7 @@ import { Figura } from "../componentes/Figura";
 import { estiloEntradaImagem, transformMovimento, type EfeitoImagem, type Entrada, type Movimento } from "../efeitos";
 import { useCores } from "../tema";
 import type { CenaCartao, Midia, Secao } from "../tipos";
+import { useEstilo } from "./Estilo2"; // impressao:ignorar
 
 const CAIXA = { largura: 1712, altura: 790, topo: 140 };
 
@@ -21,6 +22,7 @@ export const ImagemNaCaixa: React.FC<{
   const w = midia.w * k;
   const h = midia.h * k;
   const p = interpolate(frame, [desde, ate], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const livre = useEstilo() === 2; // impressao:ignorar
   return (
     <div
       style={{
@@ -30,6 +32,7 @@ export const ImagemNaCaixa: React.FC<{
         width: w,
         height: h,
         overflow: "hidden",
+        ...(livre ? { overflow: "visible" } : {}), // impressao:ignorar
         ...estiloEntradaImagem(frame, fps, desde, entrada),
       }}
     >

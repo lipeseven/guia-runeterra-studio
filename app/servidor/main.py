@@ -356,6 +356,11 @@ def _pasta(con, vid: int) -> Path:
     return motor.PASTA_PROJETOS / v["slug"]
 
 
+def _estilo(pasta: Path) -> int:
+    arq = pasta / "direcao" / "estilo_visual.json"
+    return int(json.loads(arq.read_text(encoding="utf-8")).get("versao", 2)) if arq.exists() else 2
+
+
 @app.get("/api/videos/{vid}/storyboard")
 def ver_storyboard(vid: int):
     with conectar() as con:
@@ -365,7 +370,8 @@ def ver_storyboard(vid: int):
             "ajustes": len(storyboard.carregar(pasta)["ajustes"]),
             "pendentes": len(storyboard.pendentes(pasta)),  # mexidas depois que o último rascunho começou
             "pendentes_detalhe": storyboard.detalhe_dos_pendentes(pasta),
-            "capa": next((p.relative_to(RAIZ).as_posix() for p in sorted((pasta / "direcao").glob("capa.*"))), None)}
+            "capa": next((p.relative_to(RAIZ).as_posix() for p in sorted((pasta / "direcao").glob("capa.*"))), None),
+            "estilo": _estilo(pasta)}  # 2 = recursos novos (transições); o 1º vídeo ficou no 1
 
 
 @app.post("/api/videos/{vid}/storyboard/descartar")
