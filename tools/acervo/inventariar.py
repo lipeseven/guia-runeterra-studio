@@ -21,7 +21,7 @@ import imagehash
 from PIL import Image, ImageOps
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from comum import PASTA_ACERVO, PASTA_MINIATURAS, CONFIG, abrir_acervo, preparar_ffmpeg  # noqa: E402
+from comum import PASTA_ACERVO, PASTA_MINIATURAS, CONFIG, RAIZ, abrir_acervo, preparar_ffmpeg  # noqa: E402
 
 TIPOS = {
     ".jpg": "imagem", ".jpeg": "imagem", ".jfif": "imagem", ".jpg_large": "imagem",
@@ -82,8 +82,20 @@ def sobre_branco(img: Image.Image) -> Image.Image:
     return fundo
 
 
+# Acervo baixado da internet (importadores, busca no storyboard): fora da pasta do Felipe, que só é lida. O caminho
+# fica ABSOLUTO no banco — `PASTA_ACERVO / caminho` continua funcionando em todo o sistema.
+PASTAS_EXTRA = [RAIZ / "dados" / "acervo_internet"]
+
+
+def caminho_no_banco(p: Path) -> str:
+    try:
+        return str(p.relative_to(PASTA_ACERVO))
+    except ValueError:
+        return p.as_posix()
+
+
 def processar(caminho: Path) -> dict:
-    rel = str(caminho.relative_to(PASTA_ACERVO))
+    rel = caminho_no_banco(caminho)
     ext = caminho.suffix.lower()
     tipo = TIPOS[ext]
     info = {
@@ -132,10 +144,11 @@ def main() -> None:
     con = abrir_acervo()
     conhecidos = {r["caminho"]: r["mtime"] for r in con.execute("SELECT caminho, mtime FROM midias")}
 
-    arquivos = [p for p in PASTA_ACERVO.rglob("*") if p.is_file() and p.suffix.lower() in TIPOS]
-    ignorados = [p.name for p in PASTA_ACERVO.rglob("*") if p.is_file() and p.suffix.lower() not in TIPOS]
-    novos = [p for p in arquivos
-             if conhecidos.get(str(p.relative_to(PASTA_ACERVO))) != p.stat().st_mtime]
+    raizes = [PASTA_ACERVO] + [p for p in PASTAS_EXTRA if p.exists()]
+    todos = [p for r in raizes for p in r.rglob("*") if p.is_file()]
+    arquivos = [p for p in todos if p.suffix.lower() in TIPOS]
+    ignorados = [p.name for p in todos if p.suffix.lower() not in TIPOS]
+    novos = [p for p in arquivos if conhecidos.get(caminho_no_banco(p)) != p.stat().st_mtime]
     print(f"{len(arquivos)} arquivos no acervo, {len(novos)} novos/alterados", flush=True)
 
     erros = []

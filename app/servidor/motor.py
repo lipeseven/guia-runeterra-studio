@@ -823,6 +823,66 @@ def tarefa_acervo(_vid: int) -> None:
         raise
 
 
+CLIPES_PEDIDOS: list[str] = []  # links (YouTube etc.) esperando download
+CLIPES = {"ultimos": []}  # [{url, titulo|erro, quando}] para o painel
+
+
+def tarefa_clipes(_vid: int) -> None:
+    """Baixa os vídeos pedidos por link (yt-dlp, até 1080p) para dados/acervo_internet/clipes/ e atualiza o acervo:
+    viram tomadas como os clipes da pasta do Felipe. Tarefa GLOBAL (vid 0)."""
+    import subprocess
+
+    sys.path.insert(0, str(RAIZ / "tools"))
+    from comum import preparar_ffmpeg
+
+    preparar_ffmpeg()
+    pasta = RAIZ / "dados" / "acervo_internet" / "clipes"
+    pasta.mkdir(parents=True, exist_ok=True)
+    baixados = []
+    while CLIPES_PEDIDOS:
+        url = CLIPES_PEDIDOS.pop(0)
+        definir_progresso("Clipe da internet", f"baixando {url}")
+        r = subprocess.run([sys.executable, "-m", "yt_dlp", "--js-runtimes", "node", "--no-playlist", "--no-progress",
+                            "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b", "--merge-output-format", "mp4",
+                            "-o", str(pasta / "%(title).60s [%(id)s].%(ext)s"), "--print", "after_move:filepath", url],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+        arq = (r.stdout.strip().splitlines() or [""])[-1]
+        if r.returncode == 0 and arq and Path(arq).exists():
+            baixados.append((url, Path(arq)))
+            CLIPES["ultimos"].insert(0, {"url": url, "titulo": Path(arq).stem, "quando": agora()})
+        else:
+            CLIPES["ultimos"].insert(0, {"url": url, "erro": (r.stderr.strip().splitlines() or ["falhou"])[-1][:200],
+                                         "quando": agora()})
+    del CLIPES["ultimos"][10:]
+    if baixados:
+        tarefa_acervo(0)  # inventário + CLIP + tomadas dos vídeos novos
+        sys.path.insert(0, str(RAIZ / "tools"))
+        from comum import abrir_acervo
+
+        con = abrir_acervo()
+        for url, arq in baixados:
+            con.execute("UPDATE midias SET origem='youtube', url=?, categoria=COALESCE(categoria, 'cinematica'), "
+                        "descricao=COALESCE(descricao, ?) WHERE caminho=?", (url, arq.stem, arq.as_posix()))
+        con.commit()
+
+
+def tarefa_importar_riot(_vid: int) -> None:
+    """Splash arts oficiais (todos os campeões e skins) + artes do Universe → acervo (tools/acervo/importar_riot.py)."""
+    sys.path.insert(0, str(RAIZ / "tools" / "acervo"))
+    from importar_riot import baixar, catalogar, listar
+
+    aviso = lambda txt: definir_progresso("Importando artes da Riot", txt)  # noqa: E731
+    aviso("listando campeões e skins")
+    r = catalogar(baixar(listar(), aviso), aviso)
+    ACERVO["ultima"] = {"quando": agora(), "resultado": {"importacao_riot": r}}
+
+
+def pedir_clipe(url: str) -> None:
+    CLIPES_PEDIDOS.append(url)
+    if not any(nome == "clipes" for _, nome in list(FILA.queue)):
+        FILA.put((0, "clipes"))
+
+
 def pedir_acervo() -> None:
     if not any(nome == "acervo" for _, nome in list(FILA.queue)):
         FILA.put((0, "acervo"))
@@ -831,7 +891,8 @@ def pedir_acervo() -> None:
 TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
            "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
-           "conferencia": tarefa_conferencia}
+           "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
+           "importar_riot": tarefa_importar_riot}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 ESTADO = {"executando": None}
 

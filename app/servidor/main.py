@@ -438,6 +438,58 @@ def ajustar_cena(vid: int, cid: str, acao: dict):
         raise HTTPException(400, str(e))
 
 
+@app.get("/api/internet/buscar")
+def buscar_internet(q: str, n: int = 24):
+    from . import internet
+
+    return internet.buscar(q, min(max(n, 4), 60))
+
+
+class DaInternet(BaseModel):
+    url: str
+    titulo: str = ""
+    pagina: str = ""
+    fonte: str = ""
+    licenca: str = ""
+    autor: str = ""
+
+
+@app.post("/api/internet/baixar")
+def baixar_da_internet(corpo: DaInternet):
+    """Baixa a imagem escolhida na busca da internet e cataloga no acervo (fora da pasta do Felipe)."""
+    from . import internet
+
+    try:
+        return internet.baixar(corpo.url, corpo.titulo, corpo.pagina, corpo.fonte, corpo.licenca, corpo.autor)
+    except Exception as e:
+        raise HTTPException(400, f"não consegui baixar essa imagem: {e}")
+
+
+class Link(BaseModel):
+    url: str
+
+
+@app.post("/api/acervo/clipe-do-link")
+def clipe_do_link(corpo: Link):
+    """Vídeo da internet por link (YouTube etc.): entra na fila, é baixado e vira tomadas no acervo."""
+    url = corpo.url.strip()
+    if not url.startswith(("http://", "https://")):
+        raise HTTPException(400, "cole um link (https://…)")
+    motor.pedir_clipe(url)
+    return {"ok": True}
+
+
+@app.post("/api/acervo/importar-riot")
+def importar_riot():
+    motor.FILA.put((0, "importar_riot"))
+    return {"ok": True}
+
+
+@app.get("/api/acervo/clipes-baixados")
+def clipes_baixados():
+    return {"pendentes": list(motor.CLIPES_PEDIDOS), "ultimos": motor.CLIPES["ultimos"]}
+
+
 @app.get("/api/acervo/buscar")
 def buscar_acervo(q: str, n: int = 16, clipes: bool = False):
     """`n` cresce de 16 em 16 com o "mostrar mais" do storyboard; `clipes` = vídeos (tomadas) e GIFs."""

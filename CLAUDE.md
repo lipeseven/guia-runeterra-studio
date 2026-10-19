@@ -122,6 +122,12 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   semelhança com o roteiro base (`direcao/roteiro_base.txt`; embeddings multilíngues locais, sentence-transformers)
   + fatos de lore (Sonnet extrai afirmações → wiki do LoL/Universe buscados localmente, cache em dados/pesquisa_cache
   → Sonnet dá confere/diverge/sem fonte; cache por parágrafo). Painel: bloco "Conferência do roteiro" no Roteiro.
+- Mídias da internet ✅ (2026-10-19): acervo baixado fica em `dados/acervo_internet/` (fora da pasta do Felipe;
+  caminho ABSOLUTO no acervo.db, `inventariar.PASTAS_EXTRA`). `tools/acervo/importar_riot.py` (splash de todas as
+  skins via CommunityDragon + splash base 1920 e artes dos contos do Universe; categoria splash/skin/arte, descarta o
+  que o Felipe já tem; tarefa "importar_riot"). Storyboard: "buscar na internet" (`app/servidor/internet.py`:
+  DuckDuckGo `ddgs` + Wikimedia Commons; baixa e cataloga na hora) e "colar link" de vídeo (yt-dlp → tomadas, tarefa
+  "clipes"). Gravação por capítulos: vários arquivos em entrada/ são juntados na ordem dos nomes.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

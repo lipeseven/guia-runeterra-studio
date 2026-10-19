@@ -1,3 +1,4 @@
+import { BuscaInternet, ClipeDoLink } from '../componentes/BuscaInternet'
 import { ArrowLeft, Columns2, Crosshair, Eraser, Loader2, MessageSquarePlus, Music, Play, RotateCcw, Search, Trash2, Wand2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, arquivo, useAoVivo, type Video } from '../api'
@@ -665,6 +666,16 @@ function CartaoCena({
                   {buscando ? 'buscando…' : 'Mostrar mais'}
                 </button>
               )}
+              {(c.tipo === 'clipe' || c.clipe) && <ClipeDoLink />}
+              {c.tipo !== 'clipe' && (
+                <BuscaInternet
+                  inicial={consulta || (c.busca ?? '')}
+                  usar={async (m) => {
+                    await ajustar(c.id, { acao: 'usar_midia', midia_id: m.midia_id, nome: m.nome, miniatura: m.miniatura })
+                    setAba('nada')
+                  }}
+                />
+              )}
             </>
           )}
         </div>
@@ -921,6 +932,13 @@ function ItemDaCena({
           )}
         </>
       )}
+      <BuscaInternet
+        compacta
+        inicial={consulta || (peca.busca ?? peca.rotulo ?? '')}
+        usar={async (m) => {
+          await ajustar({ acao: 'peca_usar_midia', midia_id: m.midia_id, nome: m.nome, miniatura: m.miniatura })
+        }}
+      />
     </div>
   )
 }
