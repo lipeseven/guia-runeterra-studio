@@ -64,7 +64,7 @@ NOMES_AJUSTE = {
     "sem_som": "sem efeito sonoro", "conferido": "conferida", "comentario": "pedido ao diretor", "comentario_aplicado": None,
     "clipe_inicio": "momento do clipe", "lado": "lado da imagem", "metade2": "outra metade", "juntar": "juntada com a próxima",
     "juntada_em": "juntada na anterior", "sem_fundo": "fundo removido", "fundo_lista": "fundo da lista",
-    "fundo_branco": "fundo branco", "vertical": "posição da citação", "legenda_indice": "quando o texto entra", "pecas": "itens", "pecas_def": "itens",
+    "fundo_branco": "fundo branco", "vertical": "posição da citação", "legenda_indice": "quando o texto entra", "inicio_indice": "onde a cena começa", "pecas": "itens", "pecas_def": "itens",
     "pecas_lista": "itens (adicionados/removidos)", "foco": "enquadramento", "movimento": "movimento de câmera",
     "resolvido": None, "reaberto": None,
 }
@@ -172,6 +172,12 @@ def remapear_ajustes(pasta: Path, velho: str, novo: str) -> int:
                 else:
                     aj.pop("legenda_indice")
                     perdidos += nome == "ajustes.json"
+            if isinstance(aj.get("inicio_indice"), int):
+                if aj["inicio_indice"] in mapa:
+                    aj["inicio_indice"] = mapa[aj["inicio_indice"]]
+                else:
+                    aj.pop("inicio_indice")
+                    perdidos += nome == "ajustes.json"
             for p in (aj.get("pecas") or {}).values():
                 if isinstance(p, dict) and isinstance(p.get("indice"), int) and p["indice"] >= 0:
                     if p["indice"] in mapa:
@@ -221,6 +227,7 @@ def cenas(pasta: Path) -> list[dict]:
     fontes = d["direcao"].get("fontes") or {}  # imagem automática que cada cena usou no último rascunho
     inicios = []
     saida = []
+    m_ant = None  # cena montada anterior (para mover o corte para trás)
     for k, c in enumerate(d["plano"].get("cenas", [])):
         cid = _id(c, k)
         aj = d["ajustes"].get(cid, {})
@@ -281,6 +288,10 @@ def cenas(pasta: Path) -> list[dict]:
             x = necs[f"{cid}m2"]["candidatos"][aj["metade2"]["candidato"]]
             metade2 = {"nome": x["nome"], "miniatura": _rel(x["miniatura"])}
         m = montadas.get(cid)
+        antes = ([{"i": i, "t": toks[i]} for i in range(max(m_ant["de"] + 1, m_ant["ate"] - 14), m_ant["ate"] + 1)]
+                 if m and m_ant and toks and m_ant["ate"] + 1 == m["de"] else [])
+        if m:
+            m_ant = m
         inicio = palavras[m["de"]]["i"] if m and palavras else None
         inicios.append(inicio)
         frase = ""
@@ -301,6 +312,8 @@ def cenas(pasta: Path) -> list[dict]:
             "movimento": aj.get("movimento") or _movimento(m), "movimento_escolhido": bool(aj.get("movimento")), "fundo_branco": bool(aj.get("fundo_branco")), "so_texto_no_video": bool(m and m.get("sem_imagem")), "arquivo_sumiu": sumiu,
             "palavras": [{"i": i, "t": toks[i]} for i in range(m["de"], min(m["ate"] + 1, len(toks)))] if m and toks else [],
             "texto_em": _texto_em(m),
+            "palavras_antes": antes,  # fim da cena anterior: o corte pode vir para trás
+            "inicio_escolhido": aj.get("inicio_indice"),
             "texto_em_escolhido": aj.get("legenda_indice"),  # escolha sua ainda não renderizada (-1 = junto) "fundo": (m or {}).get("fundo") if isinstance((m or {}).get("fundo"), str) else None,
         })
     # fim de cada cena = início da próxima montada
@@ -447,6 +460,18 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             aj["sem_fundo"] = True
         else:
             aj.pop("sem_fundo", None)
+    elif tipo == "inicio_em":  # onde a cena começa (corte com a anterior): índice da palavra no roteiro; -1 = como o diretor fez
+        i = int(acao["indice"])
+        if i < 0:
+            aj.pop("inicio_indice", None)
+        else:
+            mont = [x for x in d["direcao"].get("cenas", [])]
+            k_ = next((n for n, x in enumerate(mont) if (x.get("id") or f"C{x.get('k')}") == cid), None)
+            if k_ is not None:  # o corte fica entre o começo da anterior e o fim desta (cada uma com ≥1 palavra)
+                lo = mont[k_ - 1]["de"] + 1 if k_ > 0 else 0
+                if not lo <= i <= mont[k_]["ate"]:
+                    raise ValueError("o corte precisa ficar entre o começo da cena anterior e o fim desta")
+            aj["inicio_indice"] = i
     elif tipo == "legenda_em":  # quando o texto entra: -1 = junto com a imagem; senão, índice da palavra no roteiro
         aj["legenda_indice"] = int(acao["indice"])
     elif tipo in ("item_novo", "item_remover"):  # quantos itens tem a lista / tela dividida / mosaico
@@ -602,6 +627,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
             c["legenda"] = aj["legenda"] or None
         if "legenda_indice" in aj:
             c["legenda_indice"] = aj["legenda_indice"]
+        if "inicio_indice" in aj:  # corte movido à mão ("poder de Deus")
+            c["inicio_indice"] = aj["inicio_indice"]
         if aj.get("lado"):
             c["lado_felipe"] = aj["lado"]
         if aj.get("vertical"):

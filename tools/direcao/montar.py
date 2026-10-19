@@ -396,6 +396,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             var.__init__(semente=f"{slug}:{bloco_atual}")
         f = frases[c["frase"]]
         de = indice_na_frase(f, toks, c.get("comeca_na_palavra")) or f["de"]
+        if c.get("inicio_indice") is not None:  # corte movido pelo Felipe no storyboard
+            de = max(int(c["inicio_indice"]), cenas[-1]["de"] + 1 if cenas else 0)
         legenda_em = indice_na_frase(f, toks, c.get("legenda_na_palavra"))
         if c.get("legenda_indice") is not None:  # escolhido à mão no storyboard: -1 = junto com a imagem
             legenda_em = de if c["legenda_indice"] < 0 else max(de, int(c["legenda_indice"]))

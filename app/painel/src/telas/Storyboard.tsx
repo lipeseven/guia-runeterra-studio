@@ -45,6 +45,8 @@ type Cena = {
   palavras: { i: number; t: string }[] // narração da cena no rascunho (para escolher quando o texto entra)
   texto_em: number | null // palavra em que o texto entrou (null = junto com a imagem)
   texto_em_escolhido: number | null // sua escolha (-1 = junto com a imagem); vale no próximo rascunho
+  palavras_antes?: { i: number; t: string }[] // fim da cena anterior (para trazer o corte para trás)
+  inicio_escolhido?: number | null // onde a cena começa (escolha sua)
   fundo: string | null // texto: claro | escuro
   som: string | null
   som_no_rascunho: boolean
@@ -456,6 +458,9 @@ function CartaoCena({
             </p>
           )}
           {usaLegenda && c.tipo !== 'texto' && (c.palavras ?? []).length > 0 && <QuandoOTextoEntra c={c} ajustar={ajustar} />}
+          {!c.removida && (c.palavras ?? []).length > 0 && ((c.palavras_antes ?? []).length > 0 || c.palavras.length > 1) && (
+            <OndeACenaComeca c={c} ajustar={ajustar} />
+          )}
           {usaLegenda && (
             <input
               value={legenda}
@@ -1021,6 +1026,69 @@ function QuandoOTextoEntra({ c, ajustar }: { c: Cena; ajustar: (cid: string, aca
   )
 }
 
+
+/** Onde a cena começa: o corte com a cena anterior pode ir para trás (fim da anterior) ou para a frente (dentro desta).
+ *  Dourado = como está no rascunho, verde = sua escolha (próximo rascunho). */
+function OndeACenaComeca({ c, ajustar }: { c: Cena; ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void> }) {
+  const [aberto, setAberto] = useState(false)
+  const noRascunho = c.palavras[0]?.i
+  const escolha = c.inicio_escolhido ?? null
+  const naFila = escolha != null && escolha !== noRascunho
+  const todas = [...(c.palavras_antes ?? []), ...c.palavras]
+  const nome = (i: number) => `“${todas.find((p) => p.i === i)?.t ?? '…'}”`
+  const mudar = async (i: number) => {
+    try {
+      await ajustar(c.id, { acao: 'inicio_em', indice: i })
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+    }
+  }
+  const estilo = (i: number) =>
+    naFila && escolha === i
+      ? 'border border-ok bg-ok/15 text-ok'
+      : noRascunho === i
+        ? naFila
+          ? 'border border-ouro/40 text-ouro/60'
+          : 'border border-ouro bg-ouro/20 text-ouro'
+        : 'border border-transparent hover:bg-painel-2 hover:text-texto'
+  return (
+    <div className="mt-1.5 text-[11px] text-suave">
+      <button onClick={() => setAberto(!aberto)} className="hover:text-texto">
+        a cena começa em: <b className="text-texto">{nome(noRascunho)}</b>
+        {naFila && (
+          <>
+            {' '}→ <b className="text-ok">{nome(escolha!)}</b> <span className="text-ok">(na fila)</span>
+          </>
+        )}{' '}
+        <span className="text-apagado">({aberto ? 'fechar' : 'mudar'})</span>
+      </button>
+      {aberto && (
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          {(c.palavras_antes ?? []).length > 0 && <span className="text-apagado">…fim da cena anterior:</span>}
+          {(c.palavras_antes ?? []).map((p) => (
+            <button key={p.i} onClick={() => mudar(p.i)} className={`rounded px-1 py-0.5 ${estilo(p.i)}`}>
+              {naFila && escolha === p.i ? '✓ ' : ''}
+              {p.t}
+            </button>
+          ))}
+          <span className="text-apagado">| esta cena:</span>
+          {c.palavras.map((p) => (
+            <button key={p.i} onClick={() => mudar(p.i)} className={`rounded px-1 py-0.5 ${estilo(p.i)}`}>
+              {naFila && escolha === p.i ? '✓ ' : ''}
+              {p.t}
+            </button>
+          ))}
+          {escolha != null && (
+            <button onClick={() => mudar(-1)} className="ml-1 rounded px-1.5 py-0.5 text-apagado hover:text-texto">
+              voltar ao do diretor
+            </button>
+          )}
+          <span className="ml-1 text-apagado">clique na palavra em que a cena deve começar · dourado = rascunho · verde = sua escolha</span>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** Quando um item (lista / tela dividida / mosaico) entra: junto com a cena ou numa palavra. Dourado = rascunho, verde = sua escolha. */
 function QuandoOItemEntra({ c, p, escolher }: { c: Cena; p: Peca; escolher: (indice: number) => Promise<void> }) {
