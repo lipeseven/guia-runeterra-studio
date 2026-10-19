@@ -473,9 +473,31 @@ EXT_GRAVACAO = {".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac", ".mp4", ".mkv",
 
 
 def gravacao_na_pasta(slug: str) -> Path | None:
-    """Arquivo de gravação mais recente na pasta entrada/ do vídeo."""
+    """Gravação na pasta entrada/ do vídeo. Vários arquivos do Felipe (gravou por capítulos: 01.wav, 02.wav…) são
+    JUNTADOS na ordem dos nomes (1, 2, 10 — ordem natural) em trabalho/gravacao_juntada.wav; um só = ele mesmo.
+    Os "gravacao_<data>" (uploads do painel) não entram na junção: o mais recente deles vale sozinho."""
+    import subprocess
+
     entrada = PASTA_PROJETOS / slug / "entrada"
     arquivos = [p for p in entrada.glob("*") if p.is_file() and p.suffix.lower() in EXT_GRAVACAO] if entrada.exists() else []
+    partes = sorted((p for p in arquivos if not p.name.startswith("gravacao_")),
+                    key=lambda p: [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", p.stem)])
+    if len(partes) >= 2:
+        sys.path.insert(0, str(RAIZ / "tools"))
+        from comum import preparar_ffmpeg
+
+        preparar_ffmpeg()
+        saida = PASTA_PROJETOS / slug / "trabalho" / "gravacao_juntada.wav"
+        saida.parent.mkdir(parents=True, exist_ok=True)
+        cmd = ["ffmpeg", "-v", "error", "-y"]
+        for p in partes:
+            cmd += ["-i", str(p)]
+        cmd += ["-filter_complex", "".join(f"[{i}:a:0]" for i in range(len(partes))) + f"concat=n={len(partes)}:v=0:a=1[a]",
+                "-map", "[a]", "-ar", "48000", str(saida)]
+        subprocess.run(cmd, check=True)
+        return saida
+    if partes:
+        return partes[0]
     return max(arquivos, key=lambda p: p.stat().st_mtime) if arquivos else None
 
 

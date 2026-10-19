@@ -131,7 +131,7 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
             <p className="text-xs text-apagado">wav, mp3, m4a, flac, ogg, mp4, mkv, mov… Grave lendo o roteiro aprovado; pode errar e repetir à vontade.</p>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-suave">
-            <span>Arquivo muito grande?</span>
+            <span>Arquivo grande ou gravou por capítulos?</span>
             <button
               onClick={() => api(`/videos/${videoId}/abrir-pasta-entrada`, { method: 'POST' })}
               className="flex items-center gap-1.5 rounded-md border border-borda-forte px-2.5 py-1 hover:text-texto"
@@ -142,6 +142,9 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
             <button onClick={daPasta} className="rounded-md border border-ouro/60 px-2.5 py-1 text-ouro hover:bg-ouro/10">
               Já coloquei na pasta
             </button>
+            <span className="w-full text-apagado">
+              Vários arquivos (ex.: 01.wav, 02.wav, 03.wav…) são juntados na ordem dos nomes antes da limpeza.
+            </span>
           </div>
         </>
       ) : (
