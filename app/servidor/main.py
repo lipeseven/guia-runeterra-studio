@@ -110,6 +110,49 @@ def novo_video(corpo: NovoVideo):
     return {"id": vid}
 
 
+class JaPublicado(BaseModel):
+    titulo: str
+    url: str | None = None
+    data: str | None = None  # AAAA-MM-DD
+    capa_nome: str | None = None
+    capa_base64: str | None = None
+    roteiro: str | None = None
+
+
+@app.post("/api/videos/ja-publicado")
+def video_ja_publicado(corpo: JaPublicado):
+    """Vídeo publicado ANTES do sistema: só entra no histórico (capa, link, roteiro). Nasce em Publicado, sem
+    direção, render, arquivamento nem atualização do acervo (nada roda, 0 cota)."""
+    import base64
+
+    titulo = corpo.titulo.strip()
+    if not titulo:
+        raise HTTPException(400, "dê um título ao vídeo")
+    ext = Path(corpo.capa_nome or "").suffix.lower()
+    if corpo.capa_base64 and ext not in (".jpg", ".jpeg", ".png", ".webp"):
+        raise HTTPException(400, "envie a capa em JPG, PNG ou WEBP")
+    quando = f"{corpo.data}T12:00:00" if corpo.data else None
+    with conectar() as con:
+        vid = criar_video(con, titulo, "publicado")
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+        pasta = motor.PASTA_PROJETOS / slug
+        pasta.mkdir(parents=True, exist_ok=True)
+        capa = None
+        if corpo.capa_base64:
+            (pasta / f"capa{ext}").write_bytes(base64.b64decode(corpo.capa_base64))
+            capa = (pasta / f"capa{ext}").relative_to(RAIZ).as_posix()
+        if corpo.roteiro and corpo.roteiro.strip():
+            (pasta / "roteiro.txt").write_text(corpo.roteiro.replace("\r\n", "\n").strip() + "\n", encoding="utf-8")
+        con.execute("UPDATE etapas SET status='concluido', atualizado_em=? WHERE video_id=? AND status='pendente'",
+                    (agora(), vid))
+        con.execute("UPDATE videos SET capa=?, url_youtube=?, atualizado_em=? WHERE id=?",
+                    (capa, (corpo.url or "").strip() or None, quando or agora(), vid))
+        registrar(con, vid, "Publicado antes do sistema: adicionado ao histórico do canal"
+                  + (" (com roteiro)" if corpo.roteiro and corpo.roteiro.strip() else ""), "ok", quando)
+        con.commit()
+    return {"id": vid}
+
+
 @app.post("/api/acervo/atualizar")
 def atualizar_acervo():
     motor.pedir_acervo()

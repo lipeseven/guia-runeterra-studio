@@ -95,6 +95,7 @@ function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; vide
           <ArrastavelVideo key={v.id} video={v} aoMudar={aoCriar} motor={motor} />
         ))}
       </div>
+      {coluna.chave === 'publicado' && <JaPublicado aoCriar={aoCriar} />}
       {coluna.chave === 'ideia' && (
         <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-dashed border-borda-forte px-2.5 py-2">
           <Plus className="size-4 shrink-0 text-apagado" />
@@ -108,6 +109,92 @@ function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; vide
         </div>
       )}
     </section>
+  )
+}
+
+/** Vídeo publicado antes do sistema: entra direto em Publicado, só para o histórico (capa, link, roteiro). */
+function JaPublicado({ aoCriar }: { aoCriar: () => void }) {
+  const [aberto, setAberto] = useState(false)
+  const [titulo, setTitulo] = useState('')
+  const [url, setUrl] = useState('')
+  const [data, setData] = useState('')
+  const [capa, setCapa] = useState<File | null>(null)
+  const [roteiro, setRoteiro] = useState<File | null>(null)
+  const [enviando, setEnviando] = useState(false)
+  const base64 = (f: File) =>
+    new Promise<string>((ok, erro) => {
+      const r = new FileReader()
+      r.onload = () => ok(String(r.result).split(',')[1] ?? '')
+      r.onerror = erro
+      r.readAsDataURL(f)
+    })
+  const salvar = async () => {
+    if (!titulo.trim()) return
+    setEnviando(true)
+    try {
+      await api('/videos/ja-publicado', {
+        method: 'POST',
+        body: JSON.stringify({
+          titulo,
+          url: url || null,
+          data: data || null,
+          capa_nome: capa?.name ?? null,
+          capa_base64: capa ? await base64(capa) : null,
+          roteiro: roteiro ? await roteiro.text() : null,
+        }),
+      })
+      setTitulo('')
+      setUrl('')
+      setData('')
+      setCapa(null)
+      setRoteiro(null)
+      setAberto(false)
+      aoCriar()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : String(e))
+    } finally {
+      setEnviando(false)
+    }
+  }
+  const campo = 'w-full rounded-md border border-borda bg-painel-2 px-2 py-1 text-sm outline-none focus:border-suave'
+  if (!aberto)
+    return (
+      <button
+        onClick={() => setAberto(true)}
+        className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-dashed border-borda-forte px-2.5 py-2 text-sm text-apagado hover:text-texto"
+      >
+        <Plus className="size-4 shrink-0" /> Vídeo já publicado…
+      </button>
+    )
+  return (
+    <div className="mt-3 flex flex-col gap-1.5 rounded-lg border border-borda-forte p-2.5 text-xs text-suave">
+      <span className="text-[11px] text-apagado">Só para o histórico do canal: não roda direção nem render.</span>
+      <input value={titulo} onChange={(e) => setTitulo(e.target.value)} placeholder="Título do vídeo" className={campo} autoFocus />
+      <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Link do YouTube" className={campo} />
+      <label className="flex items-center gap-2">
+        publicado em <input type="date" value={data} onChange={(e) => setData(e.target.value)} className={campo} />
+      </label>
+      <label className="flex flex-col gap-0.5">
+        capa / thumbnail (JPG, PNG, WEBP)
+        <input type="file" accept=".jpg,.jpeg,.png,.webp" onChange={(e) => setCapa(e.target.files?.[0] ?? null)} />
+      </label>
+      <label className="flex flex-col gap-0.5">
+        roteiro (.txt, opcional)
+        <input type="file" accept=".txt" onChange={(e) => setRoteiro(e.target.files?.[0] ?? null)} />
+      </label>
+      <div className="mt-1 flex gap-2">
+        <button
+          onClick={salvar}
+          disabled={!titulo.trim() || enviando}
+          className="rounded-md bg-ouro/20 px-2.5 py-1 text-ouro hover:bg-ouro/30 disabled:opacity-40"
+        >
+          {enviando ? 'salvando…' : 'Adicionar'}
+        </button>
+        <button onClick={() => setAberto(false)} className="px-2 py-1 text-apagado hover:text-texto">
+          cancelar
+        </button>
+      </div>
+    </div>
   )
 }
 
