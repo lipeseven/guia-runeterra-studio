@@ -184,6 +184,10 @@ def receber_roteiro(con, vid: int, texto: str, nome: str) -> dict:
     # roteiro_fonte.txt = como o Felipe escreveu (com [notas de direção]); roteiro.txt = SÓ a narração, que é o
     # que a voz guia, o alinhamento, a limpeza da gravação e a direção leem; notas.json = notas e onde estão.
     narracao, notas = separar(texto)
+    if (pasta / "roteiro.txt").exists():  # ajustes do storyboard presos a palavras seguem a mesma palavra
+        from .storyboard import remapear_ajustes
+
+        remapear_ajustes(pasta.parent, (pasta / "roteiro.txt").read_text(encoding="utf-8"), narracao)
     (pasta / f"roteiro_v{n}.txt").write_text(texto, encoding="utf-8")  # histórico de versões (com notas)
     (pasta / "roteiro_fonte.txt").write_text(texto, encoding="utf-8")
     (pasta / "roteiro.txt").write_text(narracao, encoding="utf-8")

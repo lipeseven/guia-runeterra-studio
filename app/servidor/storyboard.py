@@ -136,6 +136,62 @@ def descartar_pendentes(pasta: Path, ids: list[str] | None = None) -> list[str]:
     return nao
 
 
+def remapear_ajustes(pasta: Path, velho: str, novo: str) -> int:
+    """O roteiro mudou: os ajustes que guardam POSIÇÃO no roteiro (quando o texto/item entra = índice da palavra;
+    item da junção = índice da frase) passam a apontar para a mesma palavra no texto novo. Palavra que não existe
+    mais: o ajuste de posição sai (volta ao padrão). Devolve quantos ajustes foram removidos."""
+    import difflib
+
+    tv, tn = velho.split(), novo.split()
+    mapa: dict[int, int] = {}
+    for tag, a0, a1, b0, _ in difflib.SequenceMatcher(None, tv, tn, autojunk=False).get_opcodes():
+        if tag == "equal":
+            mapa.update({a0 + k: b0 + k for k in range(a1 - a0)})
+    if all(mapa.get(i) == i for i in range(len(tv))) and len(tv) == len(tn):
+        return 0
+    import sys
+
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from planejar import frases_do_roteiro
+
+    def frases(t: str) -> list[dict]:
+        return frases_do_roteiro(t, [{"i": 0, "f": 0}] * len(t.split()))
+
+    fv, fn = frases(velho), frases(novo)
+    frase_da_palavra = {i: f["n"] for f in fn for i in range(f["de"], f["ate"] + 1)}
+    perdidos = 0
+    for nome in ("ajustes.json", "ajustes_no_rascunho.json"):
+        arq = pasta / "direcao" / nome
+        ajs = _ler(arq, None)
+        if not ajs:
+            continue
+        for aj in ajs.values():
+            if isinstance(aj.get("legenda_indice"), int) and aj["legenda_indice"] >= 0:
+                if aj["legenda_indice"] in mapa:
+                    aj["legenda_indice"] = mapa[aj["legenda_indice"]]
+                else:
+                    aj.pop("legenda_indice")
+                    perdidos += nome == "ajustes.json"
+            for p in (aj.get("pecas") or {}).values():
+                if isinstance(p, dict) and isinstance(p.get("indice"), int) and p["indice"] >= 0:
+                    if p["indice"] in mapa:
+                        p["indice"] = mapa[p["indice"]]
+                    else:
+                        p.pop("indice")
+                        perdidos += nome == "ajustes.json"
+            for p in (aj.get("juntar") or {}).get("pecas") or []:
+                if isinstance(p.get("frase"), int) and p["frase"] < len(fv):
+                    w = fv[p["frase"]]["de"]
+                    alvo = mapa.get(w)
+                    if alvo is None:  # a frase mudou: a 1ª palavra igual depois dela
+                        alvo = next((mapa[k] for k in range(w, len(tv)) if k in mapa), None)
+                    if alvo is not None:
+                        p["frase"] = frase_da_palavra.get(alvo, p["frase"])
+        arq.write_text(json.dumps(ajs, ensure_ascii=False, **({"indent": 1} if nome == "ajustes.json" else {})),
+                       encoding="utf-8")
+    return perdidos
+
+
 def limpar_pendentes(pasta: Path) -> None:
     """O motor leu os ajustes para montar um rascunho: tudo o que estava pendente entrou nessa fila (foto dos
     ajustes usados, para comparar depois)."""

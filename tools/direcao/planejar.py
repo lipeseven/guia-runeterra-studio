@@ -304,6 +304,101 @@ def mudanca_pequena(velhas: list[str], novas: list[str]) -> list[int] | None:
     return mudadas if len(mudadas) <= max(1, len(novas) // 3) else None
 
 
+def remendar_bloco(velhas: list[str], b: dict, local: dict, frases_bloco: list[dict], nomes_capa: list[str],
+                   contexto: str, modelo: str = "opus") -> tuple[dict, int] | None:
+    """Roteiro mudou em parte do bloco: compara frase a frase o bloco velho com o novo. Cena que só cobre frases
+    iguais fica intacta (mesmo id → imagem, ajustes e efeitos continuam); só o trecho que mudou volta ao Claude.
+    Devolve (plano local novo, nº de cenas replanejadas) ou None quando mudou demais (replanejar o bloco)."""
+    import difflib
+
+    novas = b["frases"]
+    sm = difflib.SequenceMatcher(None, [_norm_frase(f) for f in velhas], [_norm_frase(f) for f in novas], autojunk=False)
+    mapa: dict[int, int] = {}  # frase velha igual (ou só retocada) → índice novo
+    retocadas: set[int] = set()  # frases novas que são a velha com palavras trocadas: a cena fica, marcada p/ conferir
+    for tag, a0, a1, b0, b1 in sm.get_opcodes():
+        if tag == "equal":
+            mapa.update({a0 + k: b0 + k for k in range(a1 - a0)})
+        elif tag == "replace":  # parear em ordem as frases parecidas ("que ninguém sabe quem é" cortado)
+            j = b0
+            for a in range(a0, a1):
+                par = next((k for k in range(j, b1) if difflib.SequenceMatcher(
+                    None, velhas[a].lower(), novas[k].lower()).ratio() >= 0.6), None)
+                if par is not None:
+                    mapa[a] = par
+                    retocadas.add(par)
+                    j = par + 1
+    if len(mapa) < len(novas) / 2:
+        return None
+    cenas = local.get("cenas", [])
+    if not cenas:
+        return None
+    # frases velhas que cada cena cobre (a próxima que começa no meio de uma frase divide essa frase)
+    cobre = []
+    for i, c in enumerate(cenas):
+        prox = cenas[i + 1] if i + 1 < len(cenas) else None
+        fim = prox["frase"] if prox else len(velhas)
+        r = list(range(c["frase"], max(fim, c["frase"] + 1)))
+        if prox and prox.get("comeca_na_palavra") and prox["frase"] not in r:
+            r.append(prox["frase"])
+        cobre.append(r)
+    novo_ini = [mapa.get(r[0]) for r in cobre]
+    fica = []
+    for i, r in enumerate(cobre):
+        ok = all(f in mapa for f in r) and [mapa[f] for f in r] == list(range(mapa[r[0]], mapa[r[0]] + len(r)))
+        fica.append(ok)
+    # cenas que dividem uma frase andam juntas: se uma é replanejada, a outra também
+    mudou = True
+    while mudou:
+        mudou = False
+        for i in range(len(cenas) - 1):
+            if cenas[i + 1].get("comeca_na_palavra") and fica[i] != fica[i + 1]:
+                fica[i] = fica[i + 1] = False
+                mudou = True
+    # as cenas mantidas, já com o índice novo; os buracos (frases novas sem cena) vão para o Claude
+    mantidas = [{**c, "frase": novo_ini[i], **({"conferir": True} if any(mapa[f] in retocadas for f in cobre[i]) else {})}
+                for i, c in enumerate(cenas) if fica[i]]
+    cobertas: set[int] = set()
+    for i, r in enumerate(cobre):
+        if fica[i]:
+            cobertas.update(mapa[f] for f in r)
+    buracos, atual = [], []
+    for n in range(len(novas)):
+        if n in cobertas:
+            if atual:
+                buracos.append(atual)
+                atual = []
+        else:
+            atual.append(n)
+    if atual:
+        buracos.append(atual)
+    if not buracos:
+        return {**local, "cenas": sorted(mantidas, key=lambda c: c["frase"])}, 0
+    if sum(len(x) for x in buracos) > len(novas) / 2:
+        return None
+    novas_cenas = []
+    for buraco in buracos:
+        de, ate = buraco[0], buraco[-1]
+        antes = next((c for c in reversed(mantidas) if c["frase"] < de), None)
+        depois = next((c for c in mantidas if c["frase"] > ate), None)
+        descreve = lambda c: (f"{c['tipo']}" + (f" com o texto \"{c['legenda']}\"" if c.get("legenda") else "")  # noqa: E731
+                              + (f", imagem: {c['busca'].get('o_que')}" if c.get("busca") else ""))
+        ctx = (contexto if de == 0 else
+               f"Você planeja SÓ UM TRECHO no meio da seção \"{b['titulo'] or 'introdução'}\" (o roteiro mudou aqui; "
+               "o resto da seção já está pronto). Não use \"capa\" nem \"hub\".\n")
+        if antes:
+            ctx += f"Cena logo ANTES deste trecho: {descreve(antes)}.\n"
+        if depois:
+            ctx += f"Cena logo DEPOIS deste trecho: {descreve(depois)}. Não repita o que ela mostra.\n"
+        trecho = planejar_bloco({**b, "id": f"{b['id']}:{de}-{ate}"}, frases_bloco[de:ate + 1], nomes_capa, ctx, modelo)
+        feitas = [c for c in trecho.get("cenas", []) if isinstance(c.get("frase"), int) and 0 <= c["frase"] <= ate - de]
+        if not feitas:
+            return None
+        feitas[0] = {k: v for k, v in feitas[0].items() if k != "comeca_na_palavra"} | {"frase": 0}  # cobre o trecho todo
+        novas_cenas += [{**c, "frase": c["frase"] + de, "conferir": True} for c in feitas]
+    todas = sorted(mantidas + novas_cenas, key=lambda c: (c["frase"], 1 if c.get("comeca_na_palavra") else 0))
+    return {**local, "cenas": todas}, len(novas_cenas)
+
+
 def _contexto_bloco(b: dict, blocos: list[dict], tipos_antes: dict[str, int]) -> str:
     titulos = [x["titulo"] for x in blocos if x["titulo"]]
     linhas = [f"Seções do vídeo: {', '.join(titulos) or 'uma só'}."]
@@ -367,9 +462,20 @@ def planejar(texto: str, palavras: list[dict], nomes_capa: list[str], dirc: Path
             relatorio["iguais"].append(nome)
         else:
             v = velhos.get(b["id"])
-            mudadas = mudanca_pequena(v["frases"], b["frases"]) if v and (cache / f"{v['hash']}.json").exists() else None
+            tem_velho = bool(v) and (cache / f"{v['hash']}.json").exists()
+            mudadas = mudanca_pequena(v["frases"], b["frases"]) if tem_velho else None
+            remendo = None
+            if tem_velho and mudadas is None and v["frases"] != b["frases"]:
+                # frases reescritas/novas: só o trecho que mudou volta ao Claude; as cenas iguais ficam
+                aviso(f"replanejando só o trecho que mudou em “{nome}” ({n}/{len(blocos)})")
+                remendo = remendar_bloco(v["frases"], b, json.loads((cache / f"{v['hash']}.json").read_text(encoding="utf-8")),
+                                         frases[b["de"]:b["ate"] + 1], nomes_capa,
+                                         _contexto_bloco(b, blocos, tipos_antes), modelo)
             # mudadas == [] = frases idênticas mas o bloco mudou (nota de direção, personagem da capa): replaneja
-            if mudadas:
+            if remendo:
+                local = remendo[0]
+                relatorio["ajustados"].append(f"{nome} ({remendo[1]} cenas refeitas)")
+            elif mudadas:
                 local = json.loads((cache / f"{v['hash']}.json").read_text(encoding="utf-8"))
                 # cena que cobre uma frase alterada: o Felipe confere no storyboard (marcas de antes continuam
                 # até ele clicar "está ok")
