@@ -17,6 +17,7 @@ PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
 - Arquivos do acervo do Felipe nunca são movidos/alterados.
 
 ## Onde fica cada coisa
+- `docs/instalacao.md` — reinstalar do zero (formatar o PC): backup, programas, `requirements.txt`, npm.
 - `projeto.toml` — caminhos (acervo em `C:\Users\Felipe\Downloads\catálogo sequencial LOL`). `.env` — chaves (fora do Git).
 - `tools/` — scripts Python (rodar com `.venv\Scripts\python.exe`): `analise_referencias/`, `acervo/`
   (inventário, busca CLIP, tomadas de clipes, etiquetas), `capa.py` (detecta ícones na capa), `direcao/variacao.py`
