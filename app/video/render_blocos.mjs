@@ -4,13 +4,23 @@
 //   pedido.json = {"props": "<props.json>", "blocos": [{"inicio": 0, "fim": 899, "saida": "<x.mp4>"}], "audio": "<a.wav>"|null}
 import { bundle } from "@remotion/bundler";
 import { openBrowser, renderMedia, selectComposition } from "@remotion/renderer";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, rmSync, statSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const aqui = path.dirname(fileURLToPath(import.meta.url));
 const pedido = JSON.parse(readFileSync(process.argv[2], "utf-8"));
 const inputProps = JSON.parse(readFileSync(pedido.props, "utf-8"));
+
+// cada bundle é uma cópia do projeto + public/ (~1,2 GB) na pasta temporária: apaga as que sobraram de renders
+// antigos (> 6 h) e, no fim, a deste render — antes elas se acumulavam (54 GB em 6 dias)
+for (const nome of readdirSync(os.tmpdir()).filter((n) => n.startsWith("remotion-webpack-bundle-"))) {
+  const pasta = path.join(os.tmpdir(), nome);
+  try {
+    if (Date.now() - statSync(pasta).mtimeMs > 6 * 3600 * 1000) rmSync(pasta, { recursive: true, force: true });
+  } catch {}
+}
 
 const serveUrl = await bundle({ entryPoint: path.join(aqui, "src", "index.ts"), publicDir: path.join(aqui, "public") });
 const navegador = await openBrowser("chrome");
@@ -53,4 +63,7 @@ try {
   }
 } finally {
   await navegador.close({ silent: true });
+  try {
+    rmSync(serveUrl, { recursive: true, force: true });
+  } catch {}
 }
