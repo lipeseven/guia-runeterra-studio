@@ -25,6 +25,9 @@ TIPOS_PT = {"normal": "Normal", "fire": "Fogo", "water": "Água", "grass": "Plan
             "psychic": "Psíquico", "bug": "Inseto", "rock": "Pedra", "ghost": "Fantasma", "dragon": "Dragão",
             "dark": "Sombrio", "steel": "Aço", "fairy": "Fada", "stellar": "Estelar"}
 
+STATS_PT = {"hp": "PS", "attack": "Ataque", "defense": "Defesa", "special-attack": "At. Esp.",
+            "special-defense": "Def. Esp.", "speed": "Velocidade"}
+
 CONSULTA = """query {
   pokemon_v2_pokemonspecies(order_by: {id: asc}) {
     id name generation_id is_legendary is_mythical is_baby evolution_chain_id evolves_from_species_id
@@ -35,6 +38,7 @@ CONSULTA = """query {
     formas: pokemon_v2_pokemons(order_by: {id: asc}) {
       id name is_default height weight
       tipos: pokemon_v2_pokemontypes(order_by: {slot: asc}) { tipo: pokemon_v2_type { name } }
+      stats: pokemon_v2_pokemonstats(order_by: {stat_id: asc}) { base_stat stat: pokemon_v2_stat { name } }
     }
   }
 }""" % (INGLES, ESPANHOL, INGLES)
@@ -53,13 +57,15 @@ def baixar() -> list[dict]:
         for f in e["formas"]:
             formas.append({"id": f["id"], "nome": f["name"], "padrao": f["is_default"],
                            "tipos": [TIPOS_PT.get(t["tipo"]["name"], t["tipo"]["name"]) for t in f["tipos"]],
-                           "altura_m": f["height"] / 10, "peso_kg": f["weight"] / 10})
+                           "altura_m": f["height"] / 10, "peso_kg": f["weight"] / 10,
+                           "stats": {STATS_PT.get(x["stat"]["name"], x["stat"]["name"]): x["base_stat"] for x in f["stats"]}})
         padrao = next((f for f in formas if f["padrao"]), formas[0] if formas else {})
         saida.append({
             "numero": e["id"], "nome": nome_de[e["id"]], "slug": e["name"],
             "categoria_en": en.get("genus"), "categoria_es": es.get("genus"),
             "geracao": e["generation_id"], "regiao": REGIOES.get(e["generation_id"]),
-            "tipos": padrao.get("tipos", []), "lendario": e["is_legendary"], "mitico": e["is_mythical"],
+            "tipos": padrao.get("tipos", []), "stats": padrao.get("stats", {}),
+            "altura_m": padrao.get("altura_m"), "peso_kg": padrao.get("peso_kg"), "lendario": e["is_legendary"], "mitico": e["is_mythical"],
             "bebe": e["is_baby"], "evolui_de": nome_de.get(e["evolves_from_species_id"]),
             "cadeia_evolutiva": e["evolution_chain_id"],
             "pokedex_en": " ".join((e["textos"][0]["flavor_text"] if e["textos"] else "").split()),

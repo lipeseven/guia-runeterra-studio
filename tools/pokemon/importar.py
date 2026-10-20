@@ -29,6 +29,11 @@ SPRITES = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/poke
 DESTINO = PASTA_ACERVO / "_oficial"
 LICENCA = "© Nintendo / Creatures / GAME FREAK — uso de fã"
 FONTES = {"arte": ("official-artwork", "arte oficial"), "home": ("home", "render 3D do Pokémon HOME")}
+VERSOES = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/versions/"
+# sprites retrô (nostalgia: Game Boy, GBA, DS animado) — só as espécies que existiam em cada geração
+RETRO = {"sprite_gen1": ("generation-i/red-blue/{id}.png", 151, "sprite de Red/Blue (Game Boy)", ".png"),
+           "sprite_gen3": ("generation-iii/emerald/{id}.png", 386, "sprite de Emerald (GBA)", ".png"),
+           "sprite_gen5": ("generation-v/black-white/animated/{id}.gif", 649, "sprite animado de Black/White (DS)", ".gif")}
 
 
 def listar() -> list[dict]:
@@ -47,18 +52,25 @@ def listar() -> list[dict]:
                     "tags": [*f["tipos"], e["regiao"] or "", f"geração {e['geracao']}",
                              *(["lendário"] if e["lendario"] else []), *(["mítico"] if e["mitico"] else []),
                              *([forma] if forma else [])]})
+    for e in dex:
+        for pasta, (modelo, ate, rotulo, ext) in RETRO.items():
+            if e["numero"] <= ate:
+                itens.append({"url": VERSOES + modelo.format(id=e["numero"]), "arquivo": DESTINO / pasta / f"{e['slug']}{ext}",
+                              "especie": e["nome"], "categoria": "sprite",
+                              "descricao": f"{rotulo}: {e['nome']} — {'/'.join(e['tipos'])}",
+                              "tags": [*e["tipos"], "sprite", "retrô", f"geração {e['geracao']}"]})
     return itens
 
 
 def baixar(itens: list[dict], aviso=print) -> list[dict]:
-    for pasta in FONTES:
+    for pasta in [*FONTES, *RETRO]:
         (DESTINO / pasta).mkdir(parents=True, exist_ok=True)
     faltam = [i for i in itens if not i["arquivo"].exists()]
     aviso(f"{len(itens)} imagens ({len(itens) - len(faltam)} já baixadas); baixando {len(faltam)}")
 
     def um(i: dict) -> bool:
         r = requests.get(i["url"], timeout=60)
-        if r.ok and r.content[:4] == b"\x89PNG":
+        if r.ok and r.content[:4] in (b"\x89PNG", b"GIF8"):
             i["arquivo"].write_bytes(r.content)
         return r.ok
 

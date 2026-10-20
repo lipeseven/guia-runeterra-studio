@@ -245,6 +245,28 @@ def transicoes(cenas: list[dict], fixas: dict[str, str]) -> None:
                     alvo["entrada_img"] = {"efeito": "corte", "quadros": 1}
 
 
+_POKEDEX: dict | None = None
+
+
+def ficha_pokemon(nome: str | None, categoria: str | None, m: "Midias") -> tuple[dict | None, dict | None]:
+    """Dados da ficha (Pokédex local, tools/pokemon/pokedex.py) + a arte oficial do acervo (_oficial/arte/<forma>.png)."""
+    global _POKEDEX
+    arq = RAIZ / "dados" / "canais" / "pokemon" / "pokedex.json"
+    if not nome or not arq.exists():
+        return None, None
+    if _POKEDEX is None:
+        _POKEDEX = {re.sub(r"[^a-z0-9]", "", e["nome"].lower()): e for e in json.loads(arq.read_text(encoding="utf-8"))}
+    e = _POKEDEX.get(re.sub(r"[^a-z0-9]", "", nome.lower()))
+    if not e:
+        return None, None
+    dados = {"numero": e["numero"], "nome": e["nome"], "categoria": categoria or e.get("categoria_en"),
+             "tipos": e["tipos"], "altura_m": e.get("altura_m"), "peso_kg": e.get("peso_kg"), "regiao": e.get("regiao"),
+             "stats": e.get("stats") or {}}
+    r = m.con.execute("SELECT id FROM midias WHERE replace(caminho, '\\', '/') LIKE ?",
+                      (f"%_oficial/arte/{e['slug']}.png",)).fetchone()
+    return dados, (m.imagem(r[0]) if r else None)
+
+
 def _folga(cid: str) -> int:
     """"Imperfeição humana" no corte (0 a 4 quadros antes da palavra), estável pelo id da cena."""
     import hashlib
@@ -483,6 +505,23 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 cenas.append({**base, "tipo": "dialogo", "esquerda": esq, "direita": dir_, "destaques": destaques})
                 continue
             tipo = "cartao"  # sem ícones na capa: vira cartão
+
+        if tipo == "ficha":  # canal Pokémon: dados e arte oficial da Pokédex local
+            dados, img = ficha_pokemon(c.get("pokemon") or legenda, c.get("categoria"), m)
+            if dados:
+                cenas.append({**base, "tipo": "ficha", "dados": dados, "midia": img, "movimento": var.movimento()})
+            else:
+                pendencias.append({"titulo": "Ficha sem Pokémon", "texto": f"Cena {numeros.get(cid, k)}: "
+                                   f"“{c.get('pokemon')}” não está na Pokédex. No rascunho entra um texto."})
+                cenas.append(sem_imagem(base, legenda or c.get("pokemon") or ""))
+            continue
+
+        if tipo == "rajada" and len(pecas_raj := pecas_montadas(cid, c, f, de)) >= 2:
+            cenas.append({**base, "tipo": "rajada", "movimento": var.movimento(),
+                          "itens": [{"midia": pm["midia"], "foco": pm.get("foco")} for pm in pecas_raj[:6]]})
+            continue
+        if tipo == "rajada":
+            tipo = "telacheia"  # menos de 2 imagens: vira tela cheia com a do 1º item
 
         if tipo in ("dividida", "lista"):
             pecas = pecas_montadas(cid, c, f, de)
@@ -724,7 +763,7 @@ def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = 
 ARQUIVO_DA_CENA = {"capa": "Capa", "hub": "Hub", "cartao": "Cartao", "telacheia": "TelaCheia", "recorte": "Recorte",
                    "dialogo": "Dialogo", "clipe": "Clipe", "mosaico": "Mosaico", "dividida": "Dividida", "lista": "Lista",
                    "meio": "Meio", "texto": "Texto", "citacao": "Citacao", "setas": "Setas",
-                   "estilo2": "Estilo2"}
+                   "estilo2": "Estilo2", "ficha": "Ficha", "rajada": "Rajada"}
 
 
 def _codigo_que_desenha(arquivo: Path) -> bytes:

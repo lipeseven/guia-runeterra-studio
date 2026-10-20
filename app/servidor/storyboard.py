@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .banco import RAIZ, caminho
+from .banco import CANAL, RAIZ, caminho
 
 _ACERVO = caminho("dados_acervo").relative_to(RAIZ).as_posix()  # dados do acervo DO CANAL (miniaturas, tomadas…)
 
 TIPOS = ["cartao", "telacheia", "recorte", "meio", "texto", "citacao", "mosaico", "dividida", "lista", "clipe",
          "dialogo", "hub", "capa"]
+TIPOS += [t for t in CANAL.get("tipos_extras", []) if t not in TIPOS]  # tipos só deste canal (ficha, rajada…)
 
 
 def _ler(p: Path, padrao):

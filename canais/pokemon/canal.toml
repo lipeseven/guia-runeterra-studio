@@ -8,6 +8,7 @@ exemplo_secao = '"Mewtwo.", "Os Lendários de Kanto."'
 fatos = "pokemon"                           # Pokémon Wiki (fandom) + Pokédex local (PokeAPI)
 aviso_legal = "pokemon"
 exemplo_titulo = "Todos os Pokémon LENDÁRIOS Explicados em 20 minutos"
+tipos_extras = ["ficha", "rajada"]          # cenas que só este canal usa (planejar.TIPOS_EXTRAS)
 glossario = "Pokémon, Pokédex, Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea"
 
 [pastas]

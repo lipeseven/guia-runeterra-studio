@@ -15,8 +15,8 @@ POR_NECESSIDADE = 4
 PASTA_TOMADAS = DADOS_ACERVO / "tomadas"
 
 
-SEM_MIDIA = ("capa", "hub", "dialogo", "texto")
-SEM_MIDIA_PRINCIPAL = ("dividida", "lista")  # só as peças têm imagem
+SEM_MIDIA = ("capa", "hub", "dialogo", "texto", "ficha")  # ficha: imagem e dados vêm da Pokédex
+SEM_MIDIA_PRINCIPAL = ("dividida", "lista", "rajada")  # só as peças têm imagem
 
 
 def necessidades(plano: dict, frases: list[dict]) -> list[dict]:
@@ -32,7 +32,7 @@ def necessidades(plano: dict, frases: list[dict]) -> list[dict]:
         if c.get("busca") and c["tipo"] not in SEM_MIDIA_PRINCIPAL:
             saida.append({"id": cid, "cena": cid, "tipo": c["tipo"], "busca": c["busca"], "frase": texto,
                           "legenda": c.get("legenda") or c.get("rotulo")})
-        if c["tipo"] in ("mosaico", "dividida", "lista"):
+        if c["tipo"] in ("mosaico", "dividida", "lista", "rajada"):
             for j, peca in enumerate(pecas_da_cena(c)):
                 if peca.get("busca"):
                     saida.append({"id": f"{cid}p{j}", "cena": cid, "peca": j, "tipo": "peca", "busca": peca["busca"],
