@@ -530,25 +530,53 @@ def tarefa_gravacao(vid: int) -> None:
     # 1) limpeza: regravações, falas fora do roteiro, pausas, volume (timbre intocado)
     etapa("gravacao", "andamento", "limpando a gravação…", original.name)
     rel = limpar(original, trab / "gravacao", roteiro)
-    rel_orig = f"projetos/{slug}/entrada/{original.name}"
-    rel_limpa = f"projetos/{slug}/trabalho/gravacao/limpa.wav"
-    divergencias = rel.get("divergencias_do_roteiro", [])
     with conectar() as con:
-        atualizar_etapa(con, vid, "gravacao", "atencao" if divergencias else "concluido",
-                        f"{mmss(rel['duracao_original'])} → {mmss(rel['duracao_limpa'])} · {len(rel['removidos'])} cortes",
-                        f"{len(rel.get('pausas_encurtadas', []))} pausas encurtadas · -14 LUFS",
-                        {"original": rel_orig, "audio": rel_limpa, "relatorio": rel})
-        if divergencias:
-            abrir_pendencia(con, vid, "leitura_diferente", "gravacao", "Leitura diferente do roteiro",
-                            " · ".join(f"“{d['roteiro']}” → “{d['lido']}”" for d in divergencias[:12])
-                            + ". Nada foi cortado por isso; confirme se pode ficar assim.")
-        registrar(con, vid, f"Gravação limpa: {len(rel['removidos'])} cortes, {rel['duracao_original']}s → {rel['duracao_limpa']}s", "ok")
-        # Ponto de controle do Felipe: nada de ressincronizar/renderizar sobre um corte errado.
-        con.execute("UPDATE etapas SET status='atencao' WHERE video_id=? AND chave='gravacao'", (vid,))
-        abrir_pendencia(con, vid, "aprovar_gravacao", "gravacao", "Confira a gravação limpa",
-                        f"{len(rel['removidos'])} cortes, {mmss(rel['duracao_original'])} → {mmss(rel['duracao_limpa'])}. "
-                        "Ouça o áudio limpo no painel “Gravação” (dá para ver cada corte). Se estiver bom, aprove: "
-                        "aí o sistema realinha as cenas à sua voz e renderiza.")
+        publicar_limpeza(con, vid, slug, original, rel)
+        con.commit()
+
+
+def publicar_limpeza(con, vid: int, slug: str, original: Path, rel: dict, nota: str = "") -> None:
+    """Resultado da limpeza no painel + ponto de controle "Confira a gravação limpa"."""
+    rel_orig = original.resolve().relative_to(RAIZ.resolve()).as_posix()  # entrada/… ou trabalho/gravacao_juntada.wav
+    rel_limpa = f"{PASTA_PROJETOS.relative_to(RAIZ).as_posix()}/{slug}/trabalho/gravacao/limpa.wav"
+    divergencias = rel.get("divergencias_do_roteiro", [])
+    atualizar_etapa(con, vid, "gravacao", "atencao" if divergencias else "concluido",
+                    f"{mmss(rel['duracao_original'])} → {mmss(rel['duracao_limpa'])} · {len(rel['removidos'])} cortes",
+                    f"{len(rel.get('pausas_encurtadas', []))} pausas encurtadas · -14 LUFS",
+                    {"original": rel_orig, "audio": rel_limpa, "relatorio": rel})
+    if divergencias:
+        abrir_pendencia(con, vid, "leitura_diferente", "gravacao", "Leitura diferente do roteiro",
+                        " · ".join(f"“{d['roteiro']}” → “{d['lido']}”" for d in divergencias[:12])
+                        + ". Nada foi cortado por isso; confirme se pode ficar assim.")
+    registrar(con, vid, f"Gravação limpa: {len(rel['removidos'])} cortes, {rel['duracao_original']}s → {rel['duracao_limpa']}s", "ok")
+    # Ponto de controle do Felipe: nada de ressincronizar/renderizar sobre um corte errado.
+    con.execute("UPDATE etapas SET status='atencao' WHERE video_id=? AND chave='gravacao'", (vid,))
+    abrir_pendencia(con, vid, "aprovar_gravacao", "gravacao", "Confira a gravação limpa",
+                    f"{len(rel['removidos'])} cortes, {mmss(rel['duracao_original'])} → {mmss(rel['duracao_limpa'])}. "
+                    + nota + "Ouça o áudio limpo no painel “Gravação” (na linha do tempo dá para ouvir, cortar e "
+                    "recuperar cada fala). Se estiver bom, aprove: aí o sistema realinha as cenas à sua voz e renderiza.")
+
+
+def tarefa_remontar_gravacao(vid: int) -> None:
+    """Refaz o áudio limpo com as decisões do Felipe na linha do tempo (sem transcrever de novo)."""
+    from limpar_gravacao import remontar
+
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        d = json.loads(con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='gravacao'", (vid,)).fetchone()["dados"] or "{}")
+    pasta = PASTA_PROJETOS / v["slug"]
+    original = RAIZ / d["original"]
+    decisoes = json.loads((pasta / "trabalho" / "gravacao" / "decisoes.json").read_text(encoding="utf-8"))
+    with conectar() as con:  # painel mostra "trabalhando" até o áudio novo sair
+        con.execute("UPDATE etapas SET status='andamento' WHERE video_id=? AND chave='gravacao'", (vid,))
+        con.commit()
+    definir_progresso("Gravação", "refazendo o áudio limpo com as suas escolhas")
+    rel = remontar(original, pasta / "trabalho" / "gravacao", (pasta / "direcao" / "roteiro.txt").read_text(encoding="utf-8"),
+                   decisoes)
+    with conectar() as con:
+        for chave in ("aprovar_gravacao", "leitura_diferente"):
+            fechar_pendencia(con, vid, chave)
+        publicar_limpeza(con, vid, v["slug"], original, rel, "Refeito com as suas escolhas na linha do tempo. ")
         con.commit()
 
 
@@ -930,7 +958,8 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": t
            "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
            "importar_riot": tarefa_importar_riot, "importar_pokemon": tarefa_importar_pokemon,
-           "apos_publicar": tarefa_apos_publicar}
+           "apos_publicar": tarefa_apos_publicar,
+           "remontar_gravacao": tarefa_remontar_gravacao}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 
 

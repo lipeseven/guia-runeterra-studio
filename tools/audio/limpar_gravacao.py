@@ -228,8 +228,9 @@ def filtrar_com_roteiro(fs: list[dict], texto_roteiro: str, descartar: set[int])
             ini_j, fim_j, _ = pos[j]
             if fs[j]["i"] - fs[k]["f"] > JANELA_REGRAVACAO:
                 break
-            if ini_j <= ini_k + 1 and fim_j > ini_k:  # j relê o começo do trecho de k
-                novos.add(k)
+            parecidas = SequenceMatcher(None, normalizar(fs[k]["texto"]), normalizar(fs[j]["texto"])).ratio() >= 0.5
+            if ini_j <= ini_k + 1 and fim_j > ini_k and parecidas:  # j relê o começo do trecho de k
+                novos.add(k)  # ("Bora lá" × "vamos lá, vamos lá" não é releitura: é comentário solto)
                 break
     # Resgate pela POSIÇÃO: fala curta que cai exatamente num buraco do roteiro entre duas falas mantidas é a fala
     # que falta — mesmo com o nome transcrito errado ("e a Ashlesh" → "Yavaş, Lash") ou palavra única ("Simples.").
@@ -335,7 +336,11 @@ def limpar(gravacao: Path, pasta: Path, roteiro: str | None = None, passa_alta: 
     pasta.mkdir(parents=True, exist_ok=True)
     a = carregar(gravacao)
     fs = transcrever(a)
-    removidos = [{**d, "motivo": "recomeço sem pausa"} for f in fs if (d := recomeco_interno(f))]
+    removidos = []
+    for f in fs:
+        if d := recomeco_interno(f):
+            removidos.append({**d, "motivo": "recomeço sem pausa"})
+            f["inicio_cortado"] = d  # o Felipe pode devolver na linha do tempo
     descartar = detectar_regravacoes(fs)
     motivo = {k: "regravação" for k in descartar}
     if roteiro:
@@ -344,7 +349,44 @@ def limpar(gravacao: Path, pasta: Path, roteiro: str | None = None, passa_alta: 
         motivo = {k: m for k, m in motivo.items() if k not in nao_era}
         motivo |= {k: "fora do roteiro" for k in fora} | {k: "releitura (pelo roteiro)" for k in releitura}
         descartar |= fora | releitura
+    # todas as falas, cortadas ou não: a linha do tempo do painel corta/recupera sem transcrever de novo
+    (pasta / "falas.json").write_text(json.dumps(
+        [{"id": k, "i": f["i"], "f": f["f"], "texto": f["texto"], "palavras": f["palavras"], "cortada": k in descartar,
+          "motivo": motivo.get(k), "inicio_cortado": f.get("inicio_cortado")} for k, f in enumerate(fs)],
+        ensure_ascii=False), encoding="utf-8")
     removidos += [{**fs[k], "motivo": m} for k, m in motivo.items()]
+    return _finalizar(a, fs, descartar, removidos, pasta, roteiro, passa_alta)
+
+
+def remontar(gravacao: Path, pasta: Path, roteiro: str | None, decisoes: dict[str, str],
+             passa_alta: bool = False) -> dict:
+    """Refaz o áudio limpo com as decisões do Felipe na linha do tempo ({id: "manter" | "cortar" | "inicio"}),
+    a partir das falas já transcritas (falas.json): segundos, não minutos."""
+    preparar_ffmpeg()
+    a = carregar(gravacao)
+    falas = json.loads((pasta / "falas.json").read_text(encoding="utf-8"))
+    fs, descartar, removidos = [], set(), []
+    for x in falas:
+        f = {"i": x["i"], "f": x["f"], "texto": x["texto"], "palavras": list(x["palavras"])}
+        d = decisoes.get(str(x["id"]))
+        if x.get("inicio_cortado"):
+            ic = x["inicio_cortado"]
+            if d == "inicio":  # devolve o começo que o "recomeço sem pausa" tinha tirado
+                f["palavras"] = ic["palavras"] + f["palavras"]
+                f["i"] = ic["i"]
+                f["texto"] = " ".join(w["p"] for w in f["palavras"])
+            else:
+                removidos.append({**ic, "motivo": "recomeço sem pausa"})
+        cortada = x["cortada"] if d not in ("manter", "cortar") else d == "cortar"
+        if cortada:
+            descartar.add(len(fs))
+            removidos.append({**f, "motivo": "cortado por você" if d == "cortar" else x.get("motivo") or "cortada"})
+        fs.append(f)
+    return _finalizar(a, fs, descartar, removidos, pasta, roteiro, passa_alta)
+
+
+def _finalizar(a: np.ndarray, fs: list[dict], descartar: set[int], removidos: list[dict], pasta: Path,
+               roteiro: str | None, passa_alta: bool) -> dict:
     audio, mapa, info = montar(a, fs, descartar)
 
     tmp = pasta / "_sem_volume.wav"

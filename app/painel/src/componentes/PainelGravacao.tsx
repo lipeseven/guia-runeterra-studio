@@ -1,6 +1,7 @@
 import { CheckCircle2, FolderOpen, Loader2, Mic, Upload } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { api, arquivo, type Etapa } from '../api'
+import { LinhaDoTempo } from './LinhaDoTempo'
 
 type Removido = { i: number; f: number; texto: string; motivo: string }
 type Relatorio = {
@@ -177,6 +178,9 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
                 ))}
               </ul>
             </div>
+          )}
+          {typeof etapa.dados.original === 'string' && (
+            <LinhaDoTempo videoId={videoId} original={etapa.dados.original} trabalhando={etapa.status === 'andamento'} aoRefazer={aoMudar} />
           )}
           <button onClick={() => setVerCortes(!verCortes)} className="self-start text-xs text-suave underline hover:text-texto">
             {verCortes ? 'esconder' : 'ver'} os {rel.removidos.length} cortes feitos

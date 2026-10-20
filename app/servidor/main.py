@@ -554,6 +554,53 @@ async def enviar_gravacao(vid: int, arquivo: UploadFile):
     return {"ok": True, "arquivo": destino.name}
 
 
+def _pasta_gravacao(vid: int) -> Path:
+    with conectar() as con:
+        return _pasta(con, vid) / "trabalho" / "gravacao"
+
+
+@app.get("/api/videos/{vid}/gravacao/falas")
+def falas_da_gravacao(vid: int):
+    """Linha do tempo da gravação: cada fala (tempo no ORIGINAL), se ficou ou saiu, e as suas escolhas."""
+    pasta = _pasta_gravacao(vid)
+    arq = pasta / "falas.json"
+    if not arq.exists():
+        return {"falas": [], "decisoes": {}}
+    falas = [{k: v for k, v in f.items() if k != "palavras"} | {"inicio_cortado": (f.get("inicio_cortado") or {}).get("texto")}
+             for f in json.loads(arq.read_text(encoding="utf-8"))]
+    dec = pasta / "decisoes.json"
+    return {"falas": falas, "decisoes": json.loads(dec.read_text(encoding="utf-8")) if dec.exists() else {}}
+
+
+class DecisaoFala(BaseModel):
+    id: int
+    acao: str  # manter | cortar | inicio (devolve o começo cortado) | padrao (volta ao automático)
+
+
+@app.post("/api/videos/{vid}/gravacao/falas")
+def decidir_fala(vid: int, corpo: DecisaoFala):
+    if corpo.acao not in ("manter", "cortar", "inicio", "padrao"):
+        raise HTTPException(400, "ação inválida")
+    pasta = _pasta_gravacao(vid)
+    dec_arq = pasta / "decisoes.json"
+    dec = json.loads(dec_arq.read_text(encoding="utf-8")) if dec_arq.exists() else {}
+    if corpo.acao == "padrao":
+        dec.pop(str(corpo.id), None)
+    else:
+        dec[str(corpo.id)] = corpo.acao
+    dec_arq.write_text(json.dumps(dec, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"decisoes": dec}
+
+
+@app.post("/api/videos/{vid}/gravacao/refazer")
+def refazer_audio_limpo(vid: int):
+    """Refaz o áudio limpo com as escolhas da linha do tempo (rápido: não transcreve de novo)."""
+    if not (_pasta_gravacao(vid) / "falas.json").exists():
+        raise HTTPException(409, "esta limpeza é antiga (sem linha do tempo): mande a gravação de novo")
+    motor.FILA.put((vid, "remontar_gravacao"))
+    return {"ok": True}
+
+
 @app.post("/api/videos/{vid}/gravacao/da-pasta")
 def gravacao_da_pasta(vid: int):
     with conectar() as con:
