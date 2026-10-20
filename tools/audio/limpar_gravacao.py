@@ -145,8 +145,32 @@ def recomeco_interno(fala: dict) -> dict | None:
     return None
 
 
+UNIDADES = "zero um dois tres quatro cinco seis sete oito nove dez onze doze treze quatorze quinze dezesseis dezessete dezoito dezenove".split()
+DEZENAS = {2: "vinte", 3: "trinta", 4: "quarenta", 5: "cinquenta", 6: "sessenta", 7: "setenta", 8: "oitenta", 9: "noventa"}
+CENTENAS = {1: "cento", 2: "duzentos", 3: "trezentos", 4: "quatrocentos", 5: "quinhentos", 6: "seiscentos",
+            7: "setecentos", 8: "oitocentos", 9: "novecentos"}
+
+
+def por_extenso(n: int) -> str:
+    """Número → palavras (pt-BR), até 999.999: o Whisper escreve "10" quando o roteiro diz "dez" (e vice-versa)."""
+    if n < 20:
+        return UNIDADES[n]
+    if n < 100:
+        return DEZENAS[n // 10] + ("" if n % 10 == 0 else " e " + UNIDADES[n % 10])
+    if n < 1000:
+        if n == 100:
+            return "cem"
+        return CENTENAS[n // 100] + ("" if n % 100 == 0 else " e " + por_extenso(n % 100))
+    if n < 1_000_000:
+        mil = "mil" if n // 1000 == 1 else por_extenso(n // 1000) + " mil"
+        return mil + ("" if n % 1000 == 0 else " e " + por_extenso(n % 1000))
+    return str(n)
+
+
 def normalizar(texto: str) -> str:
     t = unicodedata.normalize("NFKD", texto.lower()).encode("ascii", "ignore").decode()
+    t = re.sub(r"(?<=\d)\.(?=\d{3})", "", t)  # 4.600 → 4600
+    t = re.sub(r"\d+", lambda m: por_extenso(int(m.group())), t)
     return re.sub(r"[^a-z0-9 ]+", "", t).strip()
 
 
@@ -187,8 +211,8 @@ def posicao_no_roteiro(fala: dict, roteiro: list[str]) -> tuple[int, int, float]
     return melhor
 
 
-def filtrar_com_roteiro(fs: list[dict], texto_roteiro: str, descartar: set[int]) -> tuple[set[int], set[int]]:
-    """Devolve (falas fora do roteiro, releituras detectadas pela POSIÇÃO no texto):
+def filtrar_com_roteiro(fs: list[dict], texto_roteiro: str, descartar: set[int]) -> tuple[set[int], set[int], set[int]]:
+    """Devolve (falas fora do roteiro, releituras detectadas pela POSIÇÃO no texto, "regravações" que eram fala nova):
     se duas falas leem o mesmo trecho do roteiro, fica a última."""
     roteiro = [p for p in (normalizar(x) for x in texto_roteiro.split()) if p]
     pos = {k: posicao_no_roteiro(f, roteiro) for k, f in enumerate(fs) if k not in descartar}
@@ -207,7 +231,41 @@ def filtrar_com_roteiro(fs: list[dict], texto_roteiro: str, descartar: set[int])
             if ini_j <= ini_k + 1 and fim_j > ini_k:  # j relê o começo do trecho de k
                 novos.add(k)
                 break
-    return fora, novos
+    # Resgate pela POSIÇÃO: fala curta que cai exatamente num buraco do roteiro entre duas falas mantidas é a fala
+    # que falta — mesmo com o nome transcrito errado ("e a Ashlesh" → "Yavaş, Lash") ou palavra única ("Simples.").
+    # "regravação" só pela semelhança do texto erra com frases que começam igual ("a encarnação do medo" ×
+    # "a encarnação da alegria"): elas também passam pelo resgate
+    regravadas = set(descartar)
+    resgatadas, de_regravacao = 0, set()
+    for k in sorted(fora | novos | regravadas, key=lambda k: fs[k]["i"]):
+        mantidas = sorted((x for x in pos if x not in fora and x not in novos and x not in regravadas),
+                          key=lambda x: fs[x]["i"])
+        ant = [x for x in mantidas if fs[x]["f"] <= fs[k]["i"] + 0.05]
+        dep = [x for x in mantidas if fs[x]["i"] >= fs[k]["f"] - 0.05]
+        if not ant or not dep:
+            continue
+        p, n = ant[-1], dep[0]
+        buraco = roteiro[pos[p][1]:pos[n][0]]
+        palavras_k = [w for w in normalizar(fs[k]["texto"]).split() if w]
+        if not buraco or len(buraco) > len(palavras_k) + 4:
+            continue
+        # encaixe: o pedaço do buraco que mais se parece com a fala (o resto do buraco fica para a próxima)
+        alvo, base = " ".join(palavras_k), pos[p][1]
+        nota, i0, i1 = max((SequenceMatcher(None, alvo, " ".join(buraco[i:j])).ratio(), i, j)
+                           for i in range(len(buraco)) for j in range(i + 1, len(buraco) + 1))
+        if nota >= 0.3 or len(buraco) <= 3:
+            if len(buraco) <= 3 and nota < 0.3:
+                i0, i1 = 0, len(buraco)
+            fora.discard(k)
+            novos.discard(k)
+            if k in regravadas:
+                regravadas.discard(k)
+                de_regravacao.add(k)
+            pos[k] = (base + i0, base + i1, nota)
+            resgatadas += 1
+    if resgatadas:
+        print(f"  {resgatadas} fala(s) resgatada(s) pela posição no roteiro", flush=True)
+    return fora, novos, de_regravacao
 
 
 def divergencias(lido: str, texto_roteiro: str) -> list[dict]:
@@ -281,7 +339,9 @@ def limpar(gravacao: Path, pasta: Path, roteiro: str | None = None, passa_alta: 
     descartar = detectar_regravacoes(fs)
     motivo = {k: "regravação" for k in descartar}
     if roteiro:
-        fora, releitura = filtrar_com_roteiro(fs, roteiro, descartar)
+        fora, releitura, nao_era = filtrar_com_roteiro(fs, roteiro, descartar)
+        descartar -= nao_era  # "regravação" que era a próxima frase do roteiro
+        motivo = {k: m for k, m in motivo.items() if k not in nao_era}
         motivo |= {k: "fora do roteiro" for k in fora} | {k: "releitura (pelo roteiro)" for k in releitura}
         descartar |= fora | releitura
     removidos += [{**fs[k], "motivo": m} for k, m in motivo.items()]
