@@ -60,13 +60,25 @@ def nivel_db(a: np.ndarray, t: float, janela: float = 0.02) -> float:
 
 
 def refinar_bordas(a: np.ndarray, ini: float, fim: float, limiar: float = -45.0) -> tuple[float, float]:
-    """O Whisper erra as bordas em dezenas de ms: estende enquanto ainda há voz (até 150/250 ms)."""
-    i = ini - 0.04
-    while i > ini - 0.15 and nivel_db(a, i - 0.02) > limiar:
-        i -= 0.01
-    f = fim + 0.06
-    while f < fim + 0.25 and nivel_db(a, f) > limiar:
-        f += 0.01
+    """O Whisper erra as bordas em dezenas (às vezes centenas) de ms. Estende até a última voz por perto, ATRAVESSANDO
+    silêncios curtos (< 120 ms) dentro da palavra — "DN" = "dê … ene": o Whisper termina no "dê" e a parada
+    antiga, no primeiro silêncio, cortava o "ene"."""
+    passo, buraco = 0.01, 0.12
+
+    def ultima_voz(t0: float, direcao: int, alcance: float) -> float:
+        ultimo, silencio, t = t0, 0.0, t0
+        while abs(t - t0) < alcance:
+            t += direcao * passo
+            if nivel_db(a, t) > limiar:
+                ultimo, silencio = t, 0.0
+            else:
+                silencio += passo
+                if silencio > buraco:
+                    break
+        return ultimo
+
+    i = min(ini - 0.04, ultima_voz(ini, -1, 0.30) - 0.03)
+    f = max(fim + 0.06, ultima_voz(fim, +1, 0.45) + 0.05)
     return max(0.0, i), min(len(a) / SR, f)
 
 
