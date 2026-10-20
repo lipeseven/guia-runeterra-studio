@@ -90,10 +90,7 @@ class Acervo:
                      if (PASTA_ACERVO / r["caminho"]).exists()}
         # vocabulário: todo personagem/lugar/facção etiquetado no acervo ("xolaani", "camavor", "noxus"…)
         self.vocab = sorted({p for i in self.info.values() for p in i["pers"]}, key=len, reverse=True)
-        recentes = [x[0] for x in con.execute(
-            "SELECT video FROM uso_midia GROUP BY video ORDER BY MAX(publicado_em) DESC LIMIT 3").fetchall()]
-        self.usadas_recentes = {x[0] for x in con.execute(
-            f"SELECT midia_id FROM uso_midia WHERE video IN ({','.join('?' * len(recentes))})", recentes)} if recentes else set()
+        self.usadas_no_video: set[int] = set()  # imagens já escolhidas em outras cenas DESTE vídeo
 
     def alvos(self, nec: dict) -> set[str]:
         """Quem a cena pede: os personagens da busca (tolerando grafia: "Zolani" → "xolaani") + nomes do acervo
@@ -128,8 +125,10 @@ class Acervo:
             bonus += 0.10 if i["transparente"] or i["categoria"] == "recorte" else -0.10
         if i["categoria"] == "canal":
             bonus -= 0.5  # material do canal (logos, thumbs) não é ilustração
-        if mid in self.usadas_recentes:  # memória de uso: menos provável, não some de vez
-            bonus -= 0.06
+        # repetir de um vídeo para outro não é problema (Felipe, 2026-10-20); o que cansa é repetir no MESMO vídeo:
+        # imagem já escolhida em outra cena dele desce na lista (a montagem ainda impede repetir dentro do bloco)
+        if mid in self.usadas_no_video:
+            bonus -= 0.08
         return nota + bonus
 
 
@@ -280,6 +279,11 @@ def preparar(plano: dict, frases: list[dict], pasta_trabalho: Path, anteriores: 
 
     escolhas = escolhas or {}
     ac = Acervo(abrir_acervo())
+    for nid, e in escolhas.items():  # o que este vídeo já usa (para as cenas novas não repetirem)
+        v = next((n for n in (anteriores or []) if n["id"] == nid), None)
+        k = (e or {}).get("escolha")
+        if v and k and 0 < k <= len(v.get("candidatos", [])) and v["candidatos"][k - 1]["tipo"] == "midia":
+            ac.usadas_no_video.add(v["candidatos"][k - 1]["id"])
     velhas = {n["id"]: n for n in (anteriores or [])}
     bloco_da_cena = {id_da_cena(c, k): c.get("secao") for k, c in enumerate(plano.get("cenas", []))}
     necs, sem_escolha = [], []

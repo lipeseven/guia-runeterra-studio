@@ -696,6 +696,15 @@ def marcar_publicado(con, vid: int, url: str | None) -> None:
         return
     pasta = PASTA_PROJETOS / v["slug"]
     n = publicacao.registrar_uso(pasta, v["slug"], agora())  # antes de arquivar: lê as mídias da direção
+    try:  # aprendizado: exemplos de legenda + retrospectiva dos ajustes (antes que a direção vá para a Lixeira)
+        sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+        from aprendizado import coletar
+
+        titulo = con.execute("SELECT titulo FROM videos WHERE id=?", (vid,)).fetchone()["titulo"]
+        if coletar(pasta, v["slug"], titulo):
+            FILA.put((0, "retrospectiva"))
+    except Exception as e:  # aprendizado nunca impede a publicação
+        registrar(con, vid, f"Retrospectiva não coletada: {e}", "alerta")
     r = publicacao.arquivar(pasta)
     con.execute("UPDATE videos SET coluna='publicado', capa=?, url_youtube=COALESCE(?, url_youtube), atualizado_em=? WHERE id=?",
                 (r["capa"], url or None, agora(), vid))
@@ -942,6 +951,27 @@ def tarefa_apos_publicar(_vid: int) -> None:
         arq.write_text(json.dumps(restantes, ensure_ascii=False, indent=1), encoding="utf-8")
 
 
+def tarefa_retrospectiva(_vid: int) -> None:
+    """Retrospectivas coletadas na publicação → regras propostas (Sonnet). Ficam pendentes até o Felipe aprovar."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from aprendizado import PASTA, propor
+    from claude_cli import chamar_json
+
+    regras = (caminho("docs") / "regras_de_direcao.md").read_text(encoding="utf-8")
+    for arq in sorted(PASTA.glob("retrospectiva_*.json")):
+        r = json.loads(arq.read_text(encoding="utf-8"))
+        if r.get("propostas_feitas"):
+            continue
+        definir_progresso("Aprendizado", f"retrospectiva de “{r['video']}”")
+        novas = propor(r["slug"], regras, chamar_json)
+        r["propostas_feitas"] = len(novas)
+        arq.write_text(json.dumps(r, ensure_ascii=False, indent=1), encoding="utf-8")
+        with conectar() as con:
+            registrar(con, None, f"Aprendizado: {len(novas)} regra(s) proposta(s) a partir de “{r['video']}” — "
+                                 "aprove ou recuse no botão “Aprendizado” do quadro", "info")
+            con.commit()
+
+
 def pedir_clipe(url: str) -> None:
     CLIPES_PEDIDOS.append(url)
     if not any(nome == "clipes" for _, nome in list(FILA.queue)):
@@ -959,7 +989,7 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": t
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
            "importar_riot": tarefa_importar_riot, "importar_pokemon": tarefa_importar_pokemon,
            "apos_publicar": tarefa_apos_publicar,
-           "remontar_gravacao": tarefa_remontar_gravacao}
+           "remontar_gravacao": tarefa_remontar_gravacao, "retrospectiva": tarefa_retrospectiva}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 
 

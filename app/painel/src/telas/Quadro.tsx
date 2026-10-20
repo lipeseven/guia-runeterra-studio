@@ -8,7 +8,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
-import { AlertTriangle, ChevronDown, Lock, Plus } from 'lucide-react'
+import { AlertTriangle, ChevronDown, GraduationCap, Lock, Plus } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api, arquivo, AVISO_PUBLICAR, quando, useAoVivo, type Coluna, type Motor, type Status, type VideoResumo } from '../api'
 import { FUNDO } from '../componentes/Estado'
@@ -42,7 +42,10 @@ export function Quadro() {
   return (
     <Moldura trilha={<span className="text-texto">Quadro de vídeos</span>}>
       <div className="px-6 pt-6 pb-3">
-        <SeletorDeCanal />
+        <div className="flex flex-wrap items-center gap-4">
+          <SeletorDeCanal />
+          <Aprendizado />
+        </div>
         <p className="mt-1 font-mono text-xs text-suave">
           {dados ? `${dados.videos.length} vídeos · arraste os cards entre as colunas` : 'carregando…'}
         </p>
@@ -101,6 +104,86 @@ function SeletorDeCanal() {
               {c.nome}
             </a>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type Proposta = { id: number; video: string; regra: string; evidencia: string; status: 'pendente' | 'aprovada' | 'recusada' }
+
+/** Regras que o sistema propôs depois de cada vídeo publicado (retrospectiva dos seus ajustes). Nada entra sem você aprovar. */
+function Aprendizado() {
+  const [d, setD] = useState<{ propostas: Proposta[]; exemplos: number } | null>(null)
+  const [aberto, setAberto] = useState(false)
+  const [textos, setTextos] = useState<Record<number, string>>({})
+  const carregar = () => api<{ propostas: Proposta[]; exemplos: number }>('/aprendizado').then(setD)
+  useEffect(() => {
+    carregar()
+    const t = setInterval(carregar, 60000)
+    return () => clearInterval(t)
+  }, [])
+  if (!d) return null
+  const pendentes = d.propostas.filter((p) => p.status === 'pendente')
+  const decidir = async (p: Proposta, acao: 'aprovar' | 'recusar') => {
+    await api(`/aprendizado/${p.id}`, { method: 'POST', body: JSON.stringify({ acao, texto: textos[p.id] ?? p.regra }) })
+    carregar()
+  }
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setAberto(!aberto)}
+        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs ${pendentes.length ? 'border-ouro/60 text-ouro hover:bg-ouro/10' : 'border-borda text-suave hover:text-texto'}`}
+        title="O que o sistema aprendeu com os seus ajustes nos vídeos publicados"
+      >
+        <GraduationCap className="size-4" /> Aprendizado{pendentes.length ? ` · ${pendentes.length} para aprovar` : ''}
+      </button>
+      {aberto && (
+        <div className="absolute left-0 top-full z-40 mt-2 w-[min(720px,90vw)] rounded-xl border border-borda bg-painel p-4 shadow-2xl">
+          <p className="mb-1 text-sm font-medium">Aprendizado entre vídeos</p>
+          <p className="mb-3 text-xs text-suave">
+            A cada vídeo publicado, o sistema estuda os seus ajustes do storyboard e propõe regras para o diretor. Só entra o
+            que você aprovar (pode editar o texto antes). Além disso, {d.exemplos} correções suas de legenda já vão como
+            exemplo para o diretor pegar o seu tom.
+          </p>
+          {pendentes.length === 0 && <p className="text-xs text-apagado">Nenhuma proposta esperando. A próxima vem quando você publicar um vídeo.</p>}
+          <ul className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
+            {pendentes.map((p) => (
+              <li key={p.id} className="rounded-lg border border-borda bg-painel-2 p-3">
+                <textarea
+                  value={textos[p.id] ?? p.regra}
+                  onChange={(e) => setTextos({ ...textos, [p.id]: e.target.value })}
+                  className="w-full resize-y rounded-md border border-borda bg-painel p-2 text-sm outline-none focus:border-suave"
+                  rows={2}
+                />
+                <p className="mt-1 text-[11px] text-apagado">
+                  {p.evidencia} · vídeo: {p.video}
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button onClick={() => decidir(p, 'aprovar')} className="rounded-md bg-ok px-3 py-1 text-xs font-semibold text-fundo hover:brightness-110">
+                    Aprovar (entra nas regras)
+                  </button>
+                  <button onClick={() => decidir(p, 'recusar')} className="rounded-md border border-borda px-3 py-1 text-xs text-suave hover:text-texto">
+                    Recusar
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {d.propostas.some((p) => p.status !== 'pendente') && (
+            <details className="mt-3 text-xs text-suave">
+              <summary className="cursor-pointer hover:text-texto">histórico ({d.propostas.filter((p) => p.status !== 'pendente').length})</summary>
+              <ul className="mt-1 flex flex-col gap-1">
+                {d.propostas
+                  .filter((p) => p.status !== 'pendente')
+                  .map((p) => (
+                    <li key={p.id}>
+                      <span className={p.status === 'aprovada' ? 'text-ok' : 'text-apagado'}>{p.status === 'aprovada' ? '✓' : '✗'}</span> {p.regra}
+                    </li>
+                  ))}
+              </ul>
+            </details>
+          )}
         </div>
       )}
     </div>

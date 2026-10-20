@@ -54,8 +54,8 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   Gravação tem ponto de controle: limpeza PARA em "Confira a gravação limpa"; só a aprovação dispara ressinc + render.
 - Card Publicação ✅ — "Vídeo aprovado" → `app/servidor/publicacao.py` (5 títulos, descrição com capítulos reais
   [≥3 seções] + créditos de autores + aviso Legal Jibber Jabber, tags, comentário fixado; Claude sonnet) + thumbnail
-  1280×720 da capa. "Marcar como publicado" (ou arrastar p/ Publicado) registra mídias em `uso_midia` (acervo.db; o
-  diretor penaliza as dos últimos 3 vídeos) e ARQUIVA (pede confirmação): tudo vai para a Lixeira, só fica
+  1280×720 da capa. "Marcar como publicado" (ou arrastar p/ Publicado) registra mídias em `uso_midia` (acervo.db; histórico —
+  repetir imagem ENTRE vídeos não tem problema; dentro do vídeo, imagem já escolhida desce na busca: `Acervo.usadas_no_video`) e ARQUIVA (pede confirmação): tudo vai para a Lixeira, só fica
   `projetos/<slug>/capa.*` para o card. Publicado é definitivo: não sai da coluna, página vira resumo (capa, link, histórico).
 - Referências 100% analisadas (2026-10-14): som (`separar_sons.py` Demucs + `analisar_sons.py` CLAP — padrão é voz
   pura, efeito é raro) e leitura visual dos 11 vídeos → guia de estilo v1.0 (seção 10: modos por vídeo e recursos
@@ -136,6 +136,11 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   sempre (`iniciar.bat`, porta 8765). Pokémon: `iniciar_pokemon.bat` (porta 8766), dados em dados/canais/pokemon/,
   projetos em projetos_pokemon/, docs em canais/pokemon/docs/, `tools/pokemon/` (pokedex.py, preparar_canal.py).
   Trava `dados/motor.lock` = uma tarefa por vez na máquina entre os canais. Seletor de canal no título do quadro.
+- **Aprendizado entre vídeos ✅ (2026-10-20)**: `tools/direcao/aprendizado.py`. Ao publicar (antes de arquivar),
+  `coletar()` guarda os pares de legenda "diretor → Felipe" (vão no prompt do diretor: `planejar.sistema_do_diretor`)
+  e a retrospectiva dos ajustes; tarefa global "retrospectiva" (Sonnet) propõe regras novas, que só entram em
+  regras_de_direcao.md do canal se o Felipe aprovar (botão "Aprendizado" no quadro). Arquivos em <dados do canal>/aprendizado/.
+  NÃO aprender "gosto de imagem" por pontuação (o Felipe recusou: as mesmas imagens passariam na frente).
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

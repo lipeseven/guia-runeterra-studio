@@ -108,8 +108,11 @@ Para "clipe", a busca descreve a ação da tomada.
 
 def sistema_do_diretor(regras: str) -> str:
     """Prompt do diretor com a identidade do canal deste processo (canais/<chave>/canal.toml)."""
+    from aprendizado import exemplos_para_o_prompt
+
     return SISTEMA.format(regras=regras, canal=CANAL["nome"], assunto=CANAL["assunto"],
-                          personagens_de="LoL" if CANAL["chave"] == "runeterra" else CANAL["personagens_de"])
+                          personagens_de="LoL" if CANAL["chave"] == "runeterra" else CANAL["personagens_de"]
+                          ) + exemplos_para_o_prompt()  # pares "diretor → Felipe" dos vídeos já publicados
 
 
 FORMATO = """Responda com este JSON. OMITA os campos que não se aplicam (nada de null, [] ou "" à toa: JSON enxuto).

@@ -17,6 +17,7 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
 import asyncio
 import json
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -50,6 +51,30 @@ async def _ciclo_de_vida(_app: FastAPI):
 from .banco import CANAL  # noqa: E402
 
 app = FastAPI(title=f"{CANAL['nome']} Studio", lifespan=_ciclo_de_vida)
+
+
+@app.get("/api/aprendizado")
+def ver_aprendizado():
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from aprendizado import PASTA, propostas
+
+    ex = PASTA / "exemplos_legendas.json"
+    return {"propostas": propostas(), "exemplos": len(json.loads(ex.read_text(encoding="utf-8"))) if ex.exists() else 0}
+
+
+class Decisao(BaseModel):
+    acao: str  # aprovar | recusar
+    texto: str | None = None
+
+
+@app.post("/api/aprendizado/{pid}")
+def decidir_aprendizado(pid: int, corpo: Decisao):
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from aprendizado import decidir
+
+    if corpo.acao not in ("aprovar", "recusar"):
+        raise HTTPException(400, "ação inválida")
+    return decidir(pid, corpo.acao, corpo.texto)
 
 
 @app.get("/api/canal")
