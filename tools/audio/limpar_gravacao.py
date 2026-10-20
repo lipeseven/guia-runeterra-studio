@@ -39,8 +39,8 @@ from canal import CANAL  # noqa: E402
 if CANAL["chave"] != "runeterra":  # glossário do canal (canal.toml); o resto vem do próprio roteiro
     GLOSSARIO = CANAL.get("glossario", "")
 
-PAUSA_MAX_FIM_FRASE = 0.80  # pausa dramática preservada até aqui
-PAUSA_MAX_MEIO = 0.45
+PAUSA_MAX_FIM_FRASE = 0.45  # + bordas ≈ 0,6 s de silêncio real (0,80 deixava ~1 s: quebrava o ritmo — Felipe, 2026-10-19)
+PAUSA_MAX_MEIO = 0.28
 PAUSA_MIN = 0.12
 PAUSA_APOS_REGRAVACAO = (0.35, 0.25)  # (fim de frase, meio de frase)
 JANELA_REGRAVACAO = 20.0  # s: até quanto tempo depois a repetição conta como regravação
