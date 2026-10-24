@@ -81,3 +81,7 @@ Medido no storyboard de "A História de Runeterra" (352 cenas): o que o Felipe m
   irmãs, Força/Visão/Astúcia), cada nome aparece escrito (setas ou legendas), e o padrão vale para TODOS os itens
   da enumeração (ele cobrou o "Sem-Face" que ficou sem texto).
 - **Imagem pedida pelo nome do arquivo é lei** (`busca.arquivo`): ele usa muito ("use a imagem floresta1.jpg").
+
+## Aprendizados aprovados pelo Felipe (retrospectivas automáticas)
+- Legendas enxutas: cortar o ponto final e os artigos ou adjetivos de enchimento, deixando só o termo-chave ("Runas Globais", "três bruxas", "Ele não fez"). _(vídeo: A História de Runeterra Explicada em X Minutos)_
+- Tela cheia nunca fica sem legenda quando a narração cita um nome próprio, uma entidade ou um conceito novo da lore. Pôr um rótulo curto com esse termo, não deixar a cena "(sem texto)". _(vídeo: A História de Runeterra Explicada em X Minutos)_

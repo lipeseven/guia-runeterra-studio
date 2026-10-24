@@ -4,8 +4,33 @@
     {
       "name": "painel",
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
-      "runtimeArgs": ["-m", "uvicorn", "app.servidor.main:app", "--host", "127.0.0.1", "--port", "8765"],
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.servidor.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8765"
+      ],
       "port": 8765
+    },
+    {
+      "name": "pokemon",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "app.servidor.main:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8766"
+      ],
+      "port": 8766,
+      "env": {
+        "GRS_CANAL": "pokemon"
+      }
     }
   ]
 }

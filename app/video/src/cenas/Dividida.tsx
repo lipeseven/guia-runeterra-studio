@@ -5,6 +5,9 @@ import { transformMovimento } from "../efeitos";
 import { fonte } from "../estilo";
 import { useCores } from "../tema";
 import type { CenaDividida } from "../tipos";
+import { useVideoConfig } from "remotion"; // impressao:ignorar
+import { entradaManual, type EntradaItem } from "../componentes/EntradaManual"; // impressao:ignorar
+const entradaDoItem = (peca: object) => (peca as { entrada?: EntradaItem }).entrada; // impressao:ignorar
 
 /**
  * Tela dividida (guia de estilo §10.2): 2 ou 3 imagens em altura total lado a lado, cada uma entrando
@@ -18,6 +21,7 @@ export const Dividida: React.FC<{ cena: CenaDividida; quadro: (palavra: number) 
   const frame = useCurrentFrame();
   const cores = useCores();
   const n = cena.pecas.length;
+  const { fps } = useVideoConfig(); // impressao:ignorar
   const larg = (1920 - cena.separador * (n - 1)) / n;
   const p = interpolate(frame, [0, duracao], [0, 1], { extrapolateRight: "clamp" });
   return (
@@ -41,6 +45,7 @@ export const Dividida: React.FC<{ cena: CenaDividida; quadro: (palavra: number) 
           <div
             key={k}
             style={{ position: "absolute", top: 0, left: k * (larg + cena.separador), width: larg, height: 1080, overflow: "hidden", ...entrada }}
+            {...((entradaDoItem(peca) ? { style: { position: "absolute", top: 0, left: k * (larg + cena.separador), width: larg, height: 1080, overflow: "hidden", ...entradaManual(entradaDoItem(peca)!, frame, fps, inicio) } } : {}) as object)} /* impressao:ignorar */
           >
             <Figura
               midia={peca.midia}

@@ -12,6 +12,7 @@ _ACERVO = caminho("dados_acervo").relative_to(RAIZ).as_posix()  # dados do acerv
 TIPOS = ["cartao", "telacheia", "recorte", "meio", "texto", "citacao", "mosaico", "dividida", "lista", "clipe",
          "dialogo", "hub", "capa"]
 TIPOS += [t for t in CANAL.get("tipos_extras", []) if t not in TIPOS]  # tipos só deste canal (ficha, rajada…)
+ENTRADAS_ITEM = ("nenhuma", "fade", "deslizar", "revelar", "pop")  # app/video/src/componentes/EntradaManual.ts
 
 
 def _ler(p: Path, padrao):
@@ -285,7 +286,7 @@ def cenas(pasta: Path) -> list[dict]:
             pecas.append({"j": j, "foco": paj.get("foco"), "em": _palavra_na_cena(peca.get("palavra"), m, toks), "em_escolhido": paj.get("indice"),
                           "rotulo": peca.get("rotulo") or peca.get("palavra") or "",
                           "busca": (peca.get("busca") or {}).get("o_que"), "escolhido": pesc, "candidatos": pcands,
-                          "ajustada": bool(paj)})
+                          "ajustada": bool(paj), "entrada_escolhida": paj.get("entrada")})
         metade2 = None
         if aj.get("metade2") and necs.get(f"{cid}m2"):
             x = necs[f"{cid}m2"]["candidatos"][aj["metade2"]["candidato"]]
@@ -498,6 +499,14 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             aj.pop(k_, None)
         aj["fundo_branco"] = True
         aj.pop("fundo_lista", None)
+    elif tipo == "item_entrada":  # efeito de entrada de UM item (lista/dividida/mosaico); "auto" = o diretor decide
+        if acao["entrada"] not in ("auto", *ENTRADAS_ITEM):
+            raise ValueError("entrada inválida")
+        paj = aj.setdefault("pecas", {}).setdefault(str(int(acao["j"])), {})
+        if acao["entrada"] == "auto":
+            paj.pop("entrada", None)
+        else:
+            paj["entrada"] = acao["entrada"]
     elif tipo == "item_em":  # quando o item j entra: -1 = junto com a cena; senão, índice da palavra no roteiro
         aj.setdefault("pecas", {}).setdefault(str(int(acao["j"])), {})["indice"] = int(acao["indice"])
     elif tipo == "foco":  # enquadramento: ponto da imagem que fica no centro (e para onde o zoom vai); j = item
@@ -700,6 +709,10 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
         momentos = {j: pa["indice"] for j, pa in (aj.get("pecas") or {}).items() if "indice" in pa}
         if momentos:  # momento de entrada de cada item escolhido à mão
             c["pecas"] = [{**pc, "indice": momentos[str(j)]} if str(j) in momentos else pc
+                          for j, pc in enumerate(c.get("pecas") or c.get("mosaico") or [])]
+        entradas = {j: pa["entrada"] for j, pa in (aj.get("pecas") or {}).items() if pa.get("entrada")}
+        if entradas:  # efeito de entrada de cada item escolhido à mão (sem escolha: o do diretor)
+            c["pecas"] = [{**pc, "entrada": entradas[str(j)]} if str(j) in entradas else pc
                           for j, pc in enumerate(c.get("pecas") or c.get("mosaico") or [])]
         if "tipo" in aj:
             c["tipo"] = aj["tipo"]

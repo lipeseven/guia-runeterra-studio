@@ -32,7 +32,8 @@ export const ImagemNaCaixa: React.FC<{
         width: w,
         height: h,
         overflow: "hidden",
-        ...(livre ? { overflow: "visible" } : {}), // impressao:ignorar
+        // estilo 2: o cartão sai livre para os LADOS, mas nunca sobe/desce além da caixa (não invade título nem legenda)
+        ...(livre ? { overflow: "visible", clipPath: `inset(${-(CAIXA.altura - h) / 2}px -1920px)` } : {}),
         ...estiloEntradaImagem(frame, fps, desde, entrada),
       }}
     >

@@ -2,6 +2,9 @@ import { AbsoluteFill, Easing, interpolate, useCurrentFrame } from "remotion";
 import { Figura } from "../componentes/Figura";
 import { transformMovimento } from "../efeitos";
 import type { CenaMosaico } from "../tipos";
+import { useVideoConfig } from "remotion"; // impressao:ignorar
+import { entradaManual, type EntradaItem } from "../componentes/EntradaManual"; // impressao:ignorar
+const entradaDoItem = (peca: object) => (peca as { entrada?: EntradaItem }).entrada; // impressao:ignorar
 
 const FORA = { esq: [-1400, 0], dir: [1400, 0], cima: [0, -900], baixo: [0, 900] } as const;
 
@@ -16,6 +19,7 @@ export const Mosaico: React.FC<{
 }> = ({ cena, quadro, duracao }) => {
   const frame = useCurrentFrame();
   const p = interpolate(frame, [0, duracao], [0, 1], { extrapolateRight: "clamp" });
+  const { fps } = useVideoConfig(); // impressao:ignorar
   return (
     <AbsoluteFill style={{ background: "#000", overflow: "hidden" }}>
       <Figura midia={cena.fundo} largura={1920} altura={1080} style={{ transform: transformMovimento(cena.movimento, p) }} />
@@ -43,6 +47,7 @@ export const Mosaico: React.FC<{
               boxShadow: "0 12px 40px rgba(0,0,0,0.55)",
               overflow: "hidden",
               background: "#111",
+              ...(entradaDoItem(peca) ? (({ transform: t, ...resto }: React.CSSProperties) => ({ ...resto, transform: `${t ?? ""} rotate(${peca.rotacao}deg)` }))(entradaManual(entradaDoItem(peca)!, frame, fps, inicio)) : {}), // impressao:ignorar
             }}
           >
             <Figura midia={peca.midia} largura={peca.largura} altura={altura} />
