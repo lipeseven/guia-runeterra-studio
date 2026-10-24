@@ -66,6 +66,7 @@ type Peca = {
   em?: number | null // palavra em que o item entra no rascunho (null = junto com a cena)
   foco?: [number, number] | null // enquadramento escolhido para o item
   em_escolhido?: number | null // sua escolha (-1 = junto)
+  entrada_escolhida?: string | null // efeito de entrada escolhido à mão (null = o diretor decide)
 }
 type Dados = {
   cenas: Cena[]
@@ -740,9 +741,14 @@ function CartaoCena({
               remover={c.pecas.length > 1 ? () => ajustar(c.id, { acao: 'item_remover', j: p.j }) : undefined}
               focar={(x, y) => ajustar(c.id, { acao: 'foco', j: p.j, x, y })}
               momento={
-                (c.palavras ?? []).length > 1 && !(p.j === 0 && c.tipo !== 'mosaico') ? (
-                  <QuandoOItemEntra c={c} p={p} escolher={(indice) => ajustar(c.id, { acao: 'item_em', j: p.j, indice })} />
-                ) : undefined
+                <>
+                  {(c.palavras ?? []).length > 1 && !(p.j === 0 && c.tipo !== 'mosaico') && (
+                    <QuandoOItemEntra c={c} p={p} escolher={(indice) => ajustar(c.id, { acao: 'item_em', j: p.j, indice })} />
+                  )}
+                  {['dividida', 'lista', 'mosaico'].includes(c.tipo) && (
+                    <EntradaDoItem p={p} escolher={(entrada) => ajustar(c.id, { acao: 'item_entrada', j: p.j, entrada })} />
+                  )}
+                </>
               }
             />
           ))}
@@ -1253,6 +1259,26 @@ function Enquadrar({ src, foco, escolhido, focar }: { src: string; foco: [number
           />
         )}
       </div>
+    </div>
+  )
+}
+
+/** Efeito com que UM item entra na tela (lista / dividida / mosaico). "automática" = o diretor decide. */
+function EntradaDoItem({ p, escolher }: { p: Peca; escolher: (entrada: string) => void }) {
+  const atual = p.entrada_escolhida ?? 'auto'
+  const opcoes = [['auto', 'automática'], ['nenhuma', 'nenhuma'], ['fade', 'aparecer'], ['deslizar', 'deslizar'], ['revelar', 'revelar'], ['pop', 'pop']]
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-suave">
+      entrada:
+      {opcoes.map(([v, r]) => (
+        <button
+          key={v}
+          onClick={() => escolher(v)}
+          className={`rounded border px-1.5 py-0.5 ${atual === v ? (v === 'auto' ? 'border-ouro bg-ouro/20 text-ouro' : 'border-ok bg-ok/15 text-ok') : 'border-borda hover:border-suave hover:text-texto'}`}
+        >
+          {r}
+        </button>
+      ))}
     </div>
   )
 }

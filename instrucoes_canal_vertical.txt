@@ -1,0 +1,115 @@
+INSTRUÇÕES PARA O CLAUDE CODE — CANAL DE VÍDEOS VERTICAIS INFORMATIVOS
+(escrito a partir da máquina original do Guia de Runeterra Studio; leia tudo antes de agir)
+
+====================================================================
+1. CONTEXTO
+====================================================================
+Este repositório é o "Guia de Runeterra Studio": uma ferramenta LOCAL que automatiza a produção de vídeos
+do YouTube do Felipe (canal de lore de League of Legends, horizontais, ~20 min). Ela já faz, de ponta a ponta:
+roteiro (com o Claude via `claude -p`), conferência de fatos, voz guia provisória, direção automática de cenas
+(planejar → buscar mídias → escolher → montar), storyboard para ajustes manuais, limpeza e alinhamento da
+gravação do Felipe palavra por palavra, render por blocos no Remotion e preparação da publicação.
+
+NESTA MÁQUINA o objetivo é outro: um canal de VÍDEOS VERTICAIS (1080×1920, Shorts/Reels/TikTok) de cunho
+INFORMATIVO sobre políticas públicas, números, impostos, economia e investimentos — com gráficos, números
+animados e informações na tela. Esta máquina será usada SÓ para esse tipo de vídeo: não há outros canais aqui.
+
+Leia antes de mexer: CLAUDE.md, docs/arquitetura.md, docs/instalacao.md, docs/guia_de_estilo.md,
+docs/regras_de_direcao.md e docs/estilo_roteiro.md (são do canal de LoL — servem de modelo de COMO as coisas
+funcionam, não de estilo para este canal).
+
+====================================================================
+2. COMO TRABALHAR COM O FELIPE (obrigatório)
+====================================================================
+- Converse em português (PT-BR).
+- NÃO altere o projeto sem a permissão do Felipe. Brainstorm é só conversa. Relato de bug ou pedido explícito
+  contam como autorização.
+- Respostas curtas: só o resultado final, sem narrar o passo a passo.
+- Economize contexto: logs filtrados, leituras parciais de arquivos, saídas enxutas.
+- Chaves de API ficam SÓ no .env (fora do Git). Nunca repita chaves no chat.
+- Nunca reinicie o servidor no meio de um render (confira /api/motor antes).
+- Ajustes manuais do Felipe no storyboard são "poder de Deus": nenhuma regra automática passa por cima deles.
+- Não contorne proteções de sites (Cloudflare, captcha etc.).
+
+Princípios que continuam valendo:
+- Tudo local e gratuito; o único pago é o Claude (plano Pro, sem API → `claude -p`, economizar cota).
+- Não parecer produção em massa: voz real do Felipe, pontos de controle humanos, efeitos variados.
+- Voz de IA (voz guia) NUNCA vai para o vídeo publicado.
+- Direção ancorada em PALAVRAS do roteiro, não em segundos.
+- Arquivos do acervo do Felipe nunca são movidos/alterados.
+
+====================================================================
+3. INSTALAÇÃO (primeira tarefa)
+====================================================================
+1. Siga docs/instalacao.md (Python 3.12 + .venv + requirements.txt, Node + npm em app/video e app/painel,
+   FFmpeg, Claude Code CLI logado). Placa NVIDIA é recomendada (Whisper, CLIP, NVENC); sem ela funciona,
+   mais lento — avise o Felipe se for o caso.
+2. O .env NÃO vem pelo Git: peça ao Felipe as chaves que ele quiser usar aqui (ex.: Fish Audio para a voz guia,
+   Freesound). Sem chaves, use as reservas locais (Piper para voz guia).
+3. A pasta dados/ (bancos, acervo, renders) NÃO vem pelo Git: aqui começa vazia. Isso é o esperado.
+4. Confirme que o servidor sobe (iniciar.bat → http://127.0.0.1:8765) e que o painel abre.
+
+====================================================================
+4. PERFIL DO CANAL (sem separação: um canal só nesta máquina)
+====================================================================
+O código já é "por canal" (tools/canal.py + canais/<chave>/canal.toml; variável GRS_CANAL). Aqui:
+- Crie canais/<chave do canal novo>/canal.toml (nome provisório; o Felipe define o nome depois) com assunto,
+  porta 8765, pastas próprias, fontes de fatos e aviso legal deste canal.
+- Torne esse perfil o PADRÃO desta máquina (iniciar.bat sem precisar de GRS_CANAL), para não carregar nada do
+  LoL por engano. Não precisa apagar o código dos outros canais: só não use.
+- Docs do canal (guia de estilo, regras de direção, estilo de roteiro) ficam na pasta docs do perfil.
+
+====================================================================
+5. O QUE CONSTRUIR (em ordem; cada etapa com aprovação do Felipe)
+====================================================================
+ETAPA A — Aprender com os vídeos modelo do Felipe
+- Ele vai passar vídeos de referência. Use tools/analise_referencias/ (rodar_tudo.py: cortes, transcrição,
+  sons, leitura visual) para medir ritmo (duração das cenas, palavras por minuto), tipos de tela, legendas,
+  gráficos usados, ganchos dos primeiros segundos, duração total.
+- Escreva o guia de estilo v0.1 do canal a partir disso e mostre ao Felipe antes de seguir.
+- Inspiração, nunca cópia: só formato/ritmo; o detector de semelhança do roteiro continua valendo.
+
+ETAPA B — Formato vertical no Remotion (a maior mudança)
+- Todas as cenas atuais foram desenhadas para 1920×1080 com posições fixas. Crie a composição vertical
+  1080×1920 e cenas pensadas para tela em pé (área segura: nada importante nos ~15% de cima e ~20% de baixo,
+  onde ficam os botões do app).
+- Mantenha o render por blocos e o cache por impressão (app/video/render_blocos.mjs, tools/direcao/montar.py).
+
+ETAPA C — Cenas de dados (o coração do canal)
+- Novos tipos de cena, com DADOS no plano (não imagens): número que conta até o valor, barras, linha, pizza/
+  rosca, comparação lado a lado (antes × depois, Brasil × outro país), tabela curta, linha do tempo,
+  porcentagem/medidor, destaque de valor em R$.
+- Ligue os tipos novos ao diretor (tools/direcao/planejar.py: TIPOS / tipos_extras do perfil) para ele pedir
+  essas cenas com os números do roteiro; o storyboard precisa deixar o Felipe editar os números/rótulos à mão.
+- Efeitos sempre variados (tools/direcao/variacao.py), mas texto/legendas entram SECOS (sem animação) — é
+  uma preferência do Felipe no canal original; confirme se vale aqui também.
+
+ETAPA D — Legenda grande na tela
+- Padrão de vídeo vertical: legenda grande sincronizada palavra a palavra. O alinhamento já existe
+  (tools/audio/alinhar.py dá o tempo de cada palavra do roteiro). Proponha 2–3 estilos ao Felipe.
+
+ETAPA E — Conferência de números e fatos
+- Adapte app/servidor/conferencia.py: fontes oficiais (Receita Federal, IBGE, Banco Central, Tesouro, CVM,
+  Câmara/Senado, Diário Oficial) em vez das wikis de LoL.
+- Regra rígida: número sem fonte não entra no vídeo (vira aviso para o Felipe). Toda fonte usada vai para a
+  descrição.
+
+ETAPA F — Roteiro e publicação
+- Roteiro curto (Shorts: até ~60 s; confirmar com o Felipe a duração alvo), gancho forte nos 2 primeiros
+  segundos, uma ideia por vídeo. Adapte o roteirista (app/servidor/roteirista.py) e o estilo de roteiro.
+- Publicação (app/servidor/publicacao.py): título, descrição com fontes, hashtags, e AVISO FIXO:
+  "Conteúdo informativo/educativo. Não é recomendação de investimento." (ajustar texto com o Felipe).
+
+====================================================================
+6. CUIDADOS COM O TEMA
+====================================================================
+- Investimentos, impostos e política têm regras mais rígidas no YouTube (desinformação, conselho financeiro).
+  O canal é INFORMATIVO: explicar como funciona, mostrar números com fonte, sem recomendar compra/venda de
+  ativos e sem tomar partido político.
+- Dados mudam (alíquotas, taxas, leis): registre a data de referência de cada número no roteiro/descrição.
+
+====================================================================
+7. PRIMEIRA MENSAGEM SUGERIDA AO FELIPE
+====================================================================
+Depois de ler este arquivo e os docs: confirme que entendeu, faça a instalação (seção 3) e peça os vídeos
+modelo para começar a ETAPA A. Não implemente nada das etapas B–F sem ele aprovar.

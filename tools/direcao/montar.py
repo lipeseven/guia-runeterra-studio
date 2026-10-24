@@ -398,7 +398,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             if pi is None and pf is not None:
                 pi = pf["de"]
             saida.append({"de": pi if pi is not None else de, "midia": m.imagem(ep["id"]), "foco": ep["foco"],
-                          "rotulo": peca.get("rotulo") or ""})
+                          "rotulo": peca.get("rotulo") or "",
+                          **({"entrada": peca["entrada"]} if peca.get("entrada") else {})})  # entrada escolhida à mão
         saida.sort(key=lambda p: p["de"])
         return saida
 
@@ -549,7 +550,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                      else m.arquivo(_fundo_branco(), "fundo_branco"))
             posicoes, borda = var.mosaico([pm["midia"]["w"] / pm["midia"]["h"] for pm in pecas_mos])
             cenas.append({**base, "tipo": "mosaico", "fundo": fundo, "movimento": var.movimento(), "borda": borda, "layout": 2,
-                          "pecas": [{"de": pm["de"], "midia": pm["midia"], **pos} for pm, pos in zip(pecas_mos, posicoes)]})
+                          "pecas": [{"de": pm["de"], "midia": pm["midia"], **pos, **({"entrada": pm["entrada"]} if pm.get("entrada") else {})}
+                                    for pm, pos in zip(pecas_mos, posicoes)]})
             continue
 
         esc = escolhido(cid)
@@ -615,7 +617,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             if len(pecas) >= 2:
                 posicoes, borda = var.mosaico([p["midia"]["w"] / p["midia"]["h"] for p in pecas])
                 cenas.append({**base, "tipo": "mosaico", "fundo": midia, "movimento": var.movimento(), "borda": borda,
-                              "pecas": [{"de": p["de"], "midia": p["midia"], **pos} for p, pos in zip(pecas, posicoes)]})
+                              "pecas": [{"de": p["de"], "midia": p["midia"], **pos, **({"entrada": p["entrada"]} if p.get("entrada") else {})}
+                                         for p, pos in zip(pecas, posicoes)]})
             else:
                 cenas.append({**base, "tipo": "telacheia", "midia": midia, "foco": esc["foco"],
                               "movimento": var.movimento(), "entrada_img": var.imagem()})

@@ -107,6 +107,8 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   Meio a meio: lado da imagem (`lado_felipe`) e outra metade texto OU imagem (`metade2` → nec `<cid>m2`; sai como dividida de 2).
   Pendentes = ajustes diferentes da foto `direcao/ajustes_no_rascunho.json` (tirada quando o motor lê os ajustes).
   Itens de lista/dividida/mosaico: imagem por item no storyboard (`ajustes[cid].pecas[j].candidato` → escolha fixa de `<cid>p<j>`).
+  Entrada por item (lista/dividida/mosaico): `ajustes[cid].pecas[j].entrada` (nenhuma/fade/deslizar/revelar/pop; sem escolha = a do
+  diretor) → peça `entrada` → `app/video/src/componentes/EntradaManual.ts` (ligado por linhas `impressao:ignorar`).
 - Atualizar acervo ✅ (2026-10-17): `tools/acervo/atualizar.py` (inventário → CLIP → tomadas → etiquetas pelo nome do
   arquivo; incremental, sem cota). Tarefa global "acervo" (vid 0) na fila do motor: botão "Atualizar acervo" no topo
   do painel e automática a cada card NOVO (o acervo muda pouco). Resultado em `/api/acervo/situacao`.

@@ -94,9 +94,21 @@ def _baixar(url: str, params: dict | None = None) -> dict | None:
     return dados
 
 
+def _predefinicao(m: re.Match) -> str:
+    """Predefinição em linha que mostra um nome ({{cbi|Kayn}}, {{ci|Jun|image=…}}) vira o nome; o resto some."""
+    corpo = m.group(0)[2:-2]
+    if "\n" in corpo:
+        return ""
+    nome, *args = corpo.split("|")
+    if nome.strip().lower().startswith("sm"):  # falas/áudio
+        return ""
+    pos = [a for a in args if "=" not in a]
+    return pos[0].strip() if pos else ""
+
+
 def _limpar_wikitexto(t: str) -> str:
     for _ in range(3):
-        t = re.sub(r"\{\{[^{}]*\}\}", "", t)  # predefinições
+        t = re.sub(r"\{\{[^{}]*\}\}", _predefinicao, t)
     t = re.sub(r"<ref[^>]*?/>|<ref[^>]*>.*?</ref>", "", t, flags=re.S)
     t = re.sub(r"\[\[(?:[^|\]]*\|)?([^\]]*)\]\]", r"\1", t)  # [[alvo|texto]] → texto
     t = re.sub(r"<[^>]+>|'''?|\[https?://\S+ ([^\]]*)\]", lambda m: m.group(1) or "", t)

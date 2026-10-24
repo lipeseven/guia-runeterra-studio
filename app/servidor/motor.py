@@ -1075,8 +1075,35 @@ def tentar_de_novo(con, vid: int, etapa: str) -> None:
         FILA.put((vid, etapa))
 
 
+ETAPA_PARA_TAREFA = {"rascunho": "rascunho", "voz_guia": "voz_guia", "gravacao": "gravacao", "ressincronizacao": "final",
+                     "render": "final", "publicacao": "publicacao", "roteiro": "roteiro"}
+
+
+def retomar_interrompidas(con) -> None:
+    """Servidor desligado no meio de uma tarefa (ex.: o app fechou): a etapa ficou "em andamento" sem ninguém
+    trabalhando. Ao ligar, a tarefa volta para a fila (todas recomeçam a partir dos arquivos do projeto)."""
+    presas: dict[int, set[str]] = {}
+    for r in con.execute("SELECT e.video_id, e.chave FROM etapas e JOIN videos v ON v.id=e.video_id "
+                         "WHERE e.status='andamento' AND v.coluna!='publicado'"):
+        presas.setdefault(r["video_id"], set()).add(r["chave"])
+    for vid, chaves in presas.items():
+        tarefas = {ETAPA_PARA_TAREFA[k] for k in chaves if k in ETAPA_PARA_TAREFA}
+        if "direcao" in chaves and "rascunho" not in tarefas:  # direção do zero: retoma de onde parou (cache)
+            con.execute("UPDATE etapas SET status='pendente' WHERE video_id=? AND chave='direcao'", (vid,))
+            verificar_direcao(con, vid)
+        for t in sorted(tarefas):
+            FILA.put((vid, t))
+        for k in chaves - set(ETAPA_PARA_TAREFA) - {"direcao"}:  # sem tarefa conhecida: avisa em vez de girar para sempre
+            atualizar_etapa_status(con, vid, k, "atencao")
+            abrir_pendencia(con, vid, f"erro_{k}", k, f"Etapa “{k}” interrompida", "O servidor foi desligado no meio.")
+        registrar(con, vid, "Servidor religado: retomando " + ", ".join(sorted(chaves)), "info")
+
+
 def iniciar() -> None:
     threading.Thread(target=_trabalhador, daemon=True, name="motor").start()
+    with conectar() as con:
+        retomar_interrompidas(con)
+        con.commit()
     # Vídeos que ficaram "prontos para dirigir" enquanto o diretor não existia (ou o servidor estava desligado).
     with conectar() as con:
         for v in con.execute("SELECT id FROM videos").fetchall():

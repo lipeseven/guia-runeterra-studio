@@ -7,6 +7,8 @@ import { useCores } from "../tema";
 import { variar } from "../tempo";
 import type { CenaLista, Secao } from "../tipos";
 import { Img, staticFile } from "remotion"; // impressao:ignorar
+import { entradaManual, type EntradaItem } from "../componentes/EntradaManual"; // impressao:ignorar
+const entradaDoItem = (peca: object) => (peca as { entrada?: EntradaItem }).entrada; // impressao:ignorar
 
 /**
  * Lista acumulada (guia de estilo §10.2): painéis com legenda entrando lado a lado conforme a narração
@@ -50,6 +52,7 @@ export const Lista: React.FC<{ cena: CenaLista; secao?: Secao; quadro: (palavra:
               top: topo + (cena.inclinado ? variar(`${cena.semente}-y${k}`, -18, 18) : 0),
               width: larg,
               ...estiloEntradaImagem(frame, fps, inicio, cena.entrada),
+              ...(entradaDoItem(peca) ? { opacity: 1, transform: undefined, clipPath: undefined, filter: undefined, ...entradaManual(entradaDoItem(peca)!, frame, fps, inicio) } : {}), // impressao:ignorar
             }}
           >
             <div style={{ width: larg, height: alt, overflow: "hidden", transform: `rotate(${giro}deg)`, background: "#222" }}>
