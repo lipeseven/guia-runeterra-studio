@@ -41,27 +41,48 @@ const CRIVO = {
 } as const
 const NOMES = { diverge: 'a fonte diz diferente', parcial: 'conferem em parte (um pedaço sem fonte)', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com as fontes' }
 
-/** Pedido ao roteirista para corrigir UMA afirmação (o fato corrigido vem da fonte da conferência, não do dossiê). */
-function pedidoDeCorrecao(f: Fato) {
+const chaveFato = (f: Fato) => `${f.paragrafo}|${f.afirmacao}`
+
+/** Pedido único ao roteirista com as correções da fila (o fato corrigido vem da fonte da conferência, não do dossiê). */
+function pedidoDeCorrecoes(lista: Fato[]) {
+  const itens = lista.map((f, k) =>
+    [
+      `${k + 1}. Parágrafo [${f.paragrafo}]${f.trecho ? `, trecho: "${f.trecho}"` : ''}`,
+      `Afirmação checada: ${f.afirmacao}`,
+      `O que a conferência encontrou: ${f.explicacao}`,
+      f.fonte ? `Fonte (${f.fonte.fonte}): "${f.fonte.texto}"` : '',
+      f.veredito === 'parcial' ? 'Mantenha o que a fonte sustenta e ajuste só o pedaço sem fonte.' : 'Reescreva só o necessário para o fato bater com a fonte.',
+    ]
+      .filter(Boolean)
+      .join('\n'),
+  )
   return [
-    `Correção da conferência, só no parágrafo [${f.paragrafo}]. Não mexa em mais nada.`,
-    f.trecho ? `Trecho do roteiro: "${f.trecho}"` : '',
-    `Afirmação checada: ${f.afirmacao}`,
-    `O que a conferência encontrou: ${f.explicacao}`,
-    f.fonte ? `Fonte (${f.fonte.fonte}): "${f.fonte.texto}"` : '',
-    f.veredito === 'parcial'
-      ? 'Mantenha o que a fonte sustenta e ajuste só o pedaço sem fonte.'
-      : 'Reescreva só o necessário para o fato bater com a fonte.',
-    'Pode usar o fato desta fonte mesmo que não esteja no dossiê. Mantenha a voz do roteiro.',
-  ]
-    .filter(Boolean)
-    .join('\n')
+    `Correções da conferência (${lista.length}). Mexa só nestes pontos, mais nada.`,
+    ...itens,
+    'Pode usar os fatos destas fontes mesmo que não estejam no dossiê. Mantenha a voz do roteiro. Se houver mais de uma correção no mesmo parágrafo, devolva esse parágrafo uma vez só, com todas aplicadas.',
+  ].join('\n\n')
 }
 
 /** Conferência do roteiro antes de aprovar: fatos de lore × wiki/Universe e semelhança com o roteiro base. */
 export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: number; versao: number; aoCorrigir: (pedido: string) => Promise<boolean> }) {
   const [d, setD] = useState<Dados | null>(null)
   const [corrigindo, setCorrigindo] = useState(false)
+  const chaveFila = `conferencia-fila-${videoId}`
+  const [fila, setFilaEstado] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(chaveFila) ?? '[]')
+    } catch {
+      return []
+    }
+  })
+  const setFila = (nova: string[]) => {
+    setFilaEstado(nova)
+    try {
+      localStorage.setItem(chaveFila, JSON.stringify(nova))
+    } catch {
+      // sem armazenamento: a fila vale até recarregar a página
+    }
+  }
   const [aberto, setAberto] = useState<Record<string, boolean>>({ diverge: true })
   const [editBase, setEditBase] = useState(false)
   const [base, setBase] = useState('')
@@ -79,6 +100,7 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
   const c = d.conferencia
   const fatos = c?.fatos ?? []
   const grupos = (['diverge', 'parcial', 'sem_fonte', 'confere'] as const).map((v) => [v, fatos.filter((f) => f.veredito === v)] as const)
+  const naFila = fatos.filter((f) => (f.veredito === 'diverge' || f.veredito === 'parcial') && fila.includes(chaveFato(f))) // parágrafo mudou = sai da fila
 
   return (
     <div className="mt-3 rounded-lg border border-borda bg-painel-2 p-3 text-xs">
@@ -176,6 +198,30 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
         </div>
       )}
 
+      {naFila.length > 0 && (
+        <div className="mb-2 flex items-center gap-2 rounded border border-ouro/30 p-1.5">
+          <span>
+            <b>{naFila.length}</b> {naFila.length === 1 ? 'correção na fila' : 'correções na fila'}
+          </span>
+          <button onClick={() => setFila([])} className="ml-auto text-suave underline hover:text-texto">
+            limpar
+          </button>
+          <button
+            disabled={!d.atual || corrigindo}
+            onClick={async () => {
+              setCorrigindo(true)
+              const ok = await aoCorrigir(pedidoDeCorrecoes(naFila))
+              if (ok) setFila([])
+              setCorrigindo(false)
+            }}
+            title="Uma chamada só ao roteirista, com todas as correções; cria uma versão nova (dá para voltar)"
+            className="rounded bg-ouro px-2.5 py-1 font-semibold text-fundo hover:brightness-110 disabled:opacity-40"
+          >
+            Mandar correções
+          </button>
+        </div>
+      )}
+
       {c?.erro_fatos && <p className="text-atencao">Checagem de fatos falhou: {c.erro_fatos}</p>}
       {c && !c.erro_fatos && fatos.length === 0 && d.atual && <p className="text-apagado">Nenhuma afirmação de lore para checar.</p>}
       {grupos.map(([v, lista]) =>
@@ -208,16 +254,11 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
                       {fonteAberta === id && f.fonte && <p className="mt-1 rounded bg-painel p-1.5 text-apagado">“{f.fonte.texto}”</p>}
                       {(f.veredito === 'diverge' || f.veredito === 'parcial') && (
                         <button
-                          disabled={!d.atual || corrigindo}
-                          onClick={async () => {
-                            setCorrigindo(true)
-                            await aoCorrigir(pedidoDeCorrecao(f))
-                            setCorrigindo(false)
-                          }}
-                          title="O roteirista corrige só este ponto e cria uma versão nova (dá para voltar)"
-                          className="mt-1 block rounded bg-ouro/20 px-2 py-0.5 text-ouro hover:bg-ouro/30 disabled:opacity-40"
+                          onClick={() => setFila(fila.includes(chaveFato(f)) ? fila.filter((x) => x !== chaveFato(f)) : [...fila, chaveFato(f)])}
+                          title="Coloca na fila; nada muda até mandar as correções"
+                          className={`mt-1 block rounded px-2 py-0.5 ${fila.includes(chaveFato(f)) ? 'bg-ok/15 text-ok hover:bg-ok/25' : 'bg-ouro/20 text-ouro hover:bg-ouro/30'}`}
                         >
-                          Corrigir
+                          {fila.includes(chaveFato(f)) ? '✓ na fila (tirar)' : 'Corrigir'}
                         </button>
                       )}
                     </li>
