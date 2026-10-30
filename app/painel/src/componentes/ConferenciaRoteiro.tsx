@@ -92,6 +92,17 @@ export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versa
           >
             <RefreshCw className="size-3.5" />
           </button>
+          <button
+            onClick={async () => {
+              if (!confirm('Conferir TODOS os parágrafos de novo? Usa um pouco mais de cota do Claude (Sonnet).')) return
+              await api(`/videos/${videoId}/roteiro/conferir?tudo=true`, { method: 'POST' })
+              setD({ ...d, atual: false })
+            }}
+            className="text-suave underline hover:text-texto"
+            title="Esquece o que já foi checado e confere o roteiro inteiro"
+          >
+            conferir tudo
+          </button>
         </span>
       </div>
 
