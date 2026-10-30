@@ -11,7 +11,7 @@ exemplo_titulo = "Todos os DEMÔNIOS de League of Legends Explicados em 22 minut
 glossario = "Runeterra"                     # termos extras para o Whisper (o resto vem do roteiro)
 
 [pastas]
-acervo = 'C:\Users\Felipe\Downloads\catálogo sequencial LOL'   # pasta do Felipe (só leitura)
+acervo = 'C:\Users\Felipe\Downloads\canais\catálogo sequencial LOL'   # pasta do Felipe (só leitura)
 dados_acervo = "dados/runeterra/acervo"               # banco, miniaturas, índices CLIP, tomadas, derivados
 banco_acervo = "dados/runeterra/acervo.db"
 internet = "dados/runeterra/acervo_internet"          # mídias baixadas da internet
