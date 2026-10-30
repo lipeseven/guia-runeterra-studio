@@ -148,7 +148,8 @@ def _video(con, vid: int) -> dict:
     ativ = [dict(r) for r in con.execute(
         "SELECT * FROM atividade WHERE video_id=? ORDER BY quando DESC, id DESC LIMIT 40", (vid,))]
     return {**dict(v), "etapas": lista, "pendencias": pend, "atividade": ativ,
-            "condicoes_direcao": motor.condicoes_direcao(con, vid)}
+            "condicoes_direcao": motor.condicoes_direcao(con, vid),
+            "conferindo": vid in motor.CONFERINDO}  # conferência do roteiro na fila/rodando: não dá para aprovar
 
 
 @app.get("/api/quadro")

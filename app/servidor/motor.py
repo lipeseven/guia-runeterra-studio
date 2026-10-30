@@ -1179,6 +1179,19 @@ def iniciar() -> None:
         for v in con.execute("SELECT id FROM videos").fetchall():
             verificar_direcao(con, v["id"])
         con.commit()
+        # Conferência que estava na fila quando o servidor desligou: roteiro ainda não aprovado e sem conferência
+        # da versão atual → confere de novo (senão o painel ficaria em "conferindo…" para sempre).
+        import hashlib
+
+        for v in con.execute("SELECT v.id, v.slug FROM videos v JOIN etapas e ON e.video_id=v.id AND e.chave='roteiro' "
+                             "WHERE e.status != 'concluido' AND v.coluna != 'publicado'").fetchall():
+            dirc = PASTA_PROJETOS / v["slug"] / "direcao"
+            if not (dirc / "roteiro.txt").exists():
+                continue
+            atual = hashlib.sha1((dirc / "roteiro.txt").read_text(encoding="utf-8").encode()).hexdigest()[:16]
+            conf = dirc / "conferencia.json"
+            if not conf.exists() or json.loads(conf.read_text(encoding="utf-8")).get("roteiro") != atual:
+                pedir_conferencia(v["id"])
 
 
 CONFERINDO: set[int] = set()  # vídeos com conferência do roteiro na fila ou rodando: o roteiro não pode ser aprovado

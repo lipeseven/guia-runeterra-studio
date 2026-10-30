@@ -23,7 +23,7 @@ async function lerTxt(arquivo: File) {
 const botao = 'rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:bg-painel-2'
 const campo = 'w-full rounded-md border border-borda bg-painel-2 px-2.5 py-2 text-sm outline-none focus:border-suave'
 
-export function PainelRoteiro({ videoId, etapa, aoMudar }: { videoId: number; etapa: Etapa; aoMudar: () => void }) {
+export function PainelRoteiro({ videoId, etapa, aoMudar, conferindo = false }: { videoId: number; etapa: Etapa; aoMudar: () => void; conferindo?: boolean }) {
   const [dados, setDados] = useState<DadosRoteiro | null>(null)
   const [hist, setHist] = useState<{ conversa: Conversa[]; versoes: Versao[] }>({ conversa: [], versoes: [] })
   const [modo, setModo] = useState<'nada' | 'colar' | 'gerar' | 'editar'>('nada')
@@ -181,9 +181,11 @@ export function PainelRoteiro({ videoId, etapa, aoMudar }: { videoId: number; et
                   }
                   aoMudar()
                 }}
-                className="rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
+                disabled={conferindo}
+                title={conferindo ? 'Espere a conferência do roteiro terminar' : undefined}
+                className="rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                Aprovar roteiro
+                {conferindo ? 'Conferindo…' : 'Aprovar roteiro'}
               </button>
             )}
           </div>

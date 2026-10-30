@@ -115,7 +115,7 @@ export function Video({ id }: { id: number }) {
                     <p className="mt-1 text-sm text-texto/85">{p.texto}</p>
                     {p.etapa && <p className="mt-1.5 font-mono text-[11px] text-apagado">etapa: {p.etapa}</p>}
                   </div>
-                  <AcaoPendencia chave={p.chave} id={p.id} videoId={v.id} aoMudar={recarregar} />
+                  <AcaoPendencia chave={p.chave} id={p.id} videoId={v.id} aoMudar={recarregar} conferindo={v.conferindo} />
                 </li>
               ))}
             </ul>
@@ -133,7 +133,7 @@ export function Video({ id }: { id: number }) {
             {(v.coluna !== 'ideia' || roteiro.status !== 'pendente') && (
               <>
                 <ProximoPasso c={v.condicoes_direcao} direcao={v.etapas.find((e) => e.chave === 'direcao')!} />
-                <PainelRoteiro videoId={v.id} etapa={roteiro} aoMudar={recarregar} />
+                <PainelRoteiro videoId={v.id} etapa={roteiro} aoMudar={recarregar} conferindo={v.conferindo} />
                 <PainelCapa videoId={v.id} aprovada={Boolean(v.capa_aprovada)} aoMudar={recarregar} />
               </>
             )}
@@ -269,7 +269,7 @@ function ProximoPasso({ c, direcao }: { c: TVideo['condicoes_direcao']; direcao:
 }
 
 /** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
-function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; id: number; videoId: number; aoMudar: () => void }) {
+function AcaoPendencia({ chave, id, videoId, aoMudar, conferindo }: { chave: string | null; id: number; videoId: number; aoMudar: () => void; conferindo: boolean }) {
   const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
   if (chave === 'publicar' || chave === 'limpeza')
     return (
@@ -338,7 +338,9 @@ function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; 
   if (chave === 'aprovar_roteiro')
     return (
       <button
-        className="shrink-0 rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
+        disabled={conferindo}
+        title={conferindo ? 'Espere a conferência do roteiro terminar' : undefined}
+        className="shrink-0 rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
         onClick={async () => {
           try {
             await api(`/videos/${videoId}/roteiro/aprovar`, { method: 'POST' })
