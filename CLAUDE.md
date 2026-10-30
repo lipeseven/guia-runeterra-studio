@@ -136,7 +136,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   sustentam) e `fontes_divergem` (Riot oficial prevalece). Afirmações atômicas (1 fato cada), página `Universe:<personagem>`
   sempre incluída (`_pagina_do_personagem`), 3 trechos wiki + 2 Riot, veredito `parcial` ("confere em parte", diz o pedaço).
   Cache por parágrafo inclui `conferencia.REGRAS` (subir a versão ao mudar regra = tudo reconferido no próximo ↻);
-  "conferir tudo" no painel (`/roteiro/conferir?tudo=true`) apaga o cache. Botão "Corrigir" em cada item diverge/parcial (individual: o Felipe lê cada um) põe na fila; "Mandar correções" = uma chamada só a `/roteiro/ajustar`, versão nova. Reddit: API bloqueia sem chave (403) — exigiria app Reddit do Felipe.
+  "conferir tudo" no painel (`/roteiro/conferir?tudo=true`) apaga o cache. Botão "Corrigir" em cada item diverge/parcial (individual: o Felipe lê cada um) põe na fila; "Mandar correções" = uma chamada só a `/roteiro/ajustar`, versão nova. "O que mudou nesta versão" (`MudancasRoteiro.tsx`, `roteirista.mudancas`; difflib local, palavra por palavra): "desfazer" por alteração (`/roteiro/desfazer`) vira versão nova e mantém a mesma base da comparação (`direcao/comparar_com.json`). Reddit: API bloqueia sem chave (403) — exigiria app Reddit do Felipe.
 - Mídias da internet ✅ (2026-10-19): acervo baixado fica em `dados/runeterra/acervo_internet/` (fora da pasta do Felipe;
   caminho ABSOLUTO no acervo.db, `inventariar.PASTAS_EXTRA`). `tools/acervo/importar_riot.py` (splash de todas as
   skins via CommunityDragon + splash base 1920 e artes dos contos do Universe; categoria splash/skin/arte, descarta o

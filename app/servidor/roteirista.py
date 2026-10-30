@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from difflib import SequenceMatcher
 from pathlib import Path
 
 from .banco import RAIZ
@@ -109,6 +110,80 @@ def anotar(pasta: Path, item: dict) -> None:
     h = historico(pasta)
     h.append(item)
     (pasta / "direcao" / "conversa_roteiro.json").write_text(json.dumps(h, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+# --- o que mudou entre versões (comparação local, sem Claude) ---
+
+def _paragrafos(texto: str) -> list[str]:
+    return [p.strip() for p in re.split(r"\n\s*\n", texto) if p.strip()]
+
+
+def _trocas(antes: list[str], depois: list[str]) -> list[tuple[int, int, int, int]]:
+    """Trechos diferentes (i1, i2, j1, j2); parágrafos trocados em mesmo número viram um por um (desfaz-se cada um)."""
+    trocas = []
+    for op, i1, i2, j1, j2 in SequenceMatcher(None, antes, depois, autojunk=False).get_opcodes():
+        if op == "replace" and i2 - i1 == j2 - j1:
+            trocas += [(i1 + k, i1 + k + 1, j1 + k, j1 + k + 1) for k in range(i2 - i1)]
+        elif op != "equal":
+            trocas.append((i1, i2, j1, j2))
+    return trocas
+
+
+def _palavras(antes: str, depois: str) -> list[dict]:
+    a, b = [re.findall(r"\s+|\w+|[^\w\s]", x) for x in (antes, depois)]
+    saida = []
+    for op, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
+        if op == "equal":
+            saida.append({"t": "igual", "x": "".join(a[i1:i2])})
+            continue
+        if i2 > i1:
+            saida.append({"t": "saiu", "x": "".join(a[i1:i2])})
+        if j2 > j1:
+            saida.append({"t": "entrou", "x": "".join(b[j1:j2])})
+    return saida
+
+
+def _comparacao(pasta: Path) -> tuple[int, int, list[str], list[str]] | None:
+    """(versão atual, versão base, parágrafos da base, parágrafos atuais). Depois de um "desfazer", a base continua a
+    mesma de antes (comparar_com.json), senão as outras alterações sumiriam da lista."""
+    dirc = pasta / "direcao"
+    numeros = sorted(int(re.search(r"_v(\d+)", p.stem).group(1)) for p in dirc.glob("roteiro_v*.txt"))
+    if len(numeros) < 2:
+        return None
+    atual, base = numeros[-1], numeros[-2]
+    fixa = dirc / "comparar_com.json"
+    if fixa.exists():
+        dados = json.loads(fixa.read_text(encoding="utf-8"))
+        if dados.get("versao") == atual and dados.get("base") in numeros:
+            base = dados["base"]
+    return (atual, base, _paragrafos((dirc / f"roteiro_v{base}.txt").read_text(encoding="utf-8")),
+            _paragrafos((dirc / f"roteiro_v{atual}.txt").read_text(encoding="utf-8")))
+
+
+def mudancas(pasta: Path) -> dict | None:
+    """O que mudou na versão atual, palavra por palavra. Roteiro reescrito quase todo não vira lista."""
+    c = _comparacao(pasta)
+    if not c:
+        return None
+    atual, base, antes, depois = c
+    trocas = _trocas(antes, depois)
+    iguais = max(len(antes), len(depois)) - sum(max(i2 - i1, j2 - j1) for i1, i2, j1, j2 in trocas)
+    if iguais < 0.3 * max(len(antes), len(depois)):
+        return {"versao": atual, "base": base, "reescrito": True, "lista": []}
+    return {"versao": atual, "base": base, "reescrito": False, "lista": [
+        {"paragrafo": j1, "partes": _palavras("\n\n".join(antes[i1:i2]), "\n\n".join(depois[j1:j2]))}
+        for i1, i2, j1, j2 in trocas]}
+
+
+def desfazer_mudanca(pasta: Path, indice: int) -> tuple[str, int]:
+    """Texto atual com UMA alteração desfeita e a versão base da comparação."""
+    _, base, antes, depois = _comparacao(pasta)
+    i1, i2, j1, j2 = _trocas(antes, depois)[indice]
+    return "\n\n".join(depois[:j1] + antes[i1:i2] + depois[j2:]), base
+
+
+def fixar_base(pasta: Path, versao: int, base: int) -> None:
+    (pasta / "direcao" / "comparar_com.json").write_text(json.dumps({"versao": versao, "base": base}), encoding="utf-8")
 
 
 def versoes(pasta: Path) -> list[dict]:

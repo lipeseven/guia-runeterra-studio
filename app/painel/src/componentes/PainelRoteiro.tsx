@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { DaPasta } from './DaPasta'
 import { api, quando, type Etapa } from '../api'
 import { ConferenciaRoteiro } from './ConferenciaRoteiro'
+import { MudancasRoteiro } from './MudancasRoteiro'
 
 type DadosRoteiro = { texto: string | null; paragrafos?: number; palavras?: number; segundos?: number }
 type Conversa = { quando: string; acao: 'gerar' | 'ajustar'; pedido: string; resumo: string; versao: number; palavras: number }
@@ -270,6 +271,10 @@ export function PainelRoteiro({ videoId, etapa, aoMudar, conferindo = false }: {
             </button>
           </div>
         </div>
+      )}
+
+      {temRoteiro && !trabalhando && modo !== 'editar' && (
+        <MudancasRoteiro videoId={videoId} versao={versao} bloqueado={conferindo} aoDesfazer={(v, indice) => chamar('/desfazer', { versao: v, indice })} />
       )}
 
       {temRoteiro && modo !== 'editar' && (
