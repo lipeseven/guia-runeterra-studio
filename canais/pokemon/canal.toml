@@ -12,7 +12,7 @@ tipos_extras = ["ficha", "rajada"]          # cenas que só este canal usa (plan
 glossario = "Pokémon, Pokédex, Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alola, Galar, Paldea"
 
 [pastas]
-acervo = 'C:\Users\Felipe\Downloads\catálogo sequencial POKEMON'   # pasta do Felipe (só leitura; _oficial/ = importador)
+acervo = 'C:\Users\Felipe\Downloads\canais\catálogo sequencial POKEMON'   # pasta do Felipe (só leitura; _oficial/ = importador)
 dados_acervo = "dados/pokemon/acervo"
 banco_acervo = "dados/pokemon/acervo.db"
 internet = "dados/pokemon/acervo_internet"

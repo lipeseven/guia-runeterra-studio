@@ -24,7 +24,7 @@ PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
   `canal.DADOS_COMUM`). Caminhos dos canais em `canais/<chave>/canal.toml`; caminho de arquivo de projeto para o painel:
   `motor.caminho_rel(slug, ...)` (nunca escrever "projetos/..." à mão).
 - `docs/instalacao.md` — reinstalar do zero (formatar o PC): backup, programas, `requirements.txt`, npm.
-- `projeto.toml` — caminhos (acervo em `C:\Users\Felipe\Downloads\catálogo sequencial LOL`). `.env` — chaves (fora do Git).
+- `projeto.toml` — caminhos (acervo em `C:\Users\Felipe\Downloads\canais\catálogo sequencial LOL`). `.env` — chaves (fora do Git).
 - `tools/` — scripts Python (rodar com `.venv\Scripts\python.exe`): `analise_referencias/`, `acervo/`
   (inventário, busca CLIP, tomadas de clipes, etiquetas), `capa.py` (detecta ícones na capa), `direcao/variacao.py`
   (editor de variedade), `prototipo/preparar.py`.

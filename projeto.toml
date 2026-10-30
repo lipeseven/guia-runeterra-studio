@@ -2,7 +2,7 @@
 
 [pastas]
 # Acervo local de imagens/clipes. Os arquivos originais nunca são movidos nem alterados.
-acervo = 'C:\Users\Felipe\Downloads\catálogo sequencial LOL'
+acervo = 'C:\Users\Felipe\Downloads\canais\catálogo sequencial LOL'
 # Dados gerados pelo sistema (banco, miniaturas, embeddings), relativo à raiz do projeto.
 dados = 'dados'
 
