@@ -285,7 +285,7 @@ export function PainelRoteiro({ videoId, etapa, aoMudar, conferindo = false }: {
         </div>
       )}
 
-      {temRoteiro && !trabalhando && modo !== 'editar' && <ConferenciaRoteiro videoId={videoId} versao={versao} />}
+      {temRoteiro && !trabalhando && modo !== 'editar' && <ConferenciaRoteiro videoId={videoId} versao={versao} aoCorrigir={(pedido) => chamar('/ajustar', { pedido })} />}
 
       {/* ajuste fino com o Claude: devolve só os parágrafos alterados */}
       {temRoteiro && !trabalhando && modo === 'nada' && (

@@ -41,9 +41,27 @@ const CRIVO = {
 } as const
 const NOMES = { diverge: 'a fonte diz diferente', parcial: 'conferem em parte (um pedaço sem fonte)', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com as fontes' }
 
+/** Pedido ao roteirista para corrigir UMA afirmação (o fato corrigido vem da fonte da conferência, não do dossiê). */
+function pedidoDeCorrecao(f: Fato) {
+  return [
+    `Correção da conferência, só no parágrafo [${f.paragrafo}]. Não mexa em mais nada.`,
+    f.trecho ? `Trecho do roteiro: "${f.trecho}"` : '',
+    `Afirmação checada: ${f.afirmacao}`,
+    `O que a conferência encontrou: ${f.explicacao}`,
+    f.fonte ? `Fonte (${f.fonte.fonte}): "${f.fonte.texto}"` : '',
+    f.veredito === 'parcial'
+      ? 'Mantenha o que a fonte sustenta e ajuste só o pedaço sem fonte.'
+      : 'Reescreva só o necessário para o fato bater com a fonte.',
+    'Pode usar o fato desta fonte mesmo que não esteja no dossiê. Mantenha a voz do roteiro.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
+
 /** Conferência do roteiro antes de aprovar: fatos de lore × wiki/Universe e semelhança com o roteiro base. */
-export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versao: number }) {
+export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: number; versao: number; aoCorrigir: (pedido: string) => Promise<boolean> }) {
   const [d, setD] = useState<Dados | null>(null)
+  const [corrigindo, setCorrigindo] = useState(false)
   const [aberto, setAberto] = useState<Record<string, boolean>>({ diverge: true })
   const [editBase, setEditBase] = useState(false)
   const [base, setBase] = useState('')
@@ -188,6 +206,20 @@ export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versa
                         </button>
                       )}
                       {fonteAberta === id && f.fonte && <p className="mt-1 rounded bg-painel p-1.5 text-apagado">“{f.fonte.texto}”</p>}
+                      {(f.veredito === 'diverge' || f.veredito === 'parcial') && (
+                        <button
+                          disabled={!d.atual || corrigindo}
+                          onClick={async () => {
+                            setCorrigindo(true)
+                            await aoCorrigir(pedidoDeCorrecao(f))
+                            setCorrigindo(false)
+                          }}
+                          title="O roteirista corrige só este ponto e cria uma versão nova (dá para voltar)"
+                          className="mt-1 block rounded bg-ouro/20 px-2 py-0.5 text-ouro hover:bg-ouro/30 disabled:opacity-40"
+                        >
+                          Corrigir
+                        </button>
+                      )}
                     </li>
                   )
                 })}
