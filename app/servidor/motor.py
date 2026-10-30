@@ -230,7 +230,7 @@ def receber_roteiro(con, vid: int, texto: str, nome: str) -> dict:
                     f"Versão {n}: {est['palavras']} palavras, ~{mmss(est['segundos'])} narrado. "
                     "Confira o texto no painel “Roteiro” e clique em “Aprovar roteiro”.")
     registrar(con, vid, f"Roteiro v{n} recebido ({nome})", "info")
-    FILA.put((vid, "conferencia"))  # semelhança com o roteiro base + checagem de fatos (antes de aprovar)
+    pedir_conferencia(vid)  # semelhança com o roteiro base + checagem de fatos (antes de aprovar)
     return est
 
 
@@ -665,6 +665,18 @@ def tarefa_publicacao(vid: int) -> None:
     textos = publicacao.gerar_textos(pasta, v["titulo"], duracao)
     thumb = publicacao.exportar_thumbnail(pasta)
     textos["thumbnail"] = f"projetos/{v['slug']}/saida/{thumb.name}" if thumb else None
+    with conectar() as con:
+        atualizar_etapa(con, vid, "publicacao", "andamento", "juntando a cena de encerramento…", "FFmpeg")
+        con.commit()
+    try:  # vídeo para subir = final aprovado + encerramento fixo do canal (o final_vN fica intacto)
+        publicar = publicacao.com_encerramento(pasta)
+    except Exception as e:
+        traceback.print_exc()
+        publicar = None
+        with conectar() as con:
+            registrar(con, vid, f"Não deu para juntar o encerramento: {e}", "alerta")
+            con.commit()
+    textos["video_publicar"] = f"projetos/{v['slug']}/saida/{publicar.name}" if publicar else None
     (pasta / "direcao" / "publicacao.json").write_text(json.dumps(textos, ensure_ascii=False, indent=1), encoding="utf-8")
     with conectar() as con:
         atualizar_etapa(con, vid, "publicacao", "atencao", "textos prontos · revise",
@@ -1090,6 +1102,8 @@ def _trabalhador() -> None:
                 FILA.task_done()
             continue
         if not v or v["coluna"] == "publicado":  # excluído ou já arquivado: tarefa que sobrou na fila não roda
+            if nome == "conferencia":
+                CONFERINDO.discard(vid)
             continue
         ESTADO["executando"] = {"video": vid, "tarefa": nome, "desde": agora()}
         try:
@@ -1106,6 +1120,8 @@ def _trabalhador() -> None:
                 registrar(con, vid, f"Erro em {nome}: {e}", "alerta")
                 con.commit()
         finally:
+            if nome == "conferencia":
+                CONFERINDO.discard(vid)
             ESTADO["executando"] = None
             ESTADO["progresso"] = None
             FILA.task_done()
@@ -1155,6 +1171,14 @@ def iniciar() -> None:
         for v in con.execute("SELECT id FROM videos").fetchall():
             verificar_direcao(con, v["id"])
         con.commit()
+
+
+CONFERINDO: set[int] = set()  # vídeos com conferência do roteiro na fila ou rodando: o roteiro não pode ser aprovado
+
+
+def pedir_conferencia(vid: int) -> None:
+    CONFERINDO.add(vid)
+    FILA.put((vid, "conferencia"))
 
 
 def situacao() -> dict:

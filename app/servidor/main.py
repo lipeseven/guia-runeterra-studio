@@ -259,7 +259,7 @@ def ver_conferencia(vid: int):
         narr.read_text(encoding="utf-8").encode()).hexdigest()[:16]
     from . import pesquisa
 
-    return {"conferencia": dados, "atual": bool(atual), "dossie": pesquisa.ler(pasta),
+    return {"conferencia": dados, "atual": bool(atual) and vid not in motor.CONFERINDO, "dossie": pesquisa.ler(pasta),
             "base": base.read_text(encoding="utf-8") if base.exists() else None}
 
 
@@ -280,7 +280,7 @@ def guardar_base(vid: int, corpo: Base):
             arq.write_text(limpar_base(corpo.texto) + "\n", encoding="utf-8")
         else:
             arq.unlink(missing_ok=True)
-        motor.FILA.put((vid, "conferencia"))
+        motor.pedir_conferencia(vid)
     return {"ok": True}
 
 
@@ -288,7 +288,7 @@ def guardar_base(vid: int, corpo: Base):
 def conferir_roteiro(vid: int):
     with conectar() as con:
         _pasta(con, vid)
-    motor.FILA.put((vid, "conferencia"))
+    motor.pedir_conferencia(vid)
     return {"ok": True}
 
 
@@ -384,6 +384,8 @@ def aprovar_roteiro(vid: int):
         v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
         if not v or not motor.ler_roteiro(v["slug"]):
             raise HTTPException(400, "não há roteiro para aprovar")
+        if vid in motor.CONFERINDO:
+            raise HTTPException(409, "espere a conferência do roteiro terminar antes de aprovar")
         motor.aprovar_roteiro(con, vid)
         con.commit()
     return {"ok": True}
@@ -740,7 +742,10 @@ def marcar_publicado(vid: int, corpo: Publicado):
     with conectar() as con:
         _pasta(con, vid)
         _motor_livre(vid)
-        motor.marcar_publicado(con, vid, (corpo.url or "").strip() or None)
+        try:
+            motor.marcar_publicado(con, vid, (corpo.url or "").strip() or None)
+        except RuntimeError as e:  # arquivo aberto em outro programa: nada foi arquivado
+            raise HTTPException(409, str(e))
         con.commit()
     return {"ok": True}
 

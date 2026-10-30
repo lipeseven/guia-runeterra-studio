@@ -171,7 +171,11 @@ export function PainelRoteiro({ videoId, etapa, aoMudar }: { videoId: number; et
             ) : (
               <button
                 onClick={async () => {
-                  await api(`/videos/${videoId}/roteiro/aprovar`, { method: 'POST' })
+                  try {
+                    await api(`/videos/${videoId}/roteiro/aprovar`, { method: 'POST' })
+                  } catch (e) {
+                    return alert(String(e).match(/"detail":"([^"]+)"/)?.[1] ?? String(e)) // ex.: conferência ainda rodando
+                  }
                   aoMudar()
                 }}
                 className="rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"

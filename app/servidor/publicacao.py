@@ -163,6 +163,51 @@ def exportar_thumbnail(pasta: Path) -> Path | None:
     return destino
 
 
+def encerramento() -> Path:
+    """Cena de encerramento fixa do canal (fora do Git): Runeterra = dados/encerramento/encerramento.mp4."""
+    from canal import caminho
+
+    return caminho("dados_acervo").parent / "encerramento" / "encerramento.mp4"
+
+
+def com_encerramento(pasta: Path) -> Path | None:
+    """Vídeo para subir: o último final_vN.mp4 + a cena de encerramento → final_vN_publicar.mp4 (o final fica
+    intacto). Só o encerramento é recodificado (no formato do final); a junção não recomprime o vídeo."""
+    import subprocess
+
+    from comum import preparar_ffmpeg
+
+    fim = encerramento()
+    finais = [p for p in (pasta / "saida").glob("final_v*.mp4") if p.stem.split("_v")[1].isdigit()]
+    if not fim.exists() or not finais:
+        return None
+    final = max(finais, key=lambda p: int(p.stem.split("_v")[1]))
+    preparar_ffmpeg()
+    sonda = json.loads(subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height,r_frame_rate,time_base,sample_rate",
+         "-of", "json", str(final)], capture_output=True, check=True).stdout)["streams"]
+    v = next(s for s in sonda if s["codec_type"] == "video")
+    a = next((s for s in sonda if s["codec_type"] == "audio"), {"sample_rate": "48000"})
+    trab = pasta / "trabalho"
+    trab.mkdir(exist_ok=True)
+    ajustado = trab / "encerramento_ajustado.mp4"
+    escala = (f"scale={v['width']}:{v['height']}:force_original_aspect_ratio=decrease,"
+              f"pad={v['width']}:{v['height']}:(ow-iw)/2:(oh-ih)/2:white,fps={v['r_frame_rate']},format=yuv420p")
+    base = ["ffmpeg", "-v", "error", "-y", "-i", str(fim), "-vf", escala,
+            "-video_track_timescale", v["time_base"].split("/")[1],
+            "-c:a", "aac", "-b:a", "192k", "-ar", a["sample_rate"], "-ac", "2"]
+    try:
+        subprocess.run(base + ["-c:v", "h264_nvenc", "-preset", "p5", "-cq", "18", str(ajustado)], check=True)
+    except subprocess.CalledProcessError:  # sem NVENC
+        subprocess.run(base + ["-c:v", "libx264", "-crf", "17", str(ajustado)], check=True)
+    lista = trab / "publicar.txt"
+    lista.write_text("".join(f"file '{p.resolve().as_posix()}'\n" for p in (final, ajustado)), encoding="utf-8")
+    saida = final.with_name(f"{final.stem}_publicar.mp4")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lista), "-c", "copy",
+                    "-movflags", "+faststart", str(saida)], check=True)
+    return saida
+
+
 def registrar_uso(pasta: Path, slug: str, quando: str) -> int:
     from comum import abrir_acervo
 
@@ -201,6 +246,18 @@ def arquivar(pasta: Path) -> dict:
             shutil.copy2(capa, guardada)
     alvos = [p for p in pasta.iterdir() if p != guardada] if pasta.exists() else []
     alvos.append(RAIZ / "app" / "video" / "public" / pasta.name)
+    em_uso = []  # ANTES de mover qualquer coisa: no Windows, pasta com arquivo aberto (player, editor) não se renomeia
+    for a in alvos:
+        if a.exists():
+            teste = a.with_name(a.name + ".teste_arquivar")
+            try:
+                a.rename(teste)
+                teste.rename(a)
+            except OSError:
+                em_uso.append(a.name)
+    if em_uso:
+        raise RuntimeError(f"há arquivo aberto em outro programa dentro de {', '.join(em_uso)} (feche o player/editor "
+                           "e tente de novo; nada foi arquivado)")
     for a in alvos:
         if a.exists():
             send2trash(str(a.resolve()))
