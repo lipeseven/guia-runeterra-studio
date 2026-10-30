@@ -133,7 +133,8 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   → Sonnet dá confere/diverge/sem fonte; cache por parágrafo). Painel: bloco "Conferência do roteiro" no Roteiro.
   Fontes (2026-10-30): wiki.leagueoflegends.com namespace Universe (3006; o fandom parou em 2023) + biografia E conto
   oficial do Universe (meeps `story-preview`); 2 trechos da wiki + 2 da Riot por afirmação; veredito traz `fontes` (quantas
-  sustentam) e `fontes_divergem` (Riot oficial prevalece). Reddit: API bloqueia sem chave (403) — exigiria app Reddit do Felipe.
+  sustentam) e `fontes_divergem` (Riot oficial prevalece). Afirmações atômicas (1 fato cada), página `Universe:<personagem>`
+  sempre incluída (`_pagina_do_personagem`), 3 trechos wiki + 2 Riot, veredito `parcial` ("confere em parte", diz o pedaço). Reddit: API bloqueia sem chave (403) — exigiria app Reddit do Felipe.
 - Mídias da internet ✅ (2026-10-19): acervo baixado fica em `dados/runeterra/acervo_internet/` (fora da pasta do Felipe;
   caminho ABSOLUTO no acervo.db, `inventariar.PASTAS_EXTRA`). `tools/acervo/importar_riot.py` (splash de todas as
   skins via CommunityDragon + splash base 1920 e artes dos contos do Universe; categoria splash/skin/arte, descarta o

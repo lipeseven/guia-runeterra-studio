@@ -7,7 +7,7 @@ type Fato = {
   paragrafo: number
   trecho?: string
   afirmacao: string
-  veredito: 'confere' | 'diverge' | 'sem_fonte'
+  veredito: 'confere' | 'parcial' | 'diverge' | 'sem_fonte'
   explicacao: string
   fonte: { fonte: string; texto: string } | null
   fontes?: number | null // quantas fontes diferentes sustentam (wiki, biografia Riot, conto Riot)
@@ -29,6 +29,7 @@ type Dados = {
 
 const ICONE = {
   diverge: <AlertTriangle className="size-3.5 shrink-0 text-atencao" />,
+  parcial: <CheckCircle2 className="size-3.5 shrink-0 text-atencao/80" />,
   sem_fonte: <HelpCircle className="size-3.5 shrink-0 text-suave" />,
   confere: <CheckCircle2 className="size-3.5 shrink-0 text-ok" />,
 }
@@ -38,7 +39,7 @@ const CRIVO = {
   sem_fonte: ['text-suave', 'sem fonte (ficaram de fora)'],
   confirmada: ['text-ok', 'confirmadas'],
 } as const
-const NOMES = { diverge: 'a fonte diz diferente', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com as fontes' }
+const NOMES = { diverge: 'a fonte diz diferente', parcial: 'conferem em parte (um pedaço sem fonte)', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com as fontes' }
 
 /** Conferência do roteiro antes de aprovar: fatos de lore × wiki/Universe e semelhança com o roteiro base. */
 export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versao: number }) {
@@ -59,7 +60,7 @@ export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versa
   if (!d) return null
   const c = d.conferencia
   const fatos = c?.fatos ?? []
-  const grupos = (['diverge', 'sem_fonte', 'confere'] as const).map((v) => [v, fatos.filter((f) => f.veredito === v)] as const)
+  const grupos = (['diverge', 'parcial', 'sem_fonte', 'confere'] as const).map((v) => [v, fatos.filter((f) => f.veredito === v)] as const)
 
   return (
     <div className="mt-3 rounded-lg border border-borda bg-painel-2 p-3 text-xs">

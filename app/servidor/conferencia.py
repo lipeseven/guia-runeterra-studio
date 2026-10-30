@@ -140,17 +140,23 @@ def _wiki(busca: str) -> list[tuple[str, str]]:
     """(fonte, texto) das 4 páginas da wiki do canal mais relevantes para a busca (LoL: só páginas de lore)."""
     r = _baixar(FONTE["wiki"], {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 4,
                                 "srnamespace": FONTE["ns"]})
-    saida = []
-    for item in ((r or {}).get("query") or {}).get("search", []):
-        titulo = item["title"]
-        p = _baixar(FONTE["wiki"], {"action": "query", "prop": "revisions", "rvprop": "content", "rvslots": "main",
-                           "titles": titulo, "format": "json", "formatversion": 2})
-        try:
-            texto = p["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
-        except (KeyError, IndexError, TypeError):
-            continue
-        saida.append((f"wiki: {titulo}", _limpar_wikitexto(texto)))
-    return saida
+    return [x for item in ((r or {}).get("query") or {}).get("search", []) for x in _wiki_pagina(item["title"])]
+
+
+def _wiki_pagina(titulo: str) -> list[tuple[str, str]]:
+    """Uma página da wiki pelo título (vazio se não existir)."""
+    p = _baixar(FONTE["wiki"], {"action": "query", "prop": "revisions", "rvprop": "content", "rvslots": "main",
+                                "titles": titulo, "format": "json", "formatversion": 2, "redirects": 1})
+    try:
+        texto = p["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+    except (KeyError, IndexError, TypeError):
+        return []
+    return [(f"wiki: {p['query']['pages'][0].get('title', titulo)}", _limpar_wikitexto(texto))]
+
+
+def _pagina_do_personagem(nome: str) -> list[tuple[str, str]]:
+    """A página de lore do personagem citado (LoL: Universe:<nome>) — a busca por termos às vezes erra o alvo."""
+    return _wiki_pagina(f"Universe:{nome}" if FONTE["ns"] == "3006" else nome)
 
 
 def _universe(nome: str) -> list[tuple[str, str]]:
@@ -213,8 +219,10 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
         aviso(f"lendo {len(novos)} parágrafo(s) novo(s)")
         r = chamar_json(
             "Liste as afirmações de LORE checáveis destes parágrafos (nomes, datas, eras, quem fez o quê, parentesco, "
-            "lugares). Ignore piadas, opiniões, ganchos e comentários do narrador. No máximo 4 por parágrafo, só as "
-            f"que importam. Para cada uma, dê termos de busca em INGLÊS para a wiki ({FONTE['nome']}) e os {FONTE['quem']}.\n\n"
+            "lugares). Ignore piadas, opiniões, ganchos, comentários do narrador e o que o próprio roteiro já chama de "
+            "teoria/especulação. Cada afirmação = UM fato só: frase com vários fatos vira várias afirmações curtas. "
+            "No máximo 6 por parágrafo, só as que importam. Para cada uma, dê termos de busca em INGLÊS para a wiki "
+            f"({FONTE['nome']}), começando pelo nome de quem aparece, e os {FONTE['quem']}.\n\n"
             + "\n\n".join(f"[{i}] {p}" for i, p in novos)
             + '\n\nJSON: {"afirmacoes": [{"p": 0, "trecho": "palavras do roteiro", "afirmacao": "o fato, curto", '
               '"busca": "english search terms", "campeoes": ["Mordekaiser"]}]}',
@@ -224,7 +232,9 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
         blocos = []
         for k, a in enumerate(afirm):
             fontes = _wiki(a.get("busca") or a["afirmacao"])
+            vistas = {f for f, _ in fontes}
             for c in (a.get("campeoes") or [])[:2]:
+                fontes += [x for x in _pagina_do_personagem(c) if x[0] not in vistas]  # sempre a página de quem aparece
                 fontes += _universe(c) if CANAL.get("fatos", "lol") == "lol" else _pokedex(c)
             tr = _trechos(fontes)
             escolhidos = []
@@ -232,8 +242,8 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                 e = _embed([a["afirmacao"]] + [t for _, t in tr])
                 notas = e[1:] @ e[0]
                 ordem = [tr[i] for i in notas.argsort()[::-1]]
-                # 2 melhores da wiki + 2 melhores da Riot (biografia/conto): dá para cruzar as fontes
-                escolhidos = ([x for x in ordem if x[0].startswith("wiki")][:2]
+                # 3 melhores da wiki + 2 melhores da Riot (biografia/conto): dá para cruzar as fontes
+                escolhidos = ([x for x in ordem if x[0].startswith("wiki")][:3]
                               + [x for x in ordem if not x[0].startswith("wiki")][:2]) or ordem[:3]
             a["trechos"] = [{"fonte": f, "texto": t} for f, t in escolhidos]
             blocos.append(f"### Afirmação {k}: {a['afirmacao']}\n" + "\n".join(
@@ -244,14 +254,15 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
             aviso("comparando com as fontes")
             v = chamar_json(
                 f"Para cada afirmação do roteiro, compare com os trechos das fontes ({FONTE['nome']}):\n"
-                "- confere: os trechos sustentam o essencial da afirmação (detalhe a mais sem fonte não impede);\n"
+                "- confere: os trechos sustentam a afirmação;\n"
+                "- parcial: os trechos sustentam o principal, mas um pedaço não aparece neles — diga QUAL pedaço;\n"
                 "- diverge: os trechos CONTRADIZEM a afirmação (outra data, outro autor, outro lugar) — explique;\n"
-                "- sem_fonte: os trechos não falam disso, ou só de parte (não julgue pelo seu conhecimento).\n"
+                "- sem_fonte: os trechos não falam disso (não julgue pelo seu conhecimento).\n"
                 "Ausência de um detalhe NÃO é divergência.\n"
                 "Cruze as fontes: `fontes` = quantas fontes DIFERENTES (wiki, biografia Riot, conto Riot) sustentam a "
                 "afirmação; `fontes_divergem` = true se as próprias fontes se contradizem entre si (aí a Riot oficial "
                 "vale mais que a wiki — diga isso na explicação).\n\n" + "\n\n".join(blocos)
-                + '\n\nJSON: {"vereditos": [{"i": 0, "veredito": "confere|diverge|sem_fonte", '
+                + '\n\nJSON: {"vereditos": [{"i": 0, "veredito": "confere|parcial|diverge|sem_fonte", '
                   '"explicacao": "1 frase em português", "trecho": 0, "fontes": 1, "fontes_divergem": false}]}',
                 SISTEMA, modelo="sonnet", etiqueta="conferencia-fatos")
             vered = {x["i"]: x for x in v.get("vereditos", []) if isinstance(x.get("i"), int)}
