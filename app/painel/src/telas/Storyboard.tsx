@@ -108,11 +108,13 @@ export function Storyboard({ id }: { id: number }) {
 
   const direcao = v?.etapas.find((e) => e.chave === 'direcao')
   const rascunho = v?.etapas.find((e) => e.chave === 'rascunho')
+  const final = v?.etapas.find((e) => e.chave === 'render') // vídeo com a voz real (depois da gravação)
+  const gravada = v?.etapas.find((e) => e.chave === 'gravacao')?.status === 'concluido'
   const trabalhando = enviando || direcao?.status === 'andamento'
   // quando o motor termina um rascunho novo, recarrega as cenas
   useEffect(() => {
     if (!trabalhando) carregar()
-  }, [trabalhando, rascunho?.atualizado_em]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [trabalhando, rascunho?.atualizado_em, final?.atualizado_em]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // confirmação visual de cada ajuste: aviso "foi para a fila" + a cena pisca (some sozinho)
   const [aviso, setAviso] = useState<{ texto: string; cid: string; n: number } | null>(null)
@@ -150,7 +152,8 @@ export function Storyboard({ id }: { id: number }) {
       <span className="text-texto">Storyboard</span>
     </>
   )
-  const video = typeof rascunho?.dados.video === 'string' ? rascunho.dados.video : null
+  const video =
+    gravada && typeof final?.dados.video === 'string' ? final.dados.video : typeof rascunho?.dados.video === 'string' ? rascunho.dados.video : null
 
   return (
     <Moldura trilha={trilha}>

@@ -29,9 +29,12 @@ def _rel(caminho: str) -> str:
 
 def carregar(pasta: Path) -> dict:
     dirc = pasta / "direcao"
+    # depois da gravação, o vídeo que o Felipe vê é o FINAL (voz real): tempos e imagens vêm da direção dele
+    final, rasc = dirc / "direcao_final.json", dirc / "direcao.json"
+    montagem = final if final.exists() and (not rasc.exists() or final.stat().st_mtime >= rasc.stat().st_mtime) else rasc
     return {"plano": _ler(dirc / "plano.json", {"cenas": []}), "necs": _ler(dirc / "candidatos.json", []),
             "escolhas": _ler(dirc / "escolhas.json", {}), "ajustes": _ler(dirc / "ajustes.json", {}),
-            "direcao": _ler(dirc / "direcao.json", {"cenas": [], "palavras": []}),
+            "direcao": _ler(montagem, {"cenas": [], "palavras": []}),
             "roteiro": (dirc / "roteiro.txt").read_text(encoding="utf-8") if (dirc / "roteiro.txt").exists() else ""}
 
 
