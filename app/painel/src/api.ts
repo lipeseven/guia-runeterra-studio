@@ -45,6 +45,7 @@ export type Video = VideoResumo & {
   atividade: Atividade[]
   capa_aprovada: number
   condicoes_direcao: { roteiro_aprovado: boolean; voz_guia_pronta: boolean; capa_aprovada: boolean }
+  conferindo: boolean // conferência do roteiro na fila/rodando: aprovar fica bloqueado
 }
 
 export type Recursos = {
