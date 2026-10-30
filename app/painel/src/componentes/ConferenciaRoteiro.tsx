@@ -10,6 +10,8 @@ type Fato = {
   veredito: 'confere' | 'diverge' | 'sem_fonte'
   explicacao: string
   fonte: { fonte: string; texto: string } | null
+  fontes?: number | null // quantas fontes diferentes sustentam (wiki, biografia Riot, conto Riot)
+  fontes_divergem?: boolean // as próprias fontes se contradizem (a Riot oficial vale mais)
 }
 type Semelhanca = { geral: number; total: number; frases: { frase: string; base: string; nota: number; nivel: string }[] }
 type Dossie = {
@@ -36,7 +38,7 @@ const CRIVO = {
   sem_fonte: ['text-suave', 'sem fonte (ficaram de fora)'],
   confirmada: ['text-ok', 'confirmadas'],
 } as const
-const NOMES = { diverge: 'a fonte diz diferente', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com a fonte' }
+const NOMES = { diverge: 'a fonte diz diferente', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com as fontes' }
 
 /** Conferência do roteiro antes de aprovar: fatos de lore × wiki/Universe e semelhança com o roteiro base. */
 export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versao: number }) {
@@ -160,6 +162,12 @@ export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versa
                     <li key={id}>
                       <p className="text-texto/90">
                         <span className="font-mono text-apagado">¶{f.paragrafo + 1}</span> {f.afirmacao}
+                        {f.veredito === 'confere' && (f.fontes ?? 0) >= 2 && (
+                          <span className="ml-1 rounded bg-ok/15 px-1 text-ok" title="confirmado por fontes diferentes">✓✓ {f.fontes} fontes</span>
+                        )}
+                        {f.fontes_divergem && (
+                          <span className="ml-1 rounded bg-atencao/15 px-1 text-atencao" title="wiki e Riot não dizem a mesma coisa">fontes divergem entre si</span>
+                        )}
                       </p>
                       {f.explicacao && <p className="text-suave">{f.explicacao}</p>}
                       {f.fonte && (
