@@ -4,7 +4,7 @@ Uso:
     .venv\\Scripts\\python.exe tools\\analise_referencias\\amostrar_cenas.py <slug-do-video> <n> [<n> ...]
 
 Cada cena vira uma linha com 5 quadros (0%, 25%, 50%, 75%, 95% da duração).
-Saída: dados/analise_referencias/<slug>/amostras/cenas_<n1>_<n2>....jpg
+Saída: dados/runeterra/analise_referencias/<slug>/amostras/cenas_<n1>_<n2>....jpg
 """
 from __future__ import annotations
 

@@ -3,7 +3,7 @@
 Uso:
     .venv\\Scripts\\python.exe tools\\analise_referencias\\transcrever.py
 
-Para cada vídeo, cria em dados/analise_referencias/<slug>/:
+Para cada vídeo, cria em dados/runeterra/analise_referencias/<slug>/:
     transcricao.json -> segmentos com o tempo de cada palavra
     transcricao.txt  -> texto corrido com marcação de tempo por segmento
 """

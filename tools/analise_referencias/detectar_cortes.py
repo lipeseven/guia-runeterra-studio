@@ -3,8 +3,8 @@
 Uso:
     .venv\\Scripts\\python.exe tools\\analise_referencias\\detectar_cortes.py
 
-Para cada vídeo em "recursos de vídeo para aprender", cria em
-dados/analise_referencias/<slug>/:
+Para cada vídeo em dados/runeterra/referencias, cria em
+dados/runeterra/analise_referencias/<slug>/:
     cortes.json      -> lista de cenas (início, fim, duração)
     quadros/         -> primeiro quadro de cada cena (miniatura)
     folhas/          -> grades de miniaturas com o tempo de cada cena

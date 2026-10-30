@@ -11,6 +11,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from canal import caminho as caminho_canal  # noqa: E402
 from comum import DADOS_ACERVO, PASTA_ACERVO, abrir_acervo, preparar_ffmpeg  # noqa: E402
 from direcao.variacao import Variador  # noqa: E402
 
@@ -127,7 +128,7 @@ class Midias:
 
 def _setas_do_acervo() -> list[tuple[Path, float]]:
     """Desenhos de seta do Felipe (acervo: seta1.avif, seta2.png…): fundo branco removido e recortados em
-    dados/acervo/derivados/ (o acervo nunca é alterado). Devolve (png, ângulo para onde o desenho aponta, em graus,
+    dados/runeterra/acervo/derivados/ (o acervo nunca é alterado). Devolve (png, ângulo para onde o desenho aponta, em graus,
     y para baixo): pela forma — a ponta é a extremidade mais "pesada" do eixo principal."""
     import numpy as np
 
@@ -263,7 +264,7 @@ _POKEDEX: dict | None = None
 def ficha_pokemon(nome: str | None, categoria: str | None, m: "Midias") -> tuple[dict | None, dict | None]:
     """Dados da ficha (Pokédex local, tools/pokemon/pokedex.py) + a arte oficial do acervo (_oficial/arte/<forma>.png)."""
     global _POKEDEX
-    arq = RAIZ / "dados" / "canais" / "pokemon" / "pokedex.json"
+    arq = RAIZ / "dados" / "pokemon" / "pokedex.json"
     if not nome or not arq.exists():
         return None, None
     if _POKEDEX is None:
@@ -300,7 +301,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
     nec_por_id = {n["id"]: n for n in necs}
     from candidatos import numeros_das_cenas
 
-    numeros = numeros_das_cenas(plano, RAIZ / "projetos" / slug / "direcao")  # o número que o Felipe vê
+    numeros = numeros_das_cenas(plano, caminho_canal("projetos") / slug / "direcao")  # o número que o Felipe vê
     # BLOCOS DESACOPLADOS (Felipe, 2026-10-16): cada bloco (introdução/seção) é montado só com o que é dele —
     # a regra de não repetir imagem e o sorteio de efeitos recomeçam a cada bloco. Mexer no bloco 1 não tem
     # COMO mudar o bloco 5.

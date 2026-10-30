@@ -1,6 +1,6 @@
 """Mídias da internet (sem chave, sem cota): busca de imagens no DuckDuckGo + Wikimedia Commons para o storyboard.
 
-A imagem escolhida é baixada para dados/acervo_internet/busca/ (fora da pasta do Felipe) e entra no acervo.db na
+A imagem escolhida é baixada para dados/runeterra/acervo_internet/busca/ (fora da pasta do Felipe) e entra no acervo.db na
 hora — com origem, página e título guardados para os créditos. Daí em diante é uma mídia como outra qualquer.
 """
 from __future__ import annotations

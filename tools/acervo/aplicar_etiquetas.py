@@ -3,7 +3,7 @@
 Uso:
     .venv\\Scripts\\python.exe tools\\acervo\\aplicar_etiquetas.py
 
-Lê todos os arquivos dados/acervo/etiquetas/*.json no formato:
+Lê todos os arquivos dados/runeterra/acervo/etiquetas/*.json no formato:
     {"<id>": ["categoria", ["Personagem", ...], "descrição curta", "uso (opcional)"], ...}
 
 Categorias: splash, arte, icone, recorte, meme, foto, mapa, hq, cinematica,

@@ -47,7 +47,10 @@ def _tamanho(p: Path) -> int:
 def disco() -> dict:
     uso = shutil.disk_usage(RAIZ.anchor)
     def medir():
-        return {"dados": _tamanho(RAIZ / "dados"), "projetos": _tamanho(RAIZ / "projetos") if (RAIZ / "projetos").exists() else 0}
+        from .banco import caminho
+
+        projetos = _tamanho(caminho("projetos")) if caminho("projetos").exists() else 0
+        return {"dados": _tamanho(RAIZ / "dados") - projetos, "projetos": projetos}  # projetos fica dentro de dados/
     pastas = _memo("pastas", 60, medir)
     return {"livre": uso.free, "total": uso.total, **pastas}
 
@@ -62,7 +65,7 @@ def servicos() -> list[dict]:
     from dotenv import dotenv_values
 
     env = dotenv_values(RAIZ / ".env")
-    piper = RAIZ / "dados/modelos/piper/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx"
+    piper = RAIZ / "dados/comum/modelos/piper/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx"
     whisper = Path.home() / ".cache/huggingface/hub/models--mobiuslabsgmbh--faster-whisper-large-v3-turbo"
     return [
         {"nome": "Fish Audio", "papel": "voz guia", "estado": "pronto" if env.get("FISH_API_KEY") else "sem chave",

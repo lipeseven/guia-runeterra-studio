@@ -9,13 +9,13 @@ O **código** está no GitHub (`github.com/lipeseven/guia-runeterra-studio`, pri
 |---|---|---|
 | `.env` | raiz do projeto | chaves (Fish Audio, Freesound, Hugging Face) — não estão no Git |
 | `dados/` | raiz do projeto | bancos (`studio.db`, `acervo.db`, `canais/`), miniaturas, índices de busca (CLIP), efeitos sonoros (`sfx/`), modelos (`modelos/`), análises das referências, backups |
-| `projetos/` e `projetos_pokemon/` | raiz do projeto | os vídeos em andamento (direção, storyboard, gravações, renders) |
+| `dados/runeterra/projetos/` e `dados/pokemon/projetos/` | raiz do projeto | os vídeos em andamento (direção, storyboard, gravações, renders) |
 | `catálogo sequencial LOL` | `Downloads` | acervo do Guia de Runeterra (inclui `_oficial_riot/`) |
 | `catálogo sequencial POKEMON` | `Downloads` | acervo do canal Pokémon (inclui `_oficial/`) |
-| `recursos de vídeo para aprender*` | raiz do projeto | vídeos de referência (dá para baixar de novo) |
+| `dados/runeterra/referencias*` | raiz do projeto | vídeos de referência (dá para baixar de novo) |
 
-Dica: `dados/cache_voz`, `dados/backups` e `dados/analise_referencias` são recriáveis — dispensáveis se faltar espaço.
-Os renders de rascunho dentro de `projetos/*/trabalho/` também (o sistema refaz).
+Dica: `dados/comum/cache_voz`, `dados/backups` e `dados/runeterra/analise_referencias` são recriáveis — dispensáveis se faltar espaço.
+Os renders de rascunho dentro de `dados/runeterra/projetos/*/trabalho/` também (o sistema refaz).
 
 ## 2. Programas (Windows)
 
@@ -51,19 +51,19 @@ Se o `pip` reclamar do torch, instale ele antes:
 
 ## 4. Devolver os dados
 
-- Copie de volta `.env`, `dados/`, `projetos/`, `projetos_pokemon/` para a raiz do projeto.
+- Copie de volta `.env`, `dados/`, `dados/runeterra/projetos/`, `dados/pokemon/projetos/` para a raiz do projeto.
 - Copie as pastas `catálogo sequencial LOL` e `catálogo sequencial POKEMON` para `Downloads`.
   (Se a pasta for parar em outro lugar, ajuste `canais/runeterra/canal.toml` e `canais/pokemon/canal.toml` → `[pastas] acervo`.)
 - Sem `.env`? Copie `.env.example` para `.env` e preencha as chaves (links dentro do arquivo).
 
 Os modelos que se baixam sozinhos na primeira vez (precisam de internet): CLIP (busca de imagens), Whisper
 (transcrição), CLAP (efeitos sonoros), sentence-transformers (conferência do roteiro). A voz local de reserva (Piper)
-fica em `dados/modelos/` — vem junto com o backup de `dados/`.
+fica em `dados/comum/modelos/` — vem junto com o backup de `dados/`.
 
 ## 5. Ligar
 
-- Guia de Runeterra: `iniciar.bat` → http://127.0.0.1:8765
-- Pokémon: `iniciar_pokemon.bat` → http://127.0.0.1:8766
+- Guia de Runeterra: `Iniciar Runeterra.bat` → http://127.0.0.1:8765
+- Pokémon: `Iniciar Pokemon.bat` → http://127.0.0.1:8766
 
 Conferência rápida: o quadro abre com os cards de antes, "Atualizar acervo" termina com "0 arquivos novos" e um
 storyboard antigo abre com as miniaturas.

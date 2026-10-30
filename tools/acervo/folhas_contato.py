@@ -3,7 +3,7 @@
 Uso:
     .venv\\Scripts\\python.exe tools\\acervo\\folhas_contato.py [--so-sem-etiqueta]
 
-Saída: dados/acervo/folhas/folha_NNN.jpg — cada miniatura com "#id nome".
+Saída: dados/runeterra/acervo/folhas/folha_NNN.jpg — cada miniatura com "#id nome".
 Transparentes aparecem sobre xadrez; vídeos têm borda azul; GIFs borda verde.
 """
 from __future__ import annotations

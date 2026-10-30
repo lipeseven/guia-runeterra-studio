@@ -1,7 +1,7 @@
 # Guia de estilo — canal Pokémon (v0.1, 2026-10-20)
 
 > Fonte: análise de 10 vídeos de referência (Pokemon Explainer ×3, RealLifePokemon ×3, Uproar Media ×4) —
-> números em `dados/canais/pokemon/analise_referencias/estatisticas.json` e `sons_resumo.json`, anotações visuais
+> números em `dados/pokemon/analise_referencias/estatisticas.json` e `sons_resumo.json`, anotações visuais
 > em `leitura_visual.md`. Nome e identidade visual (cores, fonte, capa) ainda serão decididos pelo Felipe: este guia
 > diz O QUE o nicho faz e O QUE vamos fazer; a "pele" fica para depois.
 

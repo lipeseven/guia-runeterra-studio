@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS uso_midia (
 -- Efeitos sonoros (tools/audio/sfx.py): Freesound (só CC0/CC BY) ou gerados localmente (Stable Audio Open).
 CREATE TABLE IF NOT EXISTS sons (
     id          INTEGER PRIMARY KEY,
-    arquivo     TEXT UNIQUE NOT NULL,   -- relativo a dados/sfx/
+    arquivo     TEXT UNIQUE NOT NULL,   -- relativo a dados/comum/sfx/
     categoria   TEXT NOT NULL,
     descricao   TEXT,                   -- nome/descrição original ou o prompt usado na geração
     origem      TEXT NOT NULL,          -- freesound | gerado

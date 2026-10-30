@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 EXE = Path(os.path.expandvars(r"%APPDATA%\npm\node_modules\@anthropic-ai\claude-code\bin\claude.exe"))
-REGISTRO = Path(__file__).resolve().parents[2] / "dados" / "uso_claude.jsonl"  # consumo, para o painel
+REGISTRO = Path(__file__).resolve().parents[2] / "dados" / "comum" / "uso_claude.jsonl"  # consumo, para o painel
 
 
 class ErroClaude(RuntimeError):

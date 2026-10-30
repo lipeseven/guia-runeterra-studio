@@ -1,7 +1,7 @@
 # Guia de estilo — Guia de Runeterra (v1.0)
 
-Extraído dos 10 vídeos de referência + 1 do Felipe em `recursos de vídeo para aprender/`.
-Dados brutos: `dados/analise_referencias/` (cortes, transcrições, folhas de contato, `estatisticas.json`,
+Extraído dos 10 vídeos de referência + 1 do Felipe em `dados/runeterra/referencias/`.
+Dados brutos: `dados/runeterra/analise_referencias/` (cortes, transcrições, folhas de contato, `estatisticas.json`,
 som separado, `leitura_visual.md` com as anotações brutas por vídeo).
 Ferramentas: `tools/analise_referencias/`.
 
@@ -91,7 +91,7 @@ cinemáticas. O que é **próprio do canal** e deve prevalecer sobre as referên
 
 Como foi medido: Demucs separa a narração do resto (`tools/analise_referencias/separar_sons.py`); no que sobra,
 `analisar_sons.py` detecta picos acima do fundo, classifica com CLAP (local) e mede volume vs. voz.
-Dados: `dados/analise_referencias/sons_resumo.json`, `<vídeo>/som/eventos.json`; exemplos em `sons_exemplos/`.
+Dados: `dados/runeterra/analise_referencias/sons_resumo.json`, `<vídeo>/som/eventos.json`; exemplos em `sons_exemplos/`.
 Cuidado: o Demucs deixa vazar consoantes da voz como "pops" (~100% em cima da fala, até no vídeo do Felipe) —
 o analisador descarta esses vazamentos.
 

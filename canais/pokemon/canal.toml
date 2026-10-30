@@ -13,11 +13,11 @@ glossario = "Pokémon, Pokédex, Kanto, Johto, Hoenn, Sinnoh, Unova, Kalos, Alol
 
 [pastas]
 acervo = 'C:\Users\Felipe\Downloads\catálogo sequencial POKEMON'   # pasta do Felipe (só leitura; _oficial/ = importador)
-dados_acervo = "dados/canais/pokemon/acervo"
-banco_acervo = "dados/canais/pokemon/acervo.db"
-internet = "dados/canais/pokemon/acervo_internet"
-projetos = "projetos_pokemon"
-studio = "dados/canais/pokemon/studio.db"
+dados_acervo = "dados/pokemon/acervo"
+banco_acervo = "dados/pokemon/acervo.db"
+internet = "dados/pokemon/acervo_internet"
+projetos = "dados/pokemon/projetos"
+studio = "dados/pokemon/studio.db"
 docs = "canais/pokemon/docs"
-referencias = "recursos de vídeo para aprender - Pokémon"
-analise = "dados/canais/pokemon/analise_referencias"
+referencias = "dados/pokemon/referencias"
+analise = "dados/pokemon/analise_referencias"

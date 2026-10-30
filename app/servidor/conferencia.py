@@ -23,7 +23,7 @@ from .banco import CANAL, RAIZ, agora, caminho
 
 sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
-CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/pesquisa_cache
+CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/runeterra/pesquisa_cache
 WIKI = "https://leagueoflegends.fandom.com/api.php"
 POKEWIKI = "https://pokemon.fandom.com/api.php"  # a Bulbapedia bloqueia acesso automático (Cloudflare)
 # fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
@@ -175,7 +175,7 @@ SISTEMA = f"Você confere roteiros do canal \"{CANAL['nome']}\" ({CANAL['assunto
 
 def _pokedex(nome: str) -> list[tuple[str, str]]:
     """Ficha da Pokédex local (PokeAPI) do Pokémon citado — dados oficiais de tipo, geração, evolução."""
-    arq = RAIZ / "dados" / "canais" / "pokemon" / "pokedex.json"
+    arq = RAIZ / "dados" / "pokemon" / "pokedex.json"
     if not arq.exists():
         return []
     alvo = re.sub(r"[^a-z0-9]", "", nome.lower())

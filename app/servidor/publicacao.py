@@ -164,7 +164,7 @@ def exportar_thumbnail(pasta: Path) -> Path | None:
 
 
 def encerramento() -> Path:
-    """Cena de encerramento fixa do canal (fora do Git): Runeterra = dados/encerramento/encerramento.mp4."""
+    """Cena de encerramento fixa do canal (fora do Git): Runeterra = dados/runeterra/encerramento/encerramento.mp4."""
     from canal import caminho
 
     return caminho("dados_acervo").parent / "encerramento" / "encerramento.mp4"
@@ -232,7 +232,7 @@ def tamanhos(pasta: Path) -> dict:
 
 def arquivar(pasta: Path) -> dict:
     """Vídeo publicado não se mexe mais: tudo vai para a Lixeira do Windows (recuperável), menos a capa,
-    que fica em projetos/<slug>/capa.* para o card do quadro. Chamar DEPOIS de registrar_uso (que lê a direção)."""
+    que fica em dados/runeterra/projetos/<slug>/capa.* para o card do quadro. Chamar DEPOIS de registrar_uso (que lê a direção)."""
     import shutil
 
     from send2trash import send2trash

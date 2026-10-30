@@ -2,7 +2,7 @@
 
 1. assuntos: o Sonnet lê tema + orientações (+ roteiro base) e lista personagens/lugares/eventos e termos de busca;
    se houver roteiro base, também extrai as AFIRMAÇÕES de lore dele.
-2. fontes: wiki do canal + Universe (ou Pokédex) baixadas localmente (cache em dados/pesquisa_cache).
+2. fontes: wiki do canal + Universe (ou Pokédex) baixadas localmente (cache em dados/runeterra/pesquisa_cache).
 3. dossiê: o Sonnet extrai dos trechos os fatos úteis para o vídeo, cada um com a fonte (canon atual × lore antigo).
 4. crivo do roteiro base: cada afirmação × trechos das fontes → confirmada / corrigida / desatualizada / sem fonte.
 O resultado fica em direcao/dossie.json; roteirista.gerar() e ajustar() usam só ele como fonte de fatos.

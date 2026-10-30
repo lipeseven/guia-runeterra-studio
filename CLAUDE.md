@@ -17,6 +17,12 @@ PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
 - Arquivos do acervo do Felipe nunca são movidos/alterados.
 
 ## Onde fica cada coisa
+- **Raiz = só código** (`app/`, `tools/`, `canais/`, `docs/`) + `Iniciar Runeterra.bat` / `Iniciar Pokemon.bat`.
+  **Tudo que não é código fica em `dados/`** (fora do Git; reorganizado em 2026-10-30): `dados/runeterra/` e
+  `dados/pokemon/` (studio.db, acervo.db, acervo/, acervo_internet/, projetos/, referencias/, analise_referencias/,
+  aprendizado/, encerramento/, pesquisa_cache/) e `dados/comum/` (modelos, cache_voz, sfx, motor.lock, uso_claude.jsonl;
+  `canal.DADOS_COMUM`). Caminhos dos canais em `canais/<chave>/canal.toml`; caminho de arquivo de projeto para o painel:
+  `motor.caminho_rel(slug, ...)` (nunca escrever "projetos/..." à mão).
 - `docs/instalacao.md` — reinstalar do zero (formatar o PC): backup, programas, `requirements.txt`, npm.
 - `projeto.toml` — caminhos (acervo em `C:\Users\Felipe\Downloads\catálogo sequencial LOL`). `.env` — chaves (fora do Git).
 - `tools/` — scripts Python (rodar com `.venv\Scripts\python.exe`): `analise_referencias/`, `acervo/`
@@ -40,10 +46,10 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   falsos começos; regravações, falas fora do roteiro, pausas, -14 LUFS; ruído de fundo do Felipe é ~-80 dB, não aplicar
   denoise), `alinhar.py` (tempos por palavra DO ROTEIRO → a direção usa índices do roteiro; trocar áudio = trocar tabela).
 - Fase 3 (diretor) ✅ — `tools/direcao/`: `claude_cli.py` (Claude Code headless enxuto: `--tools "" --setting-sources ""
-  --strict-mcp-config`, ~800 tokens de base; imagens via stream-json; log em dados/uso_claude.jsonl), `planejar.py`
+  --strict-mcp-config`, ~800 tokens de base; imagens via stream-json; log em dados/comum/uso_claude.jsonl), `planejar.py`
   (1ª passada, texto), `candidatos.py` (busca local CLIP+etiquetas, folhas), `escolher.py` (2ª passada, imagens),
   `montar.py` (direção final + render da composição "Video" com --props), `revisar.py` (refaz só cenas com pedido).
-- Painel (Fase 5 adiantada) ✅ — `app/servidor/` (FastAPI+SQLite dados/studio.db; `motor.py` = fila/orquestrador;
+- Painel (Fase 5 adiantada) ✅ — `app/servidor/` (FastAPI+SQLite dados/runeterra/studio.db; `motor.py` = fila/orquestrador;
   `storyboard.py`), `app/painel/` (React/Vite). Fluxo pelo painel: Ideia → mover p/ Roteiro → .txt → aprovar → voz guia
   → capa → aprovar → Direção automática (retoma de onde parou) → rascunho → storyboard (ajustes/pedidos) → novo rascunho.
 - 2026-10-13: sistema zerado para o Felipe testar "como se estivesse pronto" e anotar bugs (banco, projetos e testes
@@ -56,7 +62,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   [≥3 seções] + créditos de autores + aviso Legal Jibber Jabber, tags, comentário fixado; Claude sonnet) + thumbnail
   1280×720 da capa. "Marcar como publicado" (ou arrastar p/ Publicado) registra mídias em `uso_midia` (acervo.db; histórico —
   repetir imagem ENTRE vídeos não tem problema; dentro do vídeo, imagem já escolhida desce na busca: `Acervo.usadas_no_video`) e ARQUIVA (pede confirmação): tudo vai para a Lixeira, só fica
-  `projetos/<slug>/capa.*` para o card. Publicado é definitivo: não sai da coluna, página vira resumo (capa, link, histórico).
+  `dados/runeterra/projetos/<slug>/capa.*` para o card. Publicado é definitivo: não sai da coluna, página vira resumo (capa, link, histórico).
 - Referências 100% analisadas (2026-10-14): som (`separar_sons.py` Demucs + `analisar_sons.py` CLAP — padrão é voz
   pura, efeito é raro) e leitura visual dos 11 vídeos → guia de estilo v1.0 (seção 10: modos por vídeo e recursos
   que ainda faltam no Remotion). Stable Audio Open (diffusers, ~30 s/efeito, 5,9 GB VRAM) e Freesound prontos.
@@ -66,7 +72,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 `app/video/src/tema.ts` existe mas não é usado); escuro só em telas cheias e no `texto` com fundo escuro, raro. Peças de
   mosaico/dividida/lista ficam em `pecas` (planos antigos: `mosaico`, lido por `planejar.pecas_da_cena`).
 - Efeitos sonoros ✅ (2026-10-14): `tools/audio/sfx.py` (catálogo em acervo.db `sons`/`uso_som`, arquivos em
-  dados/sfx/; 117 sons do Freesound só CC0/CC BY + Stable Audio Open para completar; busca CLAP texto→áudio com
+  dados/comum/sfx/; 117 sons do Freesound só CC0/CC BY + Stable Audio Open para completar; busca CLAP texto→áudio com
   reforço da categoria, `tools/audio/clap.py`). Diretor pede `som` por cena; `montar.efeitos_sonoros` impõe as
   regras (≤1 a cada 30 s, ≥18 s entre eles, ~15 dB abaixo da voz); créditos CC BY entram na descrição.
 - Roteirista no painel ✅ (2026-10-14): `app/servidor/roteirista.py` + tarefa "roteiro" no motor. Gera (do zero ou a
@@ -123,9 +129,9 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   novo/direção/pedido ao diretor; cache guarda os blocos da versão anterior também. Card "Vídeo já publicado".
 - Conferência do roteiro ✅ (2026-10-19, `app/servidor/conferencia.py`, tarefa "conferencia" a cada roteiro novo):
   semelhança com o roteiro base (`direcao/roteiro_base.txt`; embeddings multilíngues locais, sentence-transformers)
-  + fatos de lore (Sonnet extrai afirmações → wiki do LoL/Universe buscados localmente, cache em dados/pesquisa_cache
+  + fatos de lore (Sonnet extrai afirmações → wiki do LoL/Universe buscados localmente, cache em dados/runeterra/pesquisa_cache
   → Sonnet dá confere/diverge/sem fonte; cache por parágrafo). Painel: bloco "Conferência do roteiro" no Roteiro.
-- Mídias da internet ✅ (2026-10-19): acervo baixado fica em `dados/acervo_internet/` (fora da pasta do Felipe;
+- Mídias da internet ✅ (2026-10-19): acervo baixado fica em `dados/runeterra/acervo_internet/` (fora da pasta do Felipe;
   caminho ABSOLUTO no acervo.db, `inventariar.PASTAS_EXTRA`). `tools/acervo/importar_riot.py` (splash de todas as
   skins via CommunityDragon + splash base 1920 e artes dos contos do Universe; categoria splash/skin/arte, descarta o
   que o Felipe já tem; tarefa "importar_riot"). Storyboard: "buscar na internet" (`app/servidor/internet.py`:
@@ -135,9 +141,9 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   com `GRS_CANAL=<chave>` (`canais/<chave>/canal.toml`: nome, porta, assunto, pastas de acervo/banco/projetos/docs,
   fontes de fatos, aviso legal). `tools/canal.py` (CANAL, caminho) alimenta `comum.py`, `banco.py`, `motor.py`,
   prompts (planejar/escolher/revisar/roteirista/publicacao/conferencia). Sem GRS_CANAL = runeterra, caminhos de
-  sempre (`iniciar.bat`, porta 8765). Pokémon: `iniciar_pokemon.bat` (porta 8766), dados em dados/canais/pokemon/,
-  projetos em projetos_pokemon/, docs em canais/pokemon/docs/, `tools/pokemon/` (pokedex.py, preparar_canal.py).
-  Trava `dados/motor.lock` = uma tarefa por vez na máquina entre os canais. Seletor de canal no título do quadro.
+  sempre (`Iniciar Runeterra.bat`, porta 8765). Pokémon: `Iniciar Pokemon.bat` (porta 8766), dados em dados/pokemon/,
+  projetos em dados/pokemon/projetos/, docs em canais/pokemon/docs/, `tools/pokemon/` (pokedex.py, preparar_canal.py).
+  Trava `dados/comum/motor.lock` = uma tarefa por vez na máquina entre os canais. Seletor de canal no título do quadro.
 - **Aprendizado entre vídeos ✅ (2026-10-20)**: `tools/direcao/aprendizado.py`. Ao publicar (antes de arquivar),
   `coletar()` guarda os pares de legenda "diretor → Felipe" (vão no prompt do diretor: `planejar.sistema_do_diretor`)
   e a retrospectiva dos ajustes; tarefa global "retrospectiva" (Sonnet) propõe regras novas, que só entram em
@@ -150,7 +156,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   Roteiro base colado (transcrição do YT) passa por `conferencia.limpar_base` (tira tempos/[Música], junta linhas);
   `frases()` corta texto sem pontuação em trechos de ~20 palavras.
   Encerramento fixo: ao aprovar o vídeo, `publicacao.com_encerramento` junta o último final + `<dados do canal>/encerramento/encerramento.mp4`
-  (Runeterra: dados/encerramento/) → `saida/final_vN_publicar.mp4` (só o encerramento é recodificado; final intacto).
+  (Runeterra: dados/runeterra/encerramento/) → `saida/final_vN_publicar.mp4` (só o encerramento é recodificado; final intacto).
   Depois da gravação aprovada, "novo rascunho" no storyboard gera um VÍDEO FINAL novo (voz real), não rascunho com voz guia.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,

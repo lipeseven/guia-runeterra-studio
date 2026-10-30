@@ -6,19 +6,10 @@
 node_modules/
 __pycache__/
 
-# Dados gerados (banco, miniaturas, análises, renders) e vídeos de referência
+# TUDO que não é código fica em dados/ (fora do Git): dados/runeterra, dados/pokemon (bancos, acervo, projetos,
+# vídeos de referência) e dados/comum (modelos, cache de voz, efeitos sonoros)
 dados/
-recursos de vídeo para aprender/
 *.mp4
 
 # Mídias copiadas para o Remotion (vêm do acervo / gravações)
 app/video/public/
-
-
-# Pastas dos vídeos (gravações, renders, trabalho)
-projetos/
-
-
-# Canal Pokémon: vídeos de referência e pastas dos vídeos
-recursos de vídeo para aprender - Pokémon/
-projetos_pokemon/

@@ -1,5 +1,5 @@
 r"""Leitura visual das referências DO CANAL (GRS_CANAL) pelo Claude: 4 folhas de contato por vídeo (início, 1/3,
-2/3, fim) → anotações em português no formato de dados/analise_referencias/leitura_visual.md. Uma chamada por
+2/3, fim) → anotações em português no formato de dados/runeterra/analise_referencias/leitura_visual.md. Uma chamada por
 vídeo (Sonnet, imagens), retomável: vídeo já lido não é pedido de novo.
 
 Uso:  set GRS_CANAL=pokemon && .venv\Scripts\python.exe tools\analise_referencias\leitura_visual.py

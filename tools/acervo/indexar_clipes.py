@@ -6,7 +6,7 @@ Buscar uma tomada (termos em inglês funcionam melhor):
     .venv\\Scripts\\python.exe tools\\acervo\\indexar_clipes.py buscar "masked swordsman fighting a demon" [-n 8]
 
 Cada tomada guarda início/fim (s) dentro do clipe e uma miniatura do quadro do meio.
-Vetores CLIP em dados/acervo/clip_tomadas.npz.
+Vetores CLIP em dados/runeterra/acervo/clip_tomadas.npz.
 """
 from __future__ import annotations
 
@@ -142,7 +142,7 @@ def main() -> None:
     else:
         for r in buscar(a.texto, a.n):
             print(f"{r['nota']:.3f}  tomada #{r['id']}  {r['nome']}  {r['inicio']:.1f}-{r['fim']:.1f}s  "
-                  f"(miniatura: dados/acervo/tomadas/{r['midia_id']}_{r['n']}.jpg)")
+                  f"(miniatura: dados/runeterra/acervo/tomadas/{r['midia_id']}_{r['n']}.jpg)")
 
 
 if __name__ == "__main__":
