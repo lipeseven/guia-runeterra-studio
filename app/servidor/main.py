@@ -257,7 +257,9 @@ def ver_conferencia(vid: int):
     narr = pasta / "direcao" / "roteiro.txt"  # a conferência é do roteiro ATUAL? (senão, está rodando de novo)
     atual = narr.exists() and dados and dados.get("roteiro") == hashlib.sha1(
         narr.read_text(encoding="utf-8").encode()).hexdigest()[:16]
-    return {"conferencia": dados, "atual": bool(atual),
+    from . import pesquisa
+
+    return {"conferencia": dados, "atual": bool(atual), "dossie": pesquisa.ler(pasta),
             "base": base.read_text(encoding="utf-8") if base.exists() else None}
 
 
@@ -273,7 +275,9 @@ def guardar_base(vid: int, corpo: Base):
         arq = pasta / "direcao" / "roteiro_base.txt"
         arq.parent.mkdir(parents=True, exist_ok=True)
         if corpo.texto.strip():
-            arq.write_text(corpo.texto.replace("\r\n", "\n").strip() + "\n",encoding="utf-8")
+            from .conferencia import limpar_base
+
+            arq.write_text(limpar_base(corpo.texto) + "\n", encoding="utf-8")
         else:
             arq.unlink(missing_ok=True)
         motor.FILA.put((vid, "conferencia"))
@@ -502,6 +506,18 @@ def baixar_da_internet(corpo: DaInternet):
 
 class Link(BaseModel):
     url: str
+    inicio: str | None = None  # "1:23" ou "83" (segundos): baixa só o trecho entre início e fim
+    fim: str | None = None
+
+
+def _segundos(t: str) -> int:
+    partes = [int(p) for p in t.strip().split(":")]
+    if not partes or len(partes) > 3 or any(p < 0 for p in partes):
+        raise ValueError
+    s = 0
+    for p in partes:
+        s = s * 60 + p
+    return s
 
 
 @app.post("/api/acervo/clipe-do-link")
@@ -510,7 +526,15 @@ def clipe_do_link(corpo: Link):
     url = corpo.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(400, "cole um link (https://…)")
-    motor.pedir_clipe(url)
+    trecho = None
+    if (corpo.inicio or "").strip() or (corpo.fim or "").strip():
+        try:
+            trecho = (_segundos(corpo.inicio or "0"), _segundos(corpo.fim or ""))
+        except ValueError:
+            raise HTTPException(400, "use minutos:segundos no início e no fim (ex.: 1:23 e 1:41)")
+        if trecho[1] <= trecho[0]:
+            raise HTTPException(400, "o fim precisa vir depois do início")
+    motor.pedir_clipe(url, trecho)
     return {"ok": True}
 
 
@@ -529,7 +553,7 @@ def importar_oficial():
 
 @app.get("/api/acervo/clipes-baixados")
 def clipes_baixados():
-    return {"pendentes": list(motor.CLIPES_PEDIDOS), "ultimos": motor.CLIPES["ultimos"]}
+    return {"pendentes": [motor.descrever_clipe(p) for p in motor.CLIPES_PEDIDOS], "ultimos": motor.CLIPES["ultimos"]}
 
 
 @app.get("/api/acervo/buscar")
@@ -549,11 +573,16 @@ def refazer_rascunho(vid: int):
         if status != "concluido":  # ex.: o roteiro mudou e a direção ainda não foi refeita
             raise HTTPException(409, "a direção ainda não foi feita para este roteiro")
         atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "novo rascunho")
-        r = con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='rascunho'", (vid,)).fetchone()
-        dados = json.loads(r["dados"] or "{}")
-        atualizar_etapa(con, vid, "rascunho", "andamento", f"gerando v{dados.get('versao', 1) + 1}…", "na fila", dados)
-        motor.limpar_avisos(con, vid, motor.AVISOS_DO_RASCUNHO)  # eram da versão anterior
-        registrar(con, vid, "Novo rascunho pedido (storyboard)", "info")
+        if motor.gravacao_aprovada(vid, con):  # depois da gravação: o storyboard gera um vídeo final novo (voz real)
+            atualizar_etapa(con, vid, "render", "andamento", "na fila", "novo vídeo final")
+            motor.fechar_pendencia(con, vid, "ver_final")
+            registrar(con, vid, "Novo vídeo final pedido (storyboard)", "info")
+        else:
+            r = con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='rascunho'", (vid,)).fetchone()
+            dados = json.loads(r["dados"] or "{}")
+            atualizar_etapa(con, vid, "rascunho", "andamento", f"gerando v{dados.get('versao', 1) + 1}…", "na fila", dados)
+            motor.limpar_avisos(con, vid, motor.AVISOS_DO_RASCUNHO)  # eram da versão anterior
+            registrar(con, vid, "Novo rascunho pedido (storyboard)", "info")
         con.commit()
     motor.FILA.put((vid, "rascunho"))
     return {"ok": True}
@@ -829,11 +858,12 @@ def video_do_acervo(midia_id: int):
     import sys
 
     sys.path.insert(0, str(RAIZ / "tools"))
-    from comum import PASTA_ACERVO, abrir_acervo
+    from comum import PASTA_ACERVO, PASTA_INTERNET, abrir_acervo
 
     r = abrir_acervo().execute("SELECT caminho FROM midias WHERE id=? AND tipo='video'", (midia_id,)).fetchone()
-    alvo = (PASTA_ACERVO / r[0]).resolve() if r else None
-    if not alvo or not alvo.is_relative_to(PASTA_ACERVO.resolve()) or not alvo.is_file():
+    alvo = (PASTA_ACERVO / r[0]).resolve() if r else None  # baixado da internet: caminho absoluto
+    if (not alvo or not alvo.is_file()
+            or not any(alvo.is_relative_to(p.resolve()) for p in (PASTA_ACERVO, PASTA_INTERNET))):
         raise HTTPException(404)
     return FileResponse(alvo)
 

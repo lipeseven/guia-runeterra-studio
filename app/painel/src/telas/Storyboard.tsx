@@ -67,6 +67,7 @@ type Peca = {
   foco?: [number, number] | null // enquadramento escolhido para o item
   em_escolhido?: number | null // sua escolha (-1 = junto)
   entrada_escolhida?: string | null // efeito de entrada escolhido à mão (null = o diretor decide)
+  rotulo_texto?: string // texto do item na tela (dividida / lista)
 }
 type Dados = {
   cenas: Cena[]
@@ -740,6 +741,7 @@ function CartaoCena({
               ajustar={(acao) => ajustar(c.id, { ...acao, j: p.j })}
               remover={c.pecas.length > 1 ? () => ajustar(c.id, { acao: 'item_remover', j: p.j }) : undefined}
               focar={(x, y) => ajustar(c.id, { acao: 'foco', j: p.j, x, y })}
+              comRotulo={['dividida', 'lista'].includes(c.tipo)}
               momento={
                 <>
                   {(c.palavras ?? []).length > 1 && !(p.j === 0 && c.tipo !== 'mosaico') && (
@@ -752,18 +754,24 @@ function CartaoCena({
               }
             />
           ))}
-          <button
-            onClick={async () => {
-              try {
-                await ajustar(c.id, { acao: 'item_novo' })
-              } catch (e) {
-                alert(e instanceof Error ? e.message.replace(/^\d+ /, '') : String(e))
-              }
-            }}
-            className="w-full rounded-md border border-dashed border-borda py-1.5 text-xs text-suave hover:border-suave hover:text-texto"
-          >
-            + adicionar item
-          </button>
+{c.pecas.length >= (LIMITE_ITENS[c.tipo] ?? 7) ? (
+            <p className="text-center text-[11px] text-apagado">
+              máximo de {LIMITE_ITENS[c.tipo] ?? 7} itens neste tipo de cena (para mais, troque o tipo para lista ou mosaico)
+            </p>
+          ) : (
+                      <button
+              onClick={async () => {
+                try {
+                  await ajustar(c.id, { acao: 'item_novo' })
+                } catch (e) {
+                  alert(e instanceof Error ? e.message.replace(/^\d+ /, '') : String(e))
+                }
+              }}
+              className="w-full rounded-md border border-dashed border-borda py-1.5 text-xs text-suave hover:border-suave hover:text-texto"
+            >
+              + adicionar item
+            </button>
+          )}
         </div>
       )}
 
@@ -853,13 +861,17 @@ function ItemDaCena({
   remover,
   momento,
   focar,
+  comRotulo,
 }: {
   peca: Peca
   ajustar: (acao: Record<string, unknown>) => Promise<void>
   remover?: () => void
   momento?: React.ReactNode
   focar?: (x: number, y: number) => Promise<void>
+  comRotulo?: boolean // dividida / lista: o texto do item aparece na tela e pode ser corrigido
 }) {
+  const [rotulo, setRotulo] = useState(peca.rotulo_texto ?? '')
+  useEffect(() => setRotulo(peca.rotulo_texto ?? ''), [peca.rotulo_texto])
   const [consulta, setConsulta] = useState('')
   const [resultados, setResultados] = useState<{ midia_id: number; nome: string; miniatura: string }[] | null>(null)
   const [buscando, setBuscando] = useState(false)
@@ -883,7 +895,19 @@ function ItemDaCena({
     <div className="rounded-lg border border-borda/70 p-2">
       <p className="mb-2 flex items-center gap-2 text-xs">
         <span className="font-mono text-apagado">item {peca.j + 1}</span>
-        <b className="text-texto">{peca.rotulo || '(sem rótulo)'}</b>
+        {comRotulo ? (
+          <input
+            value={rotulo}
+            onChange={(e) => setRotulo(e.target.value)}
+            onBlur={() => rotulo !== (peca.rotulo_texto ?? '') && ajustar({ acao: 'item_rotulo', texto: rotulo })}
+            onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+            placeholder="(sem texto na tela)"
+            title="texto deste item na tela — Enter para salvar"
+            className="min-w-0 flex-1 rounded border border-borda bg-painel-2 px-1.5 py-0.5 font-semibold text-texto outline-none focus:border-suave"
+          />
+        ) : (
+          <b className="text-texto">{peca.rotulo || '(sem rótulo)'}</b>
+        )}
         {!peca.escolhido && <span className="text-atencao">sem imagem</span>}
         {peca.ajustada && <span className="text-andamento">escolhida por você</span>}
         {remover && (
@@ -953,6 +977,9 @@ function ItemDaCena({
  * Miniatura que REPRESENTA a cena como ela fica na tela (esquema 16:9, fundo branco do canal): cartão, recorte,
  * tela cheia, meio a meio, lista, tela dividida, mosaico, texto, capa/transição — com as imagens escolhidas.
  */
+// quantos itens cada tipo de cena comporta (igual ao storyboard.py no servidor)
+const LIMITE_ITENS: Record<string, number> = { dividida: 3, lista: 5 }
+
 function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
   if (c.so_texto_no_video && !c.pendente)
     return (
@@ -960,8 +987,9 @@ function MiniaturaDaCena({ c, capa }: { c: Cena; capa: string | null }) {
         {c.legenda || '[imagem pendente]'}
       </span>
     )
-  const img = c.escolhido ? arquivo(c.escolhido.miniatura) : null
   const itens = c.pecas.filter((p) => p.escolhido).map((p) => ({ j: p.j, src: arquivo(p.escolhido!.miniatura), rotulo: p.rotulo }))
+  // cena de itens trocada para uma imagem só (ex.: dividida → cartão): o vídeo usa a imagem do 1º item
+  const img = c.escolhido ? arquivo(c.escolhido.miniatura) : !['dividida', 'lista', 'mosaico'].includes(c.tipo) ? (itens[0]?.src ?? null) : null
   const legenda = c.legenda ? <span className="line-clamp-1 px-1 text-center text-[7px] font-semibold leading-tight text-neutral-800">{c.legenda}</span> : null
   const branco = 'h-full w-full bg-[#f4f1ea]'
   const vazio = (txt: string) => (

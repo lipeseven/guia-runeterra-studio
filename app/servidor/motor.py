@@ -6,6 +6,7 @@ Regra: anda sozinho enquanto não precisa do Felipe; quando precisa, cria uma pe
 from __future__ import annotations
 
 import json
+import os
 import queue
 import re
 import sys
@@ -716,6 +717,15 @@ def marcar_publicado(con, vid: int, url: str | None) -> None:
         FILA.put((0, "apos_publicar"))
 
 
+def gravacao_aprovada(vid: int, con=None) -> bool:
+    """Passe `con` se houver uma transação aberta (abrir outra conexão escreve no banco e daria "database is locked")."""
+    if con is None:
+        with conectar() as c:
+            return gravacao_aprovada(vid, c)
+    r = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='gravacao'", (vid,)).fetchone()
+    return bool(r) and r["status"] == "concluido"
+
+
 def tarefa_rascunho(vid: int) -> None:
     """Refaz o rascunho com os ajustes do storyboard. Só chama o Claude se houver pedidos ao diretor."""
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
@@ -758,6 +768,15 @@ def tarefa_rascunho(vid: int) -> None:
                            ("ajustes.json", ajustes)):
             (dirc / nome).write_text(json.dumps(dado, ensure_ascii=False, indent=1), encoding="utf-8")
         guardar_blocos(plano, dirc)  # senão o próximo planejamento devolveria as cenas antigas do cache
+    if gravacao_aprovada(vid):  # com a voz real já aprovada, o storyboard refaz o VÍDEO FINAL (não o rascunho)
+        from .storyboard import limpar_pendentes
+
+        limpar_pendentes(pasta)
+        with conectar() as con:
+            atualizar_etapa_status(con, vid, "direcao", "concluido")
+            con.commit()
+        tarefa_final(vid)
+        return
     with conectar() as con:
         atualizar_etapa(con, vid, "direcao", "andamento", "renderizando o novo rascunho", "storyboard")
         dados = json.loads(con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='rascunho'", (vid,)).fetchone()["dados"] or "{}")
@@ -791,16 +810,28 @@ def tarefa_roteiro(vid: int) -> None:
     pasta = pasta_do_video(v["slug"])
     pedido = json.loads((pasta / "direcao" / "pedido_roteiro.json").read_text(encoding="utf-8"))
     if pedido["acao"] == "gerar":
-        if pedido.get("base"):  # guardado para o detector de semelhança
+        if pedido.get("base"):  # guardado para o detector de semelhança (transcrição do YT: limpa antes)
+            from .conferencia import limpar_base
+
+            pedido["base"] = limpar_base(pedido["base"])
             (pasta / "direcao" / "roteiro_base.txt").write_text(pedido["base"], encoding="utf-8")
-        texto = roteirista.gerar(pedido.get("titulo") or v["titulo"], float(pedido.get("minutos") or 20),
-                                 pedido.get("notas") or "", pedido.get("base"))
+        from . import pesquisa
+
+        titulo = pedido.get("titulo") or v["titulo"]
+        # pesquisa ANTES de escrever: fatos com fonte + crivo do roteiro base (o roteirista só usa o dossiê)
+        dossie = pesquisa.pesquisar(pasta, titulo, pedido.get("notas") or "", pedido.get("base"),
+                                    aviso=lambda m: definir_progresso("Pesquisa", m))
+        definir_progresso("Roteirista", f"escrevendo com {len(dossie['fatos'])} fato(s) verificado(s)")
+        texto = roteirista.gerar(titulo, float(pedido.get("minutos") or 20),
+                                 pedido.get("notas") or "", pedido.get("base"), dossie)
         nome, resumo = ("gerado a partir do roteiro base" if pedido.get("base") else "gerado pelo Claude"), "roteiro gerado"
     else:
         atual = ler_roteiro(v["slug"])
         if not atual:
             raise RuntimeError("não há roteiro para ajustar")
-        texto, resumo = roteirista.ajustar(atual, pedido["pedido"], roteirista.historico(pasta))
+        from . import pesquisa
+
+        texto, resumo = roteirista.ajustar(atual, pedido["pedido"], roteirista.historico(pasta), pesquisa.ler(pasta))
         nome = "ajuste: " + pedido["pedido"][:60]
     with conectar() as con:
         est = receber_roteiro(con, vid, texto, nome)
@@ -862,7 +893,7 @@ def tarefa_acervo(_vid: int) -> None:
         raise
 
 
-CLIPES_PEDIDOS: list[str] = []  # links (YouTube etc.) esperando download
+CLIPES_PEDIDOS: list[dict] = []  # {"url", "trecho": (início, fim) em segundos ou None} esperando download
 CLIPES = {"ultimos": []}  # [{url, titulo|erro, quando}] para o painel
 
 
@@ -881,18 +912,27 @@ def tarefa_clipes(_vid: int) -> None:
     pasta.mkdir(parents=True, exist_ok=True)
     baixados = []
     while CLIPES_PEDIDOS:
-        url = CLIPES_PEDIDOS.pop(0)
-        definir_progresso("Clipe da internet", f"baixando {url}")
+        pedido = CLIPES_PEDIDOS.pop(0)
+        url, trecho = pedido["url"], pedido.get("trecho")
+        definir_progresso("Clipe da internet", f"baixando {descrever_clipe(pedido)}")
+        # só um trecho: o yt-dlp baixa apenas aquele intervalo (corte exato: recomprime só as pontas)
+        so_trecho = ["--download-sections", f"*{trecho[0]}-{trecho[1]}", "--force-keyframes-at-cuts"] if trecho else []
+        nome = "%(title).50s [%(id)s]" + (f" {trecho[0]}-{trecho[1]}s" if trecho else "") + ".%(ext)s"
         r = subprocess.run([sys.executable, "-m", "yt_dlp", "--js-runtimes", "node", "--no-playlist", "--no-progress",
                             "-f", "bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080]/b", "--merge-output-format", "mp4",
-                            "-o", str(pasta / "%(title).60s [%(id)s].%(ext)s"), "--print", "after_move:filepath", url],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace")
+                            *so_trecho, "-o", str(pasta / nome), "--print", "after_move:filepath", url],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           env={**os.environ, "PYTHONIOENCODING": "utf-8"})  # senão título com "｜" vira outro nome
         arq = (r.stdout.strip().splitlines() or [""])[-1]
+        if r.returncode == 0 and not (arq and Path(arq).exists()):  # nome impresso diferente do salvo: acha pelo id
+            vid_id = re.search(r"\[([\w-]{6,})\]", arq)
+            arq = next((str(f) for f in sorted(pasta.glob("*.mp4"), key=lambda f: f.stat().st_mtime, reverse=True)
+                        if vid_id and f"[{vid_id.group(1)}]" in f.name), arq)
         if r.returncode == 0 and arq and Path(arq).exists():
             baixados.append((url, Path(arq)))
-            CLIPES["ultimos"].insert(0, {"url": url, "titulo": Path(arq).stem, "quando": agora()})
+            CLIPES["ultimos"].insert(0, {"url": descrever_clipe(pedido), "titulo": Path(arq).stem, "quando": agora()})
         else:
-            CLIPES["ultimos"].insert(0, {"url": url, "erro": (r.stderr.strip().splitlines() or ["falhou"])[-1][:200],
+            CLIPES["ultimos"].insert(0, {"url": descrever_clipe(pedido), "erro": (r.stderr.strip().splitlines() or ["falhou"])[-1][:200],
                                          "quando": agora()})
     del CLIPES["ultimos"][10:]
     if baixados:
@@ -972,8 +1012,14 @@ def tarefa_retrospectiva(_vid: int) -> None:
             con.commit()
 
 
-def pedir_clipe(url: str) -> None:
-    CLIPES_PEDIDOS.append(url)
+def descrever_clipe(pedido: dict) -> str:
+    t = pedido.get("trecho")
+    mmss = lambda s: f"{int(s) // 60}:{int(s) % 60:02d}"  # noqa: E731
+    return pedido["url"] + (f" ({mmss(t[0])}–{mmss(t[1])})" if t else "")
+
+
+def pedir_clipe(url: str, trecho: tuple[int, int] | None = None) -> None:
+    CLIPES_PEDIDOS.append({"url": url, "trecho": trecho})
     if not any(nome == "clipes" for _, nome in list(FILA.queue)):
         FILA.put((0, "clipes"))
 

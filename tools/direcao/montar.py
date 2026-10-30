@@ -201,9 +201,21 @@ def _herdar(cena: dict, velha: dict | None) -> None:
             if k in iv and not (k == "movimento" and (iv[k] or {}).get("tipo") == "parado"):
                 item[k] = iv[k]
     # layout 2 = itens maiores quando são poucos; mosaicos do layout antigo são refeitos uma vez
-    if cena["tipo"] == "mosaico" and len(cena.get("pecas", [])) == len(velha.get("pecas", [])) and velha.get("layout") == 2:
+    if (cena["tipo"] == "mosaico" and len(cena.get("pecas", [])) == len(velha.get("pecas", [])) and velha.get("layout") == 2
+            and _mosaico_cabe(cena["pecas"], velha["pecas"])):  # posição antiga que deixava peça fora da tela é refeita
         for p, pv in zip(cena["pecas"], velha["pecas"]):
             p.update({k: pv[k] for k in ("x", "y", "largura", "rotacao", "de_onde", "quadros") if k in pv})
+
+
+def _mosaico_cabe(pecas: list[dict], posicoes: list[dict]) -> bool:
+    """As imagens atuais, nas posições `posicoes`, ficam inteiras dentro da tela (folga pequena para a rotação)?"""
+    for p, pv in zip(pecas, posicoes):
+        if not all(k in pv for k in ("x", "y", "largura")):
+            return False
+        alt = pv["largura"] * p["midia"]["h"] / p["midia"]["w"]
+        if pv["y"] - alt / 2 < -20 or pv["y"] + alt / 2 > 1100 or pv["x"] - pv["largura"] / 2 < -20 or pv["x"] + pv["largura"] / 2 > 1940:
+            return False
+    return True
 
 
 def estilo_do_projeto(dirc: Path | None) -> int:
@@ -748,17 +760,22 @@ def _blocos_do_trecho(trecho: dict) -> list[dict]:
     return blocos
 
 
-def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = False) -> str:
+def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = False, palavra_seguinte_inteira: bool = False) -> str:
     """Tudo o que influencia os quadros do bloco: cenas, intervalo, tempos das palavras usadas, código das cenas e
     a capa. Igual → o .mp4 em cache vale. Sem "k" (posição da cena no plano inteiro, o Remotion não usa): dividir
     uma cena no bloco 2 mudava o "k" de todas as cenas seguintes e refazia o vídeo todo. `com_k` = impressão
-    antiga, só para reaproveitar o cache feito antes desta correção."""
+    antiga, só para reaproveitar o cache feito antes desta correção. Da palavra SEGUINTE ao bloco só entra o início
+    (é onde a última cena termina): o fim dela mudava quando a voz guia do capítulo seguinte era refeita e refazia
+    este bloco à toa. `palavra_seguinte_inteira` = impressão antiga, só para reaproveitar o cache."""
     import hashlib
 
     de = min(c["de"] for c in bloco["cenas"])
     ate = max(c["ate"] for c in bloco["cenas"])
     cenas = bloco["cenas"] if com_k else [{x: v for x, v in c.items() if x != "k"} for c in bloco["cenas"]]
-    chave = json.dumps([bloco["inicio"], bloco["fim"], cenas, trecho["palavras"][de:ate + 2],
+    palavras = trecho["palavras"][de:ate + 2]
+    if not palavra_seguinte_inteira and len(palavras) == ate + 2 - de:
+        palavras = palavras[:-1] + [{"i": palavras[-1].get("i")}]
+    chave = json.dumps([bloco["inicio"], bloco["fim"], cenas, palavras,
                         trecho.get("tema"), trecho.get("secao"), codigo, capa], ensure_ascii=False, sort_keys=True)
     return hashlib.sha1(chave.encode("utf-8")).hexdigest()[:20]
 
@@ -884,9 +901,10 @@ def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
             tipos.add("estilo2")
         codigo = _versao_do_codigo(tipos)  # só o código das cenas (e recursos) deste bloco
         b["arquivo"] = cache / f"{_impressao(b, trecho, codigo, capa_id)}.mp4"
-        antigo = cache / f"{_impressao(b, trecho, codigo, capa_id, com_k=True)}.mp4"
-        if not b["arquivo"].exists() and antigo.exists():  # cache feito antes da correção do "k": mesmo vídeo
-            antigo.replace(b["arquivo"])
+        for antigo in (cache / f"{_impressao(b, trecho, codigo, capa_id, palavra_seguinte_inteira=True)}.mp4",
+                       cache / f"{_impressao(b, trecho, codigo, capa_id, com_k=True, palavra_seguinte_inteira=True)}.mp4"):
+            if not b["arquivo"].exists() and antigo.exists():  # cache das impressões antigas: mesmo vídeo
+                antigo.replace(b["arquivo"])
     faltam = [b for b in blocos if not b["arquivo"].exists()]
     audio = props.parent / "audio_render.wav"
     audio.unlink(missing_ok=True)  # um .wav velho não pode passar por "render ok"

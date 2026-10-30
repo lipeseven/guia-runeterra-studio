@@ -87,11 +87,15 @@ class Variador:
                               "de_onde": "baixo" if lado == "baixo" else ("esq" if k % 2 == 0 else "dir")})
         elif layout == "lateral":
             x = r.choice([360, 1560])
-            largura = min(700 if n <= 2 else 560, 900 / max(1, n) * aspectos[0])
+            # a coluna inteira (alturas reais de cada imagem + espaços) cabe nos 1080 da tela
+            largura = min(700 if n <= 2 else 560, (1000 - 30 * (n - 1)) / sum(1 / a for a in aspectos))
+            alturas = [largura / a for a in aspectos]
+            y = 540 - (sum(alturas) + 30 * (n - 1)) / 2
             for k in range(n):
-                pecas.append({"x": x, "y": 540 + (k - (n - 1) / 2) * (largura / aspectos[k] + 30),
+                pecas.append({"x": x, "y": y + alturas[k] / 2,
                               "largura": largura, "rotacao": r.uniform(-1.5, 1.5),
                               "de_onde": "esq" if x < 960 else "dir"})
+                y += alturas[k] + 30
         elif layout == "espalhado":
             ancoras = [(430, 300), (1490, 300), (430, 780), (1490, 780), (960, 540), (960, 300), (960, 780)]
             r.shuffle(ancoras)
@@ -105,6 +109,10 @@ class Variador:
             for k, (x, y) in enumerate([(500, 290), (1420, 290), (500, 790), (1420, 790)]):
                 pecas.append({"x": x, "y": y, "largura": 820, "rotacao": 0,
                               "de_onde": "esq" if x < 960 else "dir"})
+        for p, a in zip(pecas, aspectos):  # imagem alta demais para o espaço dela sairia da tela: estreita a peça
+            limite = {"faixa": 2 * (1060 - p["y"]), "espalhado": 2 * min(p["y"], 1080 - p["y"]) - 20, "grade": 470}.get(layout)
+            if limite and p["largura"] / a > limite:
+                p["largura"] = limite * a
         for p in pecas:
             p["quadros"] = r.randint(12, 22)
             p.update({k: round(v, 1) for k, v in p.items() if isinstance(v, float)})

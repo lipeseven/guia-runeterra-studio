@@ -113,12 +113,23 @@ export function BuscaInternet({ inicial, usar, compacta }: { inicial: string; us
 /** Clipe por link (YouTube etc.): o sistema baixa (até 1080p) e corta em tomadas; depois aparece na busca de clipes. */
 export function ClipeDoLink() {
   const [url, setUrl] = useState('')
+  const [inicio, setInicio] = useState('')
+  const [fim, setFim] = useState('')
+  const [erro, setErro] = useState('')
   const [estado, setEstado] = useState<{ pendentes: string[]; ultimos: { url: string; titulo?: string; erro?: string }[] } | null>(null)
   const ver = () => api<NonNullable<typeof estado>>('/acervo/clipes-baixados').then(setEstado)
   const enviar = async () => {
     if (!url.trim()) return
-    await api('/acervo/clipe-do-link', { method: 'POST', body: JSON.stringify({ url }) })
+    setErro('')
+    try {
+      await api('/acervo/clipe-do-link', { method: 'POST', body: JSON.stringify({ url, inicio, fim }) })
+    } catch (e) {
+      setErro(e instanceof Error ? e.message.replace(/^\d+ /, '') : String(e))
+      return
+    }
     setUrl('')
+    setInicio('')
+    setFim('')
     ver()
     const t = setInterval(async () => {
       const e = await api<NonNullable<typeof estado>>('/acervo/clipes-baixados')
@@ -137,7 +148,22 @@ export function ClipeDoLink() {
           placeholder="Ou cole o link de um vídeo (YouTube…) e Enter: ele é baixado e cortado em tomadas"
           className="flex-1 rounded-md border border-borda bg-painel-2 px-2 py-1 text-xs outline-none focus:border-suave"
         />
+        {[
+          [inicio, setInicio, 'de 1:23'],
+          [fim, setFim, 'até 1:41'],
+        ].map(([v, set, ph]) => (
+          <input
+            key={ph as string}
+            value={v as string}
+            onChange={(e) => (set as (s: string) => void)(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && enviar()}
+            placeholder={ph as string}
+            title="opcional: baixa só este trecho do vídeo (minutos:segundos)"
+            className="w-16 rounded-md border border-borda bg-painel-2 px-1.5 py-1 text-xs outline-none focus:border-suave"
+          />
+        ))}
       </div>
+      {erro && <p className="mt-1 text-red-400">{erro}</p>}
       {estado && (
         <ul className="mt-1 flex flex-col gap-0.5">
           {estado.pendentes.map((u) => (

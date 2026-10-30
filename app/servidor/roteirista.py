@@ -36,7 +36,7 @@ def _limpar(texto: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", texto).strip() + "\n"
 
 
-def gerar(titulo: str, minutos: float, notas: str, base: str | None) -> str:
+def gerar(titulo: str, minutos: float, notas: str, base: str | None, dossie: dict | None = None) -> str:
     from claude_cli import chamar
 
     alvo = round(minutos * PPM)
@@ -44,22 +44,35 @@ def gerar(titulo: str, minutos: float, notas: str, base: str | None) -> str:
               f"Duração narrada alvo: ~{minutos:g} minutos (~{alvo} palavras; aceitável ±10%)."]
     if notas.strip():
         partes.append(f"Orientações do Felipe para este vídeo:\n{notas.strip()}")
+    if dossie:
+        from .pesquisa import para_o_roteirista
+
+        partes.append(para_o_roteirista(dossie))
     if base and base.strip():
-        partes.append("ROTEIRO BASE (fonte de FATOS e temas — NÃO traduza frases, piadas, ganchos ou analogias; "
-                      "reestruture e escreva do jeito do canal):\n<<<\n" + base.strip()[:60000] + "\n>>>")
+        partes.append(("ROTEIRO BASE (só ESTRUTURA e temas — os FATOS vêm do dossiê acima; o base pode ter erros. "
+                       if dossie else "ROTEIRO BASE (fonte de FATOS e temas — ")
+                      + "NÃO traduza frases, piadas, ganchos ou analogias; reestruture e escreva do jeito do canal):"
+                      "\n<<<\n" + base.strip()[:60000] + "\n>>>")
+    if dossie:
+        partes.append("REGRA DE FATOS: toda afirmação de lore do roteiro precisa estar no dossiê de fatos verificados. "
+                      "O que não está lá NÃO entra (nem do roteiro base, nem da sua memória). Lore antigo só como "
+                      "\"na versão antiga…\". Opinar, comparar e brincar à vontade — fatos, só do dossiê.")
     partes.append("Escreva o roteiro COMPLETO agora, no formato do canal. Responda SOMENTE com o texto do roteiro.")
     texto = chamar("\n\n".join(partes), _sistema(), modelo="opus", etiqueta="roteiro-gerar", timeout=1500)
     return _limpar(texto)
 
 
-def ajustar(texto: str, pedido: str, historico: list[dict]) -> tuple[str, str]:
+def ajustar(texto: str, pedido: str, historico: list[dict], dossie: dict | None = None) -> tuple[str, str]:
     """Aplica um pedido de ajuste fino. Devolve (texto novo, resumo do que mudou)."""
     from claude_cli import chamar_json
 
-    pars = [p.strip() for p in re.split(r"\n\s*\n", texto) if p.strip()]
+    from .pesquisa import para_o_roteirista
+
+    pars =[p.strip() for p in re.split(r"\n\s*\n", texto) if p.strip()]
     numerado = "\n\n".join(f"[{i}] {p}" for i, p in enumerate(pars))
     anteriores = "\n".join(f"- {h['pedido']}" for h in historico[-6:])
     prompt = ((f"Pedidos anteriores do Felipe neste roteiro (contexto):\n{anteriores}\n\n" if anteriores else "") +
+              (para_o_roteirista(dossie) + "\n(Fato de lore novo só se estiver no dossiê.)\n\n" if dossie else "") +
               f"ROTEIRO ATUAL (parágrafos numerados):\n{numerado}\n\n"
               f"PEDIDO DO FELIPE AGORA:\n{pedido.strip()}\n\n"
               "Altere SÓ o necessário para atender o pedido, mantendo o resto idêntico. Responda SOMENTE com JSON:\n"
