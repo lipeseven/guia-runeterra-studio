@@ -26,7 +26,7 @@ Algumas regras que a ferramenta segue sempre:
 
 ## 2. Ligando a ferramenta
 
-- Dê dois cliques em **`iniciar.bat`** (canal Guia de Runeterra) ou **`iniciar_pokemon.bat`** (canal Pokémon).
+- Dê dois cliques em **`Iniciar Runeterra.bat`** (canal Guia de Runeterra) ou **`Iniciar Pokemon.bat`** (canal Pokémon).
 - Abre uma janela preta (o "servidor") e o navegador no endereço do painel:
   - Guia de Runeterra: **http://127.0.0.1:8765**
   - Pokémon: **http://127.0.0.1:8766**
@@ -247,9 +247,9 @@ Na aba de itens, cada item tem:
 
 | O que aparece | O que fazer |
 |---|---|
-| O painel não abre / "não foi possível conectar" | O servidor está desligado: abra o `iniciar.bat`. |
+| O painel não abre / "não foi possível conectar" | O servidor está desligado: abra o `Iniciar Runeterra.bat`. |
 | Card parado em "Em andamento" e nada acontece | O servidor foi desligado no meio. Ligue de novo: ele retoma sozinho. |
-| Mudança no código/correção "não pegou" | Feche a janela do servidor e abra o `iniciar.bat` de novo (nunca durante um render). |
+| Mudança no código/correção "não pegou" | Feche a janela do servidor e abra o `Iniciar Runeterra.bat` de novo (nunca durante um render). |
 | "Cena sem imagem boa" | O acervo não tinha imagem para aquela cena: escolha uma no storyboard ou busque na internet. |
 | Um capítulo que ninguém mexeu foi renderizado de novo | Provavelmente um arquivo usado nele saiu da pasta do acervo. |
 | Clipe em câmera lenta / "travando" | A tomada é mais curta que a cena: escolha o momento de início no clipe. |

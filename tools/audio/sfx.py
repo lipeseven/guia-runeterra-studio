@@ -30,7 +30,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))  # clap.py
 from comum import RAIZ, abrir_acervo, preparar_ffmpeg  # noqa: E402
 
-PASTA = RAIZ / "dados" / "sfx"
+from canal import DADOS_COMUM  # noqa: E402
+
+PASTA = DADOS_COMUM / "sfx"
 SR = 44100
 MAX_SEG = 6.0
 POR_CATEGORIA = 5

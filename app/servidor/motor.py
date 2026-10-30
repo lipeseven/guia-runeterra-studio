@@ -20,7 +20,15 @@ from .banco import RAIZ, agora, caminho, atualizar_etapa, conectar, registrar
 sys.path.insert(0, str(RAIZ / "tools"))
 sys.path.insert(0, str(RAIZ / "tools" / "audio"))
 
+from canal import DADOS_COMUM  # noqa: E402
+
 PASTA_PROJETOS = caminho("projetos")
+
+
+def caminho_rel(slug: str, *partes: str) -> str:
+    """Caminho de um arquivo do projeto relativo à raiz (o que o painel pede em /api/arquivo)."""
+    return PASTA_PROJETOS.joinpath(slug, *partes).relative_to(RAIZ).as_posix()
+
 PPM_FELIPE = 162
 SUBPASTAS = ("entrada", "trabalho", "direcao", "saida")
 
@@ -246,7 +254,7 @@ def receber_capa(con, vid: int, conteudo: bytes, ext: str) -> dict:
     arquivo = pasta / f"capa{ext}"
     arquivo.write_bytes(conteudo)
     circulos, _ = detectar(str(arquivo))
-    rel = f"projetos/{v['slug']}/direcao/{arquivo.name}"
+    rel = caminho_rel(v['slug'], "direcao", arquivo.name)
     # capa nova precisa de nova aprovação (o Felipe confere os círculos detectados)
     con.execute("UPDATE videos SET capa=?, capa_aprovada=0, atualizado_em=? WHERE id=?", (rel, agora(), vid))
     abrir_pendencia(con, vid, "aprovar_capa", "direcao", "Aprove a capa",
@@ -315,7 +323,7 @@ def tarefa_voz_guia(vid: int) -> None:
     with conectar() as con:
         atualizar_etapa(con, vid, "voz_guia", "concluido", f"{mmss(info['duracao'])} · {', '.join(info['motores'])}",
                         f"{info['ppm_original']} → {PPM_FELIPE} palavras/min",
-                        {**info, "audio": f"projetos/{slug}/trabalho/voz_guia.wav"})
+                        {**info, "audio": caminho_rel(slug, "trabalho", "voz_guia.wav")})
         registrar(con, vid, f"Voz guia pronta ({mmss(info['duracao'])})", "ok")
         verificar_direcao(con, vid)
         con.commit()
@@ -449,7 +457,7 @@ def montar_e_renderizar(vid: int, slug: str, palavras, frases, plano, necs, esco
         atualizar_etapa(con, vid, "rascunho", "atencao",
                         f"{mmss(palavras[-1]['f'])} · {len(trecho['cenas'])} cenas" if primeira_vez else f"v{versao} pronto · valide",
                         f"v{versao} · render em {mmss(segundos)}",
-                        {"video": f"projetos/{slug}/trabalho/{arquivo.name}", "versao": versao})
+                        {"video": caminho_rel(slug, "trabalho", arquivo.name), "versao": versao})
         con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND chave='cena_sem_imagem' AND resolvida=0", (vid,))
         for p in pendencias:
             con.execute("INSERT INTO pendencias (video_id, etapa, chave, titulo, texto, criada_em) VALUES (?,?,?,?,?,?)",
@@ -641,7 +649,7 @@ def tarefa_final(vid: int) -> None:
 
     with conectar() as con:
         atualizar_etapa(con, vid, "render", "atencao", f"{mmss(palavras[-1]['f'])} · v{versao}",
-                        f"render em {mmss(segundos)}", {"video": f"projetos/{slug}/saida/{arquivo.name}", "versao": versao})
+                        f"render em {mmss(segundos)}", {"video": caminho_rel(slug, "saida", arquivo.name), "versao": versao})
         abrir_pendencia(con, vid, "ver_final", "render", "Assista o vídeo com a sua voz",
                         "O vídeo foi montado com a sua narração (limpa) e a direção aprovada no storyboard. "
                         "Confira na Prévia. Se precisar trocar algo, use o storyboard e gere de novo.")
@@ -664,7 +672,7 @@ def tarefa_publicacao(vid: int) -> None:
     duracao = json.loads(tempos.read_text(encoding="utf-8"))[-1]["f"] if tempos.exists() else 0
     textos = publicacao.gerar_textos(pasta, v["titulo"], duracao)
     thumb = publicacao.exportar_thumbnail(pasta)
-    textos["thumbnail"] = f"projetos/{v['slug']}/saida/{thumb.name}" if thumb else None
+    textos["thumbnail"] = caminho_rel(v['slug'], "saida", thumb.name) if thumb else None
     with conectar() as con:
         atualizar_etapa(con, vid, "publicacao", "andamento", "juntando a cena de encerramento…", "FFmpeg")
         con.commit()
@@ -676,7 +684,7 @@ def tarefa_publicacao(vid: int) -> None:
         with conectar() as con:
             registrar(con, vid, f"Não deu para juntar o encerramento: {e}", "alerta")
             con.commit()
-    textos["video_publicar"] = f"projetos/{v['slug']}/saida/{publicar.name}" if publicar else None
+    textos["video_publicar"] = caminho_rel(v['slug'], "saida", publicar.name) if publicar else None
     (pasta / "direcao" / "publicacao.json").write_text(json.dumps(textos, ensure_ascii=False, indent=1), encoding="utf-8")
     with conectar() as con:
         atualizar_etapa(con, vid, "publicacao", "atencao", "textos prontos · revise",
@@ -725,7 +733,7 @@ def marcar_publicado(con, vid: int, url: str | None) -> None:
     con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND resolvida=0", (vid,))
     registrar(con, vid, f"Publicado{' — ' + url if url else ''}. {n} mídias registradas na memória de uso.", "ok")
     registrar(con, vid, f"Arquivado: tudo para a Lixeira menos a capa ({r['liberado'] / 1e9:.2f} GB liberados)", "ok")
-    if (RAIZ / "dados" / "apos_publicar.json").exists():  # trabalho pesado que o Felipe deixou para depois da publicação
+    if (DADOS_COMUM / "apos_publicar.json").exists():  # trabalho pesado que o Felipe deixou para depois da publicação
         FILA.put((0, "apos_publicar"))
 
 
@@ -910,7 +918,7 @@ CLIPES = {"ultimos": []}  # [{url, titulo|erro, quando}] para o painel
 
 
 def tarefa_clipes(_vid: int) -> None:
-    """Baixa os vídeos pedidos por link (yt-dlp, até 1080p) para dados/acervo_internet/clipes/ e atualiza o acervo:
+    """Baixa os vídeos pedidos por link (yt-dlp, até 1080p) para dados/runeterra/acervo_internet/clipes/ e atualiza o acervo:
     viram tomadas como os clipes da pasta do Felipe. Tarefa GLOBAL (vid 0)."""
     import subprocess
 
@@ -981,12 +989,12 @@ def tarefa_importar_pokemon(_vid: int) -> None:
 
 
 def tarefa_apos_publicar(_vid: int) -> None:
-    """Roda os trabalhos agendados para "depois de publicar" (dados/apos_publicar.json: [{descricao, comando, env,
+    """Roda os trabalhos agendados para "depois de publicar" (dados/comum/apos_publicar.json: [{descricao, comando, env,
     log}]), um por vez, cada um num processo próprio (pode ser de outro canal: env GRS_CANAL). Feito = sai da lista."""
     import os
     import subprocess
 
-    arq = RAIZ / "dados" / "apos_publicar.json"
+    arq = DADOS_COMUM / "apos_publicar.json"
     while arq.exists():
         tarefas = json.loads(arq.read_text(encoding="utf-8"))
         if not tarefas:
@@ -1053,12 +1061,12 @@ FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 
 class _TravaGlobal:
     """Uma tarefa por vez na MÁQUINA: cada canal roda o motor no próprio servidor, mas a GPU/CPU é uma só. Trava de
-    arquivo (dados/motor.lock) compartilhada entre os processos; quem chega depois espera a vez."""
+    arquivo (dados/comum/motor.lock) compartilhada entre os processos; quem chega depois espera a vez."""
 
     def __enter__(self):
         import msvcrt
 
-        arq = RAIZ / "dados" / "motor.lock"
+        arq = DADOS_COMUM / "motor.lock"
         arq.parent.mkdir(parents=True, exist_ok=True)
         self.f = open(arq, "a+b")
         avisou = False
@@ -1201,7 +1209,7 @@ def ler_capa(slug: str) -> dict:
     pasta = PASTA_PROJETOS / slug / "direcao"
     arq = next(iter(sorted(pasta.glob("capa.*"))), None) if pasta.exists() else None
     circ = pasta / "capa_circulos.json"
-    return {"capa": f"projetos/{slug}/direcao/{arq.name}" if arq else None,
+    return {"capa": caminho_rel(slug, "direcao", arq.name) if arq else None,
             "circulos": json.loads(circ.read_text(encoding="utf-8")) if circ.exists() else []}
 
 

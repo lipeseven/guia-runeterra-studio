@@ -1,6 +1,6 @@
 r"""Prepara as pastas e o banco do canal Pokémon (roda uma vez; pode repetir sem estragar nada).
 
-O catálogo de EFEITOS SONOROS (tabela `sons`, arquivos em dados/sfx/) é ferramenta de edição do motor: é copiado
+O catálogo de EFEITOS SONOROS (tabela `sons`, arquivos em dados/comum/sfx/) é ferramenta de edição do motor: é copiado
 do catálogo base. A memória de uso (`uso_som`, `uso_midia`) começa vazia — cada canal tem a sua.
 
 Uso:  set GRS_CANAL=pokemon && .venv\Scripts\python.exe tools\pokemon\preparar_canal.py
@@ -22,7 +22,7 @@ for chave in ("acervo", "dados_acervo", "internet", "projetos"):
     caminho(chave).mkdir(parents=True, exist_ok=True)
 con = abrir_acervo()
 if not con.execute("SELECT count(*) FROM sons").fetchone()[0]:
-    base = sqlite3.connect(RAIZ / "dados" / "acervo.db")
+    base = sqlite3.connect(RAIZ / "dados" / "runeterra" / "acervo.db")
     colunas = [r[1] for r in base.execute("PRAGMA table_info(sons)")]
     linhas = base.execute(f"SELECT {', '.join(colunas)} FROM sons").fetchall()
     con.executemany(f"INSERT INTO sons ({', '.join(colunas)}) VALUES ({', '.join('?' * len(colunas))})", linhas)

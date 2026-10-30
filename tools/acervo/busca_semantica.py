@@ -5,7 +5,7 @@ Indexar (incremental):
 Buscar (termos em inglês funcionam melhor):
     .venv\\Scripts\\python.exe tools\\acervo\\busca_semantica.py buscar "warrior with flaming sword" [-n 10]
 
-Os vetores ficam em dados/acervo/clip.npz (ids + vetores normalizados).
+Os vetores ficam em dados/runeterra/acervo/clip.npz (ids + vetores normalizados).
 """
 from __future__ import annotations
 

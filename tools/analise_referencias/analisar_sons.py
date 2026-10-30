@@ -5,8 +5,8 @@ Para cada vídeo:
   (laion/larger_clap_general, local) → volume relativo à voz, ataque, duração, distância do corte de cena
   mais próximo e a palavra narrada naquele instante.
 - LEITO: janelas de 10 s do fundo contínuo classificadas (música, ambiente, silêncio...) e o volume vs. voz.
-Saída: <slug>/som/eventos.json, dados/analise_referencias/sons_resumo.json e exemplos .wav por tipo em
-dados/analise_referencias/sons_exemplos/ (para ouvir).
+Saída: <slug>/som/eventos.json, dados/runeterra/analise_referencias/sons_resumo.json e exemplos .wav por tipo em
+dados/runeterra/analise_referencias/sons_exemplos/ (para ouvir).
 
     .venv\\Scripts\\python.exe tools\\analise_referencias\\analisar_sons.py
 """

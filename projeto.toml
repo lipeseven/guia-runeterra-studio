@@ -7,6 +7,6 @@ acervo = 'C:\Users\Felipe\Downloads\catálogo sequencial LOL'
 dados = 'dados'
 
 [acervo]
-banco = 'dados/acervo.db'
-miniaturas = 'dados/acervo/miniaturas'
+banco = 'dados/runeterra/acervo.db'
+miniaturas = 'dados/runeterra/acervo/miniaturas'
 largura_miniatura = 384

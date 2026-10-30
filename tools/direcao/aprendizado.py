@@ -20,7 +20,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from canal import CANAL, caminho  # noqa: E402
 
-PASTA = caminho("dados_acervo").parent / "aprendizado"  # Runeterra: dados/aprendizado
+PASTA = caminho("dados_acervo").parent / "aprendizado"  # Runeterra: dados/runeterra/aprendizado
 MAX_EXEMPLOS = 40
 NO_PROMPT = 15
 

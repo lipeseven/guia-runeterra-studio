@@ -37,7 +37,7 @@ RETRO = {"sprite_gen1": ("generation-i/red-blue/{id}.png", 151, "sprite de Red/B
 
 
 def listar() -> list[dict]:
-    dex = json.loads((RAIZ / "dados" / "canais" / "pokemon" / "pokedex.json").read_text(encoding="utf-8"))
+    dex = json.loads((RAIZ / "dados" / "pokemon" / "pokedex.json").read_text(encoding="utf-8"))
     itens = []
     for e in dex:
         for f in e["formas"]:

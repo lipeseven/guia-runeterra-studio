@@ -1,7 +1,7 @@
 """Separa a narração do resto do áudio dos vídeos de referência (Demucs htdemucs, GPU, local).
 
 O que sobra sem a voz (bateria/graves/outros) é onde estão os efeitos sonoros e a música de fundo.
-Saída por vídeo: dados/analise_referencias/<slug>/som/{drums,bass,other,vocals}.flac (mono 44,1 kHz).
+Saída por vídeo: dados/runeterra/analise_referencias/<slug>/som/{drums,bass,other,vocals}.flac (mono 44,1 kHz).
 
     .venv\\Scripts\\python.exe tools\\analise_referencias\\separar_sons.py [trecho-do-nome]
 """

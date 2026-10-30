@@ -47,7 +47,7 @@ Princípios que continuam valendo:
 2. O .env NÃO vem pelo Git: peça ao Felipe as chaves que ele quiser usar aqui (ex.: Fish Audio para a voz guia,
    Freesound). Sem chaves, use as reservas locais (Piper para voz guia).
 3. A pasta dados/ (bancos, acervo, renders) NÃO vem pelo Git: aqui começa vazia. Isso é o esperado.
-4. Confirme que o servidor sobe (iniciar.bat → http://127.0.0.1:8765) e que o painel abre.
+4. Confirme que o servidor sobe (Iniciar Runeterra.bat → http://127.0.0.1:8765) e que o painel abre.
 
 ====================================================================
 4. PERFIL DO CANAL (sem separação: um canal só nesta máquina)
@@ -55,7 +55,7 @@ Princípios que continuam valendo:
 O código já é "por canal" (tools/canal.py + canais/<chave>/canal.toml; variável GRS_CANAL). Aqui:
 - Crie canais/<chave do canal novo>/canal.toml (nome provisório; o Felipe define o nome depois) com assunto,
   porta 8765, pastas próprias, fontes de fatos e aviso legal deste canal.
-- Torne esse perfil o PADRÃO desta máquina (iniciar.bat sem precisar de GRS_CANAL), para não carregar nada do
+- Torne esse perfil o PADRÃO desta máquina (Iniciar Runeterra.bat sem precisar de GRS_CANAL), para não carregar nada do
   LoL por engano. Não precisa apagar o código dos outros canais: só não use.
 - Docs do canal (guia de estilo, regras de direção, estilo de roteiro) ficam na pasta docs do perfil.
 

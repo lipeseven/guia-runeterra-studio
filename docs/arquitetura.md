@@ -76,7 +76,7 @@ Documentos relacionados: [guia_de_estilo.md](guia_de_estilo.md).
 | **Render final** | FFmpeg + NVENC | Arte em tela cheia (Ken Burns), clipes, mixagem, codificação |
 | **Recortes/ícones** | rembg (local) + Pillow | Remover fundo, gerar ícones redondos |
 
-Iniciar tudo: `iniciar.bat` (um clique) ou pedir ao Claude Code nesta pasta.
+Iniciar tudo: `Iniciar Runeterra.bat` (um clique) ou pedir ao Claude Code nesta pasta.
 
 ---
 
@@ -87,7 +87,7 @@ Iniciar tudo: `iniciar.bat` (um clique) ou pedir ao Claude Code nesta pasta.
 - **roteiro**: versões; cada versão com seções → frases → palavras.
 - **cena**: vídeo, tipo (do vocabulário do guia de estilo), âncora (frase/palavra inicial e final),
   mídias, legenda, palavras em destaque, parâmetros de movimento, aprovada (sim/não).
-- **midia**: já existe em `dados/acervo.db` — origem, autor, URL, licença, categoria,
+- **midia**: já existe em `dados/runeterra/acervo.db` — origem, autor, URL, licença, categoria,
   personagens, descrição, uso, tags.
 - **uso_midia**: mídia × vídeo × data → evita repetição entre vídeos.
 - **credito**: gerado a partir das mídias usadas → descrição do vídeo e marca na tela (fan art).
@@ -105,17 +105,17 @@ exclusive Claude/
 │  └─ video/                 projeto Remotion (modelos de cena)
 ├─ tools/                    scripts de linha de comando (análise, acervo, ...)
 ├─ dados/                    (fora do Git) bancos, miniaturas, índices
-├─ projetos/                 (fora do Git) uma pasta por vídeo: roteiro, áudio, cenas, render
+├─ dados/runeterra/projetos/                 (fora do Git) uma pasta por vídeo: roteiro, áudio, cenas, render
 ├─ projeto.toml              configuração
 ├─ .env                      (fora do Git) chaves
-└─ iniciar.bat
+└─ Iniciar Runeterra.bat
 ```
 
 ---
 
 ## 6. Limpeza de arquivos (garbage)
 
-Cada vídeo vive em `projetos/<slug>/`, separado por importância:
+Cada vídeo vive em `dados/runeterra/projetos/<slug>/`, separado por importância:
 
 | Subpasta | Conteúdo | Após "Publicado" |
 |---|---|---|
@@ -127,7 +127,7 @@ Cada vídeo vive em `projetos/<slug>/`, separado por importância:
 - Disparo: vídeo vai para "Publicado" no quadro (ou comando manual). O sistema mostra o que sai e o espaço
   liberado, e só executa com confirmação.
 - Tudo vai para a **Lixeira do Windows** (recuperável), nunca exclusão definitiva.
-- Caches globais: `dados/cache_voz` > 30 dias; cópias em `app/video/public/` após cada render.
+- Caches globais: `dados/comum/cache_voz` > 30 dias; cópias em `app/video/public/` após cada render.
 - Mídias novas da internet vão para o acervo (crescimento desejado); cinemáticas inteiras podem ser
   reduzidas às tomadas usadas.
 

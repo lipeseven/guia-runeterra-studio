@@ -10,6 +10,8 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parents[1]
 CHAVE = os.environ.get("GRS_CANAL", "runeterra")
 CANAL = tomllib.loads((RAIZ / "canais" / CHAVE / "canal.toml").read_text(encoding="utf-8"))
+# Dados do MOTOR, iguais para todos os canais (modelos, cache de voz, efeitos sonoros, trava, consumo do Claude).
+DADOS_COMUM = RAIZ / "dados" / "comum"
 
 
 def caminho(chave: str) -> Path:

@@ -6,7 +6,7 @@ Uso:
     .venv\\Scripts\\python.exe tools\\audio\\voz_guia.py <roteiro.txt> <saida.wav> [--motor fish|piper] [--ppm 162]
 
 - Fish Audio (modelo gratuito s2.1-pro-free) como padrão; Piper (local) como reserva automática.
-- O roteiro é dividido em blocos (por parágrafo); cada bloco fica em cache em dados/cache_voz/,
+- O roteiro é dividido em blocos (por parágrafo); cada bloco fica em cache em dados/comum/cache_voz/,
   então gerar de novo um roteiro levemente editado só refaz os blocos que mudaram.
 - No fim, a velocidade é ajustada (sem mudar o tom) para bater com o ritmo do Felipe (palavras/min).
 """
@@ -27,9 +27,9 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from comum import RAIZ, preparar_ffmpeg  # noqa: E402
 
-CACHE = RAIZ / "dados" / "cache_voz"
+CACHE = RAIZ / "dados" / "comum" / "cache_voz"
 PPM_FELIPE = 162  # medido no vídeo "Todos os DEMÔNIOS" (fala corrida, sem pausas longas)
-MODELO_PIPER = RAIZ / "dados/modelos/piper/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx"
+MODELO_PIPER = RAIZ / "dados/comum/modelos/piper/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx"
 MAX_BLOCO = 1200  # caracteres por chamada
 
 # Pronúncia de nomes de LoL em português (o TTS lê "Xolaani" errado sem ajuda).

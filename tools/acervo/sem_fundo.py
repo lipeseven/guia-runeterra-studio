@@ -2,7 +2,7 @@
 
 Apaga só a cor que ENCOSTA nas bordas (preenchimento a partir das bordas): o preto em volta de um ícone redondo some,
 mas o preto DENTRO do desenho fica. O resultado é um PNG com transparência, recortado, salvo à parte em
-dados/acervo/derivados/ — o arquivo do acervo nunca é alterado.
+dados/runeterra/acervo/derivados/ — o arquivo do acervo nunca é alterado.
 
 Uso:  .venv\\Scripts\\python.exe tools\\acervo\\sem_fundo.py <arquivo> [saida.png]
 """

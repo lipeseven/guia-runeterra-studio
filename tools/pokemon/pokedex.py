@@ -1,5 +1,5 @@
 """Pokédex do canal Pokémon (dados, sem imagens): todas as espécies da PokeAPI (GraphQL, grátis, sem chave) →
-dados/canais/pokemon/pokedex.json. É o "universo" que o roteirista, a conferência de fatos e as etiquetas do acervo
+dados/pokemon/pokedex.json. É o "universo" que o roteirista, a conferência de fatos e as etiquetas do acervo
 usam: nome, geração/região, tipos, evolução, lendário/mítico, categoria (genus), formas (regionais, mega…) e a
 descrição da Pokédex.
 
@@ -15,7 +15,7 @@ from pathlib import Path
 import requests
 
 RAIZ = Path(__file__).resolve().parents[2]
-PASTA = RAIZ / "dados" / "canais" / "pokemon"
+PASTA = RAIZ / "dados" / "pokemon"
 GRAPHQL = "https://beta.pokeapi.co/graphql/v1beta"
 INGLES, ESPANHOL = 9, 7  # PokeAPI não tem pt-BR; os nomes de Pokémon no Brasil são os em inglês
 

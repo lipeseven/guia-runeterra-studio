@@ -1,7 +1,7 @@
 """Servidor do painel (FastAPI). Escuta só em 127.0.0.1 — nada fica exposto na rede.
 
 Rodar:  .venv\\Scripts\\python.exe -m uvicorn app.servidor.main:app --host 127.0.0.1 --port 8765
-(ou iniciar.bat, que também compila a tela se precisar e abre o navegador)
+(ou Iniciar Runeterra.bat, que também compila a tela se precisar e abre o navegador)
 """
 from __future__ import annotations
 
@@ -666,7 +666,7 @@ def gravacao_da_pasta(vid: int):
         motor.pasta_do_video(v["slug"])
         arquivo = motor.gravacao_na_pasta(v["slug"])
         if arquivo is None:
-            raise HTTPException(400, f"nenhum áudio/vídeo encontrado em projetos/{v['slug']}/entrada/")
+            raise HTTPException(400, f"nenhum áudio/vídeo encontrado em {motor.caminho_rel(v['slug'], 'entrada')}/")
         motor.receber_gravacao(con, vid, arquivo)
         con.commit()
     return {"ok": True, "arquivo": arquivo.name}
@@ -849,7 +849,7 @@ def api_recursos():
 
 @app.get("/api/arquivo")
 def arquivo(caminho: str):
-    """Serve mídias geradas (capas, vídeos de rascunho). Só dentro de dados/ e projetos/."""
+    """Serve mídias geradas (capas, vídeos de rascunho). Só dentro de dados/ e dados/runeterra/projetos/."""
     alvo = (RAIZ / caminho).resolve()
     permitido = [(RAIZ / "dados").resolve(), motor.PASTA_PROJETOS.resolve()]
     if not any(alvo.is_relative_to(p) for p in permitido) or not alvo.is_file():

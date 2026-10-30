@@ -12,11 +12,11 @@ glossario = "Runeterra"                     # termos extras para o Whisper (o re
 
 [pastas]
 acervo = 'C:\Users\Felipe\Downloads\catálogo sequencial LOL'   # pasta do Felipe (só leitura)
-dados_acervo = "dados/acervo"               # banco, miniaturas, índices CLIP, tomadas, derivados
-banco_acervo = "dados/acervo.db"
-internet = "dados/acervo_internet"          # mídias baixadas da internet
-projetos = "projetos"
-studio = "dados/studio.db"
+dados_acervo = "dados/runeterra/acervo"               # banco, miniaturas, índices CLIP, tomadas, derivados
+banco_acervo = "dados/runeterra/acervo.db"
+internet = "dados/runeterra/acervo_internet"          # mídias baixadas da internet
+projetos = "dados/runeterra/projetos"
+studio = "dados/runeterra/studio.db"
 docs = "docs"                               # regras_de_direcao.md, estilo_roteiro.md, guia_de_estilo.md
-referencias = "recursos de vídeo para aprender"   # vídeos dos canais de referência
-analise = "dados/analise_referencias"
+referencias = "dados/runeterra/referencias"   # vídeos dos canais de referência
+analise = "dados/runeterra/analise_referencias"

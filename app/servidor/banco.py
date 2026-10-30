@@ -1,4 +1,4 @@
-"""Banco do painel (SQLite em dados/studio.db): vídeos, etapas, pendências e atividade."""
+"""Banco do painel (SQLite em dados/runeterra/studio.db): vídeos, etapas, pendências e atividade."""
 from __future__ import annotations
 
 import json
