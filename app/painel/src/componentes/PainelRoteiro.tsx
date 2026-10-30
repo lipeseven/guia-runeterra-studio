@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { DaPasta } from './DaPasta'
 import { api, quando, type Etapa } from '../api'
 import { ConferenciaRoteiro } from './ConferenciaRoteiro'
+import { MudancasRoteiro } from './MudancasRoteiro'
 
 type DadosRoteiro = { texto: string | null; paragrafos?: number; palavras?: number; segundos?: number }
 type Conversa = { quando: string; acao: 'gerar' | 'ajustar'; pedido: string; resumo: string; versao: number; palavras: number }
@@ -272,6 +273,10 @@ export function PainelRoteiro({ videoId, etapa, aoMudar, conferindo = false }: {
         </div>
       )}
 
+      {temRoteiro && !trabalhando && modo !== 'editar' && (
+        <MudancasRoteiro videoId={videoId} versao={versao} bloqueado={conferindo} aoDesfazer={(v, indice) => chamar('/desfazer', { versao: v, indice })} />
+      )}
+
       {temRoteiro && modo !== 'editar' && (
         <div className="max-h-96 overflow-y-auto rounded-lg border border-borda bg-painel-2 p-4">
           <div className="mb-2 flex items-center gap-1.5 font-mono text-[11px] text-apagado">
@@ -285,7 +290,7 @@ export function PainelRoteiro({ videoId, etapa, aoMudar, conferindo = false }: {
         </div>
       )}
 
-      {temRoteiro && !trabalhando && modo !== 'editar' && <ConferenciaRoteiro videoId={videoId} versao={versao} />}
+      {temRoteiro && !trabalhando && modo !== 'editar' && <ConferenciaRoteiro videoId={videoId} versao={versao} aoCorrigir={(pedido) => chamar('/ajustar', { pedido })} />}
 
       {/* ajuste fino com o Claude: devolve só os parágrafos alterados */}
       {temRoteiro && !trabalhando && modo === 'nada' && (

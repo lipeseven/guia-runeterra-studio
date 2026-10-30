@@ -412,6 +412,38 @@ def restaurar_roteiro(vid: int, corpo: Restaurar):
     return est
 
 
+@app.get("/api/videos/{vid}/roteiro/mudancas")
+def mudancas_roteiro(vid: int):
+    from . import roteirista
+
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    return roteirista.mudancas(pasta) or {"versao": None, "base": None, "reescrito": False, "lista": []}
+
+
+class Desfazer(BaseModel):
+    versao: int
+    indice: int
+
+
+@app.post("/api/videos/{vid}/roteiro/desfazer")
+def desfazer_mudanca_roteiro(vid: int, corpo: Desfazer):
+    """Desfaz UMA alteração da versão atual (vira versão nova; as outras alterações ficam)."""
+    from . import roteirista
+
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+        _roteirista_livre(con, vid)
+        m = roteirista.mudancas(pasta)
+        if not m or m["versao"] != corpo.versao or not 0 <= corpo.indice < len(m["lista"]):
+            raise HTTPException(409, "o roteiro mudou; recarregue a página")
+        texto, base = roteirista.desfazer_mudanca(pasta, corpo.indice)
+        est = motor.receber_roteiro(con, vid, texto, f"desfez alteração no parágrafo {m['lista'][corpo.indice]['paragrafo'] + 1}")
+        roteirista.fixar_base(pasta, corpo.versao + 1, base)
+        con.commit()
+    return est
+
+
 @app.post("/api/videos/{vid}/roteiro/aprovar")
 def aprovar_roteiro(vid: int):
     with conectar() as con:
