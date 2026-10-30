@@ -317,9 +317,11 @@ def guardar_base(vid: int, corpo: Base):
 
 
 @app.post("/api/videos/{vid}/roteiro/conferir")
-def conferir_roteiro(vid: int):
+def conferir_roteiro(vid: int, tudo: bool = False):
     with conectar() as con:
-        _pasta(con, vid)
+        pasta = _pasta(con, vid)
+    if tudo:  # "conferir tudo de novo": esquece o que já foi checado (todos os parágrafos voltam ao Claude)
+        (pasta / "direcao" / "conferencia_cache.json").unlink(missing_ok=True)
     motor.pedir_conferencia(vid)
     return {"ok": True}
 

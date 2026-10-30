@@ -209,11 +209,15 @@ def _pokedex(nome: str) -> list[tuple[str, str]]:
     return []
 
 
+# Versão das regras da checagem: mudou a regra (fontes, prompt) → todo parágrafo é conferido de novo uma vez.
+REGRAS = "3"  # 3 = afirmações atômicas + página do personagem + "parcial" (2026-10-31)
+
+
 def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
     from claude_cli import chamar_json
 
     pars = [p.strip() for p in re.split(r"\n\s*\n", roteiro) if p.strip()]
-    chaves = [hashlib.sha1(p.encode()).hexdigest()[:16] for p in pars]
+    chaves = [hashlib.sha1((REGRAS + p).encode()).hexdigest()[:16] for p in pars]
     novos = [(i, p) for i, (p, k) in enumerate(zip(pars, chaves)) if k not in cache]
     if novos:
         aviso(f"lendo {len(novos)} parágrafo(s) novo(s)")
@@ -276,6 +280,8 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                                     "fontes_divergem": bool(x.get("fontes_divergem"))})
         for i, lista in por_par.items():
             cache[chaves[i]] = lista
+    for k in [k for k in cache if k not in chaves]:  # parágrafos que não existem mais (ou de regras antigas)
+        del cache[k]
     saida = []
     for i, k in enumerate(chaves):
         saida += [{**a, "paragrafo": i} for a in cache.get(k, [])]
