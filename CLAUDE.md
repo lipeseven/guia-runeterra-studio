@@ -149,6 +149,8 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   fatos do dossiê; o base vira só estrutura. Painel: bloco "Pesquisa" na Conferência. Zoom da capa nos hubs +20% (`Capa.tsx`, 2,6).
   Roteiro base colado (transcrição do YT) passa por `conferencia.limpar_base` (tira tempos/[Música], junta linhas);
   `frases()` corta texto sem pontuação em trechos de ~20 palavras.
+  Encerramento fixo: ao aprovar o vídeo, `publicacao.com_encerramento` junta o último final + `<dados do canal>/encerramento/encerramento.mp4`
+  (Runeterra: dados/encerramento/) → `saida/final_vN_publicar.mp4` (só o encerramento é recodificado; final intacto).
   Depois da gravação aprovada, "novo rascunho" no storyboard gera um VÍDEO FINAL novo (voz real), não rascunho com voz guia.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,

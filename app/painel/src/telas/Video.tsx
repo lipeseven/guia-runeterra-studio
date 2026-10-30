@@ -340,7 +340,11 @@ function AcaoPendencia({ chave, id, videoId, aoMudar }: { chave: string | null; 
       <button
         className="shrink-0 rounded-md bg-ok px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
         onClick={async () => {
-          await api(`/videos/${videoId}/roteiro/aprovar`, { method: 'POST' })
+          try {
+            await api(`/videos/${videoId}/roteiro/aprovar`, { method: 'POST' })
+          } catch (e) {
+            return alert(String(e).match(/"detail":"([^"]+)"/)?.[1] ?? String(e)) // ex.: conferência ainda rodando
+          }
           aoMudar()
         }}
       >

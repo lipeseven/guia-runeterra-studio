@@ -166,7 +166,12 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
                   ? 'Thumbnail 1280×720 (a sua capa) e o vídeo final ficam na pasta de saída.'
                   : 'Vídeo final e thumbnail foram para a Lixeira na limpeza.'}
               </p>
-              {d?.video_final && <p className="mt-1 truncate font-mono text-[11px] text-apagado">{d.video_final}</p>}
+              {d?.video_final && (
+                <p className="mt-1 truncate font-mono text-[11px] text-apagado">
+                  {d.video_final.endsWith('_publicar.mp4') && <span className="mr-1 font-sans text-ok">suba este (com o encerramento):</span>}
+                  {d.video_final}
+                </p>
+              )}
             </div>
             {t.thumbnail && (
               <a href={arquivo(t.thumbnail)} download="thumbnail.jpg" className="flex items-center gap-1.5 rounded-md border border-borda-forte px-2.5 py-1.5 text-xs text-suave hover:text-texto">
@@ -194,7 +199,11 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
               <button
                 onClick={async () => {
                   if (!publicado && !window.confirm(AVISO_PUBLICAR)) return
-                  await api(`/videos/${videoId}/publicado`, { method: 'POST', body: JSON.stringify({ url }) })
+                  try {
+                    await api(`/videos/${videoId}/publicado`, { method: 'POST', body: JSON.stringify({ url }) })
+                  } catch (e) {
+                    return alert(String(e).match(/"detail":"([^"]+)"/)?.[1] ?? String(e)) // ex.: vídeo aberto no player
+                  }
                   aoMudar()
                 }}
                 className="rounded-md bg-ouro px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110"
