@@ -52,9 +52,26 @@ def _embed(textos: list[str]):
     return _modelo.encode(textos, normalize_embeddings=True, batch_size=64, show_progress_bar=False)
 
 
+def limpar_base(texto: str) -> str:
+    """Transcrição do YouTube colada como roteiro base: tira marcações de tempo ("0:12", "1:02:33") e de som
+    ("[Música]", "(aplausos)") e junta as linhas quebradas pela legenda."""
+    t = texto.replace("\r\n", "\n")
+    t = re.sub(r"\[[^\]\n]{1,30}\]|\((?:m[uú]sica|music|aplausos|applause|risos|laughter)\)", " ", t, flags=re.I)
+    t = re.sub(r"(?<![\w:])\d{1,2}(?::\d{2}){1,2}(?![\w:])", " ", t)
+    t = re.sub(r"[ \t]+", " ", t)
+    if len(re.findall(r"[.!?…]", t)) < len(t.split()) / 60:  # quase sem pontuação = legenda: linhas são pedaços
+        t = re.sub(r"\s*\n\s*", " ", t)
+    return re.sub(r"\n\s*\n\s*(\n\s*)+", "\n\n", t).strip()
+
+
 def frases(texto: str) -> list[str]:
     partes = re.split(r"(?<=[.!?…])\s+|\n+", texto)
-    return [p.strip() for p in partes if len(p.strip().split()) >= 4]
+    saida = []
+    for p in partes:  # sem pontuação (transcrição automática): "frase" enorme vira trechos de ~20 palavras
+        ws = p.split()
+        n = max(1, round(len(ws) / 20)) if len(ws) > 35 else 1
+        saida += [" ".join(ws[len(ws) * k // n:len(ws) * (k + 1) // n]) for k in range(n)]
+    return [p.strip() for p in saida if len(p.strip().split()) >= 4]
 
 
 # ------------------------------------------------------------------------------------------------ semelhança

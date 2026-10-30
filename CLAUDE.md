@@ -130,7 +130,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   skins via CommunityDragon + splash base 1920 e artes dos contos do Universe; categoria splash/skin/arte, descarta o
   que o Felipe já tem; tarefa "importar_riot"). Storyboard: "buscar na internet" (`app/servidor/internet.py`:
   DuckDuckGo `ddgs` + Wikimedia Commons; baixa e cataloga na hora) e "colar link" de vídeo (yt-dlp → tomadas, tarefa
-  "clipes"). Gravação por capítulos: vários arquivos em entrada/ são juntados na ordem dos nomes.
+  "clipes"; início/fim opcionais = baixa só o trecho, `--download-sections`). Gravação por capítulos: vários arquivos em entrada/ são juntados na ordem dos nomes.
 - **Perfil de canal ✅ (2026-10-19)**: os canais NÃO se conhecem — cada um roda o MESMO código num servidor próprio
   com `GRS_CANAL=<chave>` (`canais/<chave>/canal.toml`: nome, porta, assunto, pastas de acervo/banco/projetos/docs,
   fontes de fatos, aviso legal). `tools/canal.py` (CANAL, caminho) alimenta `comum.py`, `banco.py`, `motor.py`,
@@ -143,6 +143,13 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   e a retrospectiva dos ajustes; tarefa global "retrospectiva" (Sonnet) propõe regras novas, que só entram em
   regras_de_direcao.md do canal se o Felipe aprovar (botão "Aprendizado" no quadro). Arquivos em <dados do canal>/aprendizado/.
   NÃO aprender "gosto de imagem" por pontuação (o Felipe recusou: as mesmas imagens passariam na frente).
+- **Pesquisa antes do roteiro ✅ (2026-10-29)**: `app/servidor/pesquisa.py` roda dentro da tarefa "roteiro" (gerar): Sonnet lista
+  assuntos → wiki/Universe locais (cache) → dossiê de fatos com fonte e selo canon (atual/antigo/jogo) + crivo do roteiro
+  base (confirmada/corrigida/desatualizada/sem_fonte) em `direcao/dossie.json`. O roteirista (gerar e ajustar) só afirma
+  fatos do dossiê; o base vira só estrutura. Painel: bloco "Pesquisa" na Conferência. Zoom da capa nos hubs +20% (`Capa.tsx`, 2,6).
+  Roteiro base colado (transcrição do YT) passa por `conferencia.limpar_base` (tira tempos/[Música], junta linhas);
+  `frases()` corta texto sem pontuação em trechos de ~20 palavras.
+  Depois da gravação aprovada, "novo rascunho" no storyboard gera um VÍDEO FINAL novo (voz real), não rascunho com voz guia.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

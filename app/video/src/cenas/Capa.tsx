@@ -16,7 +16,7 @@ export const Capa: React.FC<{ cena: CenaCapa; duracao: number }> = ({ cena, dura
   const raio = alvo.r * Math.min(w, h) * k;
   const ax = ox + alvo.cx * w * k;
   const ay = oy + alvo.cy * h * k + raio * 0.55;
-  const zoomMax = (ALTURA * 0.82) / (raio * 3.1);
+  const zoomMax = (ALTURA * 0.82) / (raio * 2.6); // 2,6 (era 3,1): +20% de zoom no ícone — Felipe, 2026-10-29
   const zoom = Math.max(1, Math.min(cena.zoom, zoomMax));
   // continuidade (transição de seção): a câmera já está fechada no ícone em que a transição anterior parou e só
   // DESLIZA (pan, zoom constante) até o capítulo atual. Sem zoom-out; o layout da capa nunca muda.
@@ -25,7 +25,7 @@ export const Capa: React.FC<{ cena: CenaCapa; duracao: number }> = ({ cena, dura
     const ro = origem.r * Math.min(w, h) * k;
     const bx = ox + origem.cx * w * k;
     const by = oy + origem.cy * h * k + ro * 0.55;
-    const z = Math.max(1, Math.min(zoom, (ALTURA * 0.82) / (ro * 3.1)));
+    const z = Math.max(1, Math.min(zoom, (ALTURA * 0.82) / (ro * 2.6)));
     const t = interpolate(frame, [0, Math.max(2, duracao * 0.8)], [0, 1], {
       extrapolateRight: "clamp",
       easing: Easing.inOut(Easing.cubic),

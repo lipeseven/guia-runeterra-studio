@@ -284,7 +284,8 @@ def cenas(pasta: Path) -> list[dict]:
             elif pe.get("escolha") and pcands:
                 pesc = pcands[pe["escolha"] - 1]
             pecas.append({"j": j, "foco": paj.get("foco"), "em": _palavra_na_cena(peca.get("palavra"), m, toks), "em_escolhido": paj.get("indice"),
-                          "rotulo": peca.get("rotulo") or peca.get("palavra") or "",
+                          "rotulo": paj.get("rotulo", peca.get("rotulo")) or peca.get("palavra") or "",
+                          "rotulo_texto": paj.get("rotulo", peca.get("rotulo") or ""),  # o que aparece na tela
                           "busca": (peca.get("busca") or {}).get("o_que"), "escolhido": pesc, "candidatos": pcands,
                           "ajustada": bool(paj), "entrada_escolhida": paj.get("entrada")})
         metade2 = None
@@ -499,6 +500,8 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
             aj.pop(k_, None)
         aj["fundo_branco"] = True
         aj.pop("fundo_lista", None)
+    elif tipo == "item_rotulo":  # texto do item na tela (nome embaixo da imagem na dividida / lista)
+        aj.setdefault("pecas", {}).setdefault(str(int(acao["j"])), {})["rotulo"] = (acao.get("texto") or "").strip()
     elif tipo == "item_entrada":  # efeito de entrada de UM item (lista/dividida/mosaico); "auto" = o diretor decide
         if acao["entrada"] not in ("auto", *ENTRADAS_ITEM):
             raise ValueError("entrada inválida")
@@ -709,6 +712,10 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
         momentos = {j: pa["indice"] for j, pa in (aj.get("pecas") or {}).items() if "indice" in pa}
         if momentos:  # momento de entrada de cada item escolhido à mão
             c["pecas"] = [{**pc, "indice": momentos[str(j)]} if str(j) in momentos else pc
+                          for j, pc in enumerate(c.get("pecas") or c.get("mosaico") or [])]
+        rotulos = {j: pa["rotulo"] for j, pa in (aj.get("pecas") or {}).items() if "rotulo" in pa}
+        if rotulos:  # texto do item corrigido à mão
+            c["pecas"] = [{**pc, "rotulo": rotulos[str(j)]} if str(j) in rotulos else pc
                           for j, pc in enumerate(c.get("pecas") or c.get("mosaico") or [])]
         entradas = {j: pa["entrada"] for j, pa in (aj.get("pecas") or {}).items() if pa.get("entrada")}
         if entradas:  # efeito de entrada de cada item escolhido à mão (sem escolha: o do diretor)

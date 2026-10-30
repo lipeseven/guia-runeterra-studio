@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, CopyCheck, HelpCircle, Loader2, RefreshCw } from 'lucide-react'
+import { AlertTriangle, BookOpen, CheckCircle2, CopyCheck, HelpCircle, Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 
@@ -11,7 +11,14 @@ type Fato = {
   fonte: { fonte: string; texto: string } | null
 }
 type Semelhanca = { geral: number; total: number; frases: { frase: string; base: string; nota: number; nivel: string }[] }
+type Dossie = {
+  quando: string
+  assuntos: string[]
+  fatos: { assunto: string; fato: string; canon: string; fonte: string | null }[]
+  crivo: { afirmacao: string; veredito: 'confirmada' | 'corrigida' | 'desatualizada' | 'sem_fonte'; correcao: string; fonte: { fonte: string; texto: string } | null }[]
+}
 type Dados = {
+  dossie: Dossie | null
   conferencia: { quando: string; semelhanca?: Semelhanca; fatos?: Fato[]; erro_fatos?: string } | null
   atual: boolean
   base: string | null
@@ -22,6 +29,12 @@ const ICONE = {
   sem_fonte: <HelpCircle className="size-3.5 shrink-0 text-suave" />,
   confere: <CheckCircle2 className="size-3.5 shrink-0 text-ok" />,
 }
+const CRIVO = {
+  corrigida: ['text-atencao', 'corrigidas (o roteiro base estava errado)'],
+  desatualizada: ['text-atencao', 'desatualizadas / não canon'],
+  sem_fonte: ['text-suave', 'sem fonte (ficaram de fora)'],
+  confirmada: ['text-ok', 'confirmadas'],
+} as const
 const NOMES = { diverge: 'a fonte diz diferente', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com a fonte' }
 
 /** Conferência do roteiro antes de aprovar: fatos de lore × wiki/Universe e semelhança com o roteiro base. */
@@ -104,6 +117,8 @@ export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versa
         </div>
       )}
 
+      {d.dossie && <Pesquisa dossie={d.dossie} />}
+
       {c?.semelhanca && (
         <div className="mb-3">
           <p className={c.semelhanca.frases.length ? 'text-atencao' : 'text-ok'}>
@@ -152,6 +167,55 @@ export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versa
                     </li>
                   )
                 })}
+              </ul>
+            )}
+          </div>
+        ),
+      )}
+    </div>
+  )
+}
+
+/** Pesquisa feita ANTES de escrever: fatos com fonte que o roteirista usou + crivo do roteiro base. */
+function Pesquisa({ dossie }: { dossie: Dossie }) {
+  const [aberto, setAberto] = useState<string | null>(null)
+  const grupos = (['corrigida', 'desatualizada', 'sem_fonte', 'confirmada'] as const).map((v) => [v, dossie.crivo.filter((x) => x.veredito === v)] as const)
+  return (
+    <div className="mb-3 rounded border border-borda p-2">
+      <p className="flex flex-wrap items-center gap-1.5">
+        <BookOpen className="size-3.5 text-suave" />
+        <b>Pesquisa:</b> {dossie.fatos.length} fatos verificados sobre {dossie.assuntos.join(', ')}
+        <button onClick={() => setAberto(aberto === 'fatos' ? null : 'fatos')} className="text-apagado underline hover:text-texto">
+          {aberto === 'fatos' ? 'esconder' : 'ver'}
+        </button>
+      </p>
+      {aberto === 'fatos' && (
+        <ul className="mt-1 flex max-h-72 flex-col gap-1 overflow-y-auto pl-5">
+          {dossie.fatos.map((f, k) => (
+            <li key={k} className="text-texto/90">
+              <span className="text-apagado">{f.assunto}:</span> {f.fato}
+              {f.canon !== 'atual' && <span className="ml-1 rounded bg-atencao/15 px-1 text-atencao">{f.canon === 'antigo' ? 'lore antigo' : 'só no jogo'}</span>}
+              {f.fonte && <span className="ml-1 text-apagado">({f.fonte})</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      {dossie.crivo.length > 0 && <p className="mt-1.5 text-suave">Crivo do roteiro base ({dossie.crivo.length} afirmações):</p>}
+      {grupos.map(([v, lista]) =>
+        lista.length === 0 ? null : (
+          <div key={v} className="pl-5">
+            <button onClick={() => setAberto(aberto === v ? null : v)} className={`hover:text-texto ${CRIVO[v][0]}`}>
+              <b>{lista.length}</b> {CRIVO[v][1]} {aberto === v ? '▴' : '▾'}
+            </button>
+            {aberto === v && (
+              <ul className="mt-1 flex flex-col gap-1.5 pl-3">
+                {lista.map((x, k) => (
+                  <li key={k}>
+                    <p className="text-texto/90">{x.afirmacao}</p>
+                    {x.correcao && <p className="text-suave">→ {x.correcao}</p>}
+                    {x.fonte && <p className="text-apagado">{x.fonte.fonte}</p>}
+                  </li>
+                ))}
               </ul>
             )}
           </div>
