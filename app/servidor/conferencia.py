@@ -24,13 +24,17 @@ from .banco import CANAL, RAIZ, agora, caminho
 sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
 CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/runeterra/pesquisa_cache
-WIKI = "https://leagueoflegends.fandom.com/api.php"
+# A wiki do LoL saiu do Fandom (o fandom.com ficou parado em 2023): wiki.leagueoflegends.com, namespace Universe
+# (3006) = lore, com o resumo dos contos e HQs oficiais.
+WIKI = "https://wiki.leagueoflegends.com/en-us/api.php"
 POKEWIKI = "https://pokemon.fandom.com/api.php"  # a Bulbapedia bloqueia acesso automático (Cloudflare)
 # fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
-FONTES = {"lol": {"wiki": WIKI, "nome": "wiki do LoL / biografia oficial", "quem": "campeões envolvidos"},
-          "pokemon": {"wiki": POKEWIKI, "nome": "Pokémon Wiki / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
+FONTES = {"lol": {"wiki": WIKI, "ns": "3006", "nome": "wiki do LoL (Universe) / biografia e contos oficiais da Riot",
+                  "quem": "campeões envolvidos"},
+          "pokemon": {"wiki": POKEWIKI, "ns": "0", "nome": "Pokémon Wiki / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
 FONTE = FONTES[CANAL.get("fatos", "lol")]
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/en_us/champions/{slug}/index.json"
+CONTO = "https://universe-meeps.leagueoflegends.com/v1/en_us/story/{slug}/index.json"
 AGENTE = {"User-Agent": "GuiaRuneterraStudio/1.0 (uso pessoal; conferencia de roteiro)"}
 QUASE_IGUAL, PARECIDA = 0.78, 0.70  # cosseno entre frases (medido: tradução literal PT×EN ≈ 0,75–0,9; assunto igual ≈ 0,5)
 
@@ -133,8 +137,9 @@ def _limpar_wikitexto(t: str) -> str:
 
 
 def _wiki(busca: str) -> list[tuple[str, str]]:
-    """(fonte, texto) das 2 páginas da wiki do canal mais relevantes para a busca."""
-    r = _baixar(FONTE["wiki"], {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 2})
+    """(fonte, texto) das 4 páginas da wiki do canal mais relevantes para a busca (LoL: só páginas de lore)."""
+    r = _baixar(FONTE["wiki"], {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 4,
+                                "srnamespace": FONTE["ns"]})
     saida = []
     for item in ((r or {}).get("query") or {}).get("search", []):
         titulo = item["title"]
@@ -155,7 +160,16 @@ def _universe(nome: str) -> list[tuple[str, str]]:
         return []
     bio = ((r.get("champion") or {}).get("biography") or {}).get("full") or ""
     bio = re.sub(r"<[^>]+>", " ", bio)
-    return [(f"Universe: {r.get('name', nome)}", bio)] if bio.strip() else []
+    saida = [(f"Riot (biografia): {r.get('name', nome)}", bio)] if bio.strip() else []
+    for m in r.get("modules") or []:  # conto oficial do campeão (texto completo)
+        if m.get("type") == "story-preview" and m.get("story-slug"):
+            c = _baixar(CONTO.format(slug=m["story-slug"])) or {}
+            secoes = ((c.get("story") or {}).get("story-sections") or [])
+            texto = " ".join(sub.get("content") or "" for sec in secoes for sub in sec.get("story-subsections") or [])
+            texto = re.sub(r"<[^>]+>", " ", texto)
+            if texto.strip():
+                saida.append((f"Riot (conto): {(c.get('story') or {}).get('title') or m.get('title')}", texto))
+    return saida
 
 
 def _trechos(fontes: list[tuple[str, str]]) -> list[tuple[str, str]]:
@@ -217,7 +231,10 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
             if tr:
                 e = _embed([a["afirmacao"]] + [t for _, t in tr])
                 notas = e[1:] @ e[0]
-                escolhidos = [tr[i] for i in notas.argsort()[::-1][:3]]
+                ordem = [tr[i] for i in notas.argsort()[::-1]]
+                # 2 melhores da wiki + 2 melhores da Riot (biografia/conto): dá para cruzar as fontes
+                escolhidos = ([x for x in ordem if x[0].startswith("wiki")][:2]
+                              + [x for x in ordem if not x[0].startswith("wiki")][:2]) or ordem[:3]
             a["trechos"] = [{"fonte": f, "texto": t} for f, t in escolhidos]
             blocos.append(f"### Afirmação {k}: {a['afirmacao']}\n" + "\n".join(
                 f"[{j}] ({x['fonte']}) {x['texto']}" for j, x in enumerate(a["trechos"])) if a["trechos"] else
@@ -230,9 +247,12 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                 "- confere: os trechos sustentam o essencial da afirmação (detalhe a mais sem fonte não impede);\n"
                 "- diverge: os trechos CONTRADIZEM a afirmação (outra data, outro autor, outro lugar) — explique;\n"
                 "- sem_fonte: os trechos não falam disso, ou só de parte (não julgue pelo seu conhecimento).\n"
-                "Ausência de um detalhe NÃO é divergência.\n\n" + "\n\n".join(blocos)
+                "Ausência de um detalhe NÃO é divergência.\n"
+                "Cruze as fontes: `fontes` = quantas fontes DIFERENTES (wiki, biografia Riot, conto Riot) sustentam a "
+                "afirmação; `fontes_divergem` = true se as próprias fontes se contradizem entre si (aí a Riot oficial "
+                "vale mais que a wiki — diga isso na explicação).\n\n" + "\n\n".join(blocos)
                 + '\n\nJSON: {"vereditos": [{"i": 0, "veredito": "confere|diverge|sem_fonte", '
-                  '"explicacao": "1 frase em português", "trecho": 0}]}',
+                  '"explicacao": "1 frase em português", "trecho": 0, "fontes": 1, "fontes_divergem": false}]}',
                 SISTEMA, modelo="sonnet", etiqueta="conferencia-fatos")
             vered = {x["i"]: x for x in v.get("vereditos", []) if isinstance(x.get("i"), int)}
         por_par: dict[int, list] = {i: [] for i, _ in novos}
@@ -241,7 +261,8 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
             t = a["trechos"][x["trecho"]] if isinstance(x.get("trecho"), int) and x["trecho"] < len(a["trechos"]) else None
             por_par[a["p"]].append({"trecho": a.get("trecho"), "afirmacao": a["afirmacao"],
                                     "veredito": x.get("veredito", "sem_fonte"), "explicacao": x.get("explicacao", ""),
-                                    "fonte": t})
+                                    "fonte": t, "fontes": x.get("fontes") if isinstance(x.get("fontes"), int) else None,
+                                    "fontes_divergem": bool(x.get("fontes_divergem"))})
         for i, lista in por_par.items():
             cache[chaves[i]] = lista
     saida = []
