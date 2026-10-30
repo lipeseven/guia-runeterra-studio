@@ -1,5 +1,6 @@
 import { CheckCircle2, ClipboardPaste, FileText, History, Loader2, Pencil, Send, Sparkles, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { DaPasta } from './DaPasta'
 import { api, quando, type Etapa } from '../api'
 import { ConferenciaRoteiro } from './ConferenciaRoteiro'
 
@@ -112,6 +113,7 @@ export function PainelRoteiro({ videoId, etapa, aoMudar }: { videoId: number; et
             <input type="file" accept=".txt,text/plain" className="hidden" onChange={(e) => receberBase(e.target.files?.[0])} />
             ou escolher um .txt
           </label>
+          <DaPasta rotulo="ou escolher da pasta de roteiros" aoEscolher={(texto) => setGer({ ...ger, base: texto, usarBase: true })} />
         </div>
       )}
       <div className="flex justify-end gap-2">
@@ -164,6 +166,7 @@ export function PainelRoteiro({ videoId, etapa, aoMudar }: { videoId: number; et
             <button onClick={() => seletor.current?.click()} className={botao}>
               Substituir
             </button>
+            <DaPasta rotulo="substituir da pasta" aoEscolher={(texto, nome) => chamar('', { texto, nome })} />
             {aprovado ? (
               <span className="flex items-center gap-1.5 text-xs text-ok">
                 <CheckCircle2 className="size-4" /> Aprovado
@@ -227,6 +230,7 @@ export function PainelRoteiro({ videoId, etapa, aoMudar }: { videoId: number; et
             >
               <ClipboardPaste className="size-3.5" /> prefiro colar o texto
             </button>
+            <DaPasta aoEscolher={(texto, nome) => chamar('', { texto, nome })} />
           </div>
           <button
             onClick={() => setModo('gerar')}

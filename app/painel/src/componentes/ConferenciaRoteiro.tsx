@@ -1,5 +1,6 @@
 import { AlertTriangle, BookOpen, CheckCircle2, CopyCheck, HelpCircle, Loader2, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { DaPasta } from './DaPasta'
 import { api } from '../api'
 
 type Fato = {
@@ -100,6 +101,9 @@ export function ConferenciaRoteiro({ videoId, versao }: { videoId: number; versa
             className="h-32 w-full resize-y rounded-md border border-borda bg-painel p-2 font-mono text-[11px] outline-none focus:border-suave"
           />
           <div className="flex justify-end gap-2">
+            <span className="mr-auto">
+              <DaPasta aoEscolher={(texto) => setBase(texto)} />
+            </span>
             <button onClick={() => setEditBase(false)} className="px-2 py-1 text-suave">
               cancelar
             </button>
