@@ -20,7 +20,7 @@ PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
 - **Raiz = só código** (`app/`, `tools/`, `canais/`, `docs/`) + `Iniciar Runeterra.bat` / `Iniciar Pokemon.bat`.
   **Tudo que não é código fica em `dados/`** (fora do Git; reorganizado em 2026-10-30): `dados/runeterra/` e
   `dados/pokemon/` (studio.db, acervo.db, acervo/, acervo_internet/, projetos/, referencias/, analise_referencias/,
-  aprendizado/, encerramento/, pesquisa_cache/) e `dados/comum/` (modelos, cache_voz, sfx, motor.lock, uso_claude.jsonl;
+  aprendizado/, encerramento/, pesquisa_cache/, roteiros/ = .txt do Felipe, "escolher da pasta" no Roteiro) e `dados/comum/` (modelos, cache_voz, sfx, motor.lock, uso_claude.jsonl;
   `canal.DADOS_COMUM`). Caminhos dos canais em `canais/<chave>/canal.toml`; caminho de arquivo de projeto para o painel:
   `motor.caminho_rel(slug, ...)` (nunca escrever "projetos/..." à mão).
 - `docs/instalacao.md` — reinstalar do zero (formatar o PC): backup, programas, `requirements.txt`, npm.

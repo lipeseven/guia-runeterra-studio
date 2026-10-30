@@ -77,6 +77,37 @@ def decidir_aprendizado(pid: int, corpo: Decisao):
     return decidir(pid, corpo.acao, corpo.texto)
 
 
+def _pasta_roteiros() -> Path:
+    """Pasta do Felipe para roteiros e transcrições (.txt), mesmo de vídeos sem card: dados/<canal>/roteiros."""
+    from .banco import caminho
+
+    pasta = caminho("dados_acervo").parent / "roteiros"
+    pasta.mkdir(parents=True, exist_ok=True)
+    return pasta
+
+
+@app.get("/api/roteiros")
+def listar_roteiros():
+    pasta = _pasta_roteiros()
+    arqs = sorted(pasta.rglob("*.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return {"pasta": str(pasta.resolve()),
+            "arquivos": [{"nome": p.relative_to(pasta).as_posix(), "modificado": p.stat().st_mtime} for p in arqs]}
+
+
+@app.get("/api/roteiros/{nome:path}")
+def ler_roteiro_da_pasta(nome: str):
+    pasta = _pasta_roteiros().resolve()
+    arq = (pasta / nome).resolve()
+    if not arq.is_relative_to(pasta) or arq.suffix.lower() != ".txt" or not arq.is_file():
+        raise HTTPException(404, "arquivo não encontrado na pasta de roteiros")
+    bruto = arq.read_bytes()
+    try:
+        texto = bruto.decode("utf-8-sig")
+    except UnicodeDecodeError:  # Bloco de Notas antigo salva em ANSI
+        texto = bruto.decode("cp1252")
+    return {"nome": arq.name, "texto": texto.replace("\r\n", "\n")}
+
+
 @app.get("/api/canal")
 def ver_canal():
     """Canal deste servidor + a lista de canais (só nome e porta) para o seletor do painel."""
