@@ -64,7 +64,7 @@ export function MenuCard({ video, aoMudar, aoExcluir }: { video: Pick<VideoResum
           <Dialog.Content className="fixed top-1/2 left-1/2 z-50 w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-xl border border-borda bg-painel p-5 shadow-2xl">
             <Dialog.Title className="text-base font-semibold">Excluir “{video.titulo}”?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-suave">
-              O card e o histórico saem do painel. Os arquivos do vídeo (roteiro, capa, rascunhos) vão para a Lixeira do Windows.
+              <b>Apaga tudo de vez, sem Lixeira e sem volta:</b> card, histórico, versões do roteiro, conferência, capa, gravações, rascunhos e finais. Os .txt da pasta de roteiros e as mídias do acervo ficam.
             </Dialog.Description>
             {erro && <p className="mt-3 text-sm text-atencao">{erro}</p>}
             <div className="mt-5 flex justify-end gap-2">
@@ -73,6 +73,11 @@ export function MenuCard({ video, aoMudar, aoExcluir }: { video: Pick<VideoResum
                 onClick={async () => {
                   try {
                     await api(`/videos/${video.id}`, { method: 'DELETE' })
+                    try {
+                      localStorage.removeItem(`conferencia-fila-${video.id}`)
+                    } catch {
+                      // sem armazenamento: nada a limpar
+                    }
                     setConfirmar(false)
                     if (aoExcluir) aoExcluir()
                     else aoMudar()
@@ -82,7 +87,7 @@ export function MenuCard({ video, aoMudar, aoExcluir }: { video: Pick<VideoResum
                 }}
                 className="rounded-lg bg-red-500/90 px-4 py-2 text-sm font-medium text-white hover:bg-red-500"
               >
-                Excluir
+                Apagar tudo
               </button>
             </div>
           </Dialog.Content>

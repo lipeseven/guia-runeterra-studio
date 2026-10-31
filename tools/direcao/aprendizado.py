@@ -125,6 +125,17 @@ def decidir(pid: int, acao: str, texto: str | None = None) -> dict:
     return p
 
 
+def esquecer(slug: str, titulo: str) -> None:
+    """Card excluído: tira exemplos, retrospectiva e propostas ainda pendentes. Regra já aprovada fica (é decisão do Felipe)."""
+    arq = PASTA / "exemplos_legendas.json"
+    if arq.exists():
+        _gravar(arq, [e for e in _ler(arq, []) if e.get("video") != titulo])
+    (PASTA / f"retrospectiva_{slug}.json").unlink(missing_ok=True)
+    arq = PASTA / "propostas.json"
+    if arq.exists():
+        _gravar(arq, [p for p in _ler(arq, []) if not (p.get("video") == titulo and p.get("status") == "pendente")])
+
+
 def exemplos_para_o_prompt() -> str:
     ex = _ler(PASTA / "exemplos_legendas.json", [])[-NO_PROMPT:]
     if not ex:

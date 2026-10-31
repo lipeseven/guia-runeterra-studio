@@ -115,6 +115,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   Itens de lista/dividida/mosaico: imagem por item no storyboard (`ajustes[cid].pecas[j].candidato` → escolha fixa de `<cid>p<j>`).
   Entrada por item (lista/dividida/mosaico): `ajustes[cid].pecas[j].entrada` (nenhuma/fade/deslizar/revelar/pop; sem escolha = a do
   diretor) → peça `entrada` → `app/video/src/componentes/EntradaManual.ts` (ligado por linhas `impressao:ignorar`).
+- Excluir card = DEFINITIVO, sem Lixeira (2026-10-31, `main.excluir`): pasta do projeto, fila, memória de uso e aprendizado do vídeo. Ficam: .txt de `roteiros/`, mídias do acervo, cache de voz e wiki (compartilhados), regras já aprovadas. Arquivo aberto = 409, nada é apagado.
 - Atualizar acervo ✅ (2026-10-17): `tools/acervo/atualizar.py` (inventário → CLIP → tomadas → etiquetas pelo nome do
   arquivo; incremental, sem cota). Tarefa global "acervo" (vid 0) na fila do motor: botão "Atualizar acervo" no topo
   do painel e automática a cada card NOVO (o acervo muda pouco). Resultado em `/api/acervo/situacao`.
