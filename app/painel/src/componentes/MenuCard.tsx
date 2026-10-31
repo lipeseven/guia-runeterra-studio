@@ -75,6 +75,7 @@ export function MenuCard({ video, aoMudar, aoExcluir }: { video: Pick<VideoResum
                     await api(`/videos/${video.id}`, { method: 'DELETE' })
                     try {
                       localStorage.removeItem(`conferencia-fila-${video.id}`)
+                      localStorage.removeItem(`conferencia-mantidas-${video.id}`)
                     } catch {
                       // sem armazenamento: nada a limpar
                     }

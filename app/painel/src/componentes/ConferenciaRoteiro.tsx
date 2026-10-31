@@ -43,6 +43,22 @@ const NOMES = { diverge: 'a fonte diz diferente', parcial: 'conferem em parte (u
 
 const chaveFato = (f: Fato) => `${f.paragrafo}|${f.afirmacao}`
 
+function lerLista(chave: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(chave) ?? '[]')
+  } catch {
+    return []
+  }
+}
+
+function gravarLista(chave: string, lista: string[]) {
+  try {
+    localStorage.setItem(chave, JSON.stringify(lista))
+  } catch {
+    // sem armazenamento: a lista vale até recarregar a página
+  }
+}
+
 /** Pedido único ao roteirista com as correções da fila (o fato corrigido vem da fonte da conferência, não do dossiê). */
 function pedidoDeCorrecoes(lista: Fato[]) {
   const itens = lista.map((f, k) =>
@@ -68,20 +84,17 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
   const [d, setD] = useState<Dados | null>(null)
   const [corrigindo, setCorrigindo] = useState(false)
   const chaveFila = `conferencia-fila-${videoId}`
-  const [fila, setFilaEstado] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(chaveFila) ?? '[]')
-    } catch {
-      return []
-    }
-  })
+  const [fila, setFilaEstado] = useState<string[]>(() => lerLista(chaveFila))
   const setFila = (nova: string[]) => {
     setFilaEstado(nova)
-    try {
-      localStorage.setItem(chaveFila, JSON.stringify(nova))
-    } catch {
-      // sem armazenamento: a fila vale até recarregar a página
-    }
+    gravarLista(chaveFila, nova)
+  }
+  // "manter minha versão": vale pela afirmação; parágrafo editado gera afirmação nova e ela volta a ser avaliada
+  const chaveMantidas = `conferencia-mantidas-${videoId}`
+  const [mantidas, setMantidasEstado] = useState<string[]>(() => lerLista(chaveMantidas))
+  const setMantidas = (nova: string[]) => {
+    setMantidasEstado(nova)
+    gravarLista(chaveMantidas, nova)
   }
   const [aberto, setAberto] = useState<Record<string, boolean>>({ diverge: true })
   const [editBase, setEditBase] = useState(false)
@@ -100,8 +113,11 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
   if (!d) return null
   const c = d.conferencia
   const fatos = c?.fatos ?? []
-  const grupos = (['diverge', 'parcial', 'sem_fonte', 'confere'] as const).map((v) => [v, fatos.filter((f) => f.veredito === v)] as const)
-  const naFila = fatos.filter((f) => (f.veredito === 'diverge' || f.veredito === 'parcial') && fila.includes(chaveFato(f))) // parágrafo mudou = sai da fila
+  const grupos = (['diverge', 'parcial', 'sem_fonte', 'confere'] as const).map(
+    (v) => [v, fatos.filter((f) => f.veredito === v && (v === 'confere' || !mantidas.includes(f.afirmacao)))] as const,
+  )
+  const listaMantidas = fatos.filter((f) => f.veredito !== 'confere' && mantidas.includes(f.afirmacao))
+  const naFila = fatos.filter((f) => (f.veredito === 'diverge' || f.veredito === 'parcial') && fila.includes(chaveFato(f)) && !mantidas.includes(f.afirmacao)) // parágrafo mudou = sai da fila
 
   return (
     <div className="mt-3 rounded-lg border border-borda bg-painel-2 p-3 text-xs">
@@ -286,14 +302,28 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
                         </button>
                       )}
                       {fonteAberta === id && f.fonte && <p className="mt-1 rounded bg-painel p-1.5 text-apagado">“{f.fonte.texto}”</p>}
-                      {(f.veredito === 'diverge' || f.veredito === 'parcial') && (
-                        <button
-                          onClick={() => setFila(fila.includes(chaveFato(f)) ? fila.filter((x) => x !== chaveFato(f)) : [...fila, chaveFato(f)])}
-                          title="Coloca na fila; nada muda até mandar as correções"
-                          className={`mt-1 block rounded px-2 py-0.5 ${fila.includes(chaveFato(f)) ? 'bg-ok/15 text-ok hover:bg-ok/25' : 'bg-ouro/20 text-ouro hover:bg-ouro/30'}`}
-                        >
-                          {fila.includes(chaveFato(f)) ? '✓ na fila (tirar)' : 'Corrigir'}
-                        </button>
+                      {f.veredito !== 'confere' && (
+                        <div className="mt-1 flex items-center gap-2">
+                          {f.veredito !== 'sem_fonte' && (
+                            <button
+                              onClick={() => setFila(fila.includes(chaveFato(f)) ? fila.filter((x) => x !== chaveFato(f)) : [...fila, chaveFato(f)])}
+                              title="Coloca na fila; nada muda até mandar as correções"
+                              className={`rounded px-2 py-0.5 ${fila.includes(chaveFato(f)) ? 'bg-ok/15 text-ok hover:bg-ok/25' : 'bg-ouro/20 text-ouro hover:bg-ouro/30'}`}
+                            >
+                              {fila.includes(chaveFato(f)) ? '✓ na fila (tirar)' : 'Corrigir'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setMantidas([...mantidas, f.afirmacao])
+                              setFila(fila.filter((x) => x !== chaveFato(f)))
+                            }}
+                            title="O roteiro fica como está e o item sai da lista"
+                            className="rounded border border-borda px-2 py-0.5 text-suave hover:text-texto"
+                          >
+                            Manter minha versão
+                          </button>
+                        </div>
                       )}
                     </li>
                   )
@@ -302,6 +332,28 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
             )}
           </div>
         ),
+      )}
+      {listaMantidas.length > 0 && (
+        <div className="mb-1.5">
+          <button onClick={() => setAberto({ ...aberto, mantidas: !aberto.mantidas })} className="flex items-center gap-1.5 hover:text-texto">
+            <CheckCircle2 className="size-3.5 shrink-0 text-suave" /> <b>{listaMantidas.length}</b> mantidas por você {aberto.mantidas ? '▴' : '▾'}
+          </button>
+          {aberto.mantidas && (
+            <ul className="mt-1 flex flex-col gap-1.5 pl-5">
+              {listaMantidas.map((f) => (
+                <li key={chaveFato(f)}>
+                  <p className="text-texto/90">
+                    <span className="font-mono text-apagado">¶{f.paragrafo + 1}</span> {f.afirmacao}
+                  </p>
+                  {f.explicacao && <p className="text-suave">{f.explicacao}</p>}
+                  <button onClick={() => setMantidas(mantidas.filter((x) => x !== f.afirmacao))} className="text-apagado underline hover:text-texto">
+                    avaliar de novo
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   )
