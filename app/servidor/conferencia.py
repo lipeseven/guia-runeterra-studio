@@ -25,16 +25,18 @@ sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
 CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/runeterra/pesquisa_cache
 # A wiki do LoL saiu do Fandom (o fandom.com ficou parado em 2023): wiki.leagueoflegends.com, namespace Universe
-# (3006) = lore, com o resumo dos contos e HQs oficiais.
+# (3006) = lore, com o resumo dos contos e HQs oficiais. ns_extra = eventos (0), Legends of Runeterra (3002) e Riftbound (3008).
 WIKI = "https://wiki.leagueoflegends.com/en-us/api.php"
 POKEWIKI = "https://pokemon.fandom.com/api.php"  # a Bulbapedia bloqueia acesso automático (Cloudflare)
 # fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
-FONTES = {"lol": {"wiki": WIKI, "ns": "3006", "nome": "wiki do LoL (Universe) / biografia e contos oficiais da Riot",
+FONTES = {"lol": {"wiki": WIKI, "ns": "3006", "ns_extra": "0|3002|3008",
+                  "nome": "wiki do LoL (lore, eventos, Legends of Runeterra, Riftbound) / biografia e contos oficiais da Riot",
                   "quem": "campeões envolvidos"},
           "pokemon": {"wiki": POKEWIKI, "ns": "0", "nome": "Pokémon Wiki / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
 FONTE = FONTES[CANAL.get("fatos", "lol")]
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/en_us/champions/{slug}/index.json"
 CONTO = "https://universe-meeps.leagueoflegends.com/v1/en_us/story/{slug}/index.json"
+ARQ_FATOS = caminho("dados_acervo").parent / "fatos_do_canal.txt"  # anotações do Felipe, uma por linha (# = comentário)
 AGENTE = {"User-Agent": "GuiaRuneterraStudio/1.0 (uso pessoal; conferencia de roteiro)"}
 QUASE_IGUAL, PARECIDA = 0.78, 0.70  # cosseno entre frases (medido: tradução literal PT×EN ≈ 0,75–0,9; assunto igual ≈ 0,5)
 
@@ -140,7 +142,13 @@ def _wiki(busca: str) -> list[tuple[str, str]]:
     """(fonte, texto) das 4 páginas da wiki do canal mais relevantes para a busca (LoL: só páginas de lore)."""
     r = _baixar(FONTE["wiki"], {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 4,
                                 "srnamespace": FONTE["ns"]})
-    return [x for item in ((r or {}).get("query") or {}).get("search", []) for x in _wiki_pagina(item["title"])]
+    titulos = [item["title"] for item in ((r or {}).get("query") or {}).get("search", [])]
+    if FONTE.get("ns_extra"):
+        r = _baixar(FONTE["wiki"], {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 6,
+                                    "srnamespace": FONTE["ns_extra"]})
+        extras = [item["title"] for item in ((r or {}).get("query") or {}).get("search", [])]
+        titulos += [t for t in extras if "/" not in t and not re.match(r"V\d", t)][:2]  # sem skins/áudio/notas de versão
+    return [x for t in titulos for x in _wiki_pagina(t)]
 
 
 def _wiki_pagina(titulo: str) -> list[tuple[str, str]]:
@@ -189,7 +197,27 @@ def _trechos(fontes: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return saida
 
 
+def fatos_relevantes(consulta: str, n: int = 3) -> list[tuple[str, str]]:
+    """Anotações do Felipe ligadas a esta consulta (o que não está escrito em lugar nenhum, ex.: cinemática)."""
+    if not ARQ_FATOS.exists():
+        return []
+    linhas = [x.strip() for x in ARQ_FATOS.read_text(encoding="utf-8-sig").splitlines() if x.strip() and not x.strip().startswith("#")]
+    if not linhas:
+        return []
+    e = _embed([consulta] + linhas)
+    notas = e[1:] @ e[0]
+    return [("fato do canal", linhas[i]) for i in notas.argsort()[::-1][:n] if notas[i] >= 0.4]
+
+
 # ------------------------------------------------------------------------------------------------ fatos
+# Como pesar as fontes (conferência, dossiê e crivo). O que vale é o ponto mais recente da história, não quem publicou.
+REGRA_DAS_FONTES = ("Trecho marcado \"fato do canal\" é anotação verificada pelo dono do canal e vale acima de todas as fontes."
+                    + (" A biografia da Riot é um retrato antigo e costuma parar no tempo; eventos, cinemáticas, contos e "
+                       "linha do tempo trazem o que aconteceu depois. Biografia que não cita um fato NÃO contradiz esse "
+                       "fato. Se duas fontes se contradizem, vale a mais recente na história, mesmo que seja a wiki (ex.: a "
+                       "biografia o mostra servindo o rei e a linha do tempo conta que ele morreu depois: vale a morte). Se "
+                       "não der para saber qual é a mais recente, não decida: diga isso."
+                       if CANAL.get("fatos", "lol") == "lol" else ""))
 SISTEMA = f"Você confere roteiros do canal \"{CANAL['nome']}\" ({CANAL['assunto']}). Responda SOMENTE JSON."
 
 
@@ -210,7 +238,7 @@ def _pokedex(nome: str) -> list[tuple[str, str]]:
 
 
 # Versão das regras da checagem: mudou a regra (fontes, prompt) → todo parágrafo é conferido de novo uma vez.
-REGRAS = "3"  # 3 = afirmações atômicas + página do personagem + "parcial" (2026-10-31)
+REGRAS = "4"  # 4 = obra mais recente vale mais, eventos/LoR/Riftbound na busca, fatos do canal (2026-10-31)
 
 
 def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
@@ -249,6 +277,7 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                 # 3 melhores da wiki + 2 melhores da Riot (biografia/conto): dá para cruzar as fontes
                 escolhidos = ([x for x in ordem if x[0].startswith("wiki")][:3]
                               + [x for x in ordem if not x[0].startswith("wiki")][:2]) or ordem[:3]
+            escolhidos += fatos_relevantes(a["afirmacao"])
             a["trechos"] = [{"fonte": f, "texto": t} for f, t in escolhidos]
             blocos.append(f"### Afirmação {k}: {a['afirmacao']}\n" + "\n".join(
                 f"[{j}] ({x['fonte']}) {x['texto']}" for j, x in enumerate(a["trechos"])) if a["trechos"] else
@@ -264,8 +293,8 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                 "- sem_fonte: os trechos não falam disso (não julgue pelo seu conhecimento).\n"
                 "Ausência de um detalhe NÃO é divergência.\n"
                 "Cruze as fontes: `fontes` = quantas fontes DIFERENTES (wiki, biografia Riot, conto Riot) sustentam a "
-                "afirmação; `fontes_divergem` = true se as próprias fontes se contradizem entre si (aí a Riot oficial "
-                "vale mais que a wiki — diga isso na explicação).\n\n" + "\n\n".join(blocos)
+                "afirmação; `fontes_divergem` = true se as próprias fontes se contradizem entre si (diga na explicação "
+                "qual valeu e por quê).\n" + REGRA_DAS_FONTES + "\n\n" + "\n\n".join(blocos)
                 + '\n\nJSON: {"vereditos": [{"i": 0, "veredito": "confere|parcial|diverge|sem_fonte", '
                   '"explicacao": "1 frase em português", "trecho": 0, "fontes": 1, "fontes_divergem": false}]}',
                 SISTEMA, modelo="sonnet", etiqueta="conferencia-fatos")

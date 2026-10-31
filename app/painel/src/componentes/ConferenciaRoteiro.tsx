@@ -86,6 +86,7 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
   const [aberto, setAberto] = useState<Record<string, boolean>>({ diverge: true })
   const [editBase, setEditBase] = useState(false)
   const [base, setBase] = useState('')
+  const [fatosCanal, setFatosCanal] = useState<string | null>(null)
   const [fonteAberta, setFonteAberta] = useState<number | null>(null)
   const carregar = () => api<Dados>(`/videos/${videoId}/roteiro/conferencia`).then(setD)
   useEffect(() => {
@@ -113,6 +114,13 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
           </span>
         )}
         <span className="ml-auto flex items-center gap-2">
+          <button
+            onClick={async () => setFatosCanal(fatosCanal === null ? (await api<{ texto: string }>('/fatos-do-canal')).texto : null)}
+            className="text-suave underline hover:text-texto"
+            title="O que você sabe e não está escrito em lugar nenhum (ex.: cinemáticas). Vale acima das outras fontes."
+          >
+            fatos do canal
+          </button>
           <button
             onClick={() => {
               setBase(d.base ?? '')
@@ -145,6 +153,32 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
           </button>
         </span>
       </div>
+
+      {fatosCanal !== null && (
+        <div className="mb-3 flex flex-col gap-1.5">
+          <textarea
+            value={fatosCanal}
+            onChange={(e) => setFatosCanal(e.target.value)}
+            placeholder="Um fato por linha, com a origem. Ex.: Na cinemática Salvation, Yunara está em Demacia."
+            className="h-32 w-full resize-y rounded-md border border-borda bg-painel p-2 text-[11px] outline-none focus:border-suave"
+          />
+          <div className="flex items-center justify-end gap-2">
+            <span className="mr-auto text-apagado">Valem para o canal todo. Para aplicar a um roteiro já conferido, use "conferir tudo".</span>
+            <button onClick={() => setFatosCanal(null)} className="px-2 py-1 text-suave">
+              cancelar
+            </button>
+            <button
+              onClick={async () => {
+                await api('/fatos-do-canal', { method: 'POST', body: JSON.stringify({ texto: fatosCanal }) })
+                setFatosCanal(null)
+              }}
+              className="rounded bg-ouro/20 px-2.5 py-1 text-ouro hover:bg-ouro/30"
+            >
+              guardar
+            </button>
+          </div>
+        </div>
+      )}
 
       {editBase && (
         <div className="mb-3 flex flex-col gap-1.5">

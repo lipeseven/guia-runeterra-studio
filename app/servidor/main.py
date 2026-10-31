@@ -86,6 +86,26 @@ def _pasta_roteiros() -> Path:
     return pasta
 
 
+class FatosDoCanal(BaseModel):
+    texto: str
+
+
+@app.get("/api/fatos-do-canal")
+def ler_fatos_do_canal():
+    from .conferencia import ARQ_FATOS
+
+    return {"texto": ARQ_FATOS.read_text(encoding="utf-8-sig") if ARQ_FATOS.exists() else "", "caminho": str(ARQ_FATOS)}
+
+
+@app.post("/api/fatos-do-canal")
+def salvar_fatos_do_canal(corpo: FatosDoCanal):
+    from .conferencia import ARQ_FATOS
+
+    ARQ_FATOS.parent.mkdir(parents=True, exist_ok=True)
+    ARQ_FATOS.write_text(corpo.texto.replace("\r\n", "\n").strip() + "\n", encoding="utf-8")
+    return {"ok": True}
+
+
 @app.get("/api/roteiros")
 def listar_roteiros():
     pasta = _pasta_roteiros()

@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 
 from .banco import CANAL, agora
-from .conferencia import FONTE, SISTEMA, _embed, _pokedex, _trechos, _universe, _wiki
+from .conferencia import FONTE, REGRA_DAS_FONTES, SISTEMA, _embed, _pokedex, _trechos, _universe, _wiki, fatos_relevantes
 
 LOL = CANAL.get("fatos", "lol") == "lol"
 
@@ -73,7 +73,7 @@ def _fatos(titulo: str, notas: str, grupo: list[tuple[dict, list[tuple[str, str]
         "quem fez o quê, origens, relações, lugares, datas/eras, detalhes marcantes). Use SÓ o que os trechos dizem — "
         "nada do seu conhecimento. Escreva cada fato em português, curto e autossuficiente. Marque `canon`: \"atual\" "
         "(lore vigente), \"antigo\" (seção Legacy/lore antigo/retcon) ou \"jogo\" (só falas/eventos do jogo, não "
-        "conto/biografia). Até 30 fatos por grupo, sem repetir.\n\n"
+        "conto/biografia). Até 30 fatos por grupo, sem repetir.\n" + REGRA_DAS_FONTES + "\n\n"
         'JSON: {"fatos": [{"assunto": "Aatrox", "fato": "...", "fonte": 0, "canon": "atual"}]}',
         SISTEMA, modelo="sonnet", etiqueta="pesquisa-fatos", timeout=900)
     saida = []
@@ -92,7 +92,7 @@ def _crivo(afirmacoes: list[dict], todos: list[tuple[str, str]], aviso) -> list[
     blocos = []
     for k, a in enumerate(afirmacoes):
         tr = _trechos(_wiki(a.get("busca") or a["afirmacao"])) + todos
-        a["trechos"] = [{"fonte": f, "texto": t} for f, t in _melhores(tr, a["afirmacao"], 3)] if tr else []
+        a["trechos"] = [{"fonte": f, "texto": t} for f, t in _melhores(tr, a["afirmacao"], 3) + fatos_relevantes(a["afirmacao"])]
         blocos.append(f"### Afirmação {k}: {a['afirmacao']}\n" + ("\n".join(
             f"[{j}] ({x['fonte']}) {x['texto']}" for j, x in enumerate(a["trechos"])) or "(nenhum trecho encontrado)"))
     aviso(f"passando {len(afirmacoes)} afirmação(ões) do roteiro base pelo crivo")
@@ -103,7 +103,7 @@ def _crivo(afirmacoes: list[dict], todos: list[tuple[str, str]], aviso) -> list[
         "correta segundo a fonte em `correcao`;\n"
         "- desatualizada: só vale no lore antigo/Legacy/retcon ou não é canon — explique em `correcao` o que vale hoje, "
         "se a fonte disser;\n"
-        "- sem_fonte: os trechos não falam disso (não julgue pelo seu conhecimento).\n\n" + "\n\n".join(blocos)
+        "- sem_fonte: os trechos não falam disso (não julgue pelo seu conhecimento).\n" + REGRA_DAS_FONTES + "\n\n" + "\n\n".join(blocos)
         + '\n\nJSON: {"vereditos": [{"i": 0, "veredito": "confirmada|corrigida|desatualizada|sem_fonte", '
           '"correcao": "1 frase em português (vazio se confirmada)", "trecho": 0}]}',
         SISTEMA, modelo="sonnet", etiqueta="pesquisa-crivo", timeout=900)
@@ -126,7 +126,7 @@ def pesquisar(pasta: Path, titulo: str, notas: str, base: str | None, aviso=lamb
     aviso(f"buscando {len(assuntos)} assunto(s) na {FONTE['nome']}")
     achados, todos = [], []
     for a in assuntos:
-        tr = _melhores(_trechos(_fontes(a)), f"{titulo}. {a['nome']}", 10)
+        tr = _melhores(_trechos(_fontes(a)), f"{titulo}. {a['nome']}", 10) + fatos_relevantes(f"{titulo}. {a['nome']}")
         achados.append((a, tr))
         todos += tr
     fatos: list[dict] = []
