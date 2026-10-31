@@ -11,8 +11,10 @@ type Fato = {
   explicacao: string
   fonte: { fonte: string; texto: string } | null
   fontes?: number | null // quantas fontes diferentes sustentam (wiki, biografia Riot, conto Riot)
-  fontes_divergem?: boolean // as próprias fontes se contradizem (a Riot oficial vale mais)
+  fontes_divergem?: boolean // as próprias fontes se contradizem
+  bloco?: string // trecho do roteiro: só volta a ser conferido se o texto dele mudar
 }
+type Rodada = { refeitos: number; total: number; novas: string[]; resolvidas: string[] }
 type Semelhanca = { geral: number; total: number; frases: { frase: string; base: string; nota: number; nivel: string }[] }
 type Dossie = {
   quando: string
@@ -22,7 +24,7 @@ type Dossie = {
 }
 type Dados = {
   dossie: Dossie | null
-  conferencia: { quando: string; semelhanca?: Semelhanca; fatos?: Fato[]; erro_fatos?: string } | null
+  conferencia: { quando: string; semelhanca?: Semelhanca; fatos?: Fato[]; erro_fatos?: string; rodada?: Rodada } | null
   atual: boolean
   base: string | null
 }
@@ -42,6 +44,23 @@ const CRIVO = {
 const NOMES = { diverge: 'a fonte diz diferente', parcial: 'conferem em parte (um pedaço sem fonte)', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com as fontes' }
 
 const chaveFato = (f: Fato) => `${f.paragrafo}|${f.afirmacao}`
+const chaveMantida = (f: Fato) => (f.bloco ? `${f.bloco}|${f.afirmacao}` : f.afirmacao)
+
+function lerLista(chave: string): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(chave) ?? '[]')
+  } catch {
+    return []
+  }
+}
+
+function gravarLista(chave: string, lista: string[]) {
+  try {
+    localStorage.setItem(chave, JSON.stringify(lista))
+  } catch {
+    // sem armazenamento: a lista vale até recarregar a página
+  }
+}
 
 /** Pedido único ao roteirista com as correções da fila (o fato corrigido vem da fonte da conferência, não do dossiê). */
 function pedidoDeCorrecoes(lista: Fato[]) {
@@ -68,24 +87,23 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
   const [d, setD] = useState<Dados | null>(null)
   const [corrigindo, setCorrigindo] = useState(false)
   const chaveFila = `conferencia-fila-${videoId}`
-  const [fila, setFilaEstado] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(chaveFila) ?? '[]')
-    } catch {
-      return []
-    }
-  })
+  const [fila, setFilaEstado] = useState<string[]>(() => lerLista(chaveFila))
   const setFila = (nova: string[]) => {
     setFilaEstado(nova)
-    try {
-      localStorage.setItem(chaveFila, JSON.stringify(nova))
-    } catch {
-      // sem armazenamento: a fila vale até recarregar a página
-    }
+    gravarLista(chaveFila, nova)
   }
+  // "manter minha versão": vale enquanto o texto do trecho não mudar (entradas antigas são só a afirmação)
+  const chaveMantidas = `conferencia-mantidas-${videoId}`
+  const [mantidas, setMantidasEstado] = useState<string[]>(() => lerLista(chaveMantidas))
+  const setMantidas = (nova: string[]) => {
+    setMantidasEstado(nova)
+    gravarLista(chaveMantidas, nova)
+  }
+  const mantida = (f: Fato) => mantidas.includes(chaveMantida(f)) || mantidas.includes(f.afirmacao)
   const [aberto, setAberto] = useState<Record<string, boolean>>({ diverge: true })
   const [editBase, setEditBase] = useState(false)
   const [base, setBase] = useState('')
+  const [fatosCanal, setFatosCanal] = useState<string | null>(null)
   const [fonteAberta, setFonteAberta] = useState<number | null>(null)
   const carregar = () => api<Dados>(`/videos/${videoId}/roteiro/conferencia`).then(setD)
   useEffect(() => {
@@ -99,8 +117,11 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
   if (!d) return null
   const c = d.conferencia
   const fatos = c?.fatos ?? []
-  const grupos = (['diverge', 'parcial', 'sem_fonte', 'confere'] as const).map((v) => [v, fatos.filter((f) => f.veredito === v)] as const)
-  const naFila = fatos.filter((f) => (f.veredito === 'diverge' || f.veredito === 'parcial') && fila.includes(chaveFato(f))) // parágrafo mudou = sai da fila
+  const grupos = (['diverge', 'parcial', 'sem_fonte', 'confere'] as const).map(
+    (v) => [v, fatos.filter((f) => f.veredito === v && (v === 'confere' || !mantida(f)))] as const,
+  )
+  const listaMantidas = fatos.filter((f) => f.veredito !== 'confere' && mantida(f))
+  const naFila = fatos.filter((f) => (f.veredito === 'diverge' || f.veredito === 'parcial') && fila.includes(chaveFato(f)) && !mantida(f)) // parágrafo mudou = sai da fila
 
   return (
     <div className="mt-3 rounded-lg border border-borda bg-painel-2 p-3 text-xs">
@@ -113,6 +134,13 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
           </span>
         )}
         <span className="ml-auto flex items-center gap-2">
+          <button
+            onClick={async () => setFatosCanal(fatosCanal === null ? (await api<{ texto: string }>('/fatos-do-canal')).texto : null)}
+            className="text-suave underline hover:text-texto"
+            title="O que você sabe e não está escrito em lugar nenhum (ex.: cinemáticas). Vale acima das outras fontes."
+          >
+            fatos do canal
+          </button>
           <button
             onClick={() => {
               setBase(d.base ?? '')
@@ -145,6 +173,32 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
           </button>
         </span>
       </div>
+
+      {fatosCanal !== null && (
+        <div className="mb-3 flex flex-col gap-1.5">
+          <textarea
+            value={fatosCanal}
+            onChange={(e) => setFatosCanal(e.target.value)}
+            placeholder="Um fato por linha, com a origem. Ex.: Na cinemática Salvation, Yunara está em Demacia."
+            className="h-32 w-full resize-y rounded-md border border-borda bg-painel p-2 text-[11px] outline-none focus:border-suave"
+          />
+          <div className="flex items-center justify-end gap-2">
+            <span className="mr-auto text-apagado">Valem para o canal todo. Para aplicar a um roteiro já conferido, use "conferir tudo".</span>
+            <button onClick={() => setFatosCanal(null)} className="px-2 py-1 text-suave">
+              cancelar
+            </button>
+            <button
+              onClick={async () => {
+                await api('/fatos-do-canal', { method: 'POST', body: JSON.stringify({ texto: fatosCanal }) })
+                setFatosCanal(null)
+              }}
+              className="rounded bg-ouro/20 px-2.5 py-1 text-ouro hover:bg-ouro/30"
+            >
+              guardar
+            </button>
+          </div>
+        </div>
+      )}
 
       {editBase && (
         <div className="mb-3 flex flex-col gap-1.5">
@@ -222,6 +276,23 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
         </div>
       )}
 
+      {c?.rodada && d.atual && (
+        <div className="mb-2 text-suave">
+          <p>
+            {c.rodada.refeitos === 0
+              ? `Nenhum trecho novo para conferir (${c.rodada.total} no roteiro).`
+              : `Esta rodada conferiu ${c.rodada.refeitos} de ${c.rodada.total} trechos: ${c.rodada.resolvidas.length} ${c.rodada.resolvidas.length === 1 ? 'resolvida' : 'resolvidas'}, ${c.rodada.novas.length} ${c.rodada.novas.length === 1 ? 'nova' : 'novas'}.`}
+          </p>
+          {c.rodada.resolvidas.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 text-apagado">
+              {c.rodada.resolvidas.map((x, k) => (
+                <li key={k}>{x}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {c?.erro_fatos && <p className="text-atencao">Checagem de fatos falhou: {c.erro_fatos}</p>}
       {c && !c.erro_fatos && fatos.length === 0 && d.atual && <p className="text-apagado">Nenhuma afirmação de lore para checar.</p>}
       {grupos.map(([v, lista]) =>
@@ -238,6 +309,7 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
                     <li key={id}>
                       <p className="text-texto/90">
                         <span className="font-mono text-apagado">¶{f.paragrafo + 1}</span> {f.afirmacao}
+                        {c?.rodada?.novas.includes(f.afirmacao) && <span className="ml-1 rounded bg-ouro/20 px-1 text-ouro">novo</span>}
                         {f.veredito === 'confere' && (f.fontes ?? 0) >= 2 && (
                           <span className="ml-1 rounded bg-ok/15 px-1 text-ok" title="confirmado por fontes diferentes">✓✓ {f.fontes} fontes</span>
                         )}
@@ -252,14 +324,28 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
                         </button>
                       )}
                       {fonteAberta === id && f.fonte && <p className="mt-1 rounded bg-painel p-1.5 text-apagado">“{f.fonte.texto}”</p>}
-                      {(f.veredito === 'diverge' || f.veredito === 'parcial') && (
-                        <button
-                          onClick={() => setFila(fila.includes(chaveFato(f)) ? fila.filter((x) => x !== chaveFato(f)) : [...fila, chaveFato(f)])}
-                          title="Coloca na fila; nada muda até mandar as correções"
-                          className={`mt-1 block rounded px-2 py-0.5 ${fila.includes(chaveFato(f)) ? 'bg-ok/15 text-ok hover:bg-ok/25' : 'bg-ouro/20 text-ouro hover:bg-ouro/30'}`}
-                        >
-                          {fila.includes(chaveFato(f)) ? '✓ na fila (tirar)' : 'Corrigir'}
-                        </button>
+                      {f.veredito !== 'confere' && (
+                        <div className="mt-1 flex items-center gap-2">
+                          {f.veredito !== 'sem_fonte' && (
+                            <button
+                              onClick={() => setFila(fila.includes(chaveFato(f)) ? fila.filter((x) => x !== chaveFato(f)) : [...fila, chaveFato(f)])}
+                              title="Coloca na fila; nada muda até mandar as correções"
+                              className={`rounded px-2 py-0.5 ${fila.includes(chaveFato(f)) ? 'bg-ok/15 text-ok hover:bg-ok/25' : 'bg-ouro/20 text-ouro hover:bg-ouro/30'}`}
+                            >
+                              {fila.includes(chaveFato(f)) ? '✓ na fila (tirar)' : 'Corrigir'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => {
+                              setMantidas([...mantidas, chaveMantida(f)])
+                              setFila(fila.filter((x) => x !== chaveFato(f)))
+                            }}
+                            title="O roteiro fica como está e o item sai da lista"
+                            className="rounded border border-borda px-2 py-0.5 text-suave hover:text-texto"
+                          >
+                            Manter minha versão
+                          </button>
+                        </div>
                       )}
                     </li>
                   )
@@ -268,6 +354,28 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
             )}
           </div>
         ),
+      )}
+      {listaMantidas.length > 0 && (
+        <div className="mb-1.5">
+          <button onClick={() => setAberto({ ...aberto, mantidas: !aberto.mantidas })} className="flex items-center gap-1.5 hover:text-texto">
+            <CheckCircle2 className="size-3.5 shrink-0 text-suave" /> <b>{listaMantidas.length}</b> mantidas por você {aberto.mantidas ? '▴' : '▾'}
+          </button>
+          {aberto.mantidas && (
+            <ul className="mt-1 flex flex-col gap-1.5 pl-5">
+              {listaMantidas.map((f) => (
+                <li key={chaveFato(f)}>
+                  <p className="text-texto/90">
+                    <span className="font-mono text-apagado">¶{f.paragrafo + 1}</span> {f.afirmacao}
+                  </p>
+                  {f.explicacao && <p className="text-suave">{f.explicacao}</p>}
+                  <button onClick={() => setMantidas(mantidas.filter((x) => x !== f.afirmacao && x !== chaveMantida(f)))} className="text-apagado underline hover:text-texto">
+                    avaliar de novo
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
     </div>
   )

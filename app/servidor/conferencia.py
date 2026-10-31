@@ -25,16 +25,18 @@ sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
 CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/runeterra/pesquisa_cache
 # A wiki do LoL saiu do Fandom (o fandom.com ficou parado em 2023): wiki.leagueoflegends.com, namespace Universe
-# (3006) = lore, com o resumo dos contos e HQs oficiais.
+# (3006) = lore, com o resumo dos contos e HQs oficiais. ns_extra = eventos (0), Legends of Runeterra (3002) e Riftbound (3008).
 WIKI = "https://wiki.leagueoflegends.com/en-us/api.php"
 POKEWIKI = "https://pokemon.fandom.com/api.php"  # a Bulbapedia bloqueia acesso automático (Cloudflare)
 # fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
-FONTES = {"lol": {"wiki": WIKI, "ns": "3006", "nome": "wiki do LoL (Universe) / biografia e contos oficiais da Riot",
+FONTES = {"lol": {"wiki": WIKI, "ns": "3006", "ns_extra": "0|3002|3008",
+                  "nome": "wiki do LoL (lore, eventos, Legends of Runeterra, Riftbound) / biografia e contos oficiais da Riot",
                   "quem": "campeões envolvidos"},
           "pokemon": {"wiki": POKEWIKI, "ns": "0", "nome": "Pokémon Wiki / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
 FONTE = FONTES[CANAL.get("fatos", "lol")]
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/en_us/champions/{slug}/index.json"
 CONTO = "https://universe-meeps.leagueoflegends.com/v1/en_us/story/{slug}/index.json"
+ARQ_FATOS = caminho("dados_acervo").parent / "fatos_do_canal.txt"  # anotações do Felipe, uma por linha (# = comentário)
 AGENTE = {"User-Agent": "GuiaRuneterraStudio/1.0 (uso pessoal; conferencia de roteiro)"}
 QUASE_IGUAL, PARECIDA = 0.78, 0.70  # cosseno entre frases (medido: tradução literal PT×EN ≈ 0,75–0,9; assunto igual ≈ 0,5)
 
@@ -140,7 +142,13 @@ def _wiki(busca: str) -> list[tuple[str, str]]:
     """(fonte, texto) das 4 páginas da wiki do canal mais relevantes para a busca (LoL: só páginas de lore)."""
     r = _baixar(FONTE["wiki"], {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 4,
                                 "srnamespace": FONTE["ns"]})
-    return [x for item in ((r or {}).get("query") or {}).get("search", []) for x in _wiki_pagina(item["title"])]
+    titulos = [item["title"] for item in ((r or {}).get("query") or {}).get("search", [])]
+    if FONTE.get("ns_extra"):
+        r = _baixar(FONTE["wiki"], {"action": "query", "list": "search", "srsearch": busca, "format": "json", "srlimit": 6,
+                                    "srnamespace": FONTE["ns_extra"]})
+        extras = [item["title"] for item in ((r or {}).get("query") or {}).get("search", [])]
+        titulos += [t for t in extras if "/" not in t and not re.match(r"V\d", t)][:2]  # sem skins/áudio/notas de versão
+    return [x for t in titulos for x in _wiki_pagina(t)]
 
 
 def _wiki_pagina(titulo: str) -> list[tuple[str, str]]:
@@ -189,7 +197,27 @@ def _trechos(fontes: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return saida
 
 
+def fatos_relevantes(consulta: str, n: int = 3) -> list[tuple[str, str]]:
+    """Anotações do Felipe ligadas a esta consulta (o que não está escrito em lugar nenhum, ex.: cinemática)."""
+    if not ARQ_FATOS.exists():
+        return []
+    linhas = [x.strip() for x in ARQ_FATOS.read_text(encoding="utf-8-sig").splitlines() if x.strip() and not x.strip().startswith("#")]
+    if not linhas:
+        return []
+    e = _embed([consulta] + linhas)
+    notas = e[1:] @ e[0]
+    return [("fato do canal", linhas[i]) for i in notas.argsort()[::-1][:n] if notas[i] >= 0.4]
+
+
 # ------------------------------------------------------------------------------------------------ fatos
+# Como pesar as fontes (conferência, dossiê e crivo). O que vale é o ponto mais recente da história, não quem publicou.
+REGRA_DAS_FONTES = ("Trecho marcado \"fato do canal\" é anotação verificada pelo dono do canal e vale acima de todas as fontes."
+                    + (" A biografia da Riot é um retrato antigo e costuma parar no tempo; eventos, cinemáticas, contos e "
+                       "linha do tempo trazem o que aconteceu depois. Biografia que não cita um fato NÃO contradiz esse "
+                       "fato. Se duas fontes se contradizem, vale a mais recente na história, mesmo que seja a wiki (ex.: a "
+                       "biografia o mostra servindo o rei e a linha do tempo conta que ele morreu depois: vale a morte). Se "
+                       "não der para saber qual é a mais recente, não decida: diga isso."
+                       if CANAL.get("fatos", "lol") == "lol" else ""))
 SISTEMA = f"Você confere roteiros do canal \"{CANAL['nome']}\" ({CANAL['assunto']}). Responda SOMENTE JSON."
 
 
@@ -210,28 +238,72 @@ def _pokedex(nome: str) -> list[tuple[str, str]]:
 
 
 # Versão das regras da checagem: mudou a regra (fontes, prompt) → todo parágrafo é conferido de novo uma vez.
-REGRAS = "3"  # 3 = afirmações atômicas + página do personagem + "parcial" (2026-10-31)
+REGRAS = "4"  # 4 = obra mais recente vale mais, eventos/LoR/Riftbound na busca, fatos do canal (2026-10-31)
 
 
-def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
+LOTE = 8  # trechos por chamada ao Claude: o progresso fica guardado a cada lote
+
+
+def _cortar(paragrafo: str) -> list[str]:
+    """Trechos de ~60-90 palavras. O corte depende só da própria frase: editar uma frase não desloca os trechos
+    seguintes, então só o trecho dela volta a ser conferido."""
+    saida, atual, n = [], [], 0
+    for frase in re.split(r"(?<=[.!?…])\s+", paragrafo):
+        ws = frase.split()
+        partes = [" ".join(ws[k:k + 60]) for k in range(0, len(ws), 60)] if len(ws) > 90 else [frase]  # sem pontuação
+        for parte in partes:
+            atual.append(parte)
+            n += len(parte.split())
+            if n >= 90 or (n >= 40 and int(hashlib.sha1(parte.encode()).hexdigest(), 16) % 3 == 0):
+                saida.append(" ".join(atual))
+                atual, n = [], 0
+    if atual:
+        if saida and n < 15:  # sobra curta no fim do parágrafo
+            saida[-1] += " " + " ".join(atual)
+        else:
+            saida.append(" ".join(atual))
+    return saida
+
+
+def _chave(texto: str) -> str:
+    return f"{REGRAS}:{hashlib.sha1(texto.encode()).hexdigest()[:16]}"
+
+
+def _migrar(pars: list[str], cache: dict) -> None:
+    """Conferência antiga era por parágrafo: reparte o resultado pelos trechos em vez de gastar cota de novo."""
+    def normal(t: str) -> set[str]:
+        return set(re.findall(r"\w+", t.lower()))
+
+    for p in pars:
+        velho = hashlib.sha1((REGRAS + p).encode()).hexdigest()[:16]
+        if velho not in cache:
+            continue
+        trechos = _cortar(p)
+        lista: dict[str, list] = {_chave(t): [] for t in trechos}
+        for a in cache[velho]:
+            palavras = normal(a.get("trecho") or a.get("afirmacao") or "")
+            melhor = max(trechos, key=lambda t: len(palavras & normal(t)))
+            lista[_chave(melhor)].append(a)
+        for k, v in lista.items():
+            cache.setdefault(k, v)
+
+
+def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], cache: dict, aviso) -> None:
     from claude_cli import chamar_json
 
-    pars = [p.strip() for p in re.split(r"\n\s*\n", roteiro) if p.strip()]
-    chaves = [hashlib.sha1((REGRAS + p).encode()).hexdigest()[:16] for p in pars]
-    novos = [(i, p) for i, (p, k) in enumerate(zip(pars, chaves)) if k not in cache]
     if novos:
-        aviso(f"lendo {len(novos)} parágrafo(s) novo(s)")
         r = chamar_json(
-            "Liste as afirmações de LORE checáveis destes parágrafos (nomes, datas, eras, quem fez o quê, parentesco, "
+            "Liste as afirmações de LORE checáveis destes trechos (nomes, datas, eras, quem fez o quê, parentesco, "
             "lugares). Ignore piadas, opiniões, ganchos, comentários do narrador e o que o próprio roteiro já chama de "
             "teoria/especulação. Cada afirmação = UM fato só: frase com vários fatos vira várias afirmações curtas. "
-            "No máximo 6 por parágrafo, só as que importam. Para cada uma, dê termos de busca em INGLÊS para a wiki "
+            "Liste todas, no máximo 6 por trecho. Para cada uma, dê termos de busca em INGLÊS para a wiki "
             f"({FONTE['nome']}), começando pelo nome de quem aparece, e os {FONTE['quem']}.\n\n"
             + "\n\n".join(f"[{i}] {p}" for i, p in novos)
             + '\n\nJSON: {"afirmacoes": [{"p": 0, "trecho": "palavras do roteiro", "afirmacao": "o fato, curto", '
               '"busca": "english search terms", "campeoes": ["Mordekaiser"]}]}',
             SISTEMA, modelo="sonnet", etiqueta="conferencia-afirmacoes")
-        afirm = [a for a in r.get("afirmacoes", []) if isinstance(a.get("p"), int) and 0 <= a["p"] < len(pars)]
+        pedidos = {i for i, _ in novos}
+        afirm = [a for a in r.get("afirmacoes", []) if a.get("p") in pedidos]
         aviso(f"buscando {len(afirm)} afirmação(ões) na wiki e no Universe")
         blocos = []
         for k, a in enumerate(afirm):
@@ -249,6 +321,7 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                 # 3 melhores da wiki + 2 melhores da Riot (biografia/conto): dá para cruzar as fontes
                 escolhidos = ([x for x in ordem if x[0].startswith("wiki")][:3]
                               + [x for x in ordem if not x[0].startswith("wiki")][:2]) or ordem[:3]
+            escolhidos += fatos_relevantes(a["afirmacao"])
             a["trechos"] = [{"fonte": f, "texto": t} for f, t in escolhidos]
             blocos.append(f"### Afirmação {k}: {a['afirmacao']}\n" + "\n".join(
                 f"[{j}] ({x['fonte']}) {x['texto']}" for j, x in enumerate(a["trechos"])) if a["trechos"] else
@@ -264,8 +337,8 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                 "- sem_fonte: os trechos não falam disso (não julgue pelo seu conhecimento).\n"
                 "Ausência de um detalhe NÃO é divergência.\n"
                 "Cruze as fontes: `fontes` = quantas fontes DIFERENTES (wiki, biografia Riot, conto Riot) sustentam a "
-                "afirmação; `fontes_divergem` = true se as próprias fontes se contradizem entre si (aí a Riot oficial "
-                "vale mais que a wiki — diga isso na explicação).\n\n" + "\n\n".join(blocos)
+                "afirmação; `fontes_divergem` = true se as próprias fontes se contradizem entre si (diga na explicação "
+                "qual valeu e por quê).\n" + REGRA_DAS_FONTES + "\n\n" + "\n\n".join(blocos)
                 + '\n\nJSON: {"vereditos": [{"i": 0, "veredito": "confere|parcial|diverge|sem_fonte", '
                   '"explicacao": "1 frase em português", "trecho": 0, "fontes": 1, "fontes_divergem": false}]}',
                 SISTEMA, modelo="sonnet", etiqueta="conferencia-fatos")
@@ -280,12 +353,34 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                                     "fontes_divergem": bool(x.get("fontes_divergem"))})
         for i, lista in por_par.items():
             cache[chaves[i]] = lista
-    for k in [k for k in cache if k not in chaves]:  # parágrafos que não existem mais (ou de regras antigas)
+
+
+def fatos(roteiro: str, cache: dict, aviso=lambda m: None, info: dict | None = None) -> list[dict]:
+    pars = [p.strip() for p in re.split(r"\n\s*\n", roteiro) if p.strip()]
+    itens = [(i, t) for i, p in enumerate(pars) for t in _cortar(p)]
+    textos, chaves = [t for _, t in itens], [_chave(t) for _, t in itens]
+    _migrar(pars, cache)
+    novos = [(k, t) for k, (t, c) in enumerate(zip(textos, chaves)) if c not in cache]
+    if info is not None:
+        info.update(refeitos=len(novos), total=len(chaves))
+    for ini in range(0, len(novos), LOTE):
+        aviso(f"conferindo trechos {ini + 1} a {min(ini + LOTE, len(novos))} de {len(novos)}")
+        _checar(textos, chaves, novos[ini:ini + LOTE], cache, aviso)
+    # trecho de outra versão fica guardado: voltar uma versão ou desfazer uma alteração não confere de novo
+    for k in [k for k in cache if not k.startswith(f"{REGRAS}:")]:
         del cache[k]
-    saida = []
-    for i, k in enumerate(chaves):
-        saida += [{**a, "paragrafo": i} for a in cache.get(k, [])]
-    return saida
+    return [{**a, "paragrafo": i, "bloco": c} for (i, _), c in zip(itens, chaves) for a in cache.get(c, [])]
+
+
+def _rodada(anteriores: list[dict], atuais: list[dict], info: dict) -> dict:
+    """O que esta rodada mudou: só trechos alterados entram aqui; o resto da lista é o mesmo de antes."""
+    if not all(a.get("bloco") for a in anteriores):  # conferência antiga, sem trechos
+        return {**info, "novas": [], "resolvidas": []}
+    blocos_antes, blocos_agora = {a["bloco"] for a in anteriores}, {a["bloco"] for a in atuais}
+    pendente = lambda a: a.get("veredito") != "confere"  # noqa: E731
+    return {**info,
+            "novas": [a["afirmacao"] for a in atuais if pendente(a) and anteriores and a["bloco"] not in blocos_antes],
+            "resolvidas": [a["afirmacao"] for a in anteriores if pendente(a) and a["bloco"] not in blocos_agora]}
 
 
 def conferir(pasta: Path, aviso=lambda m: None) -> dict:
@@ -293,13 +388,16 @@ def conferir(pasta: Path, aviso=lambda m: None) -> dict:
     roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
     arq, arq_cache = dirc / "conferencia.json", dirc / "conferencia_cache.json"
     cache = json.loads(arq_cache.read_text(encoding="utf-8")) if arq_cache.exists() else {}
+    anteriores = (json.loads(arq.read_text(encoding="utf-8")).get("fatos") or []) if arq.exists() else []
+    info: dict = {}
     res: dict = {"quando": agora(), "roteiro": hashlib.sha1(roteiro.encode()).hexdigest()[:16]}
     base = dirc / "roteiro_base.txt"
     if base.exists() and base.read_text(encoding="utf-8").strip():
         aviso("comparando com o roteiro base")
         res["semelhanca"] = semelhanca(roteiro, base.read_text(encoding="utf-8"))
     try:
-        res["fatos"] = fatos(roteiro, cache, aviso)
+        res["fatos"] = fatos(roteiro, cache, aviso, info)
+        res["rodada"] = _rodada(anteriores, res["fatos"], info)
     except Exception as e:  # sem rede/cota: a semelhança continua valendo
         res["erro_fatos"] = str(e)[:300]
     arq_cache.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
