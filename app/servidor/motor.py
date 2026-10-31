@@ -1197,6 +1197,46 @@ def iniciar() -> None:
 CONFERINDO: set[int] = set()  # vídeos com conferência do roteiro na fila ou rodando: o roteiro não pode ser aprovado
 
 
+def tirar_da_fila(vid: int) -> None:
+    with FILA.mutex:
+        restantes = [t for t in FILA.queue if t[0] != vid]
+        FILA.queue.clear()
+        FILA.queue.extend(restantes)
+    CONFERINDO.discard(vid)
+
+
+def separar_para_apagar(pastas: list[Path]) -> list[Path]:
+    """Renomeia as pastas de um card excluído. Se alguma estiver em uso, desfaz e levanta OSError: nada é apagado."""
+    feitas: list[tuple[Path, Path]] = []
+    try:
+        for p in pastas:
+            if p.exists():
+                destino = p.with_name(p.name + ".apagando")
+                p.rename(destino)
+                feitas.append((p, destino))
+    except OSError:
+        for p, destino in feitas:
+            destino.rename(p)
+        raise
+    return [d for _, d in feitas]
+
+
+def apagar_de_vez(pastas: list[Path]) -> None:
+    import shutil
+
+    def liberar(funcao, caminho_, _erro):  # arquivo somente leitura
+        os.chmod(caminho_, 0o700)
+        funcao(caminho_)
+
+    # inclui restos de uma exclusão anterior que não terminou
+    for p in [*pastas, *PASTA_PROJETOS.glob("*.apagando")]:
+        try:
+            if p.exists():
+                shutil.rmtree(p, onexc=liberar)
+        except OSError:
+            traceback.print_exc()
+
+
 def pedir_conferencia(vid: int) -> None:
     CONFERINDO.add(vid)
     FILA.put((vid, "conferencia"))

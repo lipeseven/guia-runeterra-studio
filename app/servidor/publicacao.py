@@ -221,6 +221,16 @@ def registrar_uso(pasta: Path, slug: str, quando: str) -> int:
     return len(ids)
 
 
+def esquecer_uso(slug: str) -> None:
+    """Card excluído: tira o vídeo da memória de uso de mídias e sons."""
+    from comum import abrir_acervo
+
+    con = abrir_acervo()
+    con.execute("DELETE FROM uso_midia WHERE video=?", (slug,))
+    con.execute("DELETE FROM uso_som WHERE video=?", (slug,))
+    con.commit()
+
+
 def tamanhos(pasta: Path) -> dict:
     def t(p: Path) -> int:
         return sum(f.stat().st_size for f in p.rglob("*") if f.is_file()) if p.exists() else 0

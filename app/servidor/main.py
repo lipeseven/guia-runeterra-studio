@@ -865,15 +865,22 @@ def excluir(vid: int):
         executando = motor.situacao()["executando"]
         if executando and executando["video"] == vid:
             raise HTTPException(409, "o motor está trabalhando neste vídeo agora; espere terminar para excluir")
-        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+        l = con.execute("SELECT slug, titulo FROM videos WHERE id=?", (vid,)).fetchone()
+        slug, titulo = l["slug"], l["titulo"]
+        pastas = [motor.PASTA_PROJETOS / slug, RAIZ / "app" / "video" / "public" / slug]
+        try:
+            marcadas = motor.separar_para_apagar(pastas)  # arquivo aberto: não apaga nada
+        except OSError:
+            raise HTTPException(409, "algum arquivo deste vídeo está aberto em outro programa; feche e tente de novo")
         con.execute("DELETE FROM videos WHERE id=?", (vid,))  # etapas/pendências/atividade saem em cascata
         con.commit()
-    # arquivos do vídeo vão para a Lixeira do Windows (recuperáveis), não somem de vez
-    from send2trash import send2trash
+    motor.tirar_da_fila(vid)  # o número do card pode voltar a ser usado num card novo
+    publicacao.esquecer_uso(slug)
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from aprendizado import esquecer
 
-    for pasta in (motor.PASTA_PROJETOS / slug, RAIZ / "app" / "video" / "public" / slug):
-        if pasta.exists():
-            send2trash(str(pasta.resolve()))
+    esquecer(slug, titulo)
+    motor.apagar_de_vez(marcadas)  # definitivo, sem Lixeira: o Felipe não quer mais nada deste card
     return {"ok": True}
 
 
