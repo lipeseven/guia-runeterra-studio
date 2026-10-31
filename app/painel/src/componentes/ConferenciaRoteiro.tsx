@@ -11,8 +11,10 @@ type Fato = {
   explicacao: string
   fonte: { fonte: string; texto: string } | null
   fontes?: number | null // quantas fontes diferentes sustentam (wiki, biografia Riot, conto Riot)
-  fontes_divergem?: boolean // as próprias fontes se contradizem (a Riot oficial vale mais)
+  fontes_divergem?: boolean // as próprias fontes se contradizem
+  bloco?: string // trecho do roteiro: só volta a ser conferido se o texto dele mudar
 }
+type Rodada = { refeitos: number; total: number; novas: string[]; resolvidas: string[] }
 type Semelhanca = { geral: number; total: number; frases: { frase: string; base: string; nota: number; nivel: string }[] }
 type Dossie = {
   quando: string
@@ -22,7 +24,7 @@ type Dossie = {
 }
 type Dados = {
   dossie: Dossie | null
-  conferencia: { quando: string; semelhanca?: Semelhanca; fatos?: Fato[]; erro_fatos?: string } | null
+  conferencia: { quando: string; semelhanca?: Semelhanca; fatos?: Fato[]; erro_fatos?: string; rodada?: Rodada } | null
   atual: boolean
   base: string | null
 }
@@ -42,6 +44,7 @@ const CRIVO = {
 const NOMES = { diverge: 'a fonte diz diferente', parcial: 'conferem em parte (um pedaço sem fonte)', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com as fontes' }
 
 const chaveFato = (f: Fato) => `${f.paragrafo}|${f.afirmacao}`
+const chaveMantida = (f: Fato) => (f.bloco ? `${f.bloco}|${f.afirmacao}` : f.afirmacao)
 
 function lerLista(chave: string): string[] {
   try {
@@ -89,13 +92,14 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
     setFilaEstado(nova)
     gravarLista(chaveFila, nova)
   }
-  // "manter minha versão": vale pela afirmação; parágrafo editado gera afirmação nova e ela volta a ser avaliada
+  // "manter minha versão": vale enquanto o texto do trecho não mudar (entradas antigas são só a afirmação)
   const chaveMantidas = `conferencia-mantidas-${videoId}`
   const [mantidas, setMantidasEstado] = useState<string[]>(() => lerLista(chaveMantidas))
   const setMantidas = (nova: string[]) => {
     setMantidasEstado(nova)
     gravarLista(chaveMantidas, nova)
   }
+  const mantida = (f: Fato) => mantidas.includes(chaveMantida(f)) || mantidas.includes(f.afirmacao)
   const [aberto, setAberto] = useState<Record<string, boolean>>({ diverge: true })
   const [editBase, setEditBase] = useState(false)
   const [base, setBase] = useState('')
@@ -114,10 +118,10 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
   const c = d.conferencia
   const fatos = c?.fatos ?? []
   const grupos = (['diverge', 'parcial', 'sem_fonte', 'confere'] as const).map(
-    (v) => [v, fatos.filter((f) => f.veredito === v && (v === 'confere' || !mantidas.includes(f.afirmacao)))] as const,
+    (v) => [v, fatos.filter((f) => f.veredito === v && (v === 'confere' || !mantida(f)))] as const,
   )
-  const listaMantidas = fatos.filter((f) => f.veredito !== 'confere' && mantidas.includes(f.afirmacao))
-  const naFila = fatos.filter((f) => (f.veredito === 'diverge' || f.veredito === 'parcial') && fila.includes(chaveFato(f)) && !mantidas.includes(f.afirmacao)) // parágrafo mudou = sai da fila
+  const listaMantidas = fatos.filter((f) => f.veredito !== 'confere' && mantida(f))
+  const naFila = fatos.filter((f) => (f.veredito === 'diverge' || f.veredito === 'parcial') && fila.includes(chaveFato(f)) && !mantida(f)) // parágrafo mudou = sai da fila
 
   return (
     <div className="mt-3 rounded-lg border border-borda bg-painel-2 p-3 text-xs">
@@ -272,6 +276,23 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
         </div>
       )}
 
+      {c?.rodada && d.atual && (
+        <div className="mb-2 text-suave">
+          <p>
+            {c.rodada.refeitos === 0
+              ? `Nenhum trecho novo para conferir (${c.rodada.total} no roteiro).`
+              : `Esta rodada conferiu ${c.rodada.refeitos} de ${c.rodada.total} trechos: ${c.rodada.resolvidas.length} ${c.rodada.resolvidas.length === 1 ? 'resolvida' : 'resolvidas'}, ${c.rodada.novas.length} ${c.rodada.novas.length === 1 ? 'nova' : 'novas'}.`}
+          </p>
+          {c.rodada.resolvidas.length > 0 && (
+            <ul className="mt-1 list-disc pl-5 text-apagado">
+              {c.rodada.resolvidas.map((x, k) => (
+                <li key={k}>{x}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
       {c?.erro_fatos && <p className="text-atencao">Checagem de fatos falhou: {c.erro_fatos}</p>}
       {c && !c.erro_fatos && fatos.length === 0 && d.atual && <p className="text-apagado">Nenhuma afirmação de lore para checar.</p>}
       {grupos.map(([v, lista]) =>
@@ -288,6 +309,7 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
                     <li key={id}>
                       <p className="text-texto/90">
                         <span className="font-mono text-apagado">¶{f.paragrafo + 1}</span> {f.afirmacao}
+                        {c?.rodada?.novas.includes(f.afirmacao) && <span className="ml-1 rounded bg-ouro/20 px-1 text-ouro">novo</span>}
                         {f.veredito === 'confere' && (f.fontes ?? 0) >= 2 && (
                           <span className="ml-1 rounded bg-ok/15 px-1 text-ok" title="confirmado por fontes diferentes">✓✓ {f.fontes} fontes</span>
                         )}
@@ -315,7 +337,7 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
                           )}
                           <button
                             onClick={() => {
-                              setMantidas([...mantidas, f.afirmacao])
+                              setMantidas([...mantidas, chaveMantida(f)])
                               setFila(fila.filter((x) => x !== chaveFato(f)))
                             }}
                             title="O roteiro fica como está e o item sai da lista"
@@ -346,7 +368,7 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
                     <span className="font-mono text-apagado">¶{f.paragrafo + 1}</span> {f.afirmacao}
                   </p>
                   {f.explicacao && <p className="text-suave">{f.explicacao}</p>}
-                  <button onClick={() => setMantidas(mantidas.filter((x) => x !== f.afirmacao))} className="text-apagado underline hover:text-texto">
+                  <button onClick={() => setMantidas(mantidas.filter((x) => x !== f.afirmacao && x !== chaveMantida(f)))} className="text-apagado underline hover:text-texto">
                     avaliar de novo
                   </button>
                 </li>

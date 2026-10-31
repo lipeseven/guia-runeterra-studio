@@ -241,25 +241,69 @@ def _pokedex(nome: str) -> list[tuple[str, str]]:
 REGRAS = "4"  # 4 = obra mais recente vale mais, eventos/LoR/Riftbound na busca, fatos do canal (2026-10-31)
 
 
-def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
+LOTE = 8  # trechos por chamada ao Claude: o progresso fica guardado a cada lote
+
+
+def _cortar(paragrafo: str) -> list[str]:
+    """Trechos de ~60-90 palavras. O corte depende só da própria frase: editar uma frase não desloca os trechos
+    seguintes, então só o trecho dela volta a ser conferido."""
+    saida, atual, n = [], [], 0
+    for frase in re.split(r"(?<=[.!?…])\s+", paragrafo):
+        ws = frase.split()
+        partes = [" ".join(ws[k:k + 60]) for k in range(0, len(ws), 60)] if len(ws) > 90 else [frase]  # sem pontuação
+        for parte in partes:
+            atual.append(parte)
+            n += len(parte.split())
+            if n >= 90 or (n >= 40 and int(hashlib.sha1(parte.encode()).hexdigest(), 16) % 3 == 0):
+                saida.append(" ".join(atual))
+                atual, n = [], 0
+    if atual:
+        if saida and n < 15:  # sobra curta no fim do parágrafo
+            saida[-1] += " " + " ".join(atual)
+        else:
+            saida.append(" ".join(atual))
+    return saida
+
+
+def _chave(texto: str) -> str:
+    return f"{REGRAS}:{hashlib.sha1(texto.encode()).hexdigest()[:16]}"
+
+
+def _migrar(pars: list[str], cache: dict) -> None:
+    """Conferência antiga era por parágrafo: reparte o resultado pelos trechos em vez de gastar cota de novo."""
+    def normal(t: str) -> set[str]:
+        return set(re.findall(r"\w+", t.lower()))
+
+    for p in pars:
+        velho = hashlib.sha1((REGRAS + p).encode()).hexdigest()[:16]
+        if velho not in cache:
+            continue
+        trechos = _cortar(p)
+        lista: dict[str, list] = {_chave(t): [] for t in trechos}
+        for a in cache[velho]:
+            palavras = normal(a.get("trecho") or a.get("afirmacao") or "")
+            melhor = max(trechos, key=lambda t: len(palavras & normal(t)))
+            lista[_chave(melhor)].append(a)
+        for k, v in lista.items():
+            cache.setdefault(k, v)
+
+
+def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], cache: dict, aviso) -> None:
     from claude_cli import chamar_json
 
-    pars = [p.strip() for p in re.split(r"\n\s*\n", roteiro) if p.strip()]
-    chaves = [hashlib.sha1((REGRAS + p).encode()).hexdigest()[:16] for p in pars]
-    novos = [(i, p) for i, (p, k) in enumerate(zip(pars, chaves)) if k not in cache]
     if novos:
-        aviso(f"lendo {len(novos)} parágrafo(s) novo(s)")
         r = chamar_json(
-            "Liste as afirmações de LORE checáveis destes parágrafos (nomes, datas, eras, quem fez o quê, parentesco, "
+            "Liste as afirmações de LORE checáveis destes trechos (nomes, datas, eras, quem fez o quê, parentesco, "
             "lugares). Ignore piadas, opiniões, ganchos, comentários do narrador e o que o próprio roteiro já chama de "
             "teoria/especulação. Cada afirmação = UM fato só: frase com vários fatos vira várias afirmações curtas. "
-            "No máximo 6 por parágrafo, só as que importam. Para cada uma, dê termos de busca em INGLÊS para a wiki "
+            "Liste todas, no máximo 6 por trecho. Para cada uma, dê termos de busca em INGLÊS para a wiki "
             f"({FONTE['nome']}), começando pelo nome de quem aparece, e os {FONTE['quem']}.\n\n"
             + "\n\n".join(f"[{i}] {p}" for i, p in novos)
             + '\n\nJSON: {"afirmacoes": [{"p": 0, "trecho": "palavras do roteiro", "afirmacao": "o fato, curto", '
               '"busca": "english search terms", "campeoes": ["Mordekaiser"]}]}',
             SISTEMA, modelo="sonnet", etiqueta="conferencia-afirmacoes")
-        afirm = [a for a in r.get("afirmacoes", []) if isinstance(a.get("p"), int) and 0 <= a["p"] < len(pars)]
+        pedidos = {i for i, _ in novos}
+        afirm = [a for a in r.get("afirmacoes", []) if a.get("p") in pedidos]
         aviso(f"buscando {len(afirm)} afirmação(ões) na wiki e no Universe")
         blocos = []
         for k, a in enumerate(afirm):
@@ -309,12 +353,34 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None) -> list[dict]:
                                     "fontes_divergem": bool(x.get("fontes_divergem"))})
         for i, lista in por_par.items():
             cache[chaves[i]] = lista
-    for k in [k for k in cache if k not in chaves]:  # parágrafos que não existem mais (ou de regras antigas)
+
+
+def fatos(roteiro: str, cache: dict, aviso=lambda m: None, info: dict | None = None) -> list[dict]:
+    pars = [p.strip() for p in re.split(r"\n\s*\n", roteiro) if p.strip()]
+    itens = [(i, t) for i, p in enumerate(pars) for t in _cortar(p)]
+    textos, chaves = [t for _, t in itens], [_chave(t) for _, t in itens]
+    _migrar(pars, cache)
+    novos = [(k, t) for k, (t, c) in enumerate(zip(textos, chaves)) if c not in cache]
+    if info is not None:
+        info.update(refeitos=len(novos), total=len(chaves))
+    for ini in range(0, len(novos), LOTE):
+        aviso(f"conferindo trechos {ini + 1} a {min(ini + LOTE, len(novos))} de {len(novos)}")
+        _checar(textos, chaves, novos[ini:ini + LOTE], cache, aviso)
+    # trecho de outra versão fica guardado: voltar uma versão ou desfazer uma alteração não confere de novo
+    for k in [k for k in cache if not k.startswith(f"{REGRAS}:")]:
         del cache[k]
-    saida = []
-    for i, k in enumerate(chaves):
-        saida += [{**a, "paragrafo": i} for a in cache.get(k, [])]
-    return saida
+    return [{**a, "paragrafo": i, "bloco": c} for (i, _), c in zip(itens, chaves) for a in cache.get(c, [])]
+
+
+def _rodada(anteriores: list[dict], atuais: list[dict], info: dict) -> dict:
+    """O que esta rodada mudou: só trechos alterados entram aqui; o resto da lista é o mesmo de antes."""
+    if not all(a.get("bloco") for a in anteriores):  # conferência antiga, sem trechos
+        return {**info, "novas": [], "resolvidas": []}
+    blocos_antes, blocos_agora = {a["bloco"] for a in anteriores}, {a["bloco"] for a in atuais}
+    pendente = lambda a: a.get("veredito") != "confere"  # noqa: E731
+    return {**info,
+            "novas": [a["afirmacao"] for a in atuais if pendente(a) and anteriores and a["bloco"] not in blocos_antes],
+            "resolvidas": [a["afirmacao"] for a in anteriores if pendente(a) and a["bloco"] not in blocos_agora]}
 
 
 def conferir(pasta: Path, aviso=lambda m: None) -> dict:
@@ -322,13 +388,16 @@ def conferir(pasta: Path, aviso=lambda m: None) -> dict:
     roteiro = (dirc / "roteiro.txt").read_text(encoding="utf-8")
     arq, arq_cache = dirc / "conferencia.json", dirc / "conferencia_cache.json"
     cache = json.loads(arq_cache.read_text(encoding="utf-8")) if arq_cache.exists() else {}
+    anteriores = (json.loads(arq.read_text(encoding="utf-8")).get("fatos") or []) if arq.exists() else []
+    info: dict = {}
     res: dict = {"quando": agora(), "roteiro": hashlib.sha1(roteiro.encode()).hexdigest()[:16]}
     base = dirc / "roteiro_base.txt"
     if base.exists() and base.read_text(encoding="utf-8").strip():
         aviso("comparando com o roteiro base")
         res["semelhanca"] = semelhanca(roteiro, base.read_text(encoding="utf-8"))
     try:
-        res["fatos"] = fatos(roteiro, cache, aviso)
+        res["fatos"] = fatos(roteiro, cache, aviso, info)
+        res["rodada"] = _rodada(anteriores, res["fatos"], info)
     except Exception as e:  # sem rede/cota: a semelhança continua valendo
         res["erro_fatos"] = str(e)[:300]
     arq_cache.write_text(json.dumps(cache, ensure_ascii=False, indent=1), encoding="utf-8")
