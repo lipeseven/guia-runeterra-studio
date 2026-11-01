@@ -26,7 +26,7 @@ Algumas regras que a ferramenta segue sempre:
 
 ## 2. Ligando a ferramenta
 
-- Dê dois cliques em **`Iniciar Runeterra.bat`** (canal Guia de Runeterra).
+- Dê dois cliques em **`Runeterra\Iniciar Runeterra.bat`** (canal Guia de Runeterra) ou no atalho da Área de Trabalho.
 - Abre uma janela preta (o "servidor") e o navegador no endereço do painel:
   - Guia de Runeterra: **http://127.0.0.1:8765**
 - **Não feche a janela preta** enquanto estiver usando. Fechar a janela desliga a ferramenta.

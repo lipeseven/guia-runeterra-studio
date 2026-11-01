@@ -50,7 +50,8 @@ def disco() -> dict:
         from .banco import caminho
 
         projetos = _tamanho(caminho("projetos")) if caminho("projetos").exists() else 0
-        return {"dados": _tamanho(RAIZ / "dados") - projetos, "projetos": projetos}  # projetos fica dentro de dados/
+        canal = _tamanho(caminho("dados_acervo").parent)  # projetos fica dentro dos dados do canal
+        return {"dados": _tamanho(RAIZ / "dados") + canal - projetos, "projetos": projetos}
     pastas = _memo("pastas", 60, medir)
     return {"livre": uso.free, "total": uso.total, **pastas}
 

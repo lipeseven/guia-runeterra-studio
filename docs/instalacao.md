@@ -8,13 +8,14 @@ O **código** está no GitHub (`github.com/lipeseven/guia-runeterra-studio`, pri
 | O quê | Onde | Por quê |
 |---|---|---|
 | `.env` | raiz do projeto | chaves (Fish Audio, Freesound, Hugging Face) — não estão no Git |
-| `dados/` | raiz do projeto | bancos (`studio.db`, `acervo.db`, `canais/`), miniaturas, índices de busca (CLIP), efeitos sonoros (`sfx/`), modelos (`modelos/`), análises das referências, backups |
-| `dados/runeterra/projetos/` | raiz do projeto | os vídeos em andamento (direção, storyboard, gravações, renders) |
+| `dados/` | raiz do projeto | o que os canais compartilham: efeitos sonoros (`comum/sfx/`), modelos (`comum/modelos/`), cache de voz |
+| `Runeterra/dados/` | pasta do canal | bancos (`studio.db`, `acervo.db`), miniaturas, índices de busca (CLIP), análises das referências |
+| `Runeterra/dados/projetos/` | raiz do projeto | os vídeos em andamento (direção, storyboard, gravações, renders) |
 | `catálogo sequencial LOL` | `Downloads\canais` | acervo do Guia de Runeterra (inclui `_oficial_riot/`) |
-| `dados/runeterra/referencias*` | raiz do projeto | vídeos de referência (dá para baixar de novo) |
+| `Runeterra/dados/referencias*` | raiz do projeto | vídeos de referência (dá para baixar de novo) |
 
-Dica: `dados/comum/cache_voz`, `dados/backups` e `dados/runeterra/analise_referencias` são recriáveis — dispensáveis se faltar espaço.
-Os renders de rascunho dentro de `dados/runeterra/projetos/*/trabalho/` também (o sistema refaz).
+Dica: `dados/comum/cache_voz`, `dados/backups` e `Runeterra/dados/analise_referencias` são recriáveis — dispensáveis se faltar espaço.
+Os renders de rascunho dentro de `Runeterra/dados/projetos/*/trabalho/` também (o sistema refaz).
 
 ## 2. Programas (Windows)
 
@@ -50,9 +51,9 @@ Se o `pip` reclamar do torch, instale ele antes:
 
 ## 4. Devolver os dados
 
-- Copie de volta `.env`, `dados/`, `dados/runeterra/projetos/` para a raiz do projeto.
+- Copie de volta `.env`, `dados/` para a raiz do projeto e `dados/` do canal para `Runeterra/dados/`.
 - Copie a pasta `catálogo sequencial LOL` para `Downloads\canais`.
-  (Se a pasta for parar em outro lugar, ajuste `canais/runeterra/canal.toml` → `[pastas] acervo`.)
+  (Se a pasta for parar em outro lugar, ajuste `Runeterra/canal.toml` → `[pastas] acervo`.)
 - Sem `.env`? Copie `.env.example` para `.env` e preencha as chaves (links dentro do arquivo).
 
 Os modelos que se baixam sozinhos na primeira vez (precisam de internet): CLIP (busca de imagens), Whisper

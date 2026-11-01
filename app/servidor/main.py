@@ -78,7 +78,7 @@ def decidir_aprendizado(pid: int, corpo: Decisao):
 
 
 def _pasta_roteiros() -> Path:
-    """Pasta do Felipe para roteiros e transcrições (.txt), mesmo de vídeos sem card: dados/<canal>/roteiros."""
+    """Pasta do Felipe para roteiros e transcrições (.txt), mesmo de vídeos sem card: <Canal>/dados/roteiros."""
     from .banco import caminho
 
     pasta = caminho("dados_acervo").parent / "roteiros"
@@ -944,9 +944,9 @@ def api_recursos():
 
 @app.get("/api/arquivo")
 def arquivo(caminho: str):
-    """Serve mídias geradas (capas, vídeos de rascunho). Só dentro de dados/ e dados/runeterra/projetos/."""
+    """Serve mídias geradas (capas, vídeos de rascunho). Só dentro de dados/ e dos dados do canal."""
     alvo = (RAIZ / caminho).resolve()
-    permitido = [(RAIZ / "dados").resolve(), motor.PASTA_PROJETOS.resolve()]
+    permitido = [(RAIZ / "dados").resolve(), motor.PASTA_PROJETOS.parent.resolve()]
     if not any(alvo.is_relative_to(p) for p in permitido) or not alvo.is_file():
         raise HTTPException(404)
     return FileResponse(alvo)

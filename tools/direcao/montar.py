@@ -128,7 +128,7 @@ class Midias:
 
 def _setas_do_acervo() -> list[tuple[Path, float]]:
     """Desenhos de seta do Felipe (acervo: seta1.avif, seta2.png…): fundo branco removido e recortados em
-    dados/runeterra/acervo/derivados/ (o acervo nunca é alterado). Devolve (png, ângulo para onde o desenho aponta, em graus,
+    Runeterra/dados/acervo/derivados/ (o acervo nunca é alterado). Devolve (png, ângulo para onde o desenho aponta, em graus,
     y para baixo): pela forma — a ponta é a extremidade mais "pesada" do eixo principal."""
     import numpy as np
 

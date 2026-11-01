@@ -23,7 +23,7 @@ from .banco import CANAL, RAIZ, agora, caminho
 
 sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
-CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/runeterra/pesquisa_cache
+CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: Runeterra/dados/pesquisa_cache
 # A wiki do LoL saiu do Fandom (o fandom.com ficou parado em 2023): wiki.leagueoflegends.com, namespace Universe
 # (3006) = lore, com o resumo dos contos e HQs oficiais. ns_extra = eventos (0), Legends of Runeterra (3002) e Riftbound (3008).
 WIKI = "https://wiki.leagueoflegends.com/en-us/api.php"

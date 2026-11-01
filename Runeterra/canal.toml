@@ -1,0 +1,22 @@
+# Perfil do canal Guia de Runeterra. Tudo que é só deste canal fica nesta pasta (caminhos relativos à raiz do projeto).
+chave = "runeterra"
+nome = "Guia de Runeterra"
+porta = 8765
+assunto = "lore de League of Legends"
+personagens_de = "League of Legends"        # "busca.personagens são nomes de <isto>"
+exemplo_secao = '"Nocturne.", "A Criação de Runeterra."'
+fatos = "lol"                               # fontes da conferência de fatos (wiki do LoL + Universe)
+aviso_legal = "riot"
+exemplo_titulo = "Todos os DEMÔNIOS de League of Legends Explicados em 22 minutos"
+glossario = "Runeterra"                     # termos extras para o Whisper (o resto vem do roteiro)
+
+[pastas]
+acervo = 'C:\Users\Felipe\Downloads\canais\catálogo sequencial LOL'   # pasta do Felipe (só leitura)
+dados_acervo = "Runeterra/dados/acervo"               # banco, miniaturas, índices CLIP, tomadas, derivados
+banco_acervo = "Runeterra/dados/acervo.db"
+internet = "Runeterra/dados/acervo_internet"          # mídias baixadas da internet
+projetos = "Runeterra/dados/projetos"
+studio = "Runeterra/dados/studio.db"
+docs = "Runeterra/docs"                               # regras_de_direcao.md, estilo_roteiro.md, guia_de_estilo.md
+referencias = "Runeterra/dados/referencias"   # vídeos dos canais de referência
+analise = "Runeterra/dados/analise_referencias"

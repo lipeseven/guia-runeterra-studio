@@ -1,12 +1,4 @@
-# Configuração central do Guia de Runeterra — caminhos e parâmetros usados pelas ferramentas.
-
-[pastas]
-# Acervo local de imagens/clipes. Os arquivos originais nunca são movidos nem alterados.
-acervo = 'C:\Users\Felipe\Downloads\canais\catálogo sequencial LOL'
-# Dados gerados pelo sistema (banco, miniaturas, embeddings), relativo à raiz do projeto.
-dados = 'dados'
+# Parâmetros do sistema, iguais para todos os canais. O que é de um canal fica em <Canal>/canal.toml.
 
 [acervo]
-banco = 'dados/runeterra/acervo.db'
-miniaturas = 'dados/runeterra/acervo/miniaturas'
 largura_miniatura = 384

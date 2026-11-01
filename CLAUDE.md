@@ -4,8 +4,8 @@ Assistente local de edição de vídeos para o canal **Guia de Runeterra** (lore
 PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
 
 **Leia antes de mexer:** [docs/arquitetura.md](docs/arquitetura.md) (fluxo, componentes, fases),
-[docs/guia_de_estilo.md](docs/guia_de_estilo.md) (estilo do canal),
-[docs/regras_de_direcao.md](docs/regras_de_direcao.md) (regras do diretor — todo ajuste fino do Felipe entra aqui).
+[Runeterra/docs/guia_de_estilo.md](Runeterra/docs/guia_de_estilo.md) (estilo do canal),
+[Runeterra/docs/regras_de_direcao.md](Runeterra/docs/regras_de_direcao.md) (regras do diretor — todo ajuste fino do Felipe entra aqui).
 
 ## Princípios (não negociáveis)
 - Tudo **local e gratuito**; o único pago é o Claude (plano **Pro**, sem API → usar `claude -p`, economizar cota).
@@ -17,14 +17,14 @@ PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
 - Arquivos do acervo do Felipe nunca são movidos/alterados.
 
 ## Onde fica cada coisa
-- **Raiz = só código** (`app/`, `tools/`, `canais/`, `docs/`) + `Iniciar Runeterra.bat`.
-  **Tudo que não é código fica em `dados/`** (fora do Git; reorganizado em 2026-10-30): `dados/runeterra/`
+- **Raiz = sistema compartilhado** (`app/`, `tools/`, `docs/`, `dados/comum/`). **Cada canal tem a própria pasta na raiz** (2026-11-01):
+  `Runeterra/` = `canal.toml`, `docs/`, `Iniciar Runeterra.bat` e `dados/` (fora do Git):
   (studio.db, acervo.db, acervo/, acervo_internet/, projetos/, referencias/, analise_referencias/,
   aprendizado/, encerramento/, pesquisa_cache/, roteiros/ = .txt do Felipe, "escolher da pasta" no Roteiro) e `dados/comum/` (modelos, cache_voz, sfx, motor.lock, uso_claude.jsonl;
-  `canal.DADOS_COMUM`). Caminhos dos canais em `canais/<chave>/canal.toml`; caminho de arquivo de projeto para o painel:
+  `canal.DADOS_COMUM`). Canal novo = pasta nova na raiz com `canal.toml` (`canal._perfis` procura `*/canal.toml`); caminho de arquivo de projeto para o painel:
   `motor.caminho_rel(slug, ...)` (nunca escrever "projetos/..." à mão).
 - `docs/instalacao.md` — reinstalar do zero (formatar o PC): backup, programas, `requirements.txt`, npm.
-- `projeto.toml` — caminhos (acervo em `C:\Users\Felipe\Downloads\canais\catálogo sequencial LOL`). `.env` — chaves (fora do Git).
+- `projeto.toml` — parâmetros do sistema (o acervo do canal está em `canal.toml`: `C:\Users\Felipe\Downloads\canais\catálogo sequencial LOL`). `.env` — chaves (fora do Git).
 - `tools/` — scripts Python (rodar com `.venv\Scripts\python.exe`): `analise_referencias/`, `acervo/`
   (inventário, busca CLIP, tomadas de clipes, etiquetas), `capa.py` (detecta ícones na capa), `direcao/variacao.py`
   (editor de variedade), `prototipo/preparar.py`.
@@ -49,7 +49,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   --strict-mcp-config`, ~800 tokens de base; imagens via stream-json; log em dados/comum/uso_claude.jsonl), `planejar.py`
   (1ª passada, texto), `candidatos.py` (busca local CLIP+etiquetas, folhas), `escolher.py` (2ª passada, imagens),
   `montar.py` (direção final + render da composição "Video" com --props), `revisar.py` (refaz só cenas com pedido).
-- Painel (Fase 5 adiantada) ✅ — `app/servidor/` (FastAPI+SQLite dados/runeterra/studio.db; `motor.py` = fila/orquestrador;
+- Painel (Fase 5 adiantada) ✅ — `app/servidor/` (FastAPI+SQLite Runeterra/dados/studio.db; `motor.py` = fila/orquestrador;
   `storyboard.py`), `app/painel/` (React/Vite). Fluxo pelo painel: Ideia → mover p/ Roteiro → .txt → aprovar → voz guia
   → capa → aprovar → Direção automática (retoma de onde parou) → rascunho → storyboard (ajustes/pedidos) → novo rascunho.
 - 2026-10-13: sistema zerado para o Felipe testar "como se estivesse pronto" e anotar bugs (banco, projetos e testes
@@ -62,7 +62,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   [≥3 seções] + créditos de autores + aviso Legal Jibber Jabber, tags, comentário fixado; Claude sonnet) + thumbnail
   1280×720 da capa. "Marcar como publicado" (ou arrastar p/ Publicado) registra mídias em `uso_midia` (acervo.db; histórico —
   repetir imagem ENTRE vídeos não tem problema; dentro do vídeo, imagem já escolhida desce na busca: `Acervo.usadas_no_video`) e ARQUIVA (pede confirmação): tudo vai para a Lixeira, só fica
-  `dados/runeterra/projetos/<slug>/capa.*` para o card. Publicado é definitivo: não sai da coluna, página vira resumo (capa, link, histórico).
+  `Runeterra/dados/projetos/<slug>/capa.*` para o card. Publicado é definitivo: não sai da coluna, página vira resumo (capa, link, histórico).
 - Referências 100% analisadas (2026-10-14): som (`separar_sons.py` Demucs + `analisar_sons.py` CLAP — padrão é voz
   pura, efeito é raro) e leitura visual dos 11 vídeos → guia de estilo v1.0 (seção 10: modos por vídeo e recursos
   que ainda faltam no Remotion). Stable Audio Open (diffusers, ~30 s/efeito, 5,9 GB VRAM) e Freesound prontos.
@@ -78,7 +78,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - Roteirista no painel ✅ (2026-10-14): `app/servidor/roteirista.py` + tarefa "roteiro" no motor. Gera (do zero ou a
   partir de roteiro BASE gringo — inspiração, nunca tradução) e ajusta por pedido (Claude devolve só os parágrafos
   alterados → barato, preserva edições à mão). Edição à mão, versões (roteiro_vN.txt) com "voltar", conversa em
-  direcao/conversa_roteiro.json. Jeito do canal: `docs/estilo_roteiro.md` (formato que o diretor exige + voz do Felipe).
+  direcao/conversa_roteiro.json. Jeito do canal: `Runeterra/docs/estilo_roteiro.md` (formato que o diretor exige + voz do Felipe).
 - Direção por blocos com reaproveitamento ✅ (2026-10-15): `planejar.planejar()` divide o roteiro em blocos
   (introdução + seções; fronteiras reaproveitadas do plano anterior ou pedidas ao Sonnet) e planeja cada bloco à parte
   com cache por conteúdo em `direcao/plano_secoes/<hash>.json`. Bloco igual = 0 cota; mudança pequena (mesmas frases,
@@ -122,7 +122,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - Pacote pós-1º vídeo ✅ (2026-10-19): **estilo visual por vídeo** (`direcao/estilo_visual.json`; o 1º vídeo ficou
   na versão 1, vídeos novos = 2): transições de entrada empurrar/sobrepor (`app/video/src/cenas/Estilo2.tsx`,
   ~1 em 7 cenas, nunca na 1ª do bloco; storyboard "entrada"), cartão sem recorte, texto entra junto com a imagem
-  (retrospectiva: docs/regras_de_direcao.md §5). Linhas que ligam o Estilo2 são `impressao:ignorar` → cache dos
+  (retrospectiva: Runeterra/docs/regras_de_direcao.md §5). Linhas que ligam o Estilo2 são `impressao:ignorar` → cache dos
   vídeos antigos intacto. Roteiro mudou: só o trecho alterado volta ao Claude (`planejar.remendar_bloco`) e ajustes
   presos a palavras seguem a palavra (`storyboard.remapear_ajustes`); capítulo intocado não reenvia recusadas.
   Storyboard: "a cena começa em" (mover corte), juntar até 4 cenas, movimento "nenhum", lista "sem imagem".
@@ -130,25 +130,25 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   novo/direção/pedido ao diretor; cache guarda os blocos da versão anterior também. Card "Vídeo já publicado".
 - Conferência do roteiro ✅ (2026-10-19, `app/servidor/conferencia.py`, tarefa "conferencia" a cada roteiro novo):
   semelhança com o roteiro base (`direcao/roteiro_base.txt`; embeddings multilíngues locais, sentence-transformers)
-  + fatos de lore (Sonnet extrai afirmações → wiki do LoL/Universe buscados localmente, cache em dados/runeterra/pesquisa_cache
+  + fatos de lore (Sonnet extrai afirmações → wiki do LoL/Universe buscados localmente, cache em Runeterra/dados/pesquisa_cache
   → Sonnet dá confere/diverge/sem fonte; cache por parágrafo). Painel: bloco "Conferência do roteiro" no Roteiro.
   Fontes (2026-10-30): wiki.leagueoflegends.com namespace Universe (3006; o fandom parou em 2023) + biografia E conto
   oficial do Universe (meeps `story-preview`); 2 trechos da wiki + 2 da Riot por afirmação; veredito traz `fontes` (quantas
   sustentam) e `fontes_divergem` (Riot oficial prevalece). Afirmações atômicas (1 fato cada), página `Universe:<personagem>`
   sempre incluída (`_pagina_do_personagem`), 3 trechos wiki + 2 Riot, veredito `parcial` ("confere em parte", diz o pedaço).
   Cache por parágrafo inclui `conferencia.REGRAS` (subir a versão ao mudar regra = tudo reconferido no próximo ↻);
-  "conferir tudo" no painel (`/roteiro/conferir?tudo=true`) apaga o cache. Botão "Corrigir" em cada item diverge/parcial (individual: o Felipe lê cada um) põe na fila; "Mandar correções" = uma chamada só a `/roteiro/ajustar`, versão nova. "Manter minha versão" tira o item da lista (localStorage, por afirmação; parágrafo editado volta a avaliar). "O que mudou nesta versão" (`MudancasRoteiro.tsx`, `roteirista.mudancas`; difflib local, palavra por palavra): "desfazer" por alteração (`/roteiro/desfazer`) vira versão nova e mantém a mesma base da comparação (`direcao/comparar_com.json`). Regras 4 (2026-10-31): vale o ponto mais recente da história, não a biografia da Riot (`conferencia.REGRA_DAS_FONTES`, também no dossiê e no crivo); busca inclui eventos, LoR e Riftbound (`ns_extra`); `dados/<canal>/fatos_do_canal.txt` (painel: "fatos do canal") = anotações do Felipe, vale acima de todas. Conferência por TRECHOS (2026-10-31, `conferencia._cortar`: ~60-90 palavras, corte definido pela própria frase; cache `REGRAS:hash` guarda também versões anteriores): só trecho com texto alterado volta ao Claude, em lotes de 8; `conferencia.json` traz `rodada` (novas/resolvidas); cache antigo por parágrafo é repartido (`_migrar`) sem gastar cota. Fontes por trecho do roteiro: página achada para uma afirmação serve às outras do mesmo trecho; a busca leva o nome do personagem; `trecho` -1 = item sem link (nunca fonte só de assunto parecido). Reddit: API bloqueia sem chave (403) — exigiria app Reddit do Felipe.
-- Mídias da internet ✅ (2026-10-19): acervo baixado fica em `dados/runeterra/acervo_internet/` (fora da pasta do Felipe;
+  "conferir tudo" no painel (`/roteiro/conferir?tudo=true`) apaga o cache. Botão "Corrigir" em cada item diverge/parcial (individual: o Felipe lê cada um) põe na fila; "Mandar correções" = uma chamada só a `/roteiro/ajustar`, versão nova. "Manter minha versão" tira o item da lista (localStorage, por afirmação; parágrafo editado volta a avaliar). "O que mudou nesta versão" (`MudancasRoteiro.tsx`, `roteirista.mudancas`; difflib local, palavra por palavra): "desfazer" por alteração (`/roteiro/desfazer`) vira versão nova e mantém a mesma base da comparação (`direcao/comparar_com.json`). Regras 4 (2026-10-31): vale o ponto mais recente da história, não a biografia da Riot (`conferencia.REGRA_DAS_FONTES`, também no dossiê e no crivo); busca inclui eventos, LoR e Riftbound (`ns_extra`); `<Canal>/dados/fatos_do_canal.txt` (painel: "fatos do canal") = anotações do Felipe, vale acima de todas. Conferência por TRECHOS (2026-10-31, `conferencia._cortar`: ~60-90 palavras, corte definido pela própria frase; cache `REGRAS:hash` guarda também versões anteriores): só trecho com texto alterado volta ao Claude, em lotes de 8; `conferencia.json` traz `rodada` (novas/resolvidas); cache antigo por parágrafo é repartido (`_migrar`) sem gastar cota. Fontes por trecho do roteiro: página achada para uma afirmação serve às outras do mesmo trecho; a busca leva o nome do personagem; `trecho` -1 = item sem link (nunca fonte só de assunto parecido). Reddit: API bloqueia sem chave (403) — exigiria app Reddit do Felipe.
+- Mídias da internet ✅ (2026-10-19): acervo baixado fica em `Runeterra/dados/acervo_internet/` (fora da pasta do Felipe;
   caminho ABSOLUTO no acervo.db, `inventariar.PASTAS_EXTRA`). `tools/acervo/importar_riot.py` (splash de todas as
   skins via CommunityDragon + splash base 1920 e artes dos contos do Universe; categoria splash/skin/arte, descarta o
   que o Felipe já tem; tarefa "importar_riot"). Storyboard: "buscar na internet" (`app/servidor/internet.py`:
   DuckDuckGo `ddgs` + Wikimedia Commons; baixa e cataloga na hora) e "colar link" de vídeo (yt-dlp → tomadas, tarefa
   "clipes"; início/fim opcionais = baixa só o trecho, `--download-sections`). Gravação por capítulos: vários arquivos em entrada/ são juntados na ordem dos nomes.
 - **Perfil de canal ✅ (2026-10-19)**: os canais NÃO se conhecem — cada um roda o MESMO código num servidor próprio
-  com `GRS_CANAL=<chave>` (`canais/<chave>/canal.toml`: nome, porta, assunto, pastas de acervo/banco/projetos/docs,
+  com `GRS_CANAL=<chave>` (`<Canal>/canal.toml`: nome, porta, assunto, pastas de acervo/banco/projetos/docs,
   fontes de fatos, aviso legal). `tools/canal.py` (CANAL, caminho) alimenta `comum.py`, `banco.py`, `motor.py`,
   prompts (planejar/escolher/revisar/roteirista/publicacao/conferencia). Sem GRS_CANAL = runeterra, caminhos de
-  sempre (`Iniciar Runeterra.bat`, porta 8765). Hoje só existe o Runeterra (o perfil Pokémon saiu em 2026-11-01; volta pelo histórico do Git).
+  sempre (`Runeterra/Iniciar Runeterra.bat`, porta 8765). Hoje só existe o Runeterra (o perfil Pokémon saiu em 2026-11-01; volta pelo histórico do Git).
   Trava `dados/comum/motor.lock` = uma tarefa por vez na máquina entre os canais. Seletor de canal no título do quadro.
 - **Aprendizado entre vídeos ✅ (2026-10-20)**: `tools/direcao/aprendizado.py`. Ao publicar (antes de arquivar),
   `coletar()` guarda os pares de legenda "diretor → Felipe" (vão no prompt do diretor: `planejar.sistema_do_diretor`)
@@ -162,7 +162,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   Roteiro base colado (transcrição do YT) passa por `conferencia.limpar_base` (tira tempos/[Música], junta linhas);
   `frases()` corta texto sem pontuação em trechos de ~20 palavras.
   Encerramento fixo: ao aprovar o vídeo, `publicacao.com_encerramento` junta o último final + `<dados do canal>/encerramento/encerramento.mp4`
-  (Runeterra: dados/runeterra/encerramento/) → `saida/final_vN_publicar.mp4` (só o encerramento é recodificado; final intacto).
+  (Runeterra: Runeterra/dados/encerramento/) → `saida/final_vN_publicar.mp4` (só o encerramento é recodificado; final intacto).
   Depois da gravação aprovada, "novo rascunho" no storyboard gera um VÍDEO FINAL novo (voz real), não rascunho com voz guia.
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - Card no quadro mostra "Aguardando você: <pendência aberta mais recente>" (`/api/quadro` → `aguardando`), exceto enquanto o motor trabalha nele ou ele está na fila (aí mostra "Na fila (Nº): <tarefa>", `/api/motor` → `fila`).

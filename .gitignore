@@ -6,7 +6,7 @@
 node_modules/
 __pycache__/
 
-# TUDO que não é código fica em dados/ (fora do Git): dados/<canal> (bancos, acervo, projetos,
+# TUDO que não é código fica em dados/ (fora do Git): <Canal>/dados (bancos, acervo, projetos,
 # vídeos de referência) e dados/comum (modelos, cache de voz, efeitos sonoros)
 dados/
 *.mp4

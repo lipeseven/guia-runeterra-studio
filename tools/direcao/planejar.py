@@ -114,7 +114,7 @@ TIPOS_EXTRAS = {
 
 
 def sistema_do_diretor(regras: str) -> str:
-    """Prompt do diretor com a identidade do canal deste processo (canais/<chave>/canal.toml)."""
+    """Prompt do diretor com a identidade do canal deste processo (<Canal>/canal.toml)."""
     from aprendizado import exemplos_para_o_prompt
 
     extras = "".join("\n" + TIPOS_EXTRAS[t] for t in CANAL.get("tipos_extras", []) if t in TIPOS_EXTRAS)

@@ -918,7 +918,7 @@ CLIPES = {"ultimos": []}  # [{url, titulo|erro, quando}] para o painel
 
 
 def tarefa_clipes(_vid: int) -> None:
-    """Baixa os vídeos pedidos por link (yt-dlp, até 1080p) para dados/runeterra/acervo_internet/clipes/ e atualiza o acervo:
+    """Baixa os vídeos pedidos por link (yt-dlp, até 1080p) para Runeterra/dados/acervo_internet/clipes/ e atualiza o acervo:
     viram tomadas como os clipes da pasta do Felipe. Tarefa GLOBAL (vid 0)."""
     import subprocess
 

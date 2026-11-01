@@ -4,7 +4,7 @@ Assistente de edição local para o canal **Guia de Runeterra** (lore de League 
 Não é uma fábrica de vídeos: o sistema faz o trabalho braçal, e as decisões criativas
 (roteiro final, humor, aprovação de cenas, narração) são do Felipe.
 
-Documentos relacionados: [guia_de_estilo.md](guia_de_estilo.md).
+Documentos relacionados: [guia_de_estilo.md](../Runeterra/docs/guia_de_estilo.md).
 
 ---
 
@@ -87,7 +87,7 @@ Iniciar tudo: `Iniciar Runeterra.bat` (um clique) ou pedir ao Claude Code nesta 
 - **roteiro**: versões; cada versão com seções → frases → palavras.
 - **cena**: vídeo, tipo (do vocabulário do guia de estilo), âncora (frase/palavra inicial e final),
   mídias, legenda, palavras em destaque, parâmetros de movimento, aprovada (sim/não).
-- **midia**: já existe em `dados/runeterra/acervo.db` — origem, autor, URL, licença, categoria,
+- **midia**: já existe em `Runeterra/dados/acervo.db` — origem, autor, URL, licença, categoria,
   personagens, descrição, uso, tags.
 - **uso_midia**: mídia × vídeo × data → evita repetição entre vídeos.
 - **credito**: gerado a partir das mídias usadas → descrição do vídeo e marca na tela (fan art).
@@ -98,14 +98,15 @@ Iniciar tudo: `Iniciar Runeterra.bat` (um clique) ou pedir ao Claude Code nesta 
 
 ```
 exclusive Claude/
-├─ docs/                     arquitetura, guia de estilo
+├─ Runeterra/                tudo que é só do canal: canal.toml, docs/, dados/, Iniciar Runeterra.bat
+├─ docs/                     arquitetura, manual e instalação
 ├─ app/
 │  ├─ servidor/              FastAPI (Python)
 │  ├─ painel/                React + Vite
 │  └─ video/                 projeto Remotion (modelos de cena)
 ├─ tools/                    scripts de linha de comando (análise, acervo, ...)
 ├─ dados/                    (fora do Git) bancos, miniaturas, índices
-├─ dados/runeterra/projetos/                 (fora do Git) uma pasta por vídeo: roteiro, áudio, cenas, render
+├─ Runeterra/dados/projetos/                 (fora do Git) uma pasta por vídeo: roteiro, áudio, cenas, render
 ├─ projeto.toml              configuração
 ├─ .env                      (fora do Git) chaves
 └─ Iniciar Runeterra.bat
@@ -115,7 +116,7 @@ exclusive Claude/
 
 ## 6. Limpeza de arquivos (garbage)
 
-Cada vídeo vive em `dados/runeterra/projetos/<slug>/`, separado por importância:
+Cada vídeo vive em `Runeterra/dados/projetos/<slug>/`, separado por importância:
 
 | Subpasta | Conteúdo | Após "Publicado" |
 |---|---|---|

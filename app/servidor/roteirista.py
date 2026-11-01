@@ -3,7 +3,7 @@
 - gerar(): do zero (tema + notas) ou a partir de um roteiro BASE (canal gringo) — inspiração, não tradução.
 - ajustar(): ajuste fino por pedido; o Claude devolve SÓ os parágrafos alterados (barato e preserva o resto,
   inclusive edições à mão do Felipe).
-O "jeito do canal" fica em docs/estilo_roteiro.md (editável).
+O "jeito do canal" fica em Runeterra/docs/estilo_roteiro.md (editável).
 """
 from __future__ import annotations
 
