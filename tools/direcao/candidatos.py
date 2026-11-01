@@ -15,7 +15,7 @@ POR_NECESSIDADE = 4
 PASTA_TOMADAS = DADOS_ACERVO / "tomadas"
 
 
-SEM_MIDIA = ("capa", "hub", "dialogo", "texto", "ficha")  # ficha: imagem e dados vêm da Pokédex
+SEM_MIDIA = ("capa", "hub", "dialogo", "texto")
 SEM_MIDIA_PRINCIPAL = ("dividida", "lista", "rajada")  # só as peças têm imagem
 
 

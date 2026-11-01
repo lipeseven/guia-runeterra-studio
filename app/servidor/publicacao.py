@@ -17,8 +17,6 @@ from canal import CANAL  # noqa: E402
 AVISOS = {  # aviso legal no fim da descrição, por canal (canal.toml: aviso_legal)
     "riot": ("O Guia de Runeterra foi criado sob a política “Legal Jibber Jabber” da Riot Games, usando recursos "
              "pertencentes à Riot Games. A Riot Games não endossa nem patrocina este projeto."),
-    "pokemon": ("Pokémon e todos os nomes, imagens e marcas relacionados pertencem à Nintendo, Creatures Inc. e "
-                "GAME FREAK inc. Este é um canal de fã, sem fins de afiliação, não endossado pelas empresas."),
 }
 AVISO_LEGAL = AVISOS.get(CANAL.get("aviso_legal", ""), "")
 

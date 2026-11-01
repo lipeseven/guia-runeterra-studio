@@ -636,8 +636,8 @@ def importar_riot():
 
 @app.post("/api/acervo/importar-oficial")
 def importar_oficial():
-    """Importador de material oficial do CANAL deste servidor (Runeterra: Riot; Pokémon: PokeAPI)."""
-    motor.FILA.put((0, {"runeterra": "importar_riot", "pokemon": "importar_pokemon"}[CANAL["chave"]]))
+    """Importador de material oficial do CANAL deste servidor (Runeterra: Riot)."""
+    motor.FILA.put((0, {"runeterra": "importar_riot"}[CANAL["chave"]]))
     return {"ok": True}
 
 

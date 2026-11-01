@@ -11,7 +11,7 @@ _ACERVO = caminho("dados_acervo").relative_to(RAIZ).as_posix()  # dados do acerv
 
 TIPOS = ["cartao", "telacheia", "recorte", "meio", "texto", "citacao", "mosaico", "dividida", "lista", "clipe",
          "dialogo", "hub", "capa"]
-TIPOS += [t for t in CANAL.get("tipos_extras", []) if t not in TIPOS]  # tipos só deste canal (ficha, rajada…)
+TIPOS += [t for t in CANAL.get("tipos_extras", []) if t not in TIPOS]  # tipos só deste canal (rajada…)
 ENTRADAS_ITEM = ("nenhuma", "fade", "deslizar", "revelar", "pop")  # app/video/src/componentes/EntradaManual.ts
 
 

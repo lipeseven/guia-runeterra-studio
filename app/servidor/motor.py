@@ -978,16 +978,6 @@ def tarefa_importar_riot(_vid: int) -> None:
     ACERVO["ultima"] = {"quando": agora(), "resultado": {"importacao_riot": r}}
 
 
-def tarefa_importar_pokemon(_vid: int) -> None:
-    """Arte oficial + render do HOME de todas as formas → acervo do canal Pokémon (tools/pokemon/importar.py)."""
-    sys.path.insert(0, str(RAIZ / "tools" / "pokemon"))
-    from importar import baixar, catalogar, listar
-
-    aviso = lambda txt: definir_progresso("Importando artes oficiais", txt)  # noqa: E731
-    r = catalogar(baixar(listar(), aviso), aviso)
-    ACERVO["ultima"] = {"quando": agora(), "resultado": {"importacao_pokemon": r}}
-
-
 def tarefa_apos_publicar(_vid: int) -> None:
     """Roda os trabalhos agendados para "depois de publicar" (dados/comum/apos_publicar.json: [{descricao, comando, env,
     log}]), um por vez, cada um num processo próprio (pode ser de outro canal: env GRS_CANAL). Feito = sai da lista."""
@@ -1053,7 +1043,7 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": t
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
            "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
-           "importar_riot": tarefa_importar_riot, "importar_pokemon": tarefa_importar_pokemon,
+           "importar_riot": tarefa_importar_riot,
            "apos_publicar": tarefa_apos_publicar,
            "remontar_gravacao": tarefa_remontar_gravacao, "retrospectiva": tarefa_retrospectiva}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()

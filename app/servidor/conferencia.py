@@ -27,12 +27,10 @@ CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dado
 # A wiki do LoL saiu do Fandom (o fandom.com ficou parado em 2023): wiki.leagueoflegends.com, namespace Universe
 # (3006) = lore, com o resumo dos contos e HQs oficiais. ns_extra = eventos (0), Legends of Runeterra (3002) e Riftbound (3008).
 WIKI = "https://wiki.leagueoflegends.com/en-us/api.php"
-POKEWIKI = "https://pokemon.fandom.com/api.php"  # a Bulbapedia bloqueia acesso automático (Cloudflare)
 # fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
 FONTES = {"lol": {"wiki": WIKI, "ns": "3006", "ns_extra": "0|3002|3008",
                   "nome": "wiki do LoL (lore, eventos, Legends of Runeterra, Riftbound) / biografia e contos oficiais da Riot",
-                  "quem": "campeões envolvidos"},
-          "pokemon": {"wiki": POKEWIKI, "ns": "0", "nome": "Pokémon Wiki / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
+                  "quem": "campeões envolvidos"}}
 FONTE = FONTES[CANAL.get("fatos", "lol")]
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/en_us/champions/{slug}/index.json"
 CONTO = "https://universe-meeps.leagueoflegends.com/v1/en_us/story/{slug}/index.json"
@@ -221,22 +219,6 @@ REGRA_DAS_FONTES = ("Trecho marcado \"fato do canal\" é anotação verificada p
 SISTEMA = f"Você confere roteiros do canal \"{CANAL['nome']}\" ({CANAL['assunto']}). Responda SOMENTE JSON."
 
 
-def _pokedex(nome: str) -> list[tuple[str, str]]:
-    """Ficha da Pokédex local (PokeAPI) do Pokémon citado — dados oficiais de tipo, geração, evolução."""
-    arq = RAIZ / "dados" / "pokemon" / "pokedex.json"
-    if not arq.exists():
-        return []
-    alvo = re.sub(r"[^a-z0-9]", "", nome.lower())
-    for e in json.loads(arq.read_text(encoding="utf-8")):
-        if re.sub(r"[^a-z0-9]", "", e["nome"].lower()) == alvo:
-            texto = (f"{e['nome']} (#{e['numero']}), {e['categoria_en']}, tipos {'/'.join(e['tipos'])}, "
-                     f"geração {e['geracao']} ({e['regiao']}), "
-                     f"{'lendário' if e['lendario'] else 'mítico' if e['mitico'] else 'comum'}"
-                     + (f", evolui de {e['evolui_de']}" if e['evolui_de'] else "") + f". Pokédex: {e['pokedex_en']}")
-            return [(f"Pokédex: {e['nome']}", texto)]
-    return []
-
-
 # Versão das regras da checagem: mudou a regra (fontes, prompt) → todo parágrafo é conferido de novo uma vez.
 REGRAS = "4"  # 4 = obra mais recente vale mais, eventos/LoR/Riftbound na busca, fatos do canal (2026-10-31)
 
@@ -312,7 +294,8 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
             vistas = {f for f, _ in fontes}
             for c in (a.get("campeoes") or [])[:2]:
                 fontes += [x for x in _pagina_do_personagem(c) if x[0] not in vistas]  # sempre a página de quem aparece
-                fontes += _universe(c) if CANAL.get("fatos", "lol") == "lol" else _pokedex(c)
+                if CANAL.get("fatos", "lol") == "lol":
+                    fontes += _universe(c)
             por_trecho.setdefault(a["p"], []).extend(fontes)
         vetores = {}
         for i, fontes in por_trecho.items():

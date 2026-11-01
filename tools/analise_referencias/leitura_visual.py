@@ -2,7 +2,7 @@ r"""Leitura visual das referências DO CANAL (GRS_CANAL) pelo Claude: 4 folhas d
 2/3, fim) → anotações em português no formato de dados/runeterra/analise_referencias/leitura_visual.md. Uma chamada por
 vídeo (Sonnet, imagens), retomável: vídeo já lido não é pedido de novo.
 
-Uso:  set GRS_CANAL=pokemon && .venv\Scripts\python.exe tools\analise_referencias\leitura_visual.py
+Uso:  set GRS_CANAL=<chave> && .venv\Scripts\python.exe tools\analise_referencias\leitura_visual.py
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ Faça ANOTAÇÕES BRUTAS em português (lista de tópicos curtos, como um editor
   tela dividida, clipe do anime/jogo, mapa, gráfico…);
 - fundo predominante (branco, escuro, colorido, textura) e paleta;
 - tipografia e textos na tela (legendas, rótulos, títulos, números, setas);
-- como os Pokémon/personagens aparecem (arte oficial, sprites, renders 3D, cena do anime, cartas…);
+- como os personagens aparecem (arte oficial, sprites, renders 3D, cena do anime, cartas…);
 - estrutura: abertura, transições entre seções, marca registrada que se repete, fechamento;
 - o que destoa / o que dá personalidade ao canal.
 Seja concreto (cite exemplos que você vê). Sem introdução, só os tópicos."""

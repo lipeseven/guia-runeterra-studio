@@ -17,9 +17,9 @@ PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
 - Arquivos do acervo do Felipe nunca são movidos/alterados.
 
 ## Onde fica cada coisa
-- **Raiz = só código** (`app/`, `tools/`, `canais/`, `docs/`) + `Iniciar Runeterra.bat` / `Iniciar Pokemon.bat`.
-  **Tudo que não é código fica em `dados/`** (fora do Git; reorganizado em 2026-10-30): `dados/runeterra/` e
-  `dados/pokemon/` (studio.db, acervo.db, acervo/, acervo_internet/, projetos/, referencias/, analise_referencias/,
+- **Raiz = só código** (`app/`, `tools/`, `canais/`, `docs/`) + `Iniciar Runeterra.bat`.
+  **Tudo que não é código fica em `dados/`** (fora do Git; reorganizado em 2026-10-30): `dados/runeterra/`
+  (studio.db, acervo.db, acervo/, acervo_internet/, projetos/, referencias/, analise_referencias/,
   aprendizado/, encerramento/, pesquisa_cache/, roteiros/ = .txt do Felipe, "escolher da pasta" no Roteiro) e `dados/comum/` (modelos, cache_voz, sfx, motor.lock, uso_claude.jsonl;
   `canal.DADOS_COMUM`). Caminhos dos canais em `canais/<chave>/canal.toml`; caminho de arquivo de projeto para o painel:
   `motor.caminho_rel(slug, ...)` (nunca escrever "projetos/..." à mão).
@@ -148,8 +148,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   com `GRS_CANAL=<chave>` (`canais/<chave>/canal.toml`: nome, porta, assunto, pastas de acervo/banco/projetos/docs,
   fontes de fatos, aviso legal). `tools/canal.py` (CANAL, caminho) alimenta `comum.py`, `banco.py`, `motor.py`,
   prompts (planejar/escolher/revisar/roteirista/publicacao/conferencia). Sem GRS_CANAL = runeterra, caminhos de
-  sempre (`Iniciar Runeterra.bat`, porta 8765). Pokémon: `Iniciar Pokemon.bat` (porta 8766), dados em dados/pokemon/,
-  projetos em dados/pokemon/projetos/, docs em canais/pokemon/docs/, `tools/pokemon/` (pokedex.py, preparar_canal.py).
+  sempre (`Iniciar Runeterra.bat`, porta 8765). Hoje só existe o Runeterra (o perfil Pokémon saiu em 2026-11-01; volta pelo histórico do Git).
   Trava `dados/comum/motor.lock` = uma tarefa por vez na máquina entre os canais. Seletor de canal no título do quadro.
 - **Aprendizado entre vídeos ✅ (2026-10-20)**: `tools/direcao/aprendizado.py`. Ao publicar (antes de arquivar),
   `coletar()` guarda os pares de legenda "diretor → Felipe" (vão no prompt do diretor: `planejar.sistema_do_diretor`)
