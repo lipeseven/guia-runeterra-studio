@@ -2,6 +2,7 @@ import { Composition } from "remotion";
 import { ALTURA, LARGURA } from "./estilo";
 import { Montagem, duracaoDoTrecho } from "./Montagem";
 import type { Trecho } from "./tipos";
+import { Carro3D } from "./vertical/Carro3D";
 import { TesteRegras } from "./vertical/TesteRegras";
 
 const fps = 60;
@@ -11,6 +12,7 @@ const vazio: Trecho = { audio: "", palavras: [{ t: "", i: 0, f: 1 }], cenas: [] 
 
 export const Root: React.FC = () => (
   <>
+  <Composition id="Carro3D" component={Carro3D} durationInFrames={1} fps={30} width={1080} height={1920} />
   <Composition
     id="TesteRegras"
     component={TesteRegras}
