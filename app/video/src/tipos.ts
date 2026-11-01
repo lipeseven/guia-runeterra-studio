@@ -33,6 +33,7 @@ export type CenaCapa = Base & {
   circulos: CirculoCapa[];
   destaque: number;
   zoom: number;
+  folga_nome?: number; // altura do nome embaixo do círculo, em raios (medida na capa)
   origem?: number; // transição de seção: ícone em que a transição anterior parou (continuidade)
 };
 export type ItemCartao = {
@@ -65,6 +66,7 @@ export type CenaHub = Base & {
   circulos: CirculoCapa[];
   destaque: number;
   zoom: number;
+  folga_nome?: number;
   variante: "grade" | "esteira"; // "esteira" foi aposentada: altera o layout da capa (Felipe)
   origem?: number;
 };

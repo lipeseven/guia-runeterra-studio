@@ -25,7 +25,7 @@ Ter um recurso não é motivo para usá-lo. Cada tipo de cena tem um gatilho:
 | **Cartão emoldurado** | Padrão para apresentar lugar, conceito, personagem, evento | — (é o "feijão com arroz") |
 | **Tela cheia** | Momentos de impacto, atmosfera, transição entre seções | Sequências longas seguidas |
 | **Meme / quebra** | Humor, ironia, alívio depois de trecho pesado | Momentos sérios ou trágicos |
-| **Transição de seção (hub)** | Início de cada seção a partir da 2ª, quando o personagem está na capa (o roteiro fala só o nome). A bolinha + nome preenchem quase toda a altura da tela, sem passar das bordas | No meio de uma seção |
+| **Transição de seção (hub)** | Início de cada seção a partir da 2ª, quando o personagem está na capa (o roteiro fala só o nome). A bolinha começa a 5-10 px do topo e o nome termina a 5-10 px da base da tela, sem passar das bordas | No meio de uma seção |
 | **Nome sobre a arte** (tela cheia + rótulo) | Apresentar um personagem/lugar pela 1ª vez ("Raum / o demônio dos segredos") | Personagem já apresentado |
 | **Meio a meio** | Ideia/conceito forte que cabe numa frase curta ao lado da arte | Frases comuns (aí é cartão) |
 | **Só texto** | Conceito abstrato, virada, pausa dramática ("A Clareza", "Outra história"); fundo branco por padrão, preto só em ocasião especial | Mais de 1–2 vezes por vídeo |

@@ -2,7 +2,9 @@ import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } f
 import { ALTURA, LARGURA, cor } from "../estilo";
 import type { CenaCapa } from "../tipos";
 
-/** Espaço do nome embaixo do círculo, em raios: o que sobra até o próximo círculo da coluna ou até o fim da capa. */
+const MARGEM = 8; // px entre o círculo e o topo, e entre o nome e a base da tela — Felipe, 2026-10-31
+
+/** Vídeos sem a medida do nome: o que sobra embaixo do círculo até o próximo da coluna ou até o fim da capa, em raios. */
 const folgaDoNome = (cena: CenaCapa): number => {
   const { w, h } = cena.midia;
   const m = Math.min(w, h);
@@ -22,13 +24,13 @@ export const Capa: React.FC<{ cena: CenaCapa; duracao: number }> = ({ cena, dura
   const ox = (LARGURA - w * k) / 2;
   const oy = (ALTURA - h * k) / 2;
   const alvo = cena.circulos[cena.destaque];
-  // círculo + nome (embaixo dele) preenchem quase toda a altura, sem nunca passar das bordas — Felipe, 2026-10-31.
+  // círculo + nome (embaixo dele) preenchem a altura da tela, sem nunca passar das bordas.
   // O zoom vem só do tamanho do círculo na capa (cena.zoom sorteado não vale mais) e é o mesmo em todos os capítulos.
-  const folga = folgaDoNome(cena);
+  const folga = cena.folga_nome ?? folgaDoNome(cena);
   const raio = alvo.r * Math.min(w, h) * k;
   const ax = ox + alvo.cx * w * k;
   const ay = oy + alvo.cy * h * k + (raio * folga) / 2;
-  const zoom = Math.max(1, (ALTURA * 0.96) / (raio * (2 + folga)));
+  const zoom = Math.max(1, (ALTURA - 2 * MARGEM) / (raio * (2 + folga)));
   // continuidade (transição de seção): a câmera já está fechada no ícone em que a transição anterior parou e só
   // DESLIZA (pan, zoom constante) até o capítulo atual. Sem zoom-out; o layout da capa nunca muda.
   const origem = cena.origem !== undefined && cena.origem !== cena.destaque ? cena.circulos[cena.origem] : null;

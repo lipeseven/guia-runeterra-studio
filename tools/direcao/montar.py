@@ -312,6 +312,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
 
     shutil.copyfile(audio, m.pasta / "voz.wav")
     capa_midia = m.arquivo(capa, "capa") if capa else None
+    folga = {"folga_nome": _folga_do_nome(capa, circulos)} if capa and circulos else {}
 
     def icone(nome: str | None) -> dict | None:
         c = next((c for c in circulos if nome and c.get("nome", "").lower() == nome.lower()), None)
@@ -494,12 +495,12 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 continue  # seção sem ícone na capa: não há em quem fechar
             destaque = nomes_capa.index(alvo) if alvo in nomes_capa else 0
             if tipo == "capa":
-                cenas.append({**base, "tipo": "capa", "midia": capa_midia, "circulos": circulos,
+                cenas.append({**base, "tipo": "capa", "midia": capa_midia, "circulos": circulos, **folga,
                               "destaque": destaque, "zoom": round(var.rng.uniform(2.3, 2.8), 2)})
             else:
                 # continuidade: a transição parte do ícone em que a anterior (abertura ou transição) parou
                 anterior_ic = next((x["destaque"] for x in reversed(cenas) if x["tipo"] in ("capa", "hub")), None)
-                cenas.append({**base, "secao": None, "tipo": "hub", "midia": capa_midia, "circulos": circulos,
+                cenas.append({**base, "secao": None, "tipo": "hub", "midia": capa_midia, "circulos": circulos, **folga,
                               "destaque": destaque, **var.hub(),
                               **({"origem": anterior_ic} if anterior_ic is not None else {})})
             continue
@@ -759,6 +760,26 @@ def _blocos_do_trecho(trecho: dict) -> list[dict]:
         if fim >= inicio:
             blocos.append({"id": g[0].get("bloco"), "inicio": inicio, "fim": fim, "cenas": g})
     return blocos
+
+
+def _folga_do_nome(capa: Path, circulos: list[dict]) -> float:
+    """Altura real do nome embaixo dos círculos da capa, em raios (o maior da capa: o zoom é igual em todos os capítulos)."""
+    import numpy as np
+
+    img = np.asarray(Image.open(capa).convert("L"), dtype=np.int16)
+    h, w = img.shape
+    m = min(w, h)
+    folgas = [0.0]
+    for c in circulos:
+        fim, raio = c["cy"] * h + c["r"] * m, c["r"] * m
+        abaixo = [o["cy"] * h - o["r"] * m for o in circulos if o["cy"] > c["cy"] and abs(o["cx"] - c["cx"]) * w < raio]
+        de, ate = int(fim + raio * 0.04), int(min([h] + abaixo) - raio * 0.04)
+        faixa = img[de:ate, max(0, int(c["cx"] * w - raio)):int(c["cx"] * w + raio)]
+        if faixa.size:
+            escritas = np.flatnonzero((np.abs(faixa - np.median(faixa)) > 60).mean(axis=1) > 0.003)
+            if len(escritas):
+                folgas.append((de + escritas[-1] + 1 - fim) / raio)
+    return round(max(folgas), 4)
 
 
 def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = False, palavra_seguinte_inteira: bool = False) -> str:

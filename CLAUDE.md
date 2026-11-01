@@ -159,7 +159,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - **Pesquisa antes do roteiro ✅ (2026-10-29)**: `app/servidor/pesquisa.py` roda dentro da tarefa "roteiro" (gerar): Sonnet lista
   assuntos → wiki/Universe locais (cache) → dossiê de fatos com fonte e selo canon (atual/antigo/jogo) + crivo do roteiro
   base (confirmada/corrigida/desatualizada/sem_fonte) em `direcao/dossie.json`. O roteirista (gerar e ajustar) só afirma
-  fatos do dossiê; o base vira só estrutura. Painel: bloco "Pesquisa" na Conferência. Zoom da capa nos hubs (`Capa.tsx`, 2026-10-31): círculo + nome ocupam 96% da altura, conta só pelo tamanho do círculo, igual em todos os capítulos.
+  fatos do dossiê; o base vira só estrutura. Painel: bloco "Pesquisa" na Conferência. Zoom da capa nos hubs (`Capa.tsx`, 2026-10-31): círculo a 8 px do topo e nome a 8 px da base (`montar._folga_do_nome` mede a altura do nome na capa), mesmo zoom em todos os capítulos.
   Roteiro base colado (transcrição do YT) passa por `conferencia.limpar_base` (tira tempos/[Música], junta linhas);
   `frases()` corta texto sem pontuação em trechos de ~20 palavras.
   Encerramento fixo: ao aprovar o vídeo, `publicacao.com_encerramento` junta o último final + `<dados do canal>/encerramento/encerramento.mp4`
