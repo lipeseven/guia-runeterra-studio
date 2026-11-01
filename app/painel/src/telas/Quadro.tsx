@@ -18,6 +18,17 @@ import { ProgressoDoMotor } from '../componentes/Progresso'
 
 type DadosQuadro = { colunas: Coluna[]; videos: VideoResumo[] }
 const ORDEM_STATUS: Status[] = ['concluido', 'atencao', 'andamento', 'pendente', 'em_breve']
+const NOME_TAREFA: Record<string, string> = {
+  roteiro: 'roteiro',
+  conferencia: 'conferência do roteiro',
+  voz_guia: 'voz guia',
+  direcao: 'direção',
+  rascunho: 'rascunho',
+  gravacao: 'gravação',
+  remontar_gravacao: 'gravação',
+  final: 'vídeo final',
+  publicacao: 'publicação',
+}
 
 export function Quadro() {
   const { dados, recarregar, setDados } = useAoVivo<DadosQuadro>('/quadro', 5000)
@@ -332,6 +343,8 @@ function ArrastavelVideo({ video, aoMudar, motor }: { video: VideoResumo; aoMuda
 
 function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResumo; flutuando?: boolean; menu?: React.ReactNode; motor?: Motor | null }) {
   const segmentos = ORDEM_STATUS.flatMap((s) => Array(video.progresso[s] ?? 0).fill(s) as Status[])
+  const posicao = motor?.fila?.findIndex((x) => x.video === video.id) ?? -1
+  const naFila = posicao >= 0 ? motor?.fila?.[posicao] : undefined
   return (
     <a
       href={`#/video/${video.id}`}
@@ -360,7 +373,12 @@ function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResum
           ))}
         </div>
         <ProgressoDoMotor motor={motor} videoId={video.id} compacta />
-        {video.aguardando && motor?.executando?.video !== video.id && (
+        {naFila && (
+          <p className="mt-2 text-[11px] leading-snug text-suave">
+            Na fila ({posicao + 1}º): {NOME_TAREFA[naFila.tarefa] ?? naFila.tarefa}
+          </p>
+        )}
+        {video.aguardando && !naFila && motor?.executando?.video !== video.id && (
           <p className="mt-2 text-[11px] leading-snug text-atencao">Aguardando você: {video.aguardando}</p>
         )}
         <div className="mt-2 flex items-center justify-between font-mono text-[11px] text-apagado">

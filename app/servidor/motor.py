@@ -1243,7 +1243,8 @@ def pedir_conferencia(vid: int) -> None:
 
 
 def situacao() -> dict:
-    return {"executando": ESTADO["executando"], "na_fila": FILA.qsize(), "progresso": ESTADO.get("progresso")}
+    return {"executando": ESTADO["executando"], "na_fila": FILA.qsize(), "progresso": ESTADO.get("progresso"),
+            "fila": [{"video": v, "tarefa": t} for v, t in list(FILA.queue)]}
 
 
 def definir_progresso(titulo: str, texto: str, fracao: float | None = None, inicio: float | None = None) -> None:
