@@ -13,7 +13,7 @@ Analisados 6 reels do perfil "Fórmula a fondo | F1 explicada" (2026-11-01; arqu
 de formato: fatos e estrutura sim; textos, desenhos, cores e temas iguais não.
 
 **Roteiro**
-- 47 a 56 s, cerca de 200 palavras por minuto, fala em 93% do tempo.
+- As referências têm 47 a 56 s, cerca de 200 palavras por minuto, fala em 93% do tempo. **Os nossos têm de 75 a 180 s**, conforme o tema pedir (decisão do Felipe, 2026-11-01).
 - Um único tema técnico, com esta ordem: pergunta na 1ª frase → resposta curta → mecanismo → comparação do dia a dia →
   número ou caso real → frase que resume → pedido final ("manda para aquele amigo…", "segue para entender F1 em um minuto").
 - Toda ideia difícil vira comparação física: mão na janela do carro, borracha escolar, bomba de bicicleta, máquina de lavar.
@@ -38,7 +38,7 @@ de formato: fatos e estrutura sim; textos, desenhos, cores e temas iguais não.
 - Só a voz. Sem música de fundo, e no máximo 1 ou 2 efeitos por vídeo.
 
 **O que deve ser só nosso (para não virar cópia)**
-- Paleta, desenho e pintura do carro próprios, sem logotipo de equipe, de patrocinador ou da F1.
+- Paleta e desenho próprios. Nomes reais de equipes, pilotos, pistas e lugares, e logos oficiais das equipes, podem ser usados (decisão do Felipe, 2026-11-01).
 - Temas e comparações próprios: não repetir os dos 6 vídeos analisados.
 - Legenda com tipografia e destaque próprios, e pedido final com a voz do canal.
 

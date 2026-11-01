@@ -19,7 +19,9 @@ Edite à vontade: cada ajuste fino de estilo entra aqui.
 - Ritmo: ~162 palavras por minuto narrado (10 min ≈ 1.600 palavras).
 
 ## Vídeo vertical
-- Um único fato ou história por vídeo, com gancho já na primeira frase.
+- Um único tema por vídeo, com gancho já na primeira frase.
+- Duração: de 75 a 180 segundos de narração, conforme o tema pedir. Sem encher para alongar. A cerca de 200 palavras por minuto, são 250 a 600 palavras.
+- Nomes reais de equipes, pilotos, pistas e lugares.
 
 ## Inspiração, não cópia
 - Um roteiro base serve SÓ como fonte de fatos, temas e ordem possível. Proibido traduzir frases, piadas ou ganchos.
