@@ -360,6 +360,9 @@ function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResum
           ))}
         </div>
         <ProgressoDoMotor motor={motor} videoId={video.id} compacta />
+        {video.aguardando && motor?.executando?.video !== video.id && (
+          <p className="mt-2 text-[11px] leading-snug text-atencao">Aguardando você: {video.aguardando}</p>
+        )}
         <div className="mt-2 flex items-center justify-between font-mono text-[11px] text-apagado">
           <span>
             {video.progresso.concluido ?? 0}/{video.total_etapas} etapas

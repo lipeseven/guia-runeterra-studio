@@ -179,8 +179,10 @@ def quadro():
         for v in con.execute("SELECT * FROM videos ORDER BY ordem"):
             st = [r["status"] for r in con.execute("SELECT status FROM etapas WHERE video_id=?", (v["id"],))]
             pend = con.execute("SELECT COUNT(*) FROM pendencias WHERE video_id=? AND resolvida=0", (v["id"],)).fetchone()[0]
+            ultima = con.execute("SELECT titulo FROM pendencias WHERE video_id=? AND resolvida=0 ORDER BY id DESC LIMIT 1",
+                                 (v["id"],)).fetchone()
             videos.append({**dict(v), "progresso": {s: st.count(s) for s in set(st)}, "total_etapas": len(st),
-                           "pendencias": pend})
+                           "pendencias": pend, "aguardando": ultima["titulo"] if ultima else None})
         return {"colunas": COLUNAS, "videos": videos}
 
 

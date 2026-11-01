@@ -15,6 +15,7 @@ export type VideoResumo = {
   progresso: Partial<Record<Status, number>>
   total_etapas: number
   pendencias: number
+  aguardando?: string | null // o que o card espera do Felipe (pendência aberta mais recente)
   travado: number
   url_youtube: string | null
 }

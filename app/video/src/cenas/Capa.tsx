@@ -2,6 +2,17 @@ import { AbsoluteFill, Easing, Img, interpolate, staticFile, useCurrentFrame } f
 import { ALTURA, LARGURA, cor } from "../estilo";
 import type { CenaCapa } from "../tipos";
 
+/** Espaço do nome embaixo do círculo, em raios: o que sobra até o próximo círculo da coluna ou até o fim da capa. */
+const folgaDoNome = (cena: CenaCapa): number => {
+  const { w, h } = cena.midia;
+  const m = Math.min(w, h);
+  const folgas = cena.circulos.map((c) => {
+    const abaixo = cena.circulos.filter((o) => o.cy > c.cy && Math.abs(o.cx - c.cx) * w < c.r * m).map((o) => o.cy * h - o.r * m);
+    return (Math.min(h, ...abaixo) - (c.cy * h + c.r * m)) / (c.r * m);
+  });
+  return Math.min(0.7, Math.max(0, ...folgas));
+};
+
 /** A própria capa do vídeo (grade de ícones) com a câmera fechando no personagem em destaque. */
 export const Capa: React.FC<{ cena: CenaCapa; duracao: number }> = ({ cena, duracao }) => {
   const frame = useCurrentFrame();
@@ -11,21 +22,21 @@ export const Capa: React.FC<{ cena: CenaCapa; duracao: number }> = ({ cena, dura
   const ox = (LARGURA - w * k) / 2;
   const oy = (ALTURA - h * k) / 2;
   const alvo = cena.circulos[cena.destaque];
-  // o nome do personagem fica EMBAIXO do círculo: a câmera mira um pouco abaixo do centro e o zoom é limitado
-  // para círculo + nome caberem na tela (antes o nome era cortado pela borda de baixo)
+  // círculo + nome (embaixo dele) preenchem quase toda a altura, sem nunca passar das bordas — Felipe, 2026-10-31.
+  // O zoom vem só do tamanho do círculo na capa (cena.zoom sorteado não vale mais) e é o mesmo em todos os capítulos.
+  const folga = folgaDoNome(cena);
   const raio = alvo.r * Math.min(w, h) * k;
   const ax = ox + alvo.cx * w * k;
-  const ay = oy + alvo.cy * h * k + raio * 0.55;
-  const zoomMax = (ALTURA * 0.82) / (raio * 2.6); // 2,6 (era 3,1): +20% de zoom no ícone — Felipe, 2026-10-29
-  const zoom = Math.max(1, Math.min(cena.zoom, zoomMax));
+  const ay = oy + alvo.cy * h * k + (raio * folga) / 2;
+  const zoom = Math.max(1, (ALTURA * 0.96) / (raio * (2 + folga)));
   // continuidade (transição de seção): a câmera já está fechada no ícone em que a transição anterior parou e só
   // DESLIZA (pan, zoom constante) até o capítulo atual. Sem zoom-out; o layout da capa nunca muda.
   const origem = cena.origem !== undefined && cena.origem !== cena.destaque ? cena.circulos[cena.origem] : null;
   if (origem) {
     const ro = origem.r * Math.min(w, h) * k;
     const bx = ox + origem.cx * w * k;
-    const by = oy + origem.cy * h * k + ro * 0.55;
-    const z = Math.max(1, Math.min(zoom, (ALTURA * 0.82) / (ro * 2.6)));
+    const by = oy + origem.cy * h * k + (ro * folga) / 2;
+    const z = zoom;
     const t = interpolate(frame, [0, Math.max(2, duracao * 0.8)], [0, 1], {
       extrapolateRight: "clamp",
       easing: Easing.inOut(Easing.cubic),
