@@ -108,7 +108,7 @@ function SeletorDeCanal() {
           {outros.map((c) => (
             <a
               key={c.chave}
-              href={`http://127.0.0.1:${c.porta}/`}
+              href={`http://${window.location.hostname}:${c.porta}/`}
               className="block rounded px-3 py-2 text-sm hover:bg-painel-2"
               title="Abre o painel deste canal (servidor próprio). Se não abrir, ligue o canal pelo iniciar.bat."
             >
