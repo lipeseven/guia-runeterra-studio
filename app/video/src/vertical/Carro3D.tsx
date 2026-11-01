@@ -10,7 +10,7 @@ export const C = (h: string) => new THREE.Color(h);
 type Secao = [z: number, largura: number, topo: number, base: number];
 
 /** Liga seções em forma de "superelipse" ao longo do comprimento; `cor` pinta cada vértice. */
-function casco(secoes: Secao[], cor: (x: number, y: number, z: number) => THREE.Color, dx = 0, voltas = 64, passos = 90): THREE.Mesh {
+export function casco(secoes: Secao[], cor: (x: number, y: number, z: number) => THREE.Color, dx = 0, voltas = 64, passos = 90, curva = 0.72): THREE.Mesh {
   const interp = (i: number) => {
     const u = (i / passos) * (secoes.length - 1);
     const k = Math.min(secoes.length - 2, Math.floor(u));
@@ -29,8 +29,8 @@ function casco(secoes: Secao[], cor: (x: number, y: number, z: number) => THREE.
       const a = (j / voltas) * Math.PI * 2;
       const c = Math.cos(a);
       const n = Math.sin(a);
-      const x = Math.sign(c) * Math.pow(Math.abs(c), 0.72) * w + dx;
-      const y = meio + Math.sign(n) * Math.pow(Math.abs(n), 0.72) * alt;
+      const x = Math.sign(c) * Math.pow(Math.abs(c), curva) * w + dx;
+      const y = meio + Math.sign(n) * Math.pow(Math.abs(n), curva) * alt;
       pos.push(x, y, z);
       const k = cor(x - dx, y, z);
       cores.push(k.r, k.g, k.b);
@@ -56,7 +56,7 @@ function casco(secoes: Secao[], cor: (x: number, y: number, z: number) => THREE.
   return m;
 }
 
-const caixa = (l: number, a: number, c: number, x: number, y: number, z: number, cor: string, rough = 0.4) => {
+export const caixa = (l: number, a: number, c: number, x: number, y: number, z: number, cor: string, rough = 0.4) => {
   const m = new THREE.Mesh(new THREE.BoxGeometry(l, a, c), new THREE.MeshStandardMaterial({ color: cor, roughness: rough }));
   m.position.set(x, y, z);
   m.castShadow = true;
@@ -92,7 +92,7 @@ const lamina = (y: number, z: number, prof: number, cor: string) => {
   return m;
 };
 
-function roda(x: number, z: number, r: number, l: number, friso: string) {
+export function roda(x: number, z: number, r: number, l: number, friso: string) {
   const g = new THREE.Group();
   const perfil: THREE.Vector2[] = [];
   for (let k = 0; k <= 16; k++) {

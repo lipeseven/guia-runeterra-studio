@@ -5,7 +5,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
-import { C, PINTURAS, carro, degradeRadial, plano, texturaPista } from "./Carro3D";
+import { C, PINTURAS, caixa, carro, casco, degradeRadial, plano, roda, texturaPista } from "./Carro3D";
 import { FONTE, Legenda, Placa, entra, noTrecho, suave, type Palavra } from "./kit";
 
 type V = [number, number, number];
@@ -14,7 +14,44 @@ type Marcas = Record<string, number>;
 const N = 8;
 const Z_BATIDA = -900;
 const Z_BANDEIRA = -1000;
-const SC = { base: "#c9ced6", clara: "#f4f6f8", escura: "#7a8290", faixa: "#ff8a00", acento: "#ffc400" };
+
+/** Safety Car: superesportivo próprio do canal, sem marca, com capô longo, cabine recuada e barra de luzes no teto. */
+function superesportivo(): THREE.Group {
+  const g = new THREE.Group();
+  const prata = C("#aeb5c0");
+  const claro = C("#eef1f5");
+  const corpo = (_x: number, y: number) => (y < 0.26 ? C("#0b0c10") : prata.clone().lerp(claro, Math.max(0, Math.min(1, (y - 0.34) * 2.2))));
+  // carroceria larga e baixa: frente em cunha, ombros sobre as rodas traseiras
+  g.add(casco([[-2.46, 0.9, 0.36, 0.16], [-2.1, 1.0, 0.47, 0.13], [-1.4, 1.03, 0.62, 0.12], [-0.7, 1.0, 0.68, 0.12], [0.2, 0.98, 0.72, 0.12], [1.2, 1.08, 0.8, 0.12], [1.9, 1.06, 0.8, 0.16], [2.36, 0.94, 0.72, 0.26], [2.48, 0.8, 0.62, 0.36]], corpo, 0, 72, 110, 0.32));
+  const cabine = (x: number, y: number) => (y > 1.04 ? claro : Math.abs(x) > 0.66 && y > 0.72 ? prata : C("#080b12"));
+  g.add(casco([[-1.25, 0.56, 0.68, 0.6], [-0.7, 0.68, 0.94, 0.6], [-0.15, 0.7, 1.08, 0.6], [0.5, 0.68, 1.1, 0.6], [1.15, 0.56, 1.0, 0.6], [1.95, 0.3, 0.8, 0.6]], cabine, 0, 64, 90, 0.5));
+  for (const s of [-1, 1]) {
+    for (const [z, r, l] of [[-1.42, 0.35, 0.3], [1.48, 0.36, 0.36]] as const) {
+      g.add(roda(s * (1.05 - l / 2 + 0.05), z, r, l, "#c9ced6"));
+      const caixaRoda = new THREE.Mesh(new THREE.CircleGeometry(r + 0.07, 36), new THREE.MeshStandardMaterial({ color: "#050507", roughness: 0.8, side: THREE.DoubleSide }));
+      caixaRoda.rotation.y = Math.PI / 2;
+      caixaRoda.position.set(s * 1.035, r, z);
+      g.add(caixaRoda);
+    }
+    const farol = caixa(0.5, 0.05, 0.05, s * 0.62, 0.42, -2.3, "#ffffff");
+    (farol.material as THREE.MeshStandardMaterial).emissive = C("#ffffff");
+    (farol.material as THREE.MeshStandardMaterial).emissiveIntensity = 3;
+    farol.rotation.y = s * 0.3;
+    farol.rotation.z = s * -0.08;
+    g.add(farol);
+    const lanterna = caixa(0.6, 0.05, 0.04, s * 0.52, 0.68, 2.46, "#ff1e12");
+    (lanterna.material as THREE.MeshStandardMaterial).emissive = C("#ff1e12");
+    (lanterna.material as THREE.MeshStandardMaterial).emissiveIntensity = 2.5;
+    g.add(lanterna);
+    g.add(caixa(0.05, 0.14, 0.05, s * 0.62, 0.92, 2.26, "#101116"));
+    g.add(caixa(0.05, 0.14, 0.5, s * 1.08, 0.3, 0.05, "#ff8a00")); // saia lateral laranja
+    g.add(caixa(0.24, 0.1, 0.05, s * 0.74, 0.28, -2.42, "#05060a")); // tomadas de ar
+  }
+  g.add(caixa(1.92, 0.035, 0.34, 0, 0.13, -2.42, "#ff8a00")); // splitter
+  g.add(caixa(1.02, 0.14, 0.05, 0, 0.27, -2.46, "#05060a")); // grade central
+  g.add(caixa(1.5, 0.035, 0.28, 0, 1.0, 2.3, "#101116")); // asa traseira
+  return g;
+}
 
 /** Distância percorrida pelo pelotão: rápido até "reduz", depois em ritmo de bandeira. Soma tabelada, função pura de t. */
 const distancia = (t: number, m: Marcas) => {
@@ -64,7 +101,7 @@ function plano_(t: number, m: Marcas): [V, V, number, number] {
   if (t < m.fila) {
     const k = suave(t, m.sc - 0.25, m.fila);
     const sc = posSc(t, m);
-    return [[sc[0] + 2.4 - k * 1.7, 0.52 + k * 0.2, sc[2] - 8.5 + k * 3.2], [sc[0], 0.7, sc[2] + 2], 42, 0.03 - k * 0.03];
+    return [[sc[0] + 3.2 - k * 1.5, 0.55 + k * 0.3, sc[2] - 12.5 + k * 3.2], [sc[0] + 0.25, 0.8, sc[2] + 0.3], 40, 0.03 - k * 0.03];
   }
   if (t < m.vant) {
     const k = suave(t, m.fila, m.vant);
@@ -155,12 +192,15 @@ function montar(canvas: HTMLCanvasElement): Mundo {
   const modelos = PINTURAS.map(carro);
   const carros = Array.from({ length: N }, (_, k) => fazer(modelos[k % modelos.length]));
 
-  // Safety Car com barra de luzes
-  const sc = fazer(carro(SC));
+  // Safety Car com barra de luzes no teto
+  const sc = new THREE.Group();
+  sc.add(superesportivo(), plano(2.9, 6.2, 0, 0, sombra));
+  cena.add(sc);
+  sc.add(caixa(1.05, 0.05, 0.2, 0, 1.13, 0.2, "#101116"));
   const luzes = [0, 1].map(() => new THREE.MeshStandardMaterial({ color: "#3a2a00", emissive: "#ffae00", emissiveIntensity: 0 }));
   luzes.forEach((mat, k) => {
-    const m = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.16), mat);
-    m.position.set(k ? 0.17 : -0.17, 0.93, 0.95);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.09, 0.16), mat);
+    m.position.set(k ? 0.27 : -0.27, 1.19, 0.2);
     sc.add(m);
   });
 
