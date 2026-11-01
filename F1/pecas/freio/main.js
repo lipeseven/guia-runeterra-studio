@@ -69,7 +69,7 @@ function texturaBrilho(seed) {
   g.fillStyle = '#ffffff';
   g.fillRect(0, 0, 1024, 1024);
   for (let r = 0; r < 520; r += 2) {
-    g.strokeStyle = `rgba(90,20,0,${s() * 0.32})`;
+    g.strokeStyle = `rgba(40,8,0,${s() * 0.6})`;
     g.lineWidth = 0.6 + s() * 1.4;
     g.beginPath();
     g.arc(512, 512, r, 0, 6.3);
@@ -250,7 +250,7 @@ runSim(DEFAULTS, async ({canvas, capture}) => {
       });
 
       matDisco.emissive.copy(quente(H));
-      matDisco.emissiveIntensity = H * 1.5;
+      matDisco.emissiveIntensity = H * 0.62;
       matPastilha.emissive.set('#ff3a00');
       matPastilha.emissiveIntensity = H * 0.35;
 
