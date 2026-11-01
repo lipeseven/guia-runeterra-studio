@@ -1,6 +1,6 @@
-// Teste: carro de F1 em 3D de verdade (Three.js), com luz e sombra reais, numa pista com a mesma câmera do modelo.
+// Teste em movimento: grid de carros em 3D (Three.js) com luz e sombra reais; a câmera voa do fundo até a pole.
 import { useLayoutEffect, useRef, useState } from "react";
-import { AbsoluteFill, continueRender, delayRender } from "remotion";
+import { AbsoluteFill, Easing, continueRender, delayRender, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
@@ -199,111 +199,192 @@ function carro(p: Pintura): THREE.Group {
   return g;
 }
 
+const M_POR_TEXTURA = 60; // metros de pista em cada repetição da textura
+
 function texturaPista(): THREE.CanvasTexture {
   const c = document.createElement("canvas");
-  c.width = 1024;
-  c.height = 4096;
+  c.width = 1536;
+  c.height = 2880;
   const x = c.getContext("2d")!;
-  // escape, grama e faixas: 32 m de largura, 120 m de comprimento
-  x.fillStyle = "#27613a";
-  x.fillRect(0, 0, 1024, 4096);
-  const m = (v: number) => 512 + v * 32;
-  x.fillStyle = "#c7a678";
-  x.fillRect(m(-8.6), 0, m(8.6) - m(-8.6), 4096);
-  x.fillStyle = "#4a434f";
-  x.fillRect(m(-6), 0, m(6) - m(-6), 4096);
-  const faixas = x.createLinearGradient(0, 0, 0, 4096);
-  [0, 0.14, 0.27, 0.38, 0.52, 0.66, 0.78, 0.9, 1].forEach((o, k) => faixas.addColorStop(o, k % 2 ? "rgba(255,175,135,.1)" : "rgba(26,18,48,.34)"));
-  x.fillStyle = faixas;
-  x.fillRect(m(-6), 0, m(6) - m(-6), 4096);
-  for (let k = 0; k < 420; k++) {
-    x.fillStyle = `rgba(${k % 2 ? "255,255,255" : "0,0,0"},${0.012 + Math.random() * 0.03})`;
-    x.fillRect(m(-6) + Math.random() * 384, Math.random() * 4096, 1 + Math.random() * 2, 8 + Math.random() * 60);
+  const m = (v: number) => 768 + v * 32; // 48 m de largura
+  x.fillStyle = "#25663b";
+  x.fillRect(0, 0, 1536, 2880);
+  for (let y = 0; y < 2880; y += 480) {
+    x.fillStyle = "#2c7444";
+    x.fillRect(0, y, 1536, 240);
+  }
+  x.fillStyle = "#c4a174";
+  x.fillRect(m(-10.4), 0, m(10.4) - m(-10.4), 2880);
+  x.fillStyle = "#4b4450";
+  x.fillRect(m(-6.4), 0, m(6.4) - m(-6.4), 2880);
+  // faixas largas de luz e sombra atravessando o asfalto
+  [[0, 620, "rgba(255,178,140,.13)"], [620, 700, "rgba(24,16,46,.34)"], [1320, 480, "rgba(255,178,140,.09)"], [1800, 620, "rgba(24,16,46,.26)"], [2420, 460, "rgba(255,178,140,.12)"]].forEach(([y, h, cor]) => {
+    x.fillStyle = cor as string;
+    x.fillRect(m(-6.4), y as number, m(6.4) - m(-6.4), h as number);
+  });
+  // linhas longitudinais suaves, como o desgaste da pista
+  for (const l of [-3.9, -1.4, 1.4, 3.9]) {
+    x.fillStyle = "rgba(0,0,0,.1)";
+    x.fillRect(m(l) - 14, 0, 28, 2880);
+  }
+  for (let k = 0; k < 340; k++) {
+    x.fillStyle = `rgba(${k % 2 ? "255,255,255" : "0,0,0"},${0.012 + (k % 9) * 0.004})`;
+    x.fillRect(m(-6.4) + ((k * 137) % 410), (k * 397) % 2880, 2, 16 + (k % 7) * 9);
   }
   for (let s = 0; s < 2; s++) {
-    const xk = s ? m(6) : m(-7.1);
-    for (let y = 0; y < 4096; y += 34) {
-      x.fillStyle = Math.floor(y / 34) % 2 ? "#f3f3f3" : "#dd2c35";
-      x.fillRect(xk, y, 36, 34);
+    const xk = s ? m(6.4) : m(-8.1);
+    for (let y = 0; y < 2880; y += 60) {
+      x.fillStyle = Math.floor(y / 60) % 2 ? "#f3f3f3" : "#dd2c35";
+      x.fillRect(xk, y, 54, 60);
     }
     x.fillStyle = "#f3f3f3";
-    x.fillRect(s ? m(5.86) : m(-6), 0, 5, 4096);
+    x.fillRect(s ? m(6.2) : m(-6.4), 0, 6, 2880);
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 16;
+  t.wrapT = THREE.RepeatWrapping;
   return t;
 }
 
-function sombraMacia(): THREE.Mesh {
+function degradeRadial(cor: string): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = c.height = 256;
   const x = c.getContext("2d")!;
   const g = x.createRadialGradient(128, 128, 20, 128, 128, 128);
-  g.addColorStop(0, "rgba(0,0,0,.72)");
-  g.addColorStop(0.65, "rgba(0,0,0,.5)");
+  g.addColorStop(0, cor);
   g.addColorStop(1, "rgba(0,0,0,0)");
   x.fillStyle = g;
   x.fillRect(0, 0, 256, 256);
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 7.4), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+  return new THREE.CanvasTexture(c);
+}
+
+const plano = (l: number, c: number, x: number, z: number, mat: THREE.Material, y = 0.013) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(l, c), mat);
   m.rotation.x = -Math.PI / 2;
-  m.position.y = 0.012;
+  m.position.set(x, y, z);
   return m;
+};
+
+function numero(n: number): THREE.Material {
+  const c = document.createElement("canvas");
+  c.width = 128;
+  c.height = 128;
+  const x = c.getContext("2d")!;
+  x.font = "800 104px 'Segoe UI', sans-serif";
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.fillStyle = "#f4f1ea";
+  x.fillText(String(n), 64, 68);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false });
 }
 
 const PINTURAS: Pintura[] = [
-  { base: "#0f8f80", clara: "#2fd4bd", escura: "#06433f", faixa: "#f3ecd8", acento: "#ff5a3c" },
+  { base: "#d11f4e", clara: "#ff5f88", escura: "#6d0a26", faixa: "#f4f1ea", acento: "#ffc400" }, // pole
   { base: "#d9571a", clara: "#ff9445", escura: "#742a05", faixa: "#14202e", acento: "#f6e7c8" },
+  { base: "#0f8f80", clara: "#2fd4bd", escura: "#06433f", faixa: "#f3ecd8", acento: "#ff5a3c" },
   { base: "#2547c4", clara: "#5f8bff", escura: "#0f2170", faixa: "#ffd21f", acento: "#f4f4f4" },
+  { base: "#7a35c0", clara: "#a764ea", escura: "#3c1469", faixa: "#46e0c8", acento: "#f3ecd8" },
+  { base: "#e6a500", clara: "#ffd04a", escura: "#8a5400", faixa: "#131313", acento: "#d4213c" },
+  { base: "#bfc5cf", clara: "#f2f4f7", escura: "#5f6775", faixa: "#d4213c", acento: "#14202e" },
+  { base: "#23262f", clara: "#4a4f5c", escura: "#0a0b0f", faixa: "#b8f000", acento: "#f5f5f5" },
 ];
+
+const POSICOES = 22;
+const passoGrid = 4.4;
+const zDaPosicao = (k: number) => -(POSICOES - k) * passoGrid;
+const ladoDaPosicao = (k: number) => (k % 2 ? -1.9 : 1.9);
+
+type Cena3D = { r: THREE.WebGLRenderer; cena: THREE.Scene; cam: THREE.PerspectiveCamera; sol: THREE.DirectionalLight; luzPole: THREE.Mesh };
+
+function montar(canvas: HTMLCanvasElement): Cena3D {
+  const r = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+  r.setSize(1080, 1920, false);
+  r.outputColorSpace = THREE.SRGBColorSpace;
+  r.toneMapping = THREE.ACESFilmicToneMapping;
+  r.toneMappingExposure = 0.94;
+  r.shadowMap.enabled = true;
+  r.shadowMap.type = THREE.PCFSoftShadowMap;
+  const cena = new THREE.Scene();
+  cena.background = C("#e9b483");
+  cena.fog = new THREE.Fog("#e9b483", 55, 150);
+  cena.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
+  cena.environmentIntensity = 0.3;
+  cena.add(new THREE.HemisphereLight("#ffe9d2", "#2a2433", 0.85));
+  const sol = new THREE.DirectionalLight("#fff0dc", 2.1);
+  sol.castShadow = true;
+  sol.shadow.mapSize.set(4096, 4096);
+  sol.shadow.radius = 5;
+  sol.shadow.bias = -0.0004;
+  Object.assign(sol.shadow.camera, { left: -16, right: 16, top: 34, bottom: -34, near: 1, far: 70 });
+  cena.add(sol, sol.target);
+
+  const mapa = texturaPista();
+  const comp = 420;
+  mapa.repeat.set(1, comp / M_POR_TEXTURA);
+  const chao = new THREE.Mesh(new THREE.PlaneGeometry(48, comp), new THREE.MeshStandardMaterial({ map: mapa, roughness: 0.92 }));
+  chao.rotation.x = -Math.PI / 2;
+  chao.position.z = -130;
+  chao.receiveShadow = true;
+  cena.add(chao);
+  for (const s of [-1, 1]) {
+    const longe = new THREE.Mesh(new THREE.PlaneGeometry(400, comp), new THREE.MeshStandardMaterial({ color: "#25663b", roughness: 1 }));
+    longe.rotation.x = -Math.PI / 2;
+    longe.position.set(s * 224, -0.01, -130);
+    cena.add(longe);
+  }
+
+  // o mesmo carro por pintura: o grid inteiro fica barato
+  const modelos = PINTURAS.map(carro);
+  const sombra = new THREE.MeshBasicMaterial({ map: degradeRadial("rgba(0,0,0,.74)"), transparent: true, depthWrite: false });
+  const branco = new THREE.MeshBasicMaterial({ color: "#f4f1ea" });
+  for (let k = 1; k <= POSICOES; k++) {
+    const x = ladoDaPosicao(k);
+    const z = zDaPosicao(k);
+    const c = modelos[k === 1 ? 0 : 1 + (k * 3) % (PINTURAS.length - 1)].clone();
+    c.position.set(x, 0, z);
+    c.scale.set(0.7, 0.9, 1.1);
+    cena.add(c, plano(2.5, 7.2, x, z, sombra));
+    // colchete da posição
+    cena.add(plano(1.9, 0.09, x, z - 3.9, branco, 0.02), plano(0.09, 0.62, x - 0.95, z - 3.62, branco, 0.02), plano(0.09, 0.62, x + 0.95, z - 3.62, branco, 0.02));
+    cena.add(plano(1.05, 1.05, x + Math.sign(x) * 1.55, z - 3.35, numero(k), 0.02));
+  }
+  // linha de largada
+  for (let i = 0; i < 26; i++) {
+    for (let j = 0; j < 2; j++) cena.add(plano(0.48, 0.48, -6.1 + i * 0.48, zDaPosicao(1) - 6.2 + j * 0.48, (i + j) % 2 ? branco : new THREE.MeshBasicMaterial({ color: "#16171b" })));
+  }
+  // luz sobre a pole
+  const luzPole = plano(3.2, 7.6, ladoDaPosicao(1), zDaPosicao(1), new THREE.MeshBasicMaterial({ map: degradeRadial("rgba(255,214,120,1)"), transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }), 0.016);
+  cena.add(luzPole);
+  const cam = new THREE.PerspectiveCamera(47, 1080 / 1920, 0.1, 400);
+  return { r, cena, cam, sol, luzPole };
+}
 
 export const Carro3D: React.FC = () => {
   const ref = useRef<HTMLCanvasElement>(null);
-  const [alca] = useState(() => delayRender("montando o 3D"));
+  const cena = useRef<Cena3D | null>(null);
+  const quadro = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const [alca] = useState(() => delayRender("desenhando o quadro 3D"));
   useLayoutEffect(() => {
-    const r = new THREE.WebGLRenderer({ canvas: ref.current!, antialias: true, preserveDrawingBuffer: true });
-    r.setSize(1080, 1920, false);
-    r.outputColorSpace = THREE.SRGBColorSpace;
-    r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 0.92;
-    r.shadowMap.enabled = true;
-    r.shadowMap.type = THREE.PCFSoftShadowMap;
-    const cena = new THREE.Scene();
-    cena.background = C("#223a58");
-    cena.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
-    cena.environmentIntensity = 0.3;
-    cena.add(new THREE.HemisphereLight("#ffe9d2", "#2a2433", 0.85));
-    const sol = new THREE.DirectionalLight("#fff0dc", 2.1);
-    sol.position.set(-7, 15, -8);
-    sol.target.position.set(0, 0, -6);
-    sol.castShadow = true;
-    sol.shadow.mapSize.set(4096, 4096);
-    sol.shadow.radius = 5;
-    sol.shadow.bias = -0.0004;
-    Object.assign(sol.shadow.camera, { left: -14, right: 14, top: 22, bottom: -22, near: 1, far: 50 });
-    cena.add(sol, sol.target);
-
-    const chao = new THREE.Mesh(new THREE.PlaneGeometry(32, 120), new THREE.MeshStandardMaterial({ map: texturaPista(), roughness: 0.92 }));
-    chao.rotation.x = -Math.PI / 2;
-    chao.position.z = -40;
-    chao.receiveShadow = true;
-    cena.add(chao);
-
-    [[1.7, 0], [-1.9, -7.5], [1.7, -15], [-1.9, -22.5], [1.7, -30]].forEach(([x, z], k) => {
-      const c = carro(PINTURAS[k % 3]);
-      c.position.set(x, 0, z);
-      c.scale.set(0.72, 0.85, 1.08);
-      c.add(sombraMacia());
-      cena.add(c);
-    });
-
-    const cam = new THREE.PerspectiveCamera(25, 1080 / 1920, 0.1, 300);
-    cam.position.set(0.2, 15.5, 20.5);
-    cam.lookAt(0, 0, -11);
-    r.render(cena, cam);
+    const c = cena.current ?? (cena.current = montar(ref.current!));
+    const t = quadro / fps;
+    // voa do fundo do grid até a pole em 1,7 s, freando, e depois só desliza devagar
+    const voo = interpolate(t, [0, 1.7], [0, 1], { extrapolateRight: "clamp", easing: Easing.bezier(0.2, 0.05, 0.1, 1) });
+    const zFoco = zDaPosicao(POSICOES) + (zDaPosicao(1) - zDaPosicao(POSICOES)) * voo + Math.max(0, t - 1.7) * 0.12;
+    const altura = 5.4 + voo * 2.5 + Math.max(0, t - 1.7) * 0.05;
+    const recuo = 7.2 + voo * 3.6;
+    c.cam.position.set(0.15, altura, zFoco + recuo);
+    c.cam.lookAt(0, 0, zFoco - 11);
+    c.sol.position.set(-7, 16, zFoco - 6);
+    c.sol.target.position.set(0, 0, zFoco - 8);
+    c.sol.target.updateMatrixWorld();
+    (c.luzPole.material as THREE.MeshBasicMaterial).opacity = interpolate(t, [1.5, 2.1], [0, 0.3], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }) * (0.86 + Math.sin(t * 3) * 0.14);
+    c.r.render(c.cena, c.cam);
     continueRender(alca);
-    return () => r.dispose();
-  }, [alca]);
+  }, [quadro, fps, alca]);
   return (
     <AbsoluteFill>
       <canvas ref={ref} width={1080} height={1920} style={{ width: 1080, height: 1920 }} />

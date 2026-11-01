@@ -12,7 +12,7 @@ const vazio: Trecho = { audio: "", palavras: [{ t: "", i: 0, f: 1 }], cenas: [] 
 
 export const Root: React.FC = () => (
   <>
-  <Composition id="Carro3D" component={Carro3D} durationInFrames={1} fps={30} width={1080} height={1920} />
+  <Composition id="Carro3D" component={Carro3D} durationInFrames={150} fps={30} width={1080} height={1920} />
   <Composition
     id="TesteRegras"
     component={TesteRegras}
