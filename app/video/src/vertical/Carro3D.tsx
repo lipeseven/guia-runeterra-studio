@@ -4,8 +4,8 @@ import { AbsoluteFill, Easing, continueRender, delayRender, interpolate, useCurr
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
-type Pintura = { base: string; clara: string; escura: string; faixa: string; acento: string };
-const C = (h: string) => new THREE.Color(h);
+export type Pintura = { base: string; clara: string; escura: string; faixa: string; acento: string };
+export const C = (h: string) => new THREE.Color(h);
 
 type Secao = [z: number, largura: number, topo: number, base: number];
 
@@ -120,7 +120,7 @@ function roda(x: number, z: number, r: number, l: number, friso: string) {
   return g;
 }
 
-function carro(p: Pintura): THREE.Group {
+export function carro(p: Pintura): THREE.Group {
   const g = new THREE.Group();
   const base = C(p.base);
   const clara = C(p.clara);
@@ -201,7 +201,7 @@ function carro(p: Pintura): THREE.Group {
 
 const M_POR_TEXTURA = 60; // metros de pista em cada repetição da textura
 
-function texturaPista(): THREE.CanvasTexture {
+export function texturaPista(): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = 1536;
   c.height = 2880;
@@ -218,10 +218,10 @@ function texturaPista(): THREE.CanvasTexture {
   x.fillStyle = "#4b4450";
   x.fillRect(m(-6.4), 0, m(6.4) - m(-6.4), 2880);
   // faixas largas de luz e sombra atravessando o asfalto
-  [[0, 620, "rgba(255,178,140,.13)"], [620, 700, "rgba(24,16,46,.34)"], [1320, 480, "rgba(255,178,140,.09)"], [1800, 620, "rgba(24,16,46,.26)"], [2420, 460, "rgba(255,178,140,.12)"]].forEach(([y, h, cor]) => {
-    x.fillStyle = cor as string;
-    x.fillRect(m(-6.4), y as number, m(6.4) - m(-6.4), h as number);
-  });
+  const faixas = x.createLinearGradient(0, 0, 0, 2880);
+  [[0, "rgba(255,178,140,.12)"], [0.2, "rgba(255,178,140,.12)"], [0.28, "rgba(24,16,46,.3)"], [0.44, "rgba(24,16,46,.3)"], [0.52, "rgba(255,178,140,.08)"], [0.62, "rgba(255,178,140,.08)"], [0.7, "rgba(24,16,46,.24)"], [0.82, "rgba(24,16,46,.24)"], [0.9, "rgba(255,178,140,.12)"], [1, "rgba(255,178,140,.12)"]].forEach(([o, cor]) => faixas.addColorStop(o as number, cor as string));
+  x.fillStyle = faixas;
+  x.fillRect(m(-6.4), 0, m(6.4) - m(-6.4), 2880);
   // linhas longitudinais suaves, como o desgaste da pista
   for (const l of [-3.9, -1.4, 1.4, 3.9]) {
     x.fillStyle = "rgba(0,0,0,.1)";
@@ -247,7 +247,7 @@ function texturaPista(): THREE.CanvasTexture {
   return t;
 }
 
-function degradeRadial(cor: string): THREE.CanvasTexture {
+export function degradeRadial(cor: string): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = c.height = 256;
   const x = c.getContext("2d")!;
@@ -259,7 +259,7 @@ function degradeRadial(cor: string): THREE.CanvasTexture {
   return new THREE.CanvasTexture(c);
 }
 
-const plano = (l: number, c: number, x: number, z: number, mat: THREE.Material, y = 0.013) => {
+export const plano = (l: number, c: number, x: number, z: number, mat: THREE.Material, y = 0.013) => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(l, c), mat);
   m.rotation.x = -Math.PI / 2;
   m.position.set(x, y, z);
@@ -281,7 +281,7 @@ function numero(n: number): THREE.Material {
   return new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false });
 }
 
-const PINTURAS: Pintura[] = [
+export const PINTURAS: Pintura[] = [
   { base: "#d11f4e", clara: "#ff5f88", escura: "#6d0a26", faixa: "#f4f1ea", acento: "#ffc400" }, // pole
   { base: "#d9571a", clara: "#ff9445", escura: "#742a05", faixa: "#14202e", acento: "#f6e7c8" },
   { base: "#0f8f80", clara: "#2fd4bd", escura: "#06433f", faixa: "#f3ecd8", acento: "#ff5a3c" },

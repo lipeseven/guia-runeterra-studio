@@ -3,7 +3,7 @@ import { ALTURA, LARGURA } from "./estilo";
 import { Montagem, duracaoDoTrecho } from "./Montagem";
 import type { Trecho } from "./tipos";
 import { Carro3D } from "./vertical/Carro3D";
-import { TesteRegras } from "./vertical/TesteRegras";
+import { CenaSC } from "./vertical/CenaSC";
 
 const fps = 60;
 
@@ -15,7 +15,7 @@ export const Root: React.FC = () => (
   <Composition id="Carro3D" component={Carro3D} durationInFrames={150} fps={30} width={1080} height={1920} />
   <Composition
     id="TesteRegras"
-    component={TesteRegras}
+    component={CenaSC}
     defaultProps={{ palavras: [{ t: "", i: 0, f: 1 }] }}
     calculateMetadata={({ props }) => ({ durationInFrames: Math.ceil((props.palavras[props.palavras.length - 1].f + 0.6) * 30) })}
     durationInFrames={30}
