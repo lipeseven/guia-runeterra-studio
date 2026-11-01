@@ -14,6 +14,13 @@
         "8765"
       ],
       "port": 8765
+    },
+    {
+      "name": "f1",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "uvicorn", "app.servidor.main:app", "--host", "127.0.0.1", "--port", "8766"],
+      "port": 8766,
+      "env": {"GRS_CANAL": "f1"}
     }
   ]
 }

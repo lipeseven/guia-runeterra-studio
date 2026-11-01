@@ -30,7 +30,9 @@ WIKI = "https://wiki.leagueoflegends.com/en-us/api.php"
 # fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
 FONTES = {"lol": {"wiki": WIKI, "ns": "3006", "ns_extra": "0|3002|3008",
                   "nome": "wiki do LoL (lore, eventos, Legends of Runeterra, Riftbound) / biografia e contos oficiais da Riot",
-                  "quem": "campeões envolvidos"}}
+                  "quem": "campeões envolvidos"},
+          "f1": {"wiki": "https://en.wikipedia.org/w/api.php", "ns": "0", "nome": "Wikipedia (inglês)",
+                 "quem": "pilotos e equipes envolvidos"}}
 FONTE = FONTES[CANAL.get("fatos", "lol")]
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/en_us/champions/{slug}/index.json"
 CONTO = "https://universe-meeps.leagueoflegends.com/v1/en_us/story/{slug}/index.json"

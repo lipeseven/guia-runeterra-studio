@@ -15,6 +15,8 @@ sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 from canal import CANAL  # noqa: E402
 
 AVISOS = {  # aviso legal no fim da descrição, por canal (canal.toml: aviso_legal)
+    "f1": ("F1, FORMULA ONE, FORMULA 1 e as marcas relacionadas pertencem à Formula One Licensing B.V. "
+           "Este é um canal independente, sem afiliação com a Fórmula 1 ou com a FIA."),
     "riot": ("O Guia de Runeterra foi criado sob a política “Legal Jibber Jabber” da Riot Games, usando recursos "
              "pertencentes à Riot Games. A Riot Games não endossa nem patrocina este projeto."),
 }

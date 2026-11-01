@@ -17,6 +17,7 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
 import asyncio
 import json
+import shutil
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -28,7 +29,7 @@ from pydantic import BaseModel
 
 from . import motor, publicacao, recursos, storyboard
 from .banco import RAIZ, agora, atualizar_etapa, conectar, criar_video, registrar
-from .etapas import COLUNAS, ETAPAS
+from .etapas import COLUNAS, ETAPAS, etapas_do_formato
 
 
 def _silenciar_conexao_cortada(loop: asyncio.AbstractEventLoop, contexto: dict) -> None:
@@ -133,7 +134,8 @@ def ver_canal():
     """Canal deste servidor + a lista de canais (só nome e porta) para o seletor do painel."""
     from canal import todos
 
-    return {"chave": CANAL["chave"], "nome": CANAL["nome"], "porta": CANAL["porta"], "canais": todos()}
+    return {"chave": CANAL["chave"], "nome": CANAL["nome"], "porta": CANAL["porta"], "canais": todos(),
+            "formatos": CANAL.get("formatos", [])}
 motor.iniciar()
 
 
@@ -153,7 +155,7 @@ def _video(con, vid: int) -> dict:
         raise HTTPException(404, "vídeo não encontrado")
     etapas = {r["chave"]: dict(r) for r in con.execute("SELECT * FROM etapas WHERE video_id=?", (vid,))}
     lista = []
-    for n, e in enumerate(ETAPAS, 1):
+    for n, e in enumerate(etapas_do_formato(v["formato"]), 1):
         r = etapas.get(e["chave"], {})
         dados = json.loads(r.get("dados") or "{}")
         # Arquivo que já não existe (ex.: limpeza depois de publicar) não vai para a tela: evita players quebrados/404.
@@ -189,12 +191,13 @@ def quadro():
 class NovoVideo(BaseModel):
     titulo: str
     coluna: str = "ideia"
+    formato: str = "horizontal"
 
 
 @app.post("/api/videos")
 def novo_video(corpo: NovoVideo):
     with conectar() as con:
-        vid = criar_video(con, corpo.titulo.strip(), corpo.coluna)
+        vid = criar_video(con, corpo.titulo.strip(), corpo.coluna, formato=corpo.formato)
     motor.pedir_acervo()  # card novo: confere se entrou coisa nova no acervo (o acervo muda pouco; não roda toda hora)
     return {"id": vid}
 
@@ -263,9 +266,11 @@ def mover(vid: int, corpo: Mover):
     if corpo.coluna not in {c["chave"] for c in COLUNAS}:
         raise HTTPException(400, "coluna inválida")
     with conectar() as con:
-        antiga = con.execute("SELECT coluna, travado FROM videos WHERE id=?", (vid,)).fetchone()
+        antiga = con.execute("SELECT coluna, travado, formato FROM videos WHERE id=?", (vid,)).fetchone()
         if not antiga:
             raise HTTPException(404)
+        if antiga["formato"] == "vertical" and corpo.coluna == "gravacao":
+            raise HTTPException(409, "vídeo vertical não tem gravação: a voz sobe no painel Voz")
         if antiga["travado"]:
             raise HTTPException(409, "vídeo travado: destrave para mover")
         if antiga["coluna"] == "publicado" and corpo.coluna != "publicado":
@@ -637,7 +642,10 @@ def importar_riot():
 @app.post("/api/acervo/importar-oficial")
 def importar_oficial():
     """Importador de material oficial do CANAL deste servidor (Runeterra: Riot)."""
-    motor.FILA.put((0, {"runeterra": "importar_riot"}[CANAL["chave"]]))
+    tarefa = {"runeterra": "importar_riot"}.get(CANAL["chave"])
+    if not tarefa:
+        raise HTTPException(400, "este canal não tem importador de material oficial")
+    motor.FILA.put((0, tarefa))
     return {"ok": True}
 
 
@@ -743,6 +751,40 @@ def refazer_audio_limpo(vid: int):
         raise HTTPException(409, "esta limpeza é antiga (sem linha do tempo): mande a gravação de novo")
     motor.FILA.put((vid, "remontar_gravacao"))
     return {"ok": True}
+
+
+@app.post("/api/videos/{vid}/voz")
+async def enviar_voz(vid: int, arquivo: UploadFile):
+    """Vídeo vertical: a voz vem pronta, gerada pelo Felipe em outro programa."""
+    ext = Path(arquivo.filename or "").suffix.lower()
+    if ext not in (".wav", ".mp3", ".m4a", ".flac", ".ogg", ".aac"):
+        raise HTTPException(400, "envie um arquivo de áudio")
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v:
+            raise HTTPException(404)
+        motor.pasta_do_video(v["slug"])
+        destino = motor.PASTA_PROJETOS / v["slug"] / "entrada" / f"voz_{agora().replace(':', '-')}{ext}"
+        with destino.open("wb") as saida:
+            shutil.copyfileobj(arquivo.file, saida)
+        motor.receber_voz(con, vid, destino)
+        con.commit()
+    return {"ok": True, "arquivo": destino.name}
+
+
+@app.post("/api/videos/{vid}/voz/da-pasta")
+def voz_da_pasta(vid: int):
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        if not v:
+            raise HTTPException(404)
+        motor.pasta_do_video(v["slug"])
+        arquivo = motor.gravacao_na_pasta(v["slug"])
+        if arquivo is None:
+            raise HTTPException(400, f"nenhum áudio encontrado em {motor.caminho_rel(v['slug'], 'entrada')}/")
+        motor.receber_voz(con, vid, arquivo)
+        con.commit()
+    return {"ok": True, "arquivo": arquivo.name}
 
 
 @app.post("/api/videos/{vid}/gravacao/da-pasta")

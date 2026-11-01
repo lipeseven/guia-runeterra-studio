@@ -134,8 +134,8 @@ def mmss(s: float) -> str:
 # Só o que ficou inválido é arquivado: plano.json, candidatos, escolhas, ajustes e direcao/plano_secoes/ FICAM —
 # são a base do reaproveitamento por bloco (o planejamento compara o roteiro novo com o antigo).
 ARQUIVOS_DA_DIRECAO = ("direcao.json", "direcao_final.json", "tempos_guia.json", "tempos_gravacao.json")
-ETAPAS_DEPOIS_DO_ROTEIRO = ("direcao", "rascunho", "gravacao", "ressincronizacao", "render", "publicacao")
-PENDENCIAS_DEPOIS_DO_ROTEIRO = ("cena_sem_imagem", "obs_diretor", "ver_rascunho", "enviar_gravacao", "aprovar_gravacao",
+ETAPAS_DEPOIS_DO_ROTEIRO = ("voz_ia", "direcao", "rascunho", "gravacao", "ressincronizacao", "render", "publicacao")
+PENDENCIAS_DEPOIS_DO_ROTEIRO = ("enviar_voz", "cena_sem_imagem", "obs_diretor", "ver_rascunho", "enviar_gravacao", "aprovar_gravacao",
                                 "ver_final", "publicar", "erro_direcao", "erro_rascunho", "erro_gravacao", "erro_final",
                                 "erro_publicacao")
 
@@ -190,11 +190,11 @@ def invalidar_depois_do_roteiro(con, vid: int, pasta: Path) -> None:
         for a in existentes:
             shutil.move(str(a), str(destino / a.name))
     feitas = [r["chave"] for r in con.execute(
-        f"SELECT chave FROM etapas WHERE video_id=? AND status!='pendente' AND chave IN "
+        f"SELECT chave FROM etapas WHERE video_id=? AND status NOT IN ('pendente', 'em_breve') AND chave IN "
         f"({','.join('?' * len(ETAPAS_DEPOIS_DO_ROTEIRO))})", (vid, *ETAPAS_DEPOIS_DO_ROTEIRO))]
     for chave in feitas:
         atualizar_etapa(con, vid, chave, "pendente", None,
-                        "o roteiro mudou: refazer" if chave in ("gravacao", "ressincronizacao", "render") else None)
+                        "o roteiro mudou: refazer" if chave in ("voz_ia", "gravacao", "ressincronizacao", "render") else None)
     con.execute(f"UPDATE pendencias SET resolvida=1 WHERE video_id=? AND resolvida=0 AND chave IN "
                 f"({','.join('?' * len(PENDENCIAS_DEPOIS_DO_ROTEIRO))})", (vid, *PENDENCIAS_DEPOIS_DO_ROTEIRO))
     if existentes or feitas:
@@ -268,6 +268,12 @@ def aprovar_roteiro(con, vid: int) -> None:
     atualizar_etapa_status(con, vid, "roteiro", "concluido")
     fechar_pendencia(con, vid, "aprovar_roteiro")
     registrar(con, vid, "Roteiro aprovado", "ok")
+    if con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"] == "vertical":
+        atualizar_etapa(con, vid, "voz_ia", "atencao", "aguardando a voz", "envie o áudio")
+        abrir_pendencia(con, vid, "enviar_voz", "voz_ia", "Suba a voz do vídeo",
+                        "Gere a voz no seu programa e arraste o áudio no painel “Voz”, ou coloque-o na pasta entrada/ "
+                        "do vídeo e clique em “Já coloquei na pasta”.")
+        return
     FILA.put((vid, "voz_guia"))
 
 
@@ -508,6 +514,37 @@ def gravacao_na_pasta(slug: str) -> Path | None:
     if partes:
         return partes[0]
     return max(arquivos, key=lambda p: p.stat().st_mtime) if arquivos else None
+
+
+def receber_voz(con, vid: int, arquivo: Path) -> None:
+    fechar_pendencia(con, vid, "enviar_voz")
+    atualizar_etapa(con, vid, "voz_ia", "andamento", "na fila", arquivo.name, {"arquivo": arquivo.name})
+    registrar(con, vid, f"Voz recebida: {arquivo.name}", "info")
+    FILA.put((vid, "voz_ia"))
+
+
+def tarefa_voz_ia(vid: int) -> None:
+    """Vídeo vertical: a voz já vem pronta; só padroniza o áudio e mede os tempos por palavra do roteiro."""
+    import subprocess
+
+    from tempos import tempos_da_narracao
+
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+        dados = json.loads(con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='voz_ia'", (vid,)).fetchone()["dados"] or "{}")
+        atualizar_etapa(con, vid, "voz_ia", "andamento", "medindo os tempos…", dados.get("arquivo"), dados)
+        con.commit()
+    slug = v["slug"]
+    pasta = PASTA_PROJETOS / slug
+    wav, cache = pasta / "trabalho" / "voz.wav", pasta / "direcao" / "tempos_voz.json"
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(pasta / "entrada" / dados["arquivo"]), "-ar", "48000", "-ac", "2", str(wav)], check=True)
+    cache.unlink(missing_ok=True)  # áudio novo: os tempos antigos não valem
+    palavras = tempos_da_narracao(wav, (pasta / "direcao" / "roteiro.txt").read_text(encoding="utf-8"), cache)
+    with conectar() as con:
+        atualizar_etapa(con, vid, "voz_ia", "concluido", f"{mmss(palavras[-1]['f'])} · {len(palavras)} palavras",
+                        dados.get("arquivo"), {**dados, "audio": caminho_rel(slug, "trabalho", "voz.wav")})
+        registrar(con, vid, "Voz pronta e tempos medidos; a animação entra quando o estilo estiver definido", "ok")
+        con.commit()
 
 
 def receber_gravacao(con, vid: int, arquivo: Path) -> None:
@@ -1039,7 +1076,7 @@ def pedir_acervo() -> None:
         FILA.put((0, "acervo"))
 
 
-TAREFAS = {"voz_guia": tarefa_voz_guia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
+TAREFAS = {"voz_guia": tarefa_voz_guia, "voz_ia": tarefa_voz_ia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
            "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,

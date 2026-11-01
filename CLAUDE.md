@@ -12,7 +12,7 @@ PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
 - **Não parecer produção em massa** (medo de desmonetização): voz real do Felipe, pontos de controle humanos,
   efeitos sempre variados (nunca o mesmo efeito em tudo), memória de uso de mídias.
 - **Inspiração, não cópia** do canal de referência (@explainedbynavi): só fatos/temas, detector de semelhança.
-- Voz de IA (voz guia) **nunca** vai para o vídeo publicado.
+- Voz de IA (voz guia) **nunca** vai para o vídeo publicado. Exceção decidida pelo Felipe (2026-11-01): vídeos verticais do Explicando F1, com voz gerada por ele.
 - Direção **ancorada em palavras**, não em segundos (trocar a narração ressincroniza tudo).
 - Arquivos do acervo do Felipe nunca são movidos/alterados.
 
@@ -167,5 +167,6 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
 - Card no quadro mostra "Aguardando você: <pendência aberta mais recente>" (`/api/quadro` → `aguardando`), exceto enquanto o motor trabalha nele ou ele está na fila (aí mostra "Na fila (Nº): <tarefa>", `/api/motor` → `fila`).
 - Celular pelo Wi-Fi (2026-11-01): servidores em `--host 0.0.0.0` (os .bat); acesso em `http://<IP do PC>:8765`. O painel não tem senha: quem estiver na mesma rede pode mexer nele.
+- **Explicando F1 (2026-11-01, em construção)**: `F1/` (porta 8766, `F1/Iniciar F1.bat`, fatos na Wikipedia em inglês, acervo em `Downloads\canais\catálogo F1`). Card nasce com `videos.formato` (seletor no quadro quando `canal.toml` tem `formatos`). Horizontal = fluxo do Runeterra. Vertical (`etapas.ETAPAS_VERTICAL`): roteiro → voz pronta (`/voz`, `motor.tarefa_voz_ia` padroniza e mede tempos) → animação, render e publicação ainda "em breve", aguardando o estilo que o Felipe vai mandar; sem gravação nem capa.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).

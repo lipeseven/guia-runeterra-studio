@@ -43,6 +43,7 @@ export function Quadro() {
     if (!dados || !coluna) return
     const video = dados.videos.find((v) => v.id === id)
     if (!video || video.coluna === coluna || video.travado || video.coluna === 'publicado') return
+    if (video.formato === 'vertical' && coluna === 'gravacao') return // vertical não tem gravação
     if (coluna === 'publicado' && !window.confirm(AVISO_PUBLICAR)) return
     // otimista: move já na tela; o servidor confirma em seguida
     setDados({ ...dados, videos: dados.videos.map((v) => (v.id === id ? { ...v, coluna, ordem: 1e9 } : v)) })
@@ -84,7 +85,7 @@ export function Quadro() {
   )
 }
 
-type Canal = { chave: string; nome: string; porta: number; canais: { chave: string; nome: string; porta: number }[] }
+type Canal = { chave: string; nome: string; porta: number; formatos?: string[]; canais: { chave: string; nome: string; porta: number }[] }
 
 /** Nome do canal deste servidor; os outros canais abrem no servidor deles (os canais não se misturam). */
 function SeletorDeCanal() {
@@ -204,9 +205,14 @@ function Aprendizado() {
 function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; videos: VideoResumo[]; aoCriar: () => void; motor: Motor | null }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave })
   const [titulo, setTitulo] = useState('')
+  const [formatos, setFormatos] = useState<string[]>([])
+  const [formato, setFormato] = useState('horizontal')
+  useEffect(() => {
+    if (coluna.chave === 'ideia') api<Canal>('/canal').then((c) => setFormatos(c.formatos ?? []))
+  }, [coluna.chave])
   const criar = async () => {
     if (!titulo.trim()) return
-    await api('/videos', { method: 'POST', body: JSON.stringify({ titulo, coluna: coluna.chave }) })
+    await api('/videos', { method: 'POST', body: JSON.stringify({ titulo, coluna: coluna.chave, formato }) })
     setTitulo('')
     aoCriar()
   }
@@ -227,6 +233,19 @@ function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; vide
         ))}
       </div>
       {coluna.chave === 'publicado' && <JaPublicado aoCriar={aoCriar} />}
+      {coluna.chave === 'ideia' && formatos.length > 1 && (
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-borda p-1 text-xs">
+          {formatos.map((f) => (
+            <button
+              key={f}
+              onClick={() => setFormato(f)}
+              className={`rounded px-2 py-1 capitalize ${formato === f ? 'bg-ouro/20 text-ouro' : 'text-suave hover:text-texto'}`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
       {coluna.chave === 'ideia' && (
         <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-dashed border-borda-forte px-2.5 py-2">
           <Plus className="size-4 shrink-0 text-apagado" />
@@ -364,6 +383,7 @@ function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResum
           <h3 className="min-w-0 flex-1 text-sm leading-snug font-medium">
             {video.travado ? <Lock className="mr-1.5 mb-0.5 inline size-3.5 text-ouro" /> : null}
             {video.titulo}
+            {video.formato === 'vertical' && <span className="ml-1.5 rounded bg-ouro/20 px-1 py-0.5 align-middle text-[10px] font-normal text-ouro">vertical</span>}
           </h3>
           {menu && <div className="-mt-0.5 -mr-1 shrink-0">{menu}</div>}
         </div>
