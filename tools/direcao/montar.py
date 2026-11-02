@@ -803,13 +803,17 @@ def _dependencias(arquivo: Path, pular_cenas: bool = False, vistos: set | None =
     return vistos
 
 
-def _versao_do_codigo(tipos: set[str]) -> str:
+def _versao_do_codigo(tipos: set[str], com_root: bool = False) -> str:
     """Impressão do código Remotion que desenha ESTE bloco: a base comum (Montagem, efeitos, estilo, componentes…)
-    + só os arquivos das cenas que aparecem nele. Mexer na Lista só refaz os blocos que têm lista."""
+    + só os arquivos das cenas que aparecem nele. Mexer na Lista só refaz os blocos que têm lista. O Root fica de fora:
+    ele importa as composições de outros canais, e mexer nelas refazia os vídeos inteiros deste. `com_root` = impressão
+    antiga, só para reaproveitar o cache."""
     import hashlib
 
     src = (VIDEO_APP / "src").resolve()
-    arquivos = _dependencias(src / "Montagem.tsx", pular_cenas=True) | _dependencias(src / "Root.tsx", pular_cenas=True)
+    arquivos = _dependencias(src / "Montagem.tsx", pular_cenas=True)
+    if com_root:
+        arquivos |= _dependencias(src / "Root.tsx", pular_cenas=True)
     for t in sorted(tipos):
         if t in ARQUIVO_DA_CENA:
             arquivos |= _dependencias(src / "cenas" / f"{ARQUIVO_DA_CENA[t]}.tsx")
@@ -891,7 +895,8 @@ def renderizar(trecho: dict, props: Path, saida: Path, progresso=None) -> float:
             tipos.add("estilo2")
         codigo = _versao_do_codigo(tipos)  # só o código das cenas (e recursos) deste bloco
         b["arquivo"] = cache / f"{_impressao(b, trecho, codigo, capa_id)}.mp4"
-        for antigo in (cache / f"{_impressao(b, trecho, codigo, capa_id, palavra_seguinte_inteira=True)}.mp4",
+        for antigo in (cache / f"{_impressao(b, trecho, _versao_do_codigo(tipos, com_root=True), capa_id)}.mp4",
+                       cache / f"{_impressao(b, trecho, codigo, capa_id, palavra_seguinte_inteira=True)}.mp4",
                        cache / f"{_impressao(b, trecho, codigo, capa_id, com_k=True, palavra_seguinte_inteira=True)}.mp4"):
             if not b["arquivo"].exists() and antigo.exists():  # cache das impressões antigas: mesmo vídeo
                 antigo.replace(b["arquivo"])
