@@ -4,7 +4,7 @@ import { api } from '../api'
 
 type Lista = { pasta: string; arquivos: { nome: string; modificado: number }[] }
 
-/** "escolher da pasta": .txt da pasta de roteiros do canal (dados/<canal>/roteiros), mais recentes primeiro. */
+/** "escolher da pasta": .txt da pasta de roteiros do canal (<Canal>/dados/roteiros), mais recentes primeiro. */
 export function DaPasta({ aoEscolher, rotulo = 'escolher da pasta' }: { aoEscolher: (texto: string, nome: string) => void; rotulo?: string }) {
   const [lista, setLista] = useState<Lista | null>(null)
   const abrir = async () => setLista(lista ? null : await api<Lista>('/roteiros'))

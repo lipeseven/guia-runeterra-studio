@@ -133,7 +133,7 @@ export function PainelRoteiro({ videoId, etapa, aoMudar, conferindo = false }: {
       </div>
       <p className="text-[11px] text-apagado">
         Usa o Claude Opus (a mesma cota do seu plano). Leva de 1 a 3 minutos. O jeito do canal fica em
-        docs/estilo_roteiro.md.
+        Runeterra/docs/estilo_roteiro.md.
       </p>
     </div>
   )

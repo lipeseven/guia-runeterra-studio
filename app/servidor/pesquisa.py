@@ -2,7 +2,7 @@
 
 1. assuntos: o Sonnet lê tema + orientações (+ roteiro base) e lista personagens/lugares/eventos e termos de busca;
    se houver roteiro base, também extrai as AFIRMAÇÕES de lore dele.
-2. fontes: wiki do canal + Universe (ou Pokédex) baixadas localmente (cache em dados/runeterra/pesquisa_cache).
+2. fontes: wiki do canal + Universe baixadas localmente (cache em Runeterra/dados/pesquisa_cache).
 3. dossiê: o Sonnet extrai dos trechos os fatos úteis para o vídeo, cada um com a fonte (canon atual × lore antigo).
 4. crivo do roteiro base: cada afirmação × trechos das fontes → confirmada / corrigida / desatualizada / sem fonte.
 O resultado fica em direcao/dossie.json; roteirista.gerar() e ajustar() usam só ele como fonte de fatos.
@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 
 from .banco import CANAL, agora
-from .conferencia import FONTE, REGRA_DAS_FONTES, SISTEMA, _embed, _pokedex, _trechos, _universe, _wiki, fatos_relevantes
+from .conferencia import FONTE, REGRA_DAS_FONTES, SISTEMA, _embed, _trechos, _universe, _wiki, fatos_relevantes
 
 LOL = CANAL.get("fatos", "lol") == "lol"
 
@@ -43,8 +43,8 @@ def _assuntos(titulo: str, notas: str, base: str | None) -> dict:
 
 def _fontes(assunto: dict) -> list[tuple[str, str]]:
     fontes = _wiki(assunto.get("busca") or assunto["nome"])
-    if assunto.get("personagem"):
-        fontes += _universe(assunto["nome"]) if LOL else _pokedex(assunto["nome"])
+    if assunto.get("personagem") and LOL:
+        fontes += _universe(assunto["nome"])
     return fontes
 
 

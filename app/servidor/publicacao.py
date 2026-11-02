@@ -15,10 +15,10 @@ sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 from canal import CANAL  # noqa: E402
 
 AVISOS = {  # aviso legal no fim da descrição, por canal (canal.toml: aviso_legal)
+    "f1": ("F1, FORMULA ONE, FORMULA 1 e as marcas relacionadas pertencem à Formula One Licensing B.V. "
+           "Este é um canal independente, sem afiliação com a Fórmula 1 ou com a FIA."),
     "riot": ("O Guia de Runeterra foi criado sob a política “Legal Jibber Jabber” da Riot Games, usando recursos "
              "pertencentes à Riot Games. A Riot Games não endossa nem patrocina este projeto."),
-    "pokemon": ("Pokémon e todos os nomes, imagens e marcas relacionados pertencem à Nintendo, Creatures Inc. e "
-                "GAME FREAK inc. Este é um canal de fã, sem fins de afiliação, não endossado pelas empresas."),
 }
 AVISO_LEGAL = AVISOS.get(CANAL.get("aviso_legal", ""), "")
 
@@ -164,7 +164,7 @@ def exportar_thumbnail(pasta: Path) -> Path | None:
 
 
 def encerramento() -> Path:
-    """Cena de encerramento fixa do canal (fora do Git): Runeterra = dados/runeterra/encerramento/encerramento.mp4."""
+    """Cena de encerramento fixa do canal (fora do Git): Runeterra = Runeterra/dados/encerramento/encerramento.mp4."""
     from canal import caminho
 
     return caminho("dados_acervo").parent / "encerramento" / "encerramento.mp4"
@@ -242,7 +242,7 @@ def tamanhos(pasta: Path) -> dict:
 
 def arquivar(pasta: Path) -> dict:
     """Vídeo publicado não se mexe mais: tudo vai para a Lixeira do Windows (recuperável), menos a capa,
-    que fica em dados/runeterra/projetos/<slug>/capa.* para o card do quadro. Chamar DEPOIS de registrar_uso (que lê a direção)."""
+    que fica em Runeterra/dados/projetos/<slug>/capa.* para o card do quadro. Chamar DEPOIS de registrar_uso (que lê a direção)."""
     import shutil
 
     from send2trash import send2trash

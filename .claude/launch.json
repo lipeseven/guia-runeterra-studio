@@ -16,21 +16,11 @@
       "port": 8765
     },
     {
-      "name": "pokemon",
+      "name": "f1",
       "runtimeExecutable": ".venv\\Scripts\\python.exe",
-      "runtimeArgs": [
-        "-m",
-        "uvicorn",
-        "app.servidor.main:app",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "8766"
-      ],
+      "runtimeArgs": ["-m", "uvicorn", "app.servidor.main:app", "--host", "127.0.0.1", "--port", "8766"],
       "port": 8766,
-      "env": {
-        "GRS_CANAL": "pokemon"
-      }
+      "env": {"GRS_CANAL": "f1"}
     }
   ]
 }

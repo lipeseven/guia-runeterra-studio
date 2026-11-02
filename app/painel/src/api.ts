@@ -15,6 +15,8 @@ export type VideoResumo = {
   progresso: Partial<Record<Status, number>>
   total_etapas: number
   pendencias: number
+  formato?: 'horizontal' | 'vertical'
+  aguardando?: string | null // o que o card espera do Felipe (pendência aberta mais recente)
   travado: number
   url_youtube: string | null
 }
@@ -88,6 +90,7 @@ export function useAoVivo<T>(caminho: string, ms = 3000) {
 export type Motor = {
   executando: { video: number; tarefa: string; desde: string } | null
   na_fila: number
+  fila?: { video: number; tarefa: string }[]
   progresso: { titulo: string; texto: string; fracao: number | null; restante_s: number | null } | null
 }
 

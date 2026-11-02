@@ -23,16 +23,16 @@ from .banco import CANAL, RAIZ, agora, caminho
 
 sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
 
-CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: dados/runeterra/pesquisa_cache
+CACHE_WEB = caminho("dados_acervo").parent / "pesquisa_cache"  # Runeterra: Runeterra/dados/pesquisa_cache
 # A wiki do LoL saiu do Fandom (o fandom.com ficou parado em 2023): wiki.leagueoflegends.com, namespace Universe
 # (3006) = lore, com o resumo dos contos e HQs oficiais. ns_extra = eventos (0), Legends of Runeterra (3002) e Riftbound (3008).
 WIKI = "https://wiki.leagueoflegends.com/en-us/api.php"
-POKEWIKI = "https://pokemon.fandom.com/api.php"  # a Bulbapedia bloqueia acesso automático (Cloudflare)
 # fontes por canal (canal.toml: fatos): o que buscar e como chamar quem aparece na afirmação
 FONTES = {"lol": {"wiki": WIKI, "ns": "3006", "ns_extra": "0|3002|3008",
                   "nome": "wiki do LoL (lore, eventos, Legends of Runeterra, Riftbound) / biografia e contos oficiais da Riot",
                   "quem": "campeões envolvidos"},
-          "pokemon": {"wiki": POKEWIKI, "ns": "0", "nome": "Pokémon Wiki / Pokédex oficial", "quem": "Pokémon e personagens envolvidos"}}
+          "f1": {"wiki": "https://en.wikipedia.org/w/api.php", "ns": "0", "nome": "Wikipedia (inglês)",
+                 "quem": "pilotos e equipes envolvidos"}}
 FONTE = FONTES[CANAL.get("fatos", "lol")]
 UNIVERSE = "https://universe-meeps.leagueoflegends.com/v1/en_us/champions/{slug}/index.json"
 CONTO = "https://universe-meeps.leagueoflegends.com/v1/en_us/story/{slug}/index.json"
@@ -221,22 +221,6 @@ REGRA_DAS_FONTES = ("Trecho marcado \"fato do canal\" é anotação verificada p
 SISTEMA = f"Você confere roteiros do canal \"{CANAL['nome']}\" ({CANAL['assunto']}). Responda SOMENTE JSON."
 
 
-def _pokedex(nome: str) -> list[tuple[str, str]]:
-    """Ficha da Pokédex local (PokeAPI) do Pokémon citado — dados oficiais de tipo, geração, evolução."""
-    arq = RAIZ / "dados" / "pokemon" / "pokedex.json"
-    if not arq.exists():
-        return []
-    alvo = re.sub(r"[^a-z0-9]", "", nome.lower())
-    for e in json.loads(arq.read_text(encoding="utf-8")):
-        if re.sub(r"[^a-z0-9]", "", e["nome"].lower()) == alvo:
-            texto = (f"{e['nome']} (#{e['numero']}), {e['categoria_en']}, tipos {'/'.join(e['tipos'])}, "
-                     f"geração {e['geracao']} ({e['regiao']}), "
-                     f"{'lendário' if e['lendario'] else 'mítico' if e['mitico'] else 'comum'}"
-                     + (f", evolui de {e['evolui_de']}" if e['evolui_de'] else "") + f". Pokédex: {e['pokedex_en']}")
-            return [(f"Pokédex: {e['nome']}", texto)]
-    return []
-
-
 # Versão das regras da checagem: mudou a regra (fontes, prompt) → todo parágrafo é conferido de novo uma vez.
 REGRAS = "4"  # 4 = obra mais recente vale mais, eventos/LoR/Riftbound na busca, fatos do canal (2026-10-31)
 
@@ -297,7 +281,8 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
             "lugares). Ignore piadas, opiniões, ganchos, comentários do narrador e o que o próprio roteiro já chama de "
             "teoria/especulação. Cada afirmação = UM fato só: frase com vários fatos vira várias afirmações curtas. "
             "Liste todas, no máximo 6 por trecho. Para cada uma, dê termos de busca em INGLÊS para a wiki "
-            f"({FONTE['nome']}), começando pelo nome de quem aparece, e os {FONTE['quem']}.\n\n"
+            f"({FONTE['nome']}), começando pelo nome de quem aparece, e os {FONTE['quem']} de que o trecho fala, "
+            "mesmo quando o fato é sobre um coadjuvante.\n\n"
             + "\n\n".join(f"[{i}] {p}" for i, p in novos)
             + '\n\nJSON: {"afirmacoes": [{"p": 0, "trecho": "palavras do roteiro", "afirmacao": "o fato, curto", '
               '"busca": "english search terms", "campeoes": ["Mordekaiser"]}]}',
@@ -305,18 +290,26 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
         pedidos = {i for i, _ in novos}
         afirm = [a for a in r.get("afirmacoes", []) if a.get("p") in pedidos]
         aviso(f"buscando {len(afirm)} afirmação(ões) na wiki e no Universe")
-        blocos = []
-        for k, a in enumerate(afirm):
+        por_trecho: dict[int, list] = {}  # página achada para uma afirmação serve às outras do mesmo trecho do roteiro
+        for a in afirm:
             fontes = _wiki(a.get("busca") or a["afirmacao"])
             vistas = {f for f, _ in fontes}
             for c in (a.get("campeoes") or [])[:2]:
                 fontes += [x for x in _pagina_do_personagem(c) if x[0] not in vistas]  # sempre a página de quem aparece
-                fontes += _universe(c) if CANAL.get("fatos", "lol") == "lol" else _pokedex(c)
-            tr = _trechos(fontes)
+                if CANAL.get("fatos", "lol") == "lol":
+                    fontes += _universe(c)
+            por_trecho.setdefault(a["p"], []).extend(fontes)
+        vetores = {}
+        for i, fontes in por_trecho.items():
+            tr = _trechos(list(dict.fromkeys(fontes)))
+            vetores[i] = (tr, _embed([t for _, t in tr]) if tr else None)
+        blocos = []
+        for k, a in enumerate(afirm):
+            tr, e = vetores[a["p"]]
             escolhidos = []
             if tr:
-                e = _embed([a["afirmacao"]] + [t for _, t in tr])
-                notas = e[1:] @ e[0]
+                # com o nome de quem o trecho fala: "Gabriel morreu" não pode cair em qualquer funeral da wiki
+                notas = e @ _embed([" ".join([*(a.get("campeoes") or [])[:2], a["afirmacao"]])])[0]
                 ordem = [tr[i] for i in notas.argsort()[::-1]]
                 # 3 melhores da wiki + 2 melhores da Riot (biografia/conto): dá para cruzar as fontes
                 escolhidos = ([x for x in ordem if x[0].startswith("wiki")][:3]
@@ -336,6 +329,8 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
                 "- diverge: os trechos CONTRADIZEM a afirmação (outra data, outro autor, outro lugar) — explique;\n"
                 "- sem_fonte: os trechos não falam disso (não julgue pelo seu conhecimento).\n"
                 "Ausência de um detalhe NÃO é divergência.\n"
+                "`trecho` = número do trecho em que o veredito se baseia, da mesma afirmação; -1 se nenhum sustenta nem "
+                "contradiz (sempre -1 em sem_fonte). Nunca indique um trecho só porque o assunto é parecido.\n"
                 "Cruze as fontes: `fontes` = quantas fontes DIFERENTES (wiki, biografia Riot, conto Riot) sustentam a "
                 "afirmação; `fontes_divergem` = true se as próprias fontes se contradizem entre si (diga na explicação "
                 "qual valeu e por quê).\n" + REGRA_DAS_FONTES + "\n\n" + "\n\n".join(blocos)
@@ -346,7 +341,7 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
         por_par: dict[int, list] = {i: [] for i, _ in novos}
         for k, a in enumerate(afirm):
             x = vered.get(k, {})
-            t = a["trechos"][x["trecho"]] if isinstance(x.get("trecho"), int) and x["trecho"] < len(a["trechos"]) else None
+            t = a["trechos"][x["trecho"]] if isinstance(x.get("trecho"), int) and 0 <= x["trecho"] < len(a["trechos"]) else None
             por_par[a["p"]].append({"trecho": a.get("trecho"), "afirmacao": a["afirmacao"],
                                     "veredito": x.get("veredito", "sem_fonte"), "explicacao": x.get("explicacao", ""),
                                     "fonte": t, "fontes": x.get("fontes") if isinstance(x.get("fontes"), int) else None,

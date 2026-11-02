@@ -1,4 +1,4 @@
-"""Banco do painel (SQLite em dados/runeterra/studio.db): vídeos, etapas, pendências e atividade."""
+"""Banco do painel (SQLite em Runeterra/dados/studio.db): vídeos, etapas, pendências e atividade."""
 from __future__ import annotations
 
 import json
@@ -9,7 +9,7 @@ import unicodedata
 from datetime import datetime
 from pathlib import Path
 
-from .etapas import ETAPAS, EM_BREVE
+from .etapas import EM_BREVE, EM_BREVE_VERTICAL, etapas_do_formato
 
 RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ / "tools"))
@@ -81,13 +81,16 @@ def conectar() -> sqlite3.Connection:
         con.execute("ALTER TABLE videos ADD COLUMN url_youtube TEXT")
     if "capa_aprovada" not in colunas:
         con.execute("ALTER TABLE videos ADD COLUMN capa_aprovada INTEGER NOT NULL DEFAULT 0")
+    if "formato" not in colunas:
+        con.execute("ALTER TABLE videos ADD COLUMN formato TEXT NOT NULL DEFAULT 'horizontal'")
     if "chave" not in {r["name"] for r in con.execute("PRAGMA table_info(pendencias)")}:
         con.execute("ALTER TABLE pendencias ADD COLUMN chave TEXT")  # identifica o tipo (ex.: aprovar_roteiro)
     con.execute("DELETE FROM etapas WHERE chave='pesquisa'")  # etapa removida: virou a conferência do Roteiro
     return con
 
 
-def criar_video(con: sqlite3.Connection, titulo: str, coluna: str = "ideia", capa: str | None = None) -> int:
+def criar_video(con: sqlite3.Connection, titulo: str, coluna: str = "ideia", capa: str | None = None,
+                formato: str = "horizontal") -> int:
     base, n = slugify(titulo), 1
     slug = base
     while con.execute("SELECT 1 FROM videos WHERE slug=?", (slug,)).fetchone():
@@ -95,11 +98,12 @@ def criar_video(con: sqlite3.Connection, titulo: str, coluna: str = "ideia", cap
         slug = f"{base}-{n}"
     ordem = (con.execute("SELECT MAX(ordem) FROM videos WHERE coluna=?", (coluna,)).fetchone()[0] or 0) + 1
     vid = con.execute(
-        "INSERT INTO videos (titulo, slug, coluna, ordem, capa, criado_em, atualizado_em) VALUES (?,?,?,?,?,?,?)",
-        (titulo, slug, coluna, ordem, capa, agora(), agora())).lastrowid
-    for e in ETAPAS:
+        "INSERT INTO videos (titulo, slug, coluna, ordem, capa, criado_em, atualizado_em, formato) VALUES (?,?,?,?,?,?,?,?)",
+        (titulo, slug, coluna, ordem, capa, agora(), agora(), "vertical" if formato == "vertical" else "horizontal")).lastrowid
+    em_breve = EM_BREVE_VERTICAL if formato == "vertical" else EM_BREVE
+    for e in etapas_do_formato(formato):
         con.execute("INSERT INTO etapas (video_id, chave, status, atualizado_em) VALUES (?,?,?,?)",
-                    (vid, e["chave"], "em_breve" if e["chave"] in EM_BREVE else "pendente", agora()))
+                    (vid, e["chave"], "em_breve" if e["chave"] in em_breve else "pendente", agora()))
     registrar(con, vid, "Vídeo criado", "info")
     con.commit()
     return vid

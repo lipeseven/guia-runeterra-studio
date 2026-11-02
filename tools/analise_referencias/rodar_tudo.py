@@ -2,7 +2,7 @@ r"""Análise completa das referências DO CANAL (GRS_CANAL), sem cota: cortes �
 separação de sons (Demucs) → classificação dos sons (CLAP). Cada etapa pula o que já foi feito.
 A leitura visual e o guia de estilo vêm depois, com o Claude, a partir destes resultados.
 
-Uso:  set GRS_CANAL=pokemon && .venv\Scripts\python.exe tools\analise_referencias\rodar_tudo.py
+Uso:  set GRS_CANAL=<chave> && .venv\Scripts\python.exe tools\analise_referencias\rodar_tudo.py
 """
 from __future__ import annotations
 

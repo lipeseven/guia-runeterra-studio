@@ -17,7 +17,7 @@ from canal import CANAL, caminho  # noqa: E402
 
 RAIZ = Path(__file__).resolve().parents[2]
 TIPOS = ("capa", "hub", "cartao", "telacheia", "recorte", "mosaico", "clipe", "dialogo",
-         "dividida", "lista", "meio", "texto", "citacao", "ficha", "rajada")
+         "dividida", "lista", "meio", "texto", "citacao", "rajada")
 COM_PECAS = ("mosaico", "dividida", "lista", "rajada")  # tipos que usam "pecas" (uma imagem por item falado)
 
 
@@ -107,18 +107,14 @@ Para "clipe", a busca descreve a ação da tomada.
 
 
 TIPOS_EXTRAS = {
-    "ficha": ("  ficha     — FICHA de dados de um Pokémon desenhada pelo sistema (arte oficial + número, tipos, "
-              "altura/peso, barras de stats). Use UMA vez por seção, ao APRESENTAR o Pokémon da seção. Campos: "
-              "\"pokemon\": nome em inglês como na Pokédex (\"Charizard\", \"Mr. Mime\"); opcional \"categoria\" em "
-              "português (\"Pokémon Chama\"). Sem busca."),
-    "rajada": ("  rajada    — 3 a 6 imagens-relâmpago (0,13 s cada, com flash) e a última fica na tela: linha evolutiva "
-               "em sequência, \"olha quantos são\", impacto. \"pecas\" como no mosaico (cada uma com \"palavra\" e "
+    "rajada": ("  rajada    — 3 a 6 imagens-relâmpago (0,13 s cada, com flash) e a última fica na tela: "
+               "\"olha quantos são\", impacto. \"pecas\" como no mosaico (cada uma com \"palavra\" e "
                "\"busca\"). Tempero: no máximo 1 ou 2 por seção."),
 }
 
 
 def sistema_do_diretor(regras: str) -> str:
-    """Prompt do diretor com a identidade do canal deste processo (canais/<chave>/canal.toml)."""
+    """Prompt do diretor com a identidade do canal deste processo (<Canal>/canal.toml)."""
     from aprendizado import exemplos_para_o_prompt
 
     extras = "".join("\n" + TIPOS_EXTRAS[t] for t in CANAL.get("tipos_extras", []) if t in TIPOS_EXTRAS)
@@ -206,8 +202,6 @@ def validar(plano: dict, frases: list[dict]) -> list[str]:
             problemas.append(f"cena {k}: som com palavra {som['palavra']!r} que não está na frase {n}")
         if tipo in ("meio", "texto") and not c.get("legenda"):
             problemas.append(f"cena {k}: {tipo} precisa de \"legenda\" (o texto da cena)")
-        if tipo == "ficha" and not c.get("pokemon"):
-            problemas.append(f"cena {k}: ficha precisa de \"pokemon\" (nome em inglês, como na Pokédex)")
         if tipo in ("cartao", "telacheia", "recorte", "meio", "citacao", "clipe", "mosaico") and not c.get("busca"):
             problemas.append(f"cena {k}: {tipo} precisa de \"busca\"")
     return problemas

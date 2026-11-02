@@ -14,7 +14,6 @@ import { TelaCheia } from "./cenas/TelaCheia";
 import { Texto } from "./cenas/Texto";
 import { CORES, TemaCtx } from "./tema";
 import { CenaEstilo2 } from "./cenas/Estilo2"; // impressao:ignorar
-import { Ficha, type CenaFicha } from "./cenas/Ficha"; // impressao:ignorar
 import { Rajada, type CenaRajada } from "./cenas/Rajada"; // impressao:ignorar
 import { folgaDeCorte, quadroDaPalavra } from "./tempo";
 import type { Cena, Trecho } from "./tipos";
@@ -68,7 +67,6 @@ const CenaPorTipo: React.FC<{
   duracao: number;
   secao: Trecho["secao"];
 }> = ({ cena, trecho, quadro, duracao, secao }) => {
-  if ((cena as { tipo: string }).tipo === "ficha") return <Ficha cena={cena as unknown as CenaFicha} duracao={duracao} />; // impressao:ignorar
   if ((cena as { tipo: string }).tipo === "rajada") return <Rajada cena={cena as unknown as CenaRajada} duracao={duracao} />; // impressao:ignorar
   switch (cena.tipo) {
     case "capa":

@@ -8,6 +8,7 @@ import { PainelCapa } from '../componentes/PainelCapa'
 import { PainelGravacao } from '../componentes/PainelGravacao'
 import { PainelPublicacao } from '../componentes/PainelPublicacao'
 import { PainelRoteiro } from '../componentes/PainelRoteiro'
+import { PainelVoz } from '../componentes/PainelVoz'
 import { Progresso } from '../componentes/Progresso'
 
 export function Video({ id }: { id: number }) {
@@ -41,7 +42,8 @@ export function Video({ id }: { id: number }) {
   const concluidas = v.etapas.filter((e) => e.status === 'concluido').length
   const previa = [...v.etapas].reverse().find((e) => typeof e.dados.video === 'string' || typeof e.dados.audio === 'string')
   const roteiro = v.etapas.find((e) => e.chave === 'roteiro')!
-  const gravacao = v.etapas.find((e) => e.chave === 'gravacao')!
+  const gravacao = v.etapas.find((e) => e.chave === 'gravacao')
+  const vozIa = v.etapas.find((e) => e.chave === 'voz_ia')
   const publicacaoEtapa = v.etapas.find((e) => e.chave === 'publicacao')!
 
   return (
@@ -67,7 +69,7 @@ export function Video({ id }: { id: number }) {
             >
               <LayoutPanelTop className="size-4" /> Abrir storyboard
             </a>
-          ) : (
+          ) : vozIa ? null : (
             <button
               disabled
               title="O storyboard abre quando o primeiro rascunho estiver pronto"
@@ -124,17 +126,18 @@ export function Video({ id }: { id: number }) {
 
         <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-w-0 flex-col gap-5">
-            {(['revisao', 'publicado'].includes(v.coluna) || publicacaoEtapa.status !== 'pendente') && (
+            {publicacaoEtapa.status !== 'em_breve' && (['revisao', 'publicado'].includes(v.coluna) || publicacaoEtapa.status !== 'pendente') && (
               <PainelPublicacao videoId={v.id} etapa={publicacaoEtapa} publicado={v.coluna === 'publicado'} aoMudar={recarregar} />
             )}
-            {(['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente') && (
+            {vozIa && vozIa.status !== 'pendente' && <PainelVoz videoId={v.id} etapa={vozIa} aoMudar={recarregar} />}
+            {gravacao && (['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente') && (
               <PainelGravacao videoId={v.id} etapa={gravacao} aoMudar={recarregar} />
             )}
             {(v.coluna !== 'ideia' || roteiro.status !== 'pendente') && (
               <>
-                <ProximoPasso c={v.condicoes_direcao} direcao={v.etapas.find((e) => e.chave === 'direcao')!} />
+                {!vozIa && <ProximoPasso c={v.condicoes_direcao} direcao={v.etapas.find((e) => e.chave === 'direcao')!} />}
                 <PainelRoteiro videoId={v.id} etapa={roteiro} aoMudar={recarregar} conferindo={v.conferindo} />
-                <PainelCapa videoId={v.id} aprovada={Boolean(v.capa_aprovada)} aoMudar={recarregar} />
+                {!vozIa && <PainelCapa videoId={v.id} aprovada={Boolean(v.capa_aprovada)} aoMudar={recarregar} />}
               </>
             )}
             <Painel titulo="Prévia" lateral={previa ? `${previa.titulo.toLowerCase()} · ${previa.detalhe ?? ''}` : undefined}>
@@ -142,7 +145,7 @@ export function Video({ id }: { id: number }) {
                 <video key={previa.dados.video} src={arquivo(previa.dados.video)} controls className="w-full rounded-lg bg-black" />
               ) : previa && typeof previa.dados.audio === 'string' ? (
                 <div>
-                  <p className="mb-2 text-xs text-suave">Voz guia — só para o rascunho, nunca vai para o vídeo publicado.</p>
+                  {!vozIa && <p className="mb-2 text-xs text-suave">Voz guia — só para o rascunho, nunca vai para o vídeo publicado.</p>}
                   <audio key={`${previa.dados.audio}-${previa.atualizado_em}`} src={arquivo(previa.dados.audio)} controls className="w-full" />
                 </div>
               ) : (
@@ -293,6 +296,12 @@ function AcaoPendencia({ chave, id, videoId, aoMudar, conferindo }: { chave: str
           Aprovar áudio limpo
         </button>
       </div>
+    )
+  if (chave === 'enviar_voz')
+    return (
+      <button className={estilo} onClick={() => document.getElementById('voz')?.scrollIntoView({ behavior: 'smooth' })}>
+        Ir para a voz
+      </button>
     )
   if (chave === 'enviar_gravacao')
     return (

@@ -18,6 +18,17 @@ import { ProgressoDoMotor } from '../componentes/Progresso'
 
 type DadosQuadro = { colunas: Coluna[]; videos: VideoResumo[] }
 const ORDEM_STATUS: Status[] = ['concluido', 'atencao', 'andamento', 'pendente', 'em_breve']
+const NOME_TAREFA: Record<string, string> = {
+  roteiro: 'roteiro',
+  conferencia: 'conferência do roteiro',
+  voz_guia: 'voz guia',
+  direcao: 'direção',
+  rascunho: 'rascunho',
+  gravacao: 'gravação',
+  remontar_gravacao: 'gravação',
+  final: 'vídeo final',
+  publicacao: 'publicação',
+}
 
 export function Quadro() {
   const { dados, recarregar, setDados } = useAoVivo<DadosQuadro>('/quadro', 5000)
@@ -32,6 +43,7 @@ export function Quadro() {
     if (!dados || !coluna) return
     const video = dados.videos.find((v) => v.id === id)
     if (!video || video.coluna === coluna || video.travado || video.coluna === 'publicado') return
+    if (video.formato === 'vertical' && coluna === 'gravacao') return // vertical não tem gravação
     if (coluna === 'publicado' && !window.confirm(AVISO_PUBLICAR)) return
     // otimista: move já na tela; o servidor confirma em seguida
     setDados({ ...dados, videos: dados.videos.map((v) => (v.id === id ? { ...v, coluna, ordem: 1e9 } : v)) })
@@ -73,7 +85,7 @@ export function Quadro() {
   )
 }
 
-type Canal = { chave: string; nome: string; porta: number; canais: { chave: string; nome: string; porta: number }[] }
+type Canal = { chave: string; nome: string; porta: number; formatos?: string[]; canais: { chave: string; nome: string; porta: number }[] }
 
 /** Nome do canal deste servidor; os outros canais abrem no servidor deles (os canais não se misturam). */
 function SeletorDeCanal() {
@@ -97,7 +109,7 @@ function SeletorDeCanal() {
           {outros.map((c) => (
             <a
               key={c.chave}
-              href={`http://127.0.0.1:${c.porta}/`}
+              href={`http://${window.location.hostname}:${c.porta}/`}
               className="block rounded px-3 py-2 text-sm hover:bg-painel-2"
               title="Abre o painel deste canal (servidor próprio). Se não abrir, ligue o canal pelo iniciar.bat."
             >
@@ -193,9 +205,14 @@ function Aprendizado() {
 function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; videos: VideoResumo[]; aoCriar: () => void; motor: Motor | null }) {
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave })
   const [titulo, setTitulo] = useState('')
+  const [formatos, setFormatos] = useState<string[]>([])
+  const [formato, setFormato] = useState('horizontal')
+  useEffect(() => {
+    if (coluna.chave === 'ideia') api<Canal>('/canal').then((c) => setFormatos(c.formatos ?? []))
+  }, [coluna.chave])
   const criar = async () => {
     if (!titulo.trim()) return
-    await api('/videos', { method: 'POST', body: JSON.stringify({ titulo, coluna: coluna.chave }) })
+    await api('/videos', { method: 'POST', body: JSON.stringify({ titulo, coluna: coluna.chave, formato }) })
     setTitulo('')
     aoCriar()
   }
@@ -216,6 +233,19 @@ function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; vide
         ))}
       </div>
       {coluna.chave === 'publicado' && <JaPublicado aoCriar={aoCriar} />}
+      {coluna.chave === 'ideia' && formatos.length > 1 && (
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-borda p-1 text-xs">
+          {formatos.map((f) => (
+            <button
+              key={f}
+              onClick={() => setFormato(f)}
+              className={`rounded px-2 py-1 capitalize ${formato === f ? 'bg-ouro/20 text-ouro' : 'text-suave hover:text-texto'}`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
       {coluna.chave === 'ideia' && (
         <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border border-dashed border-borda-forte px-2.5 py-2">
           <Plus className="size-4 shrink-0 text-apagado" />
@@ -332,6 +362,8 @@ function ArrastavelVideo({ video, aoMudar, motor }: { video: VideoResumo; aoMuda
 
 function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResumo; flutuando?: boolean; menu?: React.ReactNode; motor?: Motor | null }) {
   const segmentos = ORDEM_STATUS.flatMap((s) => Array(video.progresso[s] ?? 0).fill(s) as Status[])
+  const posicao = motor?.fila?.findIndex((x) => x.video === video.id) ?? -1
+  const naFila = posicao >= 0 ? motor?.fila?.[posicao] : undefined
   return (
     <a
       href={`#/video/${video.id}`}
@@ -351,6 +383,7 @@ function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResum
           <h3 className="min-w-0 flex-1 text-sm leading-snug font-medium">
             {video.travado ? <Lock className="mr-1.5 mb-0.5 inline size-3.5 text-ouro" /> : null}
             {video.titulo}
+            {video.formato === 'vertical' && <span className="ml-1.5 rounded bg-ouro/20 px-1 py-0.5 align-middle text-[10px] font-normal text-ouro">vertical</span>}
           </h3>
           {menu && <div className="-mt-0.5 -mr-1 shrink-0">{menu}</div>}
         </div>
@@ -360,6 +393,14 @@ function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResum
           ))}
         </div>
         <ProgressoDoMotor motor={motor} videoId={video.id} compacta />
+        {naFila && (
+          <p className="mt-2 text-[11px] leading-snug text-suave">
+            Na fila ({posicao + 1}º): {NOME_TAREFA[naFila.tarefa] ?? naFila.tarefa}
+          </p>
+        )}
+        {video.aguardando && !naFila && motor?.executando?.video !== video.id && (
+          <p className="mt-2 text-[11px] leading-snug text-atencao">Aguardando você: {video.aguardando}</p>
+        )}
         <div className="mt-2 flex items-center justify-between font-mono text-[11px] text-apagado">
           <span>
             {video.progresso.concluido ?? 0}/{video.total_etapas} etapas

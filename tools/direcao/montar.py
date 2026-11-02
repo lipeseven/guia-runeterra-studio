@@ -128,7 +128,7 @@ class Midias:
 
 def _setas_do_acervo() -> list[tuple[Path, float]]:
     """Desenhos de seta do Felipe (acervo: seta1.avif, seta2.png…): fundo branco removido e recortados em
-    dados/runeterra/acervo/derivados/ (o acervo nunca é alterado). Devolve (png, ângulo para onde o desenho aponta, em graus,
+    Runeterra/dados/acervo/derivados/ (o acervo nunca é alterado). Devolve (png, ângulo para onde o desenho aponta, em graus,
     y para baixo): pela forma — a ponta é a extremidade mais "pesada" do eixo principal."""
     import numpy as np
 
@@ -258,28 +258,6 @@ def transicoes(cenas: list[dict], fixas: dict[str, str]) -> None:
                     alvo["entrada_img"] = {"efeito": "corte", "quadros": 1}
 
 
-_POKEDEX: dict | None = None
-
-
-def ficha_pokemon(nome: str | None, categoria: str | None, m: "Midias") -> tuple[dict | None, dict | None]:
-    """Dados da ficha (Pokédex local, tools/pokemon/pokedex.py) + a arte oficial do acervo (_oficial/arte/<forma>.png)."""
-    global _POKEDEX
-    arq = RAIZ / "dados" / "pokemon" / "pokedex.json"
-    if not nome or not arq.exists():
-        return None, None
-    if _POKEDEX is None:
-        _POKEDEX = {re.sub(r"[^a-z0-9]", "", e["nome"].lower()): e for e in json.loads(arq.read_text(encoding="utf-8"))}
-    e = _POKEDEX.get(re.sub(r"[^a-z0-9]", "", nome.lower()))
-    if not e:
-        return None, None
-    dados = {"numero": e["numero"], "nome": e["nome"], "categoria": categoria or e.get("categoria_en"),
-             "tipos": e["tipos"], "altura_m": e.get("altura_m"), "peso_kg": e.get("peso_kg"), "regiao": e.get("regiao"),
-             "stats": e.get("stats") or {}}
-    r = m.con.execute("SELECT id FROM midias WHERE replace(caminho, '\\', '/') LIKE ?",
-                      (f"%_oficial/arte/{e['slug']}.png",)).fetchone()
-    return dados, (m.imagem(r[0]) if r else None)
-
-
 def _folga(cid: str) -> int:
     """"Imperfeição humana" no corte (0 a 4 quadros antes da palavra), estável pelo id da cena."""
     import hashlib
@@ -312,6 +290,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
 
     shutil.copyfile(audio, m.pasta / "voz.wav")
     capa_midia = m.arquivo(capa, "capa") if capa else None
+    folga = {"folga_nome": _folga_do_nome(capa, circulos)} if capa and circulos else {}
 
     def icone(nome: str | None) -> dict | None:
         c = next((c for c in circulos if nome and c.get("nome", "").lower() == nome.lower()), None)
@@ -494,12 +473,12 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 continue  # seção sem ícone na capa: não há em quem fechar
             destaque = nomes_capa.index(alvo) if alvo in nomes_capa else 0
             if tipo == "capa":
-                cenas.append({**base, "tipo": "capa", "midia": capa_midia, "circulos": circulos,
+                cenas.append({**base, "tipo": "capa", "midia": capa_midia, "circulos": circulos, **folga,
                               "destaque": destaque, "zoom": round(var.rng.uniform(2.3, 2.8), 2)})
             else:
                 # continuidade: a transição parte do ícone em que a anterior (abertura ou transição) parou
                 anterior_ic = next((x["destaque"] for x in reversed(cenas) if x["tipo"] in ("capa", "hub")), None)
-                cenas.append({**base, "secao": None, "tipo": "hub", "midia": capa_midia, "circulos": circulos,
+                cenas.append({**base, "secao": None, "tipo": "hub", "midia": capa_midia, "circulos": circulos, **folga,
                               "destaque": destaque, **var.hub(),
                               **({"origem": anterior_ic} if anterior_ic is not None else {})})
             continue
@@ -519,16 +498,6 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 cenas.append({**base, "tipo": "dialogo", "esquerda": esq, "direita": dir_, "destaques": destaques})
                 continue
             tipo = "cartao"  # sem ícones na capa: vira cartão
-
-        if tipo == "ficha":  # canal Pokémon: dados e arte oficial da Pokédex local
-            dados, img = ficha_pokemon(c.get("pokemon") or legenda, c.get("categoria"), m)
-            if dados:
-                cenas.append({**base, "tipo": "ficha", "dados": dados, "midia": img, "movimento": var.movimento()})
-            else:
-                pendencias.append({"titulo": "Ficha sem Pokémon", "texto": f"Cena {numeros.get(cid, k)}: "
-                                   f"“{c.get('pokemon')}” não está na Pokédex. No rascunho entra um texto."})
-                cenas.append(sem_imagem(base, legenda or c.get("pokemon") or ""))
-            continue
 
         if tipo == "rajada" and len(pecas_raj := pecas_montadas(cid, c, f, de)) >= 2:
             cenas.append({**base, "tipo": "rajada", "movimento": var.movimento(),
@@ -761,6 +730,26 @@ def _blocos_do_trecho(trecho: dict) -> list[dict]:
     return blocos
 
 
+def _folga_do_nome(capa: Path, circulos: list[dict]) -> float:
+    """Altura real do nome embaixo dos círculos da capa, em raios (o maior da capa: o zoom é igual em todos os capítulos)."""
+    import numpy as np
+
+    img = np.asarray(Image.open(capa).convert("L"), dtype=np.int16)
+    h, w = img.shape
+    m = min(w, h)
+    folgas = [0.0]
+    for c in circulos:
+        fim, raio = c["cy"] * h + c["r"] * m, c["r"] * m
+        abaixo = [o["cy"] * h - o["r"] * m for o in circulos if o["cy"] > c["cy"] and abs(o["cx"] - c["cx"]) * w < raio]
+        de, ate = int(fim + raio * 0.04), int(min([h] + abaixo) - raio * 0.04)
+        faixa = img[de:ate, max(0, int(c["cx"] * w - raio)):int(c["cx"] * w + raio)]
+        if faixa.size:
+            escritas = np.flatnonzero((np.abs(faixa - np.median(faixa)) > 60).mean(axis=1) > 0.003)
+            if len(escritas):
+                folgas.append((de + escritas[-1] + 1 - fim) / raio)
+    return round(max(folgas), 4)
+
+
 def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = False, palavra_seguinte_inteira: bool = False) -> str:
     """Tudo o que influencia os quadros do bloco: cenas, intervalo, tempos das palavras usadas, código das cenas e
     a capa. Igual → o .mp4 em cache vale. Sem "k" (posição da cena no plano inteiro, o Remotion não usa): dividir
@@ -784,7 +773,7 @@ def _impressao(bloco: dict, trecho: dict, codigo: str, capa: str, com_k: bool = 
 ARQUIVO_DA_CENA = {"capa": "Capa", "hub": "Hub", "cartao": "Cartao", "telacheia": "TelaCheia", "recorte": "Recorte",
                    "dialogo": "Dialogo", "clipe": "Clipe", "mosaico": "Mosaico", "dividida": "Dividida", "lista": "Lista",
                    "meio": "Meio", "texto": "Texto", "citacao": "Citacao", "setas": "Setas",
-                   "estilo2": "Estilo2", "ficha": "Ficha", "rajada": "Rajada"}
+                   "estilo2": "Estilo2", "rajada": "Rajada"}
 
 
 def _codigo_que_desenha(arquivo: Path) -> bytes:
