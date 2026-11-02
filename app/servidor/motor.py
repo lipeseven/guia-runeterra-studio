@@ -205,11 +205,23 @@ def invalidar_depois_do_roteiro(con, vid: int, pasta: Path) -> None:
 
 def receber_roteiro(con, vid: int, texto: str, nome: str) -> dict:
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from briefing import separar as separar_briefing
     from notas import separar
 
     v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
     pasta = pasta_do_video(v["slug"]) / "direcao"
     texto = texto.replace("\r\n", "\n").strip() + "\n"
+    # arquivo com briefing: só a seção ROTEIRO segue daqui; o briefing fica guardado até chegar outro
+    # (editar ou ajustar o roteiro depois não apaga o briefing)
+    texto, briefing = separar_briefing(texto)
+    if briefing:
+        texto = texto.strip() + "\n"
+        arq_b = pasta / "briefing.json"
+        if arq_b.exists() and json.loads(arq_b.read_text(encoding="utf-8")).get("fatos") != briefing["fatos"]:
+            (pasta / "conferencia_cache.json").unlink(missing_ok=True)  # fatos novos: conferir tudo de novo
+        arq_b.write_text(json.dumps(briefing, ensure_ascii=False, indent=1), encoding="utf-8")
+        registrar(con, vid, f"Briefing recebido junto com o roteiro ({len(briefing['secoes'])} seções, "
+                            f"{len(briefing['fatos'])} fatos para a conferência)", "info")
     anterior = ler_roteiro(v["slug"])  # com as notas: mudar só uma nota também muda a direção daquele bloco
     if anterior is not None and anterior != texto:
         copia_de_seguranca(pasta.parent, "roteiro")
@@ -724,6 +736,7 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
     `revisar` = aplica os pedidos do Felipe sobre a direção atual (planos sem pedido ficam iguais)."""
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     import vertical
+    from briefing import para_o_diretor
 
     with conectar() as con:
         slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
@@ -743,13 +756,13 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
     if revisar and arq.exists() and pedidos:
         definir_progresso("Animação", "1/2 · o diretor aplica os seus pedidos")
         etapa("direcao", "andamento", "aplicando os seus pedidos…", f"{len(pedidos)} pedido(s)")
-        direcao = vertical.revisar(json.loads(arq.read_text(encoding="utf-8")), pedidos, palavras)
+        direcao = vertical.revisar(json.loads(arq.read_text(encoding="utf-8")), pedidos, palavras, para_o_diretor(dirc))
     elif revisar and arq.exists():
         direcao = json.loads(arq.read_text(encoding="utf-8"))
     else:
         definir_progresso("Animação", "1/2 · o diretor escolhe as cenas")
         etapa("direcao", "andamento", "escolhendo as cenas…", "Claude")
-        direcao = vertical.dirigir((dirc / "roteiro.txt").read_text(encoding="utf-8"), palavras)
+        direcao = vertical.dirigir((dirc / "roteiro.txt").read_text(encoding="utf-8"), palavras, para_o_diretor(dirc))
     if arq.exists():  # a versão anterior fica guardada
         versoes = dirc / "vertical_versoes"
         versoes.mkdir(exist_ok=True)
