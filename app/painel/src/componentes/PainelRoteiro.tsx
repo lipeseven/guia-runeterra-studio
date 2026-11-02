@@ -5,7 +5,7 @@ import { api, quando, type Etapa } from '../api'
 import { ConferenciaRoteiro } from './ConferenciaRoteiro'
 import { MudancasRoteiro } from './MudancasRoteiro'
 
-type DadosRoteiro = { texto: string | null; paragrafos?: number; palavras?: number; segundos?: number }
+type DadosRoteiro = { texto: string | null; briefing?: { titulo: string; texto: string }[]; paragrafos?: number; palavras?: number; segundos?: number }
 type Conversa = { quando: string; acao: 'gerar' | 'ajustar'; pedido: string; resumo: string; versao: number; palavras: number }
 type Versao = { versao: number; palavras: number; inicio: string }
 
@@ -288,6 +288,21 @@ export function PainelRoteiro({ videoId, etapa, aoMudar, conferindo = false }: {
             </p>
           ))}
         </div>
+      )}
+
+      {/* briefing que veio junto com o roteiro: o diretor e a conferência leem; aqui é só para consulta */}
+      {temRoteiro && modo !== 'editar' && Boolean(dados?.briefing?.length) && (
+        <details className="mt-3 rounded-lg border border-borda bg-painel-2 p-3">
+          <summary className="cursor-pointer text-xs font-medium text-suave">
+            Briefing do vídeo ({dados!.briefing!.length} seções) · o diretor segue os destaques e a conferência usa os fatos
+          </summary>
+          {dados!.briefing!.map((s) => (
+            <div key={s.titulo} className="mt-3">
+              <p className="text-xs font-semibold text-texto/90">{s.titulo}</p>
+              <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-texto/80">{s.texto}</p>
+            </div>
+          ))}
+        </details>
       )}
 
       {temRoteiro && !trabalhando && modo !== 'editar' && <ConferenciaRoteiro videoId={videoId} versao={versao} aoCorrigir={(pedido) => chamar('/ajustar', { pedido })} />}

@@ -197,21 +197,25 @@ def _trechos(fontes: list[tuple[str, str]]) -> list[tuple[str, str]]:
     return saida
 
 
-def fatos_relevantes(consulta: str, n: int = 3) -> list[tuple[str, str]]:
-    """Anotações do Felipe ligadas a esta consulta (o que não está escrito em lugar nenhum, ex.: cinemática)."""
-    if not ARQ_FATOS.exists():
-        return []
-    linhas = [x.strip() for x in ARQ_FATOS.read_text(encoding="utf-8-sig").splitlines() if x.strip() and not x.strip().startswith("#")]
+def fatos_relevantes(consulta: str, n: int = 3, do_video: list[str] = ()) -> list[tuple[str, str]]:
+    """Anotações do Felipe ligadas a esta consulta (o que não está escrito em lugar nenhum, ex.: cinemática) e,
+    se houver, os fatos do briefing deste vídeo (`do_video`)."""
+    linhas = [x.strip() for x in ARQ_FATOS.read_text(encoding="utf-8-sig").splitlines()
+              if x.strip() and not x.strip().startswith("#")] if ARQ_FATOS.exists() else []
+    rotulos = ["fato do canal"] * len(linhas) + ["fato do briefing"] * len(do_video)
+    linhas += list(do_video)
     if not linhas:
         return []
     e = _embed([consulta] + linhas)
     notas = e[1:] @ e[0]
-    return [("fato do canal", linhas[i]) for i in notas.argsort()[::-1][:n] if notas[i] >= 0.4]
+    return [(rotulos[i], linhas[i]) for i in notas.argsort()[::-1][:n] if notas[i] >= 0.4]
 
 
 # ------------------------------------------------------------------------------------------------ fatos
 # Como pesar as fontes (conferência, dossiê e crivo). O que vale é o ponto mais recente da história, não quem publicou.
-REGRA_DAS_FONTES = ("Trecho marcado \"fato do canal\" é anotação verificada pelo dono do canal e vale acima de todas as fontes."
+REGRA_DAS_FONTES = ("Trecho marcado \"fato do canal\" é anotação verificada pelo dono do canal e vale acima de todas as fontes. "
+                    "Trecho marcado \"fato do briefing\" veio com o roteiro, conferido em fontes oficiais, e também vale "
+                    "acima das outras fontes; linha que começa com \"Evitar:\" diz o que o roteiro NÃO pode afirmar."
                     + (" A biografia da Riot é um retrato antigo e costuma parar no tempo; eventos, cinemáticas, contos e "
                        "linha do tempo trazem o que aconteceu depois. Biografia que não cita um fato NÃO contradiz esse "
                        "fato. Se duas fontes se contradizem, vale a mais recente na história, mesmo que seja a wiki (ex.: a "
@@ -272,7 +276,8 @@ def _migrar(pars: list[str], cache: dict) -> None:
             cache.setdefault(k, v)
 
 
-def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], cache: dict, aviso) -> None:
+def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], cache: dict, aviso,
+            do_video: list[str] = ()) -> None:
     from claude_cli import chamar_json
 
     if novos:
@@ -314,7 +319,7 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
                 # 3 melhores da wiki + 2 melhores da Riot (biografia/conto): dá para cruzar as fontes
                 escolhidos = ([x for x in ordem if x[0].startswith("wiki")][:3]
                               + [x for x in ordem if not x[0].startswith("wiki")][:2]) or ordem[:3]
-            escolhidos += fatos_relevantes(a["afirmacao"])
+            escolhidos += fatos_relevantes(a["afirmacao"], do_video=do_video)
             a["trechos"] = [{"fonte": f, "texto": t} for f, t in escolhidos]
             blocos.append(f"### Afirmação {k}: {a['afirmacao']}\n" + "\n".join(
                 f"[{j}] ({x['fonte']}) {x['texto']}" for j, x in enumerate(a["trechos"])) if a["trechos"] else
@@ -350,7 +355,7 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
             cache[chaves[i]] = lista
 
 
-def fatos(roteiro: str, cache: dict, aviso=lambda m: None, info: dict | None = None) -> list[dict]:
+def fatos(roteiro: str, cache: dict, aviso=lambda m: None, info: dict | None = None, do_video: list[str] = ()) -> list[dict]:
     pars = [p.strip() for p in re.split(r"\n\s*\n", roteiro) if p.strip()]
     itens = [(i, t) for i, p in enumerate(pars) for t in _cortar(p)]
     textos, chaves = [t for _, t in itens], [_chave(t) for _, t in itens]
@@ -360,7 +365,7 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None, info: dict | None = N
         info.update(refeitos=len(novos), total=len(chaves))
     for ini in range(0, len(novos), LOTE):
         aviso(f"conferindo trechos {ini + 1} a {min(ini + LOTE, len(novos))} de {len(novos)}")
-        _checar(textos, chaves, novos[ini:ini + LOTE], cache, aviso)
+        _checar(textos, chaves, novos[ini:ini + LOTE], cache, aviso, do_video)
     # trecho de outra versão fica guardado: voltar uma versão ou desfazer uma alteração não confere de novo
     for k in [k for k in cache if not k.startswith(f"{REGRAS}:")]:
         del cache[k]
@@ -391,7 +396,9 @@ def conferir(pasta: Path, aviso=lambda m: None) -> dict:
         aviso("comparando com o roteiro base")
         res["semelhanca"] = semelhanca(roteiro, base.read_text(encoding="utf-8"))
     try:
-        res["fatos"] = fatos(roteiro, cache, aviso, info)
+        brief = dirc / "briefing.json"  # fatos e "evitar" do briefing que veio com o roteiro (tools/direcao/briefing.py)
+        do_video = json.loads(brief.read_text(encoding="utf-8")).get("fatos", []) if brief.exists() else []
+        res["fatos"] = fatos(roteiro, cache, aviso, info, do_video)
         res["rodada"] = _rodada(anteriores, res["fatos"], info)
     except Exception as e:  # sem rede/cota: a semelhança continua valendo
         res["erro_fatos"] = str(e)[:300]

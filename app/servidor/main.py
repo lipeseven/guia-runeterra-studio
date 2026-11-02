@@ -302,7 +302,9 @@ def ler_roteiro(vid: int):
         texto = motor.ler_roteiro(v["slug"])  # com as [notas]
         narracao = motor.PASTA_PROJETOS / v["slug"] / "direcao" / "roteiro.txt"
         est = motor.estatisticas(narracao.read_text(encoding="utf-8")) if narracao.exists() else {}
-        return {"texto": texto, **est}
+        brief = narracao.parent / "briefing.json"  # briefing que veio junto com o roteiro (só as outras seções)
+        secoes = json.loads(brief.read_text(encoding="utf-8"))["secoes"] if brief.exists() else []
+        return {"texto": texto, "briefing": secoes, **est}
 
 
 @app.get("/api/videos/{vid}/roteiro/conferencia")

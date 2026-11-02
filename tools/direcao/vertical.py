@@ -130,9 +130,17 @@ def _pedir(prompt: str, palavras: list[dict], etiqueta: str) -> dict:
     return {"planos": planos, "avisos": avisos, "chaves": chaves, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
 
 
-def dirigir(roteiro: str, palavras: list[dict]) -> dict:
+def _briefing(texto: str) -> str:
+    if not texto:
+        return ""
+    return ("BRIEFING DO VÍDEO (pedidos de quem fez o roteiro: siga sempre que couber no catálogo; trecho que não existe "
+            "mais no roteiro = ignore; cena marcada MODELO A CRIAR = use a alternativa indicada; nunca contrarie o EVITAR):\n"
+            f"{texto}\n\n")
+
+
+def dirigir(roteiro: str, palavras: list[dict], briefing: str = "") -> dict:
     prompt = (f"ROTEIRO (com o tempo de cada frase na voz pronta; duração total {palavras[-1]['f']:.0f} s):\n{frases(palavras)}\n\n"
-              "Monte o vídeo inteiro. Responda SOMENTE com JSON {\"chaves\": [um termo-chave por frase, como aparece na fala], "
+              f"{_briefing(briefing)}Monte o vídeo inteiro. Responda SOMENTE com JSON {\"chaves\": [um termo-chave por frase, como aparece na fala], "
               "\"planos\": [...]} com os campos do catálogo.")
     return _pedir(prompt, palavras, "vertical-direcao")
 
@@ -150,10 +158,10 @@ def para_o_claude(planos: list[dict]) -> list[dict]:
     return saida
 
 
-def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict]) -> dict:
+def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: str = "") -> dict:
     """Pedidos do Felipe (gerais ou por plano) → planos novos. Planos sem pedido devem voltar iguais."""
     linhas = [f"- plano {p['plano']}: {p['texto']}" if p.get("plano") else f"- geral: {p['texto']}" for p in pedidos]
-    prompt = (f"ROTEIRO:\n{frases(palavras)}\n\nDIREÇÃO ATUAL (cada plano com id):\n"
+    prompt = (f"ROTEIRO:\n{frases(palavras)}\n\n{_briefing(briefing)}DIREÇÃO ATUAL (cada plano com id):\n"
               f"{json.dumps(para_o_claude(direcao['planos']), ensure_ascii=False)}\n\n"
               f"PEDIDOS DO FELIPE:\n{chr(10).join(linhas)}\n\n"
               "Aplique os pedidos. Planos sem pedido voltam iguais. Responda SOMENTE com JSON {\"chaves\": [...], "
