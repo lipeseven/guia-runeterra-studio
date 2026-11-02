@@ -11,6 +11,11 @@ exemplo_titulo = "A Maior Rivalidade da Fórmula 1 Explicada em 12 minutos"
 glossario = "Fórmula 1, Grand Prix, pit stop, DRS, FIA, Interlagos, Mônaco, Monza, Senna, Prost, Schumacher, Hamilton, Verstappen"
 formatos = ["horizontal", "vertical"]       # o card escolhe ao nascer: horizontal = documentário; vertical = curto animado
 
+[vertical]                                  # animação do vídeo vertical: projeto Remotion do canal + catálogo do diretor
+projeto = "F1/video"
+composicao = "Vertical"
+catalogo = "catalogo_vertical.md"           # em F1/docs; a 1ª coluna da tabela = tipos válidos
+
 [pastas]
 acervo = 'C:\Users\Felipe\Downloads\canais\catálogo F1'   # pasta do Felipe (só leitura)
 dados_acervo = "F1/dados/acervo"            # banco, miniaturas, índices CLIP, tomadas, derivados

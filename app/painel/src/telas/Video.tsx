@@ -4,6 +4,7 @@ import { api, arquivo, gb, quando, useAoVivo, type Etapa, type Recursos, type Vi
 import { CirculoEstado, COR, RotuloEstado } from '../componentes/Estado'
 import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
+import { PainelAnimacao } from '../componentes/PainelAnimacao'
 import { PainelCapa } from '../componentes/PainelCapa'
 import { PainelGravacao } from '../componentes/PainelGravacao'
 import { PainelPublicacao } from '../componentes/PainelPublicacao'
@@ -129,6 +130,14 @@ export function Video({ id }: { id: number }) {
             {publicacaoEtapa.status !== 'em_breve' && (['revisao', 'publicado'].includes(v.coluna) || publicacaoEtapa.status !== 'pendente') && (
               <PainelPublicacao videoId={v.id} etapa={publicacaoEtapa} publicado={v.coluna === 'publicado'} aoMudar={recarregar} />
             )}
+            {vozIa && v.etapas.find((e) => e.chave === 'direcao')!.status !== 'pendente' && (
+              <PainelAnimacao
+                videoId={v.id}
+                direcao={v.etapas.find((e) => e.chave === 'direcao')!}
+                render={v.etapas.find((e) => e.chave === 'render')!}
+                aoMudar={recarregar}
+              />
+            )}
             {vozIa && vozIa.status !== 'pendente' && <PainelVoz videoId={v.id} etapa={vozIa} aoMudar={recarregar} />}
             {gravacao && (['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente') && (
               <PainelGravacao videoId={v.id} etapa={gravacao} aoMudar={recarregar} />
@@ -142,7 +151,7 @@ export function Video({ id }: { id: number }) {
             )}
             <Painel titulo="Prévia" lateral={previa ? `${previa.titulo.toLowerCase()} · ${previa.detalhe ?? ''}` : undefined}>
               {previa && typeof previa.dados.video === 'string' ? (
-                <video key={previa.dados.video} src={arquivo(previa.dados.video)} controls className="w-full rounded-lg bg-black" />
+                <video key={previa.dados.video} src={arquivo(previa.dados.video)} controls className={vozIa ? 'mx-auto max-h-[720px] rounded-lg bg-black' : 'w-full rounded-lg bg-black'} />
               ) : previa && typeof previa.dados.audio === 'string' ? (
                 <div>
                   {!vozIa && <p className="mb-2 text-xs text-suave">Voz guia — só para o rascunho, nunca vai para o vídeo publicado.</p>}
