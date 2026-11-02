@@ -7,7 +7,7 @@ import { FONTE, Legenda, Placa, entra, suave, type Palavra } from "./kit";
 import {
   Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, drawRastro, fumaca, grade, gridX, gridZ, halo,
   luzGantry, luzesDesfocadas, montar, num, poe, poeCinza, poePneu, preparar, seed, solta, type Mundo,
-} from "./Piloto";
+} from "./modelos/mundo";
 
 type PlacaV = { texto: string; unidade?: string; i?: number; cor?: string; pos?: string };
 export type PlanoV = {
