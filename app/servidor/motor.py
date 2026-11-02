@@ -732,7 +732,8 @@ def pedidos_animacao(dirc: Path) -> list[dict]:
 
 
 def tarefa_animacao(vid: int, revisar: bool = False) -> None:
-    """Vertical: o diretor escolhe os planos (Claude) e o projeto Remotion do canal renderiza com a voz pronta.
+    """Vertical: o diretor escreve as cenas deste vídeo (Claude), confere o código e um quadro de cada cena, e o projeto
+    Remotion do canal renderiza com a voz pronta.
     `revisar` = aplica os pedidos do Felipe sobre a direção atual (planos sem pedido ficam iguais)."""
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     import vertical
@@ -753,16 +754,19 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
             atualizar_etapa(con, vid, chave, status, resumo, detalhe, dados)
             con.commit()
 
+    def passo(texto: str) -> None:  # o diretor escreve, corrige e confere as cenas (várias etapas)
+        definir_progresso("Animação", f"1/2 · {texto}")
+
     if revisar and arq.exists() and pedidos:
         definir_progresso("Animação", "1/2 · o diretor aplica os seus pedidos")
         etapa("direcao", "andamento", "aplicando os seus pedidos…", f"{len(pedidos)} pedido(s)")
-        direcao = vertical.revisar(json.loads(arq.read_text(encoding="utf-8")), pedidos, palavras, para_o_diretor(dirc))
+        direcao = vertical.revisar(json.loads(arq.read_text(encoding="utf-8")), pedidos, palavras, para_o_diretor(dirc), trab, passo)
     elif revisar and arq.exists():
         direcao = json.loads(arq.read_text(encoding="utf-8"))
     else:
         definir_progresso("Animação", "1/2 · o diretor escolhe as cenas")
         etapa("direcao", "andamento", "escolhendo as cenas…", "Claude")
-        direcao = vertical.dirigir((dirc / "roteiro.txt").read_text(encoding="utf-8"), palavras, para_o_diretor(dirc))
+        direcao = vertical.dirigir((dirc / "roteiro.txt").read_text(encoding="utf-8"), palavras, para_o_diretor(dirc), trab, passo)
     if arq.exists():  # a versão anterior fica guardada
         versoes = dirc / "vertical_versoes"
         versoes.mkdir(exist_ok=True)

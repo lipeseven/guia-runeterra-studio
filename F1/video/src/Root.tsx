@@ -1,11 +1,13 @@
 import { Composition } from "remotion";
 import { Carro3D } from "./modelos/Carro3D";
+import { DURACAO_VITRINE, Vitrine } from "./modelos/Vitrine";
 import { Vertical, type PropsVertical } from "./Vertical";
 
 // Projeto Remotion só do Explicando F1. Não importa nada de app/video nem de outro canal.
 export const Root: React.FC = () => (
   <>
     <Composition id="Carro3D" component={Carro3D} durationInFrames={150} fps={30} width={1080} height={1920} />
+    <Composition id="Modelos" component={Vitrine} durationInFrames={DURACAO_VITRINE} fps={30} width={1080} height={1920} />
     <Composition
       id="Vertical"
       component={Vertical}
