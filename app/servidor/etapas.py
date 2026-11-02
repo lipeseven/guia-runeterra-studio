@@ -20,7 +20,7 @@ ETAPAS_VERTICAL = [
     {"chave": "render", "titulo": "Render", "descricao": "Vídeo final em 1080×1920"},
     {"chave": "publicacao", "titulo": "Publicação", "descricao": "Título, descrição e créditos"},
 ]
-EM_BREVE_VERTICAL = {"direcao", "render", "publicacao"}  # dependem do estilo de animação
+EM_BREVE_VERTICAL: set[str] = set()  # animação ligada em 2026-11-02 (diretor + projeto Remotion do canal)
 
 
 def etapas_do_formato(formato: str) -> list[dict]:

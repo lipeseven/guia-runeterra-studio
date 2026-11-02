@@ -20,7 +20,7 @@ from .banco import RAIZ, agora, caminho, atualizar_etapa, conectar, registrar
 sys.path.insert(0, str(RAIZ / "tools"))
 sys.path.insert(0, str(RAIZ / "tools" / "audio"))
 
-from canal import DADOS_COMUM  # noqa: E402
+from canal import CANAL, DADOS_COMUM  # noqa: E402
 
 PASTA_PROJETOS = caminho("projetos")
 
@@ -269,6 +269,9 @@ def aprovar_roteiro(con, vid: int) -> None:
     fechar_pendencia(con, vid, "aprovar_roteiro")
     registrar(con, vid, "Roteiro aprovado", "ok")
     if con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"] == "vertical":
+        if con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='voz_ia'", (vid,)).fetchone()["status"] != "pendente":
+            verificar_direcao(con, vid)  # voz já enviada (ou na fila): não pede de novo
+            return
         atualizar_etapa(con, vid, "voz_ia", "atencao", "aguardando a voz", "envie o áudio")
         abrir_pendencia(con, vid, "enviar_voz", "voz_ia", "Suba a voz do vídeo",
                         "Gere a voz no seu programa e arraste o áudio no painel “Voz”, ou coloque-o na pasta entrada/ "
@@ -295,6 +298,12 @@ def condicoes_direcao(con, vid: int) -> dict:
 
 def verificar_direcao(con, vid: int) -> None:
     """Chamado sempre que uma condição muda: se todas estão ok, a Direção começa sozinha."""
+    if con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"] == "vertical":
+        st = {r["chave"]: r["status"] for r in con.execute("SELECT chave, status FROM etapas WHERE video_id=?", (vid,))}
+        if CANAL.get("vertical") and st.get("roteiro") == "concluido" and st.get("voz_ia") == "concluido" and st.get("direcao") == "pendente":
+            atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "aguardando a vez")
+            FILA.put((vid, "direcao"))
+        return
     if not all(condicoes_direcao(con, vid).values()):
         return
     if "direcao" in TAREFAS:
@@ -348,6 +357,8 @@ def ler_nomes_da_capa(capa: Path, detectar, chamar_json) -> tuple[list[dict], li
 
 def tarefa_direcao(vid: int) -> None:
     """Diretor completo: tempos -> plano (Claude) -> candidatos (local) -> escolha (Claude, imagens) -> montagem -> rascunho."""
+    if eh_vertical(vid):
+        return tarefa_animacao(vid)
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     from candidatos import preparar
     from capa import detectar
@@ -543,7 +554,8 @@ def tarefa_voz_ia(vid: int) -> None:
     with conectar() as con:
         atualizar_etapa(con, vid, "voz_ia", "concluido", f"{mmss(palavras[-1]['f'])} · {len(palavras)} palavras",
                         dados.get("arquivo"), {**dados, "audio": caminho_rel(slug, "trabalho", "voz.wav")})
-        registrar(con, vid, "Voz pronta e tempos medidos; a animação entra quando o estilo estiver definido", "ok")
+        registrar(con, vid, "Voz pronta e tempos medidos", "ok")
+        verificar_direcao(con, vid)  # com o roteiro aprovado, a animação começa sozinha
         con.commit()
 
 
@@ -695,6 +707,77 @@ def tarefa_final(vid: int) -> None:
         con.commit()
 
 
+# ---------------------------------------------------------------- vídeo vertical (animação)
+def eh_vertical(vid: int) -> bool:
+    with conectar() as con:
+        r = con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()
+    return bool(r) and r["formato"] == "vertical"
+
+
+def pedidos_animacao(dirc: Path) -> list[dict]:
+    arq = dirc / "pedidos_vertical.json"
+    return json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else []
+
+
+def tarefa_animacao(vid: int, revisar: bool = False) -> None:
+    """Vertical: o diretor escolhe os planos (Claude) e o projeto Remotion do canal renderiza com a voz pronta.
+    `revisar` = aplica os pedidos do Felipe sobre a direção atual (planos sem pedido ficam iguais)."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    import vertical
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+        limpar_avisos(con, vid, AVISOS_DO_FINAL)
+        con.commit()
+    pasta = PASTA_PROJETOS / slug
+    dirc, trab, saida = pasta / "direcao", pasta / "trabalho", pasta / "saida"
+    palavras = json.loads((dirc / "tempos_voz.json").read_text(encoding="utf-8"))
+    arq = dirc / "vertical.json"
+    pedidos = pedidos_animacao(dirc) if revisar else []
+
+    def etapa(chave: str, status: str, resumo: str, detalhe: str, dados: dict | None = None) -> None:
+        with conectar() as con:
+            atualizar_etapa(con, vid, chave, status, resumo, detalhe, dados)
+            con.commit()
+
+    if revisar and arq.exists() and pedidos:
+        definir_progresso("Animação", "1/2 · o diretor aplica os seus pedidos")
+        etapa("direcao", "andamento", "aplicando os seus pedidos…", f"{len(pedidos)} pedido(s)")
+        direcao = vertical.revisar(json.loads(arq.read_text(encoding="utf-8")), pedidos, palavras)
+    elif revisar and arq.exists():
+        direcao = json.loads(arq.read_text(encoding="utf-8"))
+    else:
+        definir_progresso("Animação", "1/2 · o diretor escolhe as cenas")
+        etapa("direcao", "andamento", "escolhendo as cenas…", "Claude")
+        direcao = vertical.dirigir((dirc / "roteiro.txt").read_text(encoding="utf-8"), palavras)
+    if arq.exists():  # a versão anterior fica guardada
+        versoes = dirc / "vertical_versoes"
+        versoes.mkdir(exist_ok=True)
+        arq.replace(versoes / f"vertical_{time.strftime('%Y%m%d-%H%M%S')}.json")
+    arq.write_text(json.dumps(direcao, ensure_ascii=False, indent=1), encoding="utf-8")
+    (dirc / "pedidos_vertical.json").unlink(missing_ok=True)
+    etapa("direcao", "concluido", f"{len(direcao['planos'])} planos", "; ".join(direcao["avisos"])[:200] or "todos os trechos encontrados")
+    with conectar() as con:
+        for a in direcao["avisos"]:
+            registrar(con, vid, f"Diretor: {a}", "alerta")
+        con.commit()
+
+    versao = proxima_versao(saida, "final")
+    arquivo = saida / f"final_v{versao}.mp4"
+    etapa("render", "andamento", f"renderizando v{versao}…", "Remotion")
+    segundos = vertical.renderizar(trab, direcao, palavras, arquivo,
+                                   progresso=lambda fr, ini: definir_progresso(f"Animação v{versao}", "2/2 · render", fr, ini))
+    with conectar() as con:
+        atualizar_etapa(con, vid, "render", "atencao", f"{mmss(palavras[-1]['f'])} · v{versao}", f"render em {mmss(segundos)}",
+                        {"video": caminho_rel(slug, "saida", arquivo.name), "versao": versao})
+        abrir_pendencia(con, vid, "ver_final", "render", "Assista a animação",
+                        "Confira na Prévia. Para mudar uma cena, escreva o pedido no painel “Animação” e clique em “Refazer com os pedidos”. "
+                        "Se estiver bom, clique em “Vídeo aprovado”.")
+        con.execute("UPDATE videos SET coluna='revisao', atualizado_em=? WHERE id=?", (agora(), vid))
+        registrar(con, vid, f"Animação v{versao} pronta ({len(direcao['planos'])} planos, render em {mmss(segundos)}) → Revisão", "ok")
+        con.commit()
+
+
 # ---------------------------------------------------------------- publicação
 def tarefa_publicacao(vid: int) -> None:
     """Depois do vídeo aprovado: textos do YouTube (Claude, modelo leve) + thumbnail."""
@@ -705,9 +788,22 @@ def tarefa_publicacao(vid: int) -> None:
         atualizar_etapa(con, vid, "publicacao", "andamento", "escrevendo título e descrição…", "Claude")
         con.commit()
     pasta = PASTA_PROJETOS / v["slug"]
-    tempos = pasta / "direcao" / "tempos_gravacao.json"
+    vertical = eh_vertical(vid)
+    tempos = pasta / "direcao" / ("tempos_voz.json" if vertical else "tempos_gravacao.json")
     duracao = json.loads(tempos.read_text(encoding="utf-8"))[-1]["f"] if tempos.exists() else 0
-    textos = publicacao.gerar_textos(pasta, v["titulo"], duracao)
+    textos = publicacao.gerar_textos(pasta, v["titulo"] + (" (vídeo vertical curto: Shorts/Reels)" if vertical else ""), duracao)
+    if vertical:  # sem capa e sem encerramento: sobe o último vídeo como está
+        final = max((pasta / "saida").glob("final_v*.mp4"), key=lambda p: p.stat().st_mtime, default=None)
+        textos["thumbnail"] = None
+        textos["video_publicar"] = caminho_rel(v["slug"], "saida", final.name) if final else None
+        (pasta / "direcao" / "publicacao.json").write_text(json.dumps(textos, ensure_ascii=False, indent=1), encoding="utf-8")
+        with conectar() as con:
+            atualizar_etapa(con, vid, "publicacao", "atencao", "textos prontos · revise", f"{len(textos['titulos'])} títulos")
+            abrir_pendencia(con, vid, "publicar", "publicacao", "Revise os textos e publique",
+                            "Título, descrição e tags estão no painel “Publicação”. Suba o vídeo e clique em “Marcar como publicado”.")
+            registrar(con, vid, "Textos de publicação prontos", "ok")
+            con.commit()
+        return
     thumb = publicacao.exportar_thumbnail(pasta)
     textos["thumbnail"] = caminho_rel(v['slug'], "saida", thumb.name) if thumb else None
     with conectar() as con:
@@ -785,6 +881,8 @@ def gravacao_aprovada(vid: int, con=None) -> bool:
 
 def tarefa_rascunho(vid: int) -> None:
     """Refaz o rascunho com os ajustes do storyboard. Só chama o Claude se houver pedidos ao diretor."""
+    if eh_vertical(vid):
+        return tarefa_animacao(vid, revisar=True)
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     from planejar import frases_do_roteiro
     from revisar import revisar
@@ -1185,6 +1283,8 @@ def retomar_interrompidas(con) -> None:
         presas.setdefault(r["video_id"], set()).add(r["chave"])
     for vid, chaves in presas.items():
         tarefas = {ETAPA_PARA_TAREFA[k] for k in chaves if k in ETAPA_PARA_TAREFA}
+        if con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"] == "vertical" and "render" in chaves:
+            tarefas = (tarefas - {"final"}) | {"rascunho"}  # vertical: re-render da direção salva
         if "direcao" in chaves and "rascunho" not in tarefas:  # direção do zero: retoma de onde parou (cache)
             con.execute("UPDATE etapas SET status='pendente' WHERE video_id=? AND chave='direcao'", (vid,))
             verificar_direcao(con, vid)

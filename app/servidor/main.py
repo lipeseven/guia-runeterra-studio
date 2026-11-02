@@ -787,6 +787,81 @@ def voz_da_pasta(vid: int):
     return {"ok": True, "arquivo": arquivo.name}
 
 
+def _dirc(vid: int) -> Path:
+    with conectar() as con:
+        v = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()
+    if not v:
+        raise HTTPException(404)
+    return motor.PASTA_PROJETOS / v["slug"] / "direcao"
+
+
+@app.get("/api/videos/{vid}/animacao")
+def animacao(vid: int):
+    """Vertical: os planos escolhidos pelo diretor (com o trecho e o segundo em que começam) e os pedidos na fila."""
+    dirc = _dirc(vid)
+    arq, tempos = dirc / "vertical.json", dirc / "tempos_voz.json"
+    if not arq.exists() or not tempos.exists():
+        return {"planos": [], "pedidos": motor.pedidos_animacao(dirc), "avisos": []}
+    d = json.loads(arq.read_text(encoding="utf-8"))
+    pal = json.loads(tempos.read_text(encoding="utf-8"))
+    fora = {"id", "i", "tipo", "em", "marcas", "marcas_texto", "clima"}
+    planos = []
+    for n, p in enumerate(d["planos"]):
+        fim = d["planos"][n + 1]["i"] if n + 1 < len(d["planos"]) else len(pal)
+        planos.append({"id": p["id"], "n": n + 1, "tipo": p["tipo"], "clima": p.get("clima"), "inicio": 0 if n == 0 else pal[p["i"]]["i"],
+                       "trecho": " ".join(w["t"] for w in pal[p["i"]:fim]),
+                       "extras": [k for k in p if k not in fora]})
+    return {"planos": planos, "pedidos": motor.pedidos_animacao(dirc), "avisos": d.get("avisos", [])}
+
+
+class PedidoAnimacao(BaseModel):
+    texto: str
+    plano: str | None = None  # id do plano; sem id = pedido geral
+
+
+@app.post("/api/videos/{vid}/animacao/pedido")
+def pedir_animacao(vid: int, corpo: PedidoAnimacao):
+    dirc = _dirc(vid)
+    if not corpo.texto.strip():
+        raise HTTPException(400, "escreva o pedido")
+    pedidos = motor.pedidos_animacao(dirc) + [{"plano": corpo.plano, "texto": corpo.texto.strip(), "quando": agora()}]
+    (dirc / "pedidos_vertical.json").write_text(json.dumps(pedidos, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"ok": True, "pedidos": pedidos}
+
+
+@app.delete("/api/videos/{vid}/animacao/pedido/{n}")
+def tirar_pedido(vid: int, n: int):
+    dirc = _dirc(vid)
+    pedidos = motor.pedidos_animacao(dirc)
+    if 0 <= n < len(pedidos):
+        pedidos.pop(n)
+    (dirc / "pedidos_vertical.json").write_text(json.dumps(pedidos, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"ok": True, "pedidos": pedidos}
+
+
+class RefazerAnimacao(BaseModel):
+    do_zero: bool = False
+
+
+@app.post("/api/videos/{vid}/animacao/refazer")
+def refazer_animacao(vid: int, corpo: RefazerAnimacao):
+    """Com os pedidos (só os planos pedidos mudam) ou do zero (o diretor escolhe tudo de novo)."""
+    dirc = _dirc(vid)
+    if not corpo.do_zero and not motor.pedidos_animacao(dirc):
+        raise HTTPException(400, "escreva ao menos um pedido, ou peça para refazer do zero")
+    with conectar() as con:
+        motor.fechar_pendencia(con, vid, "ver_final")
+        if corpo.do_zero:
+            atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "do zero")
+            registrar(con, vid, "Animação: refazer do zero", "info")
+        else:
+            atualizar_etapa(con, vid, "render", "andamento", "na fila", "com os seus pedidos")
+            registrar(con, vid, f"Animação: {len(motor.pedidos_animacao(dirc))} pedido(s) enviados ao diretor", "info")
+        con.commit()
+    motor.FILA.put((vid, "direcao" if corpo.do_zero else "rascunho"))
+    return {"ok": True}
+
+
 @app.post("/api/videos/{vid}/gravacao/da-pasta")
 def gravacao_da_pasta(vid: int):
     with conectar() as con:
