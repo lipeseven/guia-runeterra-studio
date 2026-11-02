@@ -806,11 +806,11 @@ def animacao(vid: int):
         return {"planos": [], "pedidos": motor.pedidos_animacao(dirc), "avisos": []}
     d = json.loads(arq.read_text(encoding="utf-8"))
     pal = json.loads(tempos.read_text(encoding="utf-8"))
-    fora = {"id", "i", "tipo", "em", "marcas", "marcas_texto", "clima"}
+    fora = {"id", "i", "tipo", "em", "marcas", "marcas_texto", "clima", "codigo", "set"}
     planos = []
     for n, p in enumerate(d["planos"]):
         fim = d["planos"][n + 1]["i"] if n + 1 < len(d["planos"]) else len(pal)
-        planos.append({"id": p["id"], "n": n + 1, "tipo": p["tipo"], "clima": p.get("clima"), "inicio": 0 if n == 0 else pal[p["i"]]["i"],
+        planos.append({"id": p["id"], "n": n + 1, "tipo": p.get("tipo") or f"cena própria ({p.get('set', 'pista')})", "clima": p.get("clima"), "inicio": 0 if n == 0 else pal[p["i"]]["i"],
                        "trecho": " ".join(w["t"] for w in pal[p["i"]:fim]),
                        "extras": [k for k in p if k not in fora]})
     return {"planos": planos, "pedidos": motor.pedidos_animacao(dirc), "avisos": d.get("avisos", [])}

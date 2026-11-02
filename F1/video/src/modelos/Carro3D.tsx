@@ -288,7 +288,7 @@ export const PINTURAS: Pintura[] = [
   { base: "#2547c4", clara: "#5f8bff", escura: "#0f2170", faixa: "#ffd21f", acento: "#f4f4f4" },
   { base: "#7a35c0", clara: "#a764ea", escura: "#3c1469", faixa: "#46e0c8", acento: "#f3ecd8" },
   { base: "#e6a500", clara: "#ffd04a", escura: "#8a5400", faixa: "#131313", acento: "#d4213c" },
-  { base: "#bfc5cf", clara: "#f2f4f7", escura: "#5f6775", faixa: "#d4213c", acento: "#14202e" },
+  { base: "#3a3e45", clara: "#ccd1d8", escura: "#111215", faixa: "#00a19b", acento: "#111215" }, // Mercedes W17 (2026): preto e prata com linha verde Petronas (formula1.com)
   { base: "#23262f", clara: "#4a4f5c", escura: "#0a0b0f", faixa: "#b8f000", acento: "#f5f5f5" },
 ];
 

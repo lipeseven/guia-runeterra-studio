@@ -1,11 +1,13 @@
-# Catálogo de planos do vertical (lido pelo diretor)
+# Cenas prontas do vertical (lido pelo diretor)
 
+Cenas do vídeo de regras, com parâmetros. Use "tipo" no lugar de "codigo" só quando a cena mostra exatamente a fala; dentro
+do código, c.tipo(nome, {parâmetros}) desenha uma delas como base. O resto do vídeo é escrito com a API (api_cenas.md).
 Cada plano começa numa palavra do roteiro e dura até o próximo. Troque de plano a cada 2 a 6 s, quase sempre no começo de
-uma frase. Nunca use o mesmo tipo duas vezes seguidas. O mundo (cenário e luz) muda com o assunto.
+uma frase. O mundo (cenário e luz) muda com o assunto.
 
 Campos comuns a todos os planos:
 - `em`: trecho EXATO do roteiro (2 a 5 palavras seguidas) onde o plano começa. O primeiro plano começa na primeira palavra.
-- `tipo`: um dos tipos abaixo.
+- `tipo`: um dos tipos abaixo (ou `codigo`, ver api_cenas.md).
 - `clima` (opcional, troca a luz): tarde, manha, sol, noite, brasa, chumbo, vazio (estúdio escuro), claro (estúdio claro, para comparações).
 - `equipe` (0 a 10): pintura do carro. 0 vermelho, 1 laranja, 2 verde-água, 3 azul, 4 roxo, 5 amarelo, 6 prata, 7 preto e verde-limão,
   8 preto e dourado, 9 verde, 10 branco e azul.
@@ -52,5 +54,3 @@ Sobreposições (opcionais, só o que a fala diz; nunca invente número):
 | ultrapassagem | carro ganha um empurrão azul e passa o outro | equipe | boost |
 | asa | asa traseira: abre e fecha, ar passando | — | abre, fecha |
 | moedas | pilhas de moedas crescendo até um teto vermelho (estúdio claro) | — | teto |
-
-Formato da resposta: SOMENTE JSON {"planos": [ {...}, ... ]}.

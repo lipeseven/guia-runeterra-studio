@@ -1,6 +1,7 @@
 // Vídeo vertical montado pelo diretor do painel: os planos chegam por props (direcao/vertical.json do vídeo).
-// Cada tipo de plano é uma cena do piloto com parâmetros; o catálogo para o diretor está em F1/docs/catalogo_vertical.md.
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+// Cada plano traz o CÓDIGO da cena, escrito pelo diretor para este vídeo com a API abaixo (F1/docs/api_cenas.md), ou o nome
+// de uma cena pronta (	ipo, F1/docs/catalogo_vertical.md). O código roda aqui (new Function): nada dele fica no projeto.
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import * as THREE from "three";
 import { FONTE, Legenda, Placa, entra, suave, type Palavra } from "./kit";
@@ -8,10 +9,15 @@ import {
   Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, drawRastro, fumaca, grade, gridX, gridZ, halo,
   luzGantry, luzesDesfocadas, montar, num, poe, poeCinza, poePneu, preparar, seed, solta, type Mundo,
 } from "./modelos/mundo";
+import { PINTURAS, carro } from "./modelos/Carro3D";
+import {
+  bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, degrau, esconderExtras, numeroNoCarro, obj, pontoNoMapa, rotulo,
+  topoDoPodio,
+} from "./modelos/extras";
 
 type PlacaV = { texto: string; unidade?: string; i?: number; cor?: string; pos?: string };
 export type PlanoV = {
-  id: string; i: number; tipo: string; clima?: string; equipe?: number; n?: number; cor?: string; cores?: string[]; acao?: string;
+  id: string; i: number; tipo?: string; set?: string; codigo?: string; clima?: string; equipe?: number; n?: number; cor?: string; cores?: string[]; acao?: string;
   modo?: string; angulo?: string; de?: number; ate?: number; valores?: number[]; sai?: number; marcas?: Record<string, number>;
   placas?: PlacaV[]; contador?: { de: number; ate: number; unidade?: string; casas?: number; formato?: string; i0?: number; i1?: number; cor_final?: string };
   chips?: { itens: string[]; ativo?: number; i?: number }; selo?: { texto: string; i?: number }; riscado?: { texto: string; i: number };
@@ -19,7 +25,10 @@ export type PlanoV = {
 };
 export type PropsVertical = { palavras: Palavra[]; planos: PlanoV[]; audio: string; chaves?: string[] };
 
-type CV = { w: Mundo; p: PlanoV; t: number; s: number; k: number; fim: number; ini: number; m: (nome: string, frac?: number) => number };
+export type CV = {
+  w: Mundo; p: PlanoV; t: number; s: number; k: number; fim: number; ini: number; m: (nome: string, frac?: number) => number;
+  tipo: (nome: string, extra?: Partial<PlanoV>) => void;
+};
 
 const COR: Record<string, string> = { branco: "#ffffff", amarelo: "#ffd400", vermelho: "#ff5a4a", verde: "#3bd47a", azul: "#7fc4ff", laranja: "#ffb066", ouro: "#ffd77a" };
 const PNEU: Record<string, string> = { macio: "#e6241f", medio: "#ffd21f", duro: "#f2f2f2", intermediario: "#23b458", chuva: "#2b7be8" };
@@ -371,6 +380,26 @@ const TIPOS: Record<string, Tipo> = {
 };
 export const TIPOS_VERTICAL = Object.keys(TIPOS);
 
+// O que o código das cenas enxerga (por nome). O Python lê os nomes entre as marcas para conferir o código com o tsc.
+// API:inicio
+export const API = {
+  THREE, camera, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
+  luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
+  criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS,
+};
+// API:fim
+const NOMES_API = Object.keys(API);
+
+type Cena = (api: typeof API, c: CV) => void;
+function compilar(p: PlanoV): Cena | null {
+  try {
+    return new Function("API", "c", `const { ${NOMES_API.join(", ")} } = API;\n${p.codigo}`) as Cena;
+  } catch (e) {
+    console.error(`ERRO_CENA ${p.id}: ${(e as Error).message}`);
+    return null;
+  }
+}
+
 const POS: Record<string, [number, number]> = { baixo: [540, 1630], meio: [540, 1470], esquerda: [300, 1520], direita: [780, 1520], alto: [540, 560] };
 const SELO = { background: "#0a0c10", border: "6px solid #2a2d33", borderRadius: 18, padding: "6px 34px", fontFamily: "'Consolas', monospace", fontSize: 104, fontWeight: 800, letterSpacing: 8, color: "#ffc400", textShadow: "0 0 26px #ffae00", zIndex: 40 } as const;
 
@@ -463,22 +492,49 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
   let ip = 0;
   for (let n = 0; n < inicios.length; n++) if (t >= inicios[n]) ip = n;
   const p = planos[ip];
-  const tipo = TIPOS[p.tipo] ?? TIPOS.perseguicao;
+  const tipo = (p.tipo ? TIPOS[p.tipo] : undefined) ?? TIPOS.perseguicao;
+  const clima = p.clima ?? (p.codigo ? "tarde" : tipo.clima);
   const ini = inicios[ip];
   const fim = (inicios[ip + 1] ?? durationInFrames / fps) - ini;
-  const ctx = (w: Mundo): CV => ({ w, p, t, s: t - ini, k: (t - ini) / fim, fim, ini, m: (nome, frac = 0.5) => (p.marcas?.[nome] !== undefined ? tempo(p.marcas[nome]) : ini + fim * frac) });
+  const cenas = useMemo(() => Object.fromEntries(planos.filter((x) => x.codigo).map((x) => [x.id, compilar(x)])), [planos]);
+  const ctx = (w: Mundo): CV => {
+    const c: CV = {
+      w, p, t, s: t - ini, k: (t - ini) / fim, fim, ini,
+      m: (nome, frac = 0.5) => (p.marcas?.[nome] !== undefined ? tempo(p.marcas[nome]) : ini + fim * frac),
+      tipo: (nome, extra = {}) => {
+        const pronta = TIPOS[nome];
+        if (!pronta) throw new Error(`cena pronta desconhecida: ${nome}`);
+        preparar(w, extra.clima ?? p.clima ?? pronta.clima, pronta.set);
+        pronta.cena({ ...c, p: { ...p, ...extra } });
+      },
+    };
+    return c;
+  };
   const [alca] = useState(() => delayRender("desenhando o quadro 3D"));
   useLayoutEffect(() => {
     const w = mundo.current ?? (mundo.current = montar(ref.current!));
-    const clima = p.clima ?? tipo.clima;
-    preparar(w, clima, tipo.set);
-    tipo.cena(ctx(w));
+    esconderExtras(w);
+    const cena = p.codigo ? cenas[p.id] : null;
+    let feito = false;
+    if (cena) {
+      preparar(w, clima, p.set ?? "pista");
+      try {
+        cena(API, ctx(w));
+        feito = true;
+      } catch (e) {
+        console.error(`ERRO_CENA ${p.id}: ${(e as Error).message}`);
+        esconderExtras(w);
+      }
+    }
+    if (!feito) {
+      preparar(w, p.codigo ? "tarde" : clima, tipo.set);
+      tipo.cena(ctx(w));
+    }
     w.r.render(w.cena, w.cam);
     continueRender(alca);
-  });
-  const c = ctx(mundo.current ?? ({} as Mundo));
+  });  const c = ctx(mundo.current ?? ({} as Mundo));
   const falaFim = palavras[palavras.length - 1].f;
-  const claro = (p.clima ?? tipo.clima) === "claro";
+  const claro = clima === "claro";
   return (
     <AbsoluteFill style={{ background: "#0b0c11" }}>
       <Audio src={staticFile(audio)} />

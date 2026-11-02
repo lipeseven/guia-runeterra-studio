@@ -14,3 +14,5 @@ dados/
 # Mídias copiadas para o Remotion (vêm do acervo / gravações)
 app/video/public/
 F1/video/public/
+# código das cenas conferido pelo tsc (temporário, tools/direcao/vertical.py)
+F1/video/src/_conferir_cenas.ts
