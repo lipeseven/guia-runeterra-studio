@@ -89,7 +89,7 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
 - Render por blocos ✅ (2026-10-15): `montar.renderizar()` agrupa as cenas por bloco (campo `bloco` = seção do
   plano), usa o quadro inicial `q` calculado na montagem e renderiza cada bloco sem áudio via
   `app/video/render_blocos.mjs` (bundle + navegador uma vez só), com cache em `trabalho/blocos/<impressão>.mp4`
-  (impressão = cenas + intervalo + tempos + código do Remotion + capa); só blocos alterados são refeitos; áudio
+  (impressão = cenas + intervalo + tempos + código do Remotion que desenha o bloco, sem o `Root.tsx` e as composições de outros canais, + capa); só blocos alterados são refeitos; áudio
   inteiro à parte (.wav) e junção com FFmpeg concat sem recomprimir. Cenas HERDAM os efeitos da versão anterior
   (mesmo id e tipo; `montar._herdar`), semente e folga de corte são por id → mexer numa cena não muda as outras.
 - Escolha de imagens em lotes ✅ (`escolher.py`: 6 folhas por chamada + reenvio do que o Claude "não viu");
