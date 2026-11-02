@@ -140,7 +140,7 @@ def _briefing(texto: str) -> str:
 
 def dirigir(roteiro: str, palavras: list[dict], briefing: str = "") -> dict:
     prompt = (f"ROTEIRO (com o tempo de cada frase na voz pronta; duração total {palavras[-1]['f']:.0f} s):\n{frases(palavras)}\n\n"
-              f"{_briefing(briefing)}Monte o vídeo inteiro. Responda SOMENTE com JSON {\"chaves\": [um termo-chave por frase, como aparece na fala], "
+              + _briefing(briefing) + "Monte o vídeo inteiro. Responda SOMENTE com JSON {\"chaves\": [um termo-chave por frase, como aparece na fala], "
               "\"planos\": [...]} com os campos do catálogo.")
     return _pedir(prompt, palavras, "vertical-direcao")
 
