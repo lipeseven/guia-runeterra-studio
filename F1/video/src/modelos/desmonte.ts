@@ -106,8 +106,13 @@ export function cortar(modelo: THREE.Object3D, normal: V = [1, 0, 0], em: V = [0
   });
 }
 
+// modelos com estado próprio (botão apertado, seletor girado) voltam ao normal junto
+const voltas = new Set<() => void>();
+export const aoRestaurar = (fn: () => void) => voltas.add(fn);
+
 /** Volta tudo o que foi mexido ao normal (chamado antes de cada quadro). */
 export function restaurar() {
+  voltas.forEach((fn) => fn());
   for (const o of mexidos) {
     const p0 = pos0.get(o);
     if (p0) o.position.copy(p0);

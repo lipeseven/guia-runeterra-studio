@@ -5,6 +5,7 @@ import { bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, 
 import { camera, enquadrar, montar, poe, preparar, Z_POLE, type Mundo } from "./mundo";
 import { trocarComposto } from "./Carro3D";
 import { cortar, explodir, isolar, raioX, restaurar } from "./desmonte";
+import { apertar, criarVolante, girar, luzesDeTroca, puxar, telaDoVolante } from "./volante";
 
 const VITRINE: ((w: Mundo, s: number) => void)[] = [
   (w, s) => {
@@ -94,6 +95,28 @@ VITRINE.push((w, s) => {
   if (f === 2) raioX(car, ["tampa_do_motor", "sidepod_esquerda", "sidepod_direita"]);
   if (f === 3) cortar(car, [1, 0, 0]);
   enquadrar(w, car, [0.75, 0.55, -0.9], f === 0 ? 1.05 : 1.15);
+});
+// volante: frente com comandos acionados, 3/4 de trás (paddles), explodido e close dos seletores
+VITRINE.push((w, s) => {
+  preparar(w, "claro", "estudio");
+  const v = obj(w, "volante", () => criarVolante());
+  v.position.set(0, 1, 0);
+  const f = Math.floor(s * 4);
+  if (f === 0) {
+    apertar(v, "ot");
+    luzesDeTroca(v, 0.7);
+    telaDoVolante(v, { marcha: "7", modo: "OT", delta: "-0.214", velocidade: 318 });
+    enquadrar(w, v, [0, 0.08, 1], 1.08, 30);
+  } else if (f === 1) {
+    puxar(v, "marcha_direita");
+    enquadrar(w, v, [0.7, 0.25, -1], 1.08, 30);
+  } else if (f === 2) {
+    explodir(v, 1);
+    enquadrar(w, v, [0.85, 0.3, 1], 1.05, 30);
+  } else {
+    girar(v, "central", 7);
+    camera(w, [0.04, 0.96, 0.16], [0, 0.955, 0], 30);
+  }
 });
 export const DURACAO_VITRINE = VITRINE.length * 30;
 
