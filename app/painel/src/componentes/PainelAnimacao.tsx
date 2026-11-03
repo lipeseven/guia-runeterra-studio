@@ -34,11 +34,11 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
     await api(`/videos/${videoId}/animacao/pedido/${n}`, { method: 'DELETE' })
     recarregar()
   }
-  const refazer = async (do_zero: boolean) => {
+  const refazer = async (do_zero: boolean, so_render = false) => {
     if (do_zero && !confirm('O diretor vai escolher todas as cenas de novo (os pedidos na fila são descartados). Continuar?')) return
     setErro(null)
     try {
-      await api(`/videos/${videoId}/animacao/refazer`, { method: 'POST', body: JSON.stringify({ do_zero }) })
+      await api(`/videos/${videoId}/animacao/refazer`, { method: 'POST', body: JSON.stringify({ do_zero, so_render }) })
     } catch (e) {
       return setErro(limpar(e))
     }
@@ -152,6 +152,14 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
               className="rounded-md border border-borda px-3 py-1.5 text-xs text-suave hover:border-borda-forte hover:text-texto disabled:opacity-40"
             >
               Refazer do zero
+            </button>
+            <button
+              disabled={trabalhando || pedidos.length > 0}
+              onClick={() => refazer(false, true)}
+              title="Sem Claude: renderiza de novo a mesma direção (ex.: depois de melhorar um modelo 3D)"
+              className="rounded-md border border-borda px-3 py-1.5 text-xs text-suave hover:border-borda-forte hover:text-texto disabled:opacity-40"
+            >
+              Só renderizar de novo
             </button>
             {trabalhando && <span className="text-xs text-andamento">o motor está trabalhando nesta animação…</span>}
           </div>
