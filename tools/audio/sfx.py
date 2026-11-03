@@ -11,6 +11,8 @@ Fontes:
 Cada som é aparado (silêncio do início), limitado a ~6 s com fade e normalizado no pico (-3 dBFS).
 
     .venv\\Scripts\\python.exe tools\\audio\\sfx.py catalogar        # baixa do Freesound + completa gerando
+    .venv\\Scripts\\python.exe tools\\audio\\sfx.py catalogar --so-gerar   # só gera (sem baixar nada)
+    (as categorias de cada canal vêm de `sfx` no canal.toml; GRS_CANAL escolhe o canal)
     .venv\\Scripts\\python.exe tools\\audio\\sfx.py gerar "prompt" 3 categoria
     .venv\\Scripts\\python.exe tools\\audio\\sfx.py indexar          # vetores CLAP que faltam
     .venv\\Scripts\\python.exe tools\\audio\\sfx.py buscar "deep cinematic boom"
@@ -62,7 +64,21 @@ CATEGORIAS = {
     "agua": ("water splash deep", "big water splash, deep ocean, sound effect", 2.5),
     "vento": ("eerie wind", "eerie howling wind, dark atmosphere, sound effect", 5.0),
     "whoosh": ("whoosh transition", "fast cinematic whoosh, sound effect", 1.5),
+    # Explicando F1 (vertical): poucos e com sentido — botão, rádio, carro
+    "clique": ("button click", "single short crisp plastic button click, close up, sound effect", 0.6),
+    "seletor": ("rotary knob click", "rotary knob turning with small mechanical detent clicks, sound effect", 1.2),
+    "radio": ("radio static beep", "short two-way radio beep with brief static crackle, sound effect", 1.5),
+    "carro_passando": ("race car pass by", "formula one race car passing by at high speed, doppler engine scream, sound effect", 3.0),
+    "acelerando": ("race car accelerating", "formula one race car accelerating hard, high pitched engine rev, sound effect", 3.0),
 }
+RUNETERRA = [c for c in CATEGORIAS if c not in ("clique", "seletor", "radio", "carro_passando", "acelerando")]
+
+
+def categorias_do_canal() -> list[str]:
+    """Categorias que o catálogo deste canal procura (`sfx` no canal.toml; sem a chave = as do Runeterra)."""
+    from canal import CANAL
+
+    return [c for c in CANAL.get("sfx", RUNETERRA) if c in CATEGORIAS]
 
 def _preparar(bruto: np.ndarray) -> np.ndarray:
     """Mono, sem silêncio no início, até MAX_SEG com fade de saída, pico em -3 dBFS."""
@@ -235,14 +251,16 @@ class Busca:
         self.clap.liberar()
 
 
-def catalogar() -> None:
+def catalogar(so_gerar: bool = False) -> None:
+    """Freesound primeiro (a não ser com `so_gerar`), depois completa gerando o que faltar."""
     con = abrir_acervo()
-    for cat, (consulta, _, _) in CATEGORIAS.items():
-        n = freesound(con, cat, consulta)
+    cats = categorias_do_canal()
+    for cat in cats if not so_gerar else []:
+        n = freesound(con, cat, CATEGORIAS[cat][0])
         total = con.execute("SELECT COUNT(*) FROM sons WHERE categoria=?", (cat,)).fetchone()[0]
         print(f"{cat:14} +{n} do Freesound (total {total})", flush=True)
     faltando = {cat: MINIMO - con.execute("SELECT COUNT(*) FROM sons WHERE categoria=?", (cat,)).fetchone()[0]
-                for cat in CATEGORIAS}
+                for cat in cats}
     faltando = {c: q for c, q in faltando.items() if q > 0}
     if faltando:
         g = Gerador()
@@ -259,7 +277,7 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     cmd = sys.argv[1] if len(sys.argv) > 1 else ""
     if cmd == "catalogar":
-        catalogar()
+        catalogar(so_gerar="--so-gerar" in sys.argv)
     elif cmd == "gerar":
         con = abrir_acervo()
         g = Gerador()

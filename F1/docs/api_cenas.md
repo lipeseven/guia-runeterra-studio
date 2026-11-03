@@ -12,6 +12,10 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
 - `clima`: luz e céu: tarde, manha, sol, noite, brasa, chumbo, vazio (estúdio escuro), claro (estúdio claro).
 - `codigo`: a cena (abaixo). Ou `tipo`: uma cena pronta do catálogo, sem código, quando ela já diz exatamente a fala.
 - `marcas`: {nome: "trecho exato"}: momentos dentro do plano; no código, `c.m("nome")` dá o segundo da palavra.
+- `som` (opcional): {"o_que": "descrição curta EM INGLÊS do som", "em": "trecho exato"}. Só quando o som faz sentido
+  na fala: clique de botão apertado ou seletor girando ("single button click", "rotary knob clicks"), bipe de rádio
+  ("radio beep static"), carro passando ou acelerando ("race car pass by", "race car accelerating"), whoosh de troca
+  rápida. Raro: no máximo 1 a cada ~7 s (o motor corta o excesso, mínimo de 3 s entre eles); nunca música.
 - Sobreposições (placas, contador, chips, selo, riscado, medidor, gota, chuva): campos do JSON, como no catálogo. Nunca
   desenhe texto de tela no código; rótulo 3D (`rotulo`) só para nomear coisas dentro da cena.
 
