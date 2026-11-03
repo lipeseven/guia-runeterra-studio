@@ -523,7 +523,7 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     return saida
 
 
-MUSICA_DB = -15.0  # volume padrão (~10 dB abaixo da voz no vídeo) da música (ganho sobre a trilha normalizada); o painel ajusta por vídeo (musica.json "volume")
+MUSICA_DB = -12.0  # volume padrão sobre a trilha já nivelada em -20 LUFS (~11 dB abaixo da voz); o painel ajusta por vídeo (musica.json "volume")
 EXT_AUDIO = (".mp3", ".wav", ".m4a", ".ogg", ".flac")
 
 
@@ -563,7 +563,11 @@ def _com_audio(video: list[str], trabalho: Path, direcao: dict, palavras: list[d
         j = len(efeitos) + 2
         entradas += ["-stream_loop", "-1", "-i", str(musica)]
         vol = float(config_musica(trabalho.parent).get("volume", MUSICA_DB))
-        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{total:.3f},volume={vol}dB,"
+        # trilha gerada: corta o chiado dos pratos (agudos acima de ~6 kHz, que no fone parecem interferência);
+        # todas: nível por loudness (não por pico), para o controle de volume valer igual em qualquer música
+        eq = "highpass=f=50,treble=g=-6:f=5000,lowpass=f=7500," if musica.name.startswith("trilha_") else ""
+        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{total:.3f},{eq}loudnorm=I=-20:TP=-2:LRA=11,"
+                       f"aresample=48000,volume={vol}dB,"
                        f"afade=t=in:d=1.5,afade=t=out:st={max(0, total - 2.5):.3f}:d=2.5[m0]")
         # ducking suave: abaixa ~4 a 6 dB enquanto há fala (antes era forte demais e só sobravam os pratos)
         filtros.append("[m0][vsc]sidechaincompress=threshold=0.06:ratio=2.5:attack=60:release=800[mus]")

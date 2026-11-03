@@ -844,7 +844,7 @@ def tirar_pedido(vid: int, n: int):
 class Musica(BaseModel):
     ligada: bool
     descricao: str = ""
-    volume: float = -15.0  # dB sobre a trilha normalizada; -15 fica ~10 dB abaixo da voz
+    volume: float = -12.0  # dB sobre a trilha nivelada em -20 LUFS; -12 fica ~11 dB abaixo da voz
 
 
 @app.get("/api/videos/{vid}/musica")
