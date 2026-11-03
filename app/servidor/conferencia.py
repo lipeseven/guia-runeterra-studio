@@ -294,7 +294,7 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
             SISTEMA, modelo="sonnet", etiqueta="conferencia-afirmacoes")
         pedidos = {i for i, _ in novos}
         afirm = [a for a in r.get("afirmacoes", []) if a.get("p") in pedidos]
-        aviso(f"buscando {len(afirm)} afirmação(ões) na wiki e no Universe")
+        aviso(f"buscando {len(afirm)} afirmação(ões) " + ("na wiki e no Universe" if CANAL.get("fatos", "lol") == "lol" else "na Wikipedia"))
         por_trecho: dict[int, list] = {}  # página achada para uma afirmação serve às outras do mesmo trecho do roteiro
         for a in afirm:
             fontes = _wiki(a.get("busca") or a["afirmacao"])
