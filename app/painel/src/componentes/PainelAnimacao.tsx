@@ -30,6 +30,10 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
     setAberto(null)
     recarregar()
   }
+  const fechar = () => {
+    setAberto(null)
+    setTexto('')
+  }
   const tirar = async (n: number) => {
     await api(`/videos/${videoId}/animacao/pedido/${n}`, { method: 'DELETE' })
     recarregar()
@@ -81,7 +85,7 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
                     {meus.map((m) => (
                       <p key={m.n} className="mt-1 flex items-center gap-2 text-xs text-ouro">
                         pedido: {m.texto}
-                        <button onClick={() => tirar(m.n)} className="text-apagado hover:text-atencao">tirar</button>
+                        <button onClick={() => tirar(m.n)} className="text-apagado hover:text-atencao">descartar</button>
                       </p>
                     ))}
                     {aberto === p.id && (
@@ -90,12 +94,18 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
                           autoFocus
                           value={texto}
                           onChange={(e) => setTexto(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && pedir(p.id, texto)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') pedir(p.id, texto)
+                            if (e.key === 'Escape') fechar()
+                          }}
                           placeholder="ex.: câmera mais perto; troque pelos pneus; placa com 300 km"
                           className="min-w-0 flex-1 rounded-md border border-borda bg-painel-2 px-2 py-1.5 text-xs outline-none focus:border-suave"
                         />
                         <button onClick={() => pedir(p.id, texto)} className="rounded-md border border-ouro/60 px-3 py-1.5 text-xs text-ouro hover:bg-ouro/10">
                           Anotar
+                        </button>
+                        <button onClick={fechar} title="Fecha sem anotar (Esc)" className="rounded-md border border-borda px-3 py-1.5 text-xs text-suave hover:border-borda-forte hover:text-texto">
+                          Cancelar
                         </button>
                       </div>
                     )}
@@ -135,7 +145,7 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
           {pedidos.filter((p) => !p.plano).map((p) => (
             <p key={p.quando + p.texto} className="flex items-center gap-2 text-xs text-ouro">
               pedido geral: {p.texto}
-              <button onClick={() => tirar(pedidos.indexOf(p))} className="text-apagado hover:text-atencao">tirar</button>
+              <button onClick={() => tirar(pedidos.indexOf(p))} className="text-apagado hover:text-atencao">descartar</button>
             </p>
           ))}
           <div className="flex flex-wrap items-center gap-2">
