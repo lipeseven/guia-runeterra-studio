@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AbsoluteFill, Easing, continueRender, delayRender, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { peca } from "./desmonte";
 
 export type Pintura = { base: string; clara: string; escura: string; faixa: string; acento: string };
 export const C = (h: string) => new THREE.Color(h);
@@ -204,6 +205,19 @@ export function carro(p: Pintura): THREE.Group {
     return base.clone().lerp(clara, Math.max(0, Math.min(0.55, (y - 0.3) * 0.9)));
   };
   const preto = "#0c0d11";
+  // peças para o desmonte (explodir, isolar, raio-X): camada 0 sai primeiro
+  const grupo = (nome: string, sai: [number, number, number], camada: number) => {
+    const q = peca(new THREE.Group(), nome, sai, camada);
+    g.add(q);
+    return q;
+  };
+  const gAsaD = grupo("asa_dianteira", [0, 0, -1.4], 0);
+  const gAsaT = grupo("asa_traseira", [0, 0.8, 1.2], 0);
+  const gHalo = grupo("halo", [0, 1, 0], 0);
+  const gTampa = grupo("tampa_do_motor", [0, 0.9, 0.5], 1);
+  const gMono = grupo("monocoque", [0, 0, 0], 2);
+  const gPiso = grupo("assoalho", [0, 0, 0], 2);
+  const gSusp = grupo("suspensao", [0, 0, 0], 2);
 
   // Molde de 2026 em metros reais (regulamento FIA 2026): 1,9 m de largura, 3,4 m entre eixos, rodas de 18".
   // Frente para -z. Eixo dianteiro em z = -1,55; traseiro em z = 1,85.
@@ -216,75 +230,77 @@ export function carro(p: Pintura): THREE.Group {
   const mp = new THREE.Mesh(gp, new THREE.MeshStandardMaterial({ color: "#2a2c32", roughness: 0.55 }));
   mp.position.y = 0.09;
   mp.castShadow = true;
-  g.add(mp);
+  gPiso.add(mp);
   // difusor: rampa preta atrás do assoalho
   const dif = caixa(0.96, 0.03, 0.5, 0, 0.13, 2.4, preto, 0.5);
   dif.rotation.x = -0.32;
-  g.add(dif);
+  gPiso.add(dif);
 
   // monocoque: bico baixo e fino, sobe até o cockpit e desce pela tampa do motor
-  g.add(casco([[-2.6, 0.05, 0.24, 0.15], [-2.35, 0.09, 0.29, 0.13], [-1.9, 0.13, 0.39, 0.13], [-1.3, 0.2, 0.52, 0.12], [-0.75, 0.27, 0.6, 0.1], [-0.2, 0.3, 0.64, 0.1], [0.25, 0.27, 0.66, 0.1], [0.85, 0.22, 0.62, 0.1], [1.5, 0.16, 0.52, 0.11], [2.1, 0.12, 0.44, 0.13], [2.45, 0.06, 0.37, 0.18]], corpo));
+  gMono.add(casco([[-2.6, 0.05, 0.24, 0.15], [-2.35, 0.09, 0.29, 0.13], [-1.9, 0.13, 0.39, 0.13], [-1.3, 0.2, 0.52, 0.12], [-0.75, 0.27, 0.6, 0.1], [-0.2, 0.3, 0.64, 0.1], [0.25, 0.27, 0.66, 0.1], [0.85, 0.22, 0.62, 0.1], [1.5, 0.16, 0.52, 0.11], [2.1, 0.12, 0.44, 0.13], [2.45, 0.06, 0.37, 0.18]], corpo));
   // entrada de ar sobre o piloto (santo antônio) e espinha da tampa do motor
-  g.add(casco([[-0.02, 0.03, 0.78, 0.6], [0.12, 0.13, 0.98, 0.58], [0.4, 0.15, 0.95, 0.56], [0.9, 0.12, 0.83, 0.5], [1.5, 0.06, 0.63, 0.45], [1.95, 0.02, 0.5, 0.42]], corpo));
+  gTampa.add(casco([[-0.02, 0.03, 0.78, 0.6], [0.12, 0.13, 0.98, 0.58], [0.4, 0.15, 0.95, 0.56], [0.9, 0.12, 0.83, 0.5], [1.5, 0.06, 0.63, 0.45], [1.95, 0.02, 0.5, 0.42]], corpo));
   const tomada = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshStandardMaterial({ color: "#050507", roughness: 0.6 }));
   tomada.scale.set(0.085, 0.07, 1);
   tomada.position.set(0, 0.88, 0.07);
   tomada.rotation.y = Math.PI;
-  g.add(tomada);
+  gTampa.add(tomada);
 
   for (const s of [-1, 1]) {
     // sidepod: boca larga na frente, com rebaixo embaixo, afinando até a "garrafa de coca" atrás
-    g.add(casco([[-0.5, 0.02, 0.5, 0.3], [-0.42, 0.3, 0.54, 0.28], [-0.1, 0.33, 0.55, 0.22], [0.4, 0.26, 0.5, 0.16], [1.0, 0.14, 0.42, 0.13], [1.6, 0.04, 0.32, 0.12]], lateral, s * 0.28, 64, 90, 0.42));
+    const lado = s < 0 ? "esquerda" : "direita";
+    const gSide = grupo(`sidepod_${lado}`, [s * 0.9, 0, 0], 1);
+    gSide.add(casco([[-0.5, 0.02, 0.5, 0.3], [-0.42, 0.3, 0.54, 0.28], [-0.1, 0.33, 0.55, 0.22], [0.4, 0.26, 0.5, 0.16], [1.0, 0.14, 0.42, 0.13], [1.6, 0.04, 0.32, 0.12]], lateral, s * 0.28, 64, 90, 0.42));
     const boca = caixa(0.22, 0.14, 0.02, s * 0.44, 0.43, -0.45, "#050507", 0.6);
-    g.add(boca);
+    gSide.add(boca);
     // retrovisor sobre o sidepod
-    g.add(caixa(0.16, 0.07, 0.04, s * 0.56, 0.76, -0.42, "#17181d"));
-    g.add(haste(new THREE.Vector3(s * 0.5, 0.74, -0.4), new THREE.Vector3(s * 0.36, 0.62, -0.3), 0.012, "#17181d"));
+    gSide.add(caixa(0.16, 0.07, 0.04, s * 0.56, 0.76, -0.42, "#17181d"));
+    gSide.add(haste(new THREE.Vector3(s * 0.5, 0.74, -0.4), new THREE.Vector3(s * 0.36, 0.62, -0.3), 0.012, "#17181d"));
     // rodas: dianteira mais estreita que a traseira
-    g.add(roda(s * 0.81, -1.55, 0.36, 0.28));
-    g.add(roda(s * 0.76, 1.85, 0.36, 0.38));
+    grupo(`roda_dianteira_${lado}`, [s * 1.1, 0, 0], 1).add(roda(s * 0.81, -1.55, 0.36, 0.28));
+    grupo(`roda_traseira_${lado}`, [s * 1.1, 0, 0], 1).add(roda(s * 0.76, 1.85, 0.36, 0.38));
     // suspensão em braços (dianteira e traseira)
     for (const [xc, yc, zc, xr, yr, zr] of [
       [0.18, 0.32, -1.3, 0.66, 0.3, -1.55], [0.18, 0.32, -1.85, 0.66, 0.3, -1.55], [0.16, 0.5, -1.35, 0.66, 0.46, -1.55], [0.16, 0.5, -1.8, 0.66, 0.46, -1.55],
       [0.14, 0.28, 1.6, 0.56, 0.28, 1.85], [0.14, 0.28, 2.1, 0.56, 0.28, 1.85], [0.14, 0.46, 1.65, 0.56, 0.46, 1.85], [0.14, 0.46, 2.05, 0.56, 0.46, 1.85],
     ] as const) {
-      g.add(haste(new THREE.Vector3(s * xc, yc, zc), new THREE.Vector3(s * xr, yr, zr), 0.016, "#17181d"));
+      gSusp.add(haste(new THREE.Vector3(s * xc, yc, zc), new THREE.Vector3(s * xr, yr, zr), 0.016, "#17181d"));
     }
     // placas laterais das asas
-    g.add(caixa(0.02, 0.14, 0.4, s * 0.9, 0.17, -2.52, preto));
-    g.add(caixa(0.02, 0.4, 0.4, s * 0.53, 0.8, 2.42, preto));
-    g.add(caixa(0.006, 0.16, 0.32, s * 0.542, 0.88, 2.42, p.acento));
+    gAsaD.add(caixa(0.02, 0.14, 0.4, s * 0.9, 0.17, -2.52, preto));
+    gAsaT.add(caixa(0.02, 0.4, 0.4, s * 0.53, 0.8, 2.42, preto));
+    gAsaT.add(caixa(0.006, 0.16, 0.32, s * 0.542, 0.88, 2.42, p.acento));
   }
   // asa dianteira: três lâminas, das pontas ao miolo
-  g.add(lamina(0.11, -2.74, 0.14, p.base, 0.9, 0.1));
-  g.add(lamina(0.16, -2.62, 0.1, p.faixa, 0.9, 0.12));
-  g.add(lamina(0.21, -2.52, 0.12, p.acento, 0.9, 0.14));
+  gAsaD.add(lamina(0.11, -2.74, 0.14, p.base, 0.9, 0.1));
+  gAsaD.add(lamina(0.16, -2.62, 0.1, p.faixa, 0.9, 0.12));
+  gAsaD.add(lamina(0.21, -2.52, 0.12, p.acento, 0.9, 0.14));
   // asa traseira: plano principal, flap e pilar central
-  g.add(caixa(1.04, 0.035, 0.3, 0, 0.8, 2.38, p.base, 0.3));
+  gAsaT.add(caixa(1.04, 0.035, 0.3, 0, 0.8, 2.38, p.base, 0.3));
   const flap = caixa(1.04, 0.03, 0.2, 0, 0.93, 2.5, p.acento, 0.3);
   flap.rotation.x = 0.35;
-  g.add(flap);
-  g.add(haste(new THREE.Vector3(0, 0.42, 2.25), new THREE.Vector3(0, 0.8, 2.36), 0.025, preto));
+  gAsaT.add(flap);
+  gAsaT.add(haste(new THREE.Vector3(0, 0.42, 2.25), new THREE.Vector3(0, 0.8, 2.36), 0.025, preto));
   // estrutura de impacto com a luz de chuva
-  g.add(caixa(0.12, 0.1, 0.36, 0, 0.34, 2.45, preto));
+  gMono.add(caixa(0.12, 0.1, 0.36, 0, 0.34, 2.45, preto));
   const luz = caixa(0.1, 0.06, 0.02, 0, 0.34, 2.64, "#ff2d20");
   (luz.material as THREE.MeshStandardMaterial).emissive = C("#ff2d20");
-  g.add(luz);
+  gMono.add(luz);
 
   // cockpit, capacete e halo
   const cabine = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), new THREE.MeshStandardMaterial({ color: "#050507", roughness: 0.55 }));
   cabine.scale.set(0.21, 0.06, 0.42);
   cabine.position.set(0, 0.64, -0.28);
-  g.add(cabine);
+  gMono.add(cabine);
   const capacete = new THREE.Mesh(new THREE.SphereGeometry(0.13, 32, 24), new THREE.MeshStandardMaterial({ color: "#f5c518", roughness: 0.2, metalness: 0.15 }));
   capacete.position.set(0, 0.72, -0.12);
   capacete.castShadow = true;
-  g.add(capacete);
+  gMono.add(capacete);
   const curva = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.26, 0.64, 0.12), new THREE.Vector3(-0.24, 0.84, -0.16), new THREE.Vector3(0, 0.89, -0.44), new THREE.Vector3(0.24, 0.84, -0.16), new THREE.Vector3(0.26, 0.64, 0.12)]);
   const halo = new THREE.Mesh(new THREE.TubeGeometry(curva, 48, 0.026, 10), new THREE.MeshStandardMaterial({ color: "#2a2c33", roughness: 0.4 }));
   halo.castShadow = true;
-  g.add(halo);
-  g.add(haste(new THREE.Vector3(0, 0.89, -0.44), new THREE.Vector3(0, 0.6, -0.68), 0.026, "#2a2c33"));
+  gHalo.add(halo);
+  gHalo.add(haste(new THREE.Vector3(0, 0.89, -0.44), new THREE.Vector3(0, 0.6, -0.68), 0.026, "#2a2c33"));
   return g;
 }
 

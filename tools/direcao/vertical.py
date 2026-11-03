@@ -325,7 +325,9 @@ def _revisar_imagens(direcao: dict, palavras: list[dict], briefing: str, trabalh
         _docs() + _briefing(briefing)
         + "As imagens mostram um quadro de cada plano (número no canto, 60% do plano), na ordem. Confira cada um contra a "
           "fala: mostra o que a fala diz? O assunto está enquadrado (nada cortado, vazio, minúsculo ou atrás de outra coisa)? "
-          "Cena repetida demais? Plano com erro_ao_rodar quebrou e precisa de código novo. Devolva SÓ os planos que precisam "
+          "Peça atravessando outra, peça solta no ar, pessoa enterrada no chão ou dentro do carro, rótulo cobrindo o que "
+          "nomeia, número na placa que não bate com a cena? (colisão se corrige com número na posição, nunca escondendo "
+          "com a câmera.) Cena repetida demais? Plano com erro_ao_rodar quebrou e precisa de código novo. Devolva SÓ os planos que precisam "
           "mudar, completos, com o mesmo id.\n\nPLANOS:\n" + json.dumps(lista, ensure_ascii=False)
           + "\n\nResponda SOMENTE JSON {\"planos\": [...], \"observacao\": \"1 frase\"}.",
         sistema(), modelo="opus", imagens=folhas, etiqueta="vertical-imagens")
