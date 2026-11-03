@@ -1,5 +1,6 @@
 // Volante de F1 genérico (2026), em metros reais: ~29 cm de largura com as empunhaduras (diâmetro dos volantes atuais:
-// 260 a 280 mm, Fanatec). Sem nome nem equipe. Referência: desenhos de frente e de trás de um volante de 2026.
+// 260 a 280 mm, Fanatec). Sem nome nem equipe. Contornos, posições e tamanhos MEDIDOS nos desenhos de referência de
+// frente e de trás (1 px da referência ≈ 0,68 mm; `P` converte o pixel da frente em metros).
 // Comandos principais são peças próprias (apertar, girar, explodir): tela, luzes de troca, paddles de marcha e de
 // embreagem, OT (modo de ultrapassagem), BOOST (energia extra, botão próprio: the-race.com), AERO (modo reta da asa
 // ativa, acionado pelo piloto: silverstone.co.uk), PL (limitador do pit), N (neutro), rádio, BB+/BB- (balanço de freio)
@@ -9,26 +10,43 @@ import * as THREE from "three";
 import { aoRestaurar, peca } from "./desmonte";
 
 type V = [number, number, number];
-// DoubleSide: as formas espelhadas (lado esquerdo) saem com as faces invertidas
+const S = 0.00068; // metros por pixel da referência
+const CX = 236; // centro da referência da frente (px)
+const CY = 120;
+/** Pixel da referência da frente → metros (x para a direita, y para cima). */
+const P = (x: number, y: number): [number, number] => [(x - CX) * S, (CY - y) * S];
+const espelho = (x: number) => 2 * CX - x;
+
+// DoubleSide: as formas espelhadas saem com as faces invertidas
 const mat = (cor: string, rough = 0.5, metal = 0) => new THREE.MeshStandardMaterial({ color: cor, roughness: rough, metalness: metal, side: THREE.DoubleSide });
 
+const ZF = 0.0105; // superfície da frente
+
 let texCarbono: THREE.CanvasTexture | null = null;
+/** Fibra de carbono em sarja (trama diagonal fina, ~3 mm por repetição). */
 function carbono() {
   if (texCarbono) return texCarbono;
   const c = document.createElement("canvas");
   c.width = c.height = 64;
   const x = c.getContext("2d")!;
-  for (let i = 0; i < 8; i++)
+  x.fillStyle = "#3c3f46";
+  x.fillRect(0, 0, 64, 64);
+  for (let i = -4; i < 8; i++)
     for (let j = 0; j < 8; j++) {
-      x.fillStyle = (i + j) % 2 ? "#3a3c42" : "#2a2c31";
-      x.fillRect(i * 8, j * 8, 8, 8);
-      x.fillStyle = "rgba(255,255,255,.05)";
-      x.fillRect(i * 8, j * 8, (i + j) % 2 ? 8 : 3, (i + j) % 2 ? 3 : 8);
+      const claro = (i + j) % 2 === 0;
+      x.fillStyle = claro ? "#555960" : "#33363c";
+      x.beginPath();
+      x.moveTo(i * 8 + j * 8, j * 8);
+      x.lineTo(i * 8 + j * 8 + 8, j * 8);
+      x.lineTo(i * 8 + j * 8 + 16, j * 8 + 8);
+      x.lineTo(i * 8 + j * 8 + 8, j * 8 + 8);
+      x.fill();
     }
   texCarbono = new THREE.CanvasTexture(c);
   texCarbono.colorSpace = THREE.SRGBColorSpace;
   texCarbono.wrapS = texCarbono.wrapT = THREE.RepeatWrapping;
-  texCarbono.repeat.set(90, 90); // as coordenadas da forma estão em metros: um quadrinho ≈ 1,4 mm
+  texCarbono.repeat.set(300, 300); // as coordenadas da forma estão em metros
+  texCarbono.anisotropy = 8;
   return texCarbono;
 }
 
@@ -36,12 +54,15 @@ const rotuloTex = (texto: string, fundo: string, cor = "#ffffff") => {
   const c = document.createElement("canvas");
   c.width = c.height = 128;
   const x = c.getContext("2d")!;
-  x.fillStyle = fundo;
+  const g = x.createRadialGradient(54, 50, 8, 64, 64, 66);
+  g.addColorStop(0, new THREE.Color(fundo).offsetHSL(0, 0, 0.12).getStyle());
+  g.addColorStop(1, fundo);
+  x.fillStyle = g;
   x.beginPath();
   x.arc(64, 64, 64, 0, Math.PI * 2);
   x.fill();
   x.fillStyle = cor;
-  x.font = `800 ${texto.length > 3 ? 30 : texto.length > 2 ? 40 : 54}px 'Segoe UI', sans-serif`;
+  x.font = `800 ${texto.length > 4 ? 26 : texto.length > 2 ? 38 : 56}px 'Segoe UI', sans-serif`;
   x.textAlign = "center";
   x.textBaseline = "middle";
   x.fillText(texto, 64, 68);
@@ -50,18 +71,21 @@ const rotuloTex = (texto: string, fundo: string, cor = "#ffffff") => {
   return t;
 };
 
-/** Botão redondo: aro escuro + tampa colorida com o rótulo. `tampa` é o que afunda quando aperta. */
-function botao(texto: string, cor: string, r = 0.0068) {
+/** Botão em moldura: anel escuro em relevo + tampa colorida abaulada com o rótulo. `tampa` afunda quando aperta. */
+function botao(texto: string, cor: string, rPx = 11, corTexto = "#ffffff") {
+  const r = rPx * S;
   const g = new THREE.Group();
-  const aro = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.25, r * 1.25, 0.002, 28), mat("#101114", 0.6));
-  aro.rotation.x = Math.PI / 2;
-  g.add(aro);
+  const moldura = new THREE.Mesh(new THREE.TorusGeometry(r * 1.18, r * 0.22, 10, 36), mat("#4a4d54", 0.35, 0.5));
+  moldura.position.z = 0.0012;
+  const fundo = new THREE.Mesh(new THREE.CircleGeometry(r * 1.2, 32), mat("#0d0e11", 0.7));
+  fundo.position.z = 0.0003;
+  g.add(fundo, moldura);
   const tampa = new THREE.Group();
-  const corpo = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.005, 28), mat(cor, 0.4));
+  const corpo = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.004, 32), mat(cor, 0.35));
   corpo.rotation.x = Math.PI / 2;
-  corpo.position.z = 0.0025;
-  const topo = new THREE.Mesh(new THREE.CircleGeometry(r * 0.98, 28), new THREE.MeshStandardMaterial({ map: rotuloTex(texto, cor), roughness: 0.4, emissive: "#ffffff", emissiveIntensity: 0 }));
-  topo.position.z = 0.0051;
+  corpo.position.z = 0.002;
+  const topo = new THREE.Mesh(new THREE.CircleGeometry(r * 0.97, 32), new THREE.MeshStandardMaterial({ map: rotuloTex(texto, cor, corTexto), roughness: 0.3, emissive: "#ffffff", emissiveIntensity: 0 }));
+  topo.position.z = 0.0041;
   tampa.add(corpo, topo);
   g.add(tampa);
   g.userData.tampa = tampa;
@@ -69,101 +93,98 @@ function botao(texto: string, cor: string, r = 0.0068) {
   return g;
 }
 
-/** Seletor giratório serrilhado com a escala colorida em volta e um ponteiro. */
-function seletor(cores: string[]) {
+/** Botão giratório serrilhado (cilindro com frisos). */
+function serrilhado(r: number, alt: number, cor: string, frisos = 28) {
+  const g = new THREE.Group();
+  const nucleo = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.92, r * 0.92, alt, 32), mat(cor, 0.4, 0.3));
+  g.add(nucleo);
+  for (let k = 0; k < frisos; k++) {
+    const a = (k / frisos) * Math.PI * 2;
+    const f = new THREE.Mesh(new THREE.BoxGeometry(r * 0.16, alt * 0.96, r * 0.16), mat(cor, 0.4, 0.3));
+    f.position.set(Math.cos(a) * r * 0.93, 0, Math.sin(a) * r * 0.93);
+    f.rotation.y = -a;
+    g.add(f);
+  }
+  return g;
+}
+
+/** Seletor giratório: escala colorida impressa em volta, botão serrilhado com tampa colorida e ponteiro. */
+function seletor(rPx: number, cor: string, cores: string[]) {
+  const r = rPx * S;
   const g = new THREE.Group();
   const c = document.createElement("canvas");
   c.width = c.height = 256;
   const x = c.getContext("2d")!;
-  x.fillStyle = "#15161a";
+  x.fillStyle = "#14151a";
   x.beginPath();
   x.arc(128, 128, 128, 0, Math.PI * 2);
   x.fill();
+  x.font = "700 20px 'Consolas', monospace";
+  x.textAlign = "center";
+  x.textBaseline = "middle";
   for (let k = 0; k < 12; k++) {
     const a = ((-150 + k * (300 / 11)) * Math.PI) / 180 - Math.PI / 2;
-    x.strokeStyle = cores[k % cores.length];
-    x.lineWidth = 14;
+    x.fillStyle = cores[k % cores.length];
     x.beginPath();
-    x.arc(128, 128, 112, a - 0.09, a + 0.09);
-    x.stroke();
+    x.arc(128, 128, 122, a - 0.11, a + 0.11);
+    x.arc(128, 128, 96, a + 0.11, a - 0.11, true);
+    x.fill();
+    x.fillStyle = "#0c0d10";
+    x.fillText(String(k + 1), 128 + Math.cos(a) * 109, 128 + Math.sin(a) * 109);
   }
   const esc = new THREE.CanvasTexture(c);
   esc.colorSpace = THREE.SRGBColorSpace;
-  const escala = new THREE.Mesh(new THREE.CircleGeometry(0.017, 40), new THREE.MeshStandardMaterial({ map: esc, roughness: 0.6 }));
-  escala.position.z = 0.0012; // acima do painel de baixo
+  const escala = new THREE.Mesh(new THREE.CircleGeometry(r * 1.75, 48), new THREE.MeshStandardMaterial({ map: esc, roughness: 0.55 }));
+  escala.position.z = 0.0008;
   g.add(escala);
   const giro = new THREE.Group();
-  const botaoG = new THREE.Mesh(new THREE.CylinderGeometry(0.0115, 0.0115, 0.009, 24, 1), mat("#2b2d33", 0.45, 0.4));
-  botaoG.rotation.x = Math.PI / 2;
-  botaoG.position.z = 0.0045;
-  const ponteiro = new THREE.Mesh(new THREE.BoxGeometry(0.0022, 0.009, 0.001), new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#ffffff", emissiveIntensity: 0.3 }));
-  ponteiro.position.set(0, 0.006, 0.0095);
-  giro.add(botaoG, ponteiro);
+  const sb = serrilhado(r, 0.008, cor);
+  sb.rotation.x = Math.PI / 2;
+  sb.position.z = 0.0048;
+  const tampa = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.62, r * 0.7, 0.002, 32), mat("#1a1b1f", 0.4, 0.4));
+  tampa.rotation.x = Math.PI / 2;
+  tampa.position.z = 0.0092;
+  const ponteiro = new THREE.Mesh(new THREE.BoxGeometry(r * 0.16, r * 0.8, 0.0012), new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#ffffff", emissiveIntensity: 0.25 }));
+  ponteiro.position.set(0, r * 0.55, 0.0098);
+  giro.add(sb, tampa, ponteiro);
   g.add(giro);
   g.userData.giro = giro;
   return g;
 }
 
-const extrudar = (forma: THREE.Shape, prof: number, bisel: number, material: THREE.Material) => {
-  const geo = new THREE.ExtrudeGeometry(forma, { depth: prof, bevelEnabled: bisel > 0, bevelThickness: bisel, bevelSize: bisel, bevelSegments: 3, curveSegments: 18 });
+/** `bisel` arredonda a borda; `abre` é quanto o bisel alarga a forma para os lados (padrão = bisel). */
+const extrudar = (forma: THREE.Shape, prof: number, bisel: number, material: THREE.Material, segs = 3, abre = bisel) => {
+  const geo = new THREE.ExtrudeGeometry(forma, { depth: prof, bevelEnabled: bisel > 0, bevelThickness: bisel, bevelSize: abre, bevelSegments: segs, curveSegments: 24 });
   const m = new THREE.Mesh(geo, material);
   m.castShadow = true;
   m.receiveShadow = true;
   return m;
 };
 
-/** Contorno da placa central (frente achatada, cantos de cima arredondados, base mais estreita). */
-function contorno(escala = 1) {
-  const s = new THREE.Shape();
-  const p = (x: number, y: number) => [x * escala, y * escala] as const;
-  s.moveTo(...p(-0.112, 0.07));
-  s.quadraticCurveTo(...p(-0.112, 0.088), ...p(-0.094, 0.088));
-  s.lineTo(...p(0.094, 0.088));
-  s.quadraticCurveTo(...p(0.112, 0.088), ...p(0.112, 0.07));
-  s.lineTo(...p(0.112, -0.03));
-  s.quadraticCurveTo(...p(0.11, -0.062), ...p(0.078, -0.076));
-  s.lineTo(...p(-0.078, -0.076));
-  s.quadraticCurveTo(...p(-0.11, -0.062), ...p(-0.112, -0.03));
-  s.closePath();
+/** Forma suave a partir de pontos em pixel da referência (curva que passa pelos pontos, fechada). */
+function formaPx(pts: [number, number][], buracos: [number, number][][] = []) {
+  const curva = (lista: [number, number][]) => new THREE.CatmullRomCurve3(lista.map(([x, y]) => new THREE.Vector3(...P(x, y), 0)), true, "centripetal").getPoints(lista.length * 10);
+  const s = new THREE.Shape(curva(pts).map((v) => new THREE.Vector2(v.x, v.y)));
+  for (const b of buracos) s.holes.push(new THREE.Path(curva(b).map((v) => new THREE.Vector2(v.x, v.y))));
   return s;
 }
+// (ponto no eixo não é repetido: dois pontos iguais estragam a curva)
+const simetrico = (metade: [number, number][]) => [...metade, ...[...metade].reverse().filter(([x]) => x !== CX).map(([x, y]) => [espelho(x), y] as [number, number])];
 
-/** Empunhadura (lado s = -1 esquerda, 1 direita): sobe acima da placa e desce curvando para dentro. */
-function empunhadura(s: number) {
-  const f = new THREE.Shape();
-  const p = (x: number, y: number) => [s * x, y] as const;
-  f.moveTo(...p(0.106, 0.07));
-  f.quadraticCurveTo(...p(0.11, 0.092), ...p(0.128, 0.09));
-  f.lineTo(...p(0.137, 0.087));
-  f.quadraticCurveTo(...p(0.148, 0.08), ...p(0.147, 0.058));
-  f.lineTo(...p(0.145, -0.06));
-  f.quadraticCurveTo(...p(0.14, -0.102), ...p(0.12, -0.106));
-  f.lineTo(...p(0.113, -0.104));
-  f.quadraticCurveTo(...p(0.104, -0.094), ...p(0.107, -0.072));
-  f.closePath();
-  const m = extrudar(f, 0.034, 0.006, mat("#3d3f45", 0.85));
-  m.position.z = -0.022;
-  return m;
-}
-
-/** Paddle atrás do volante; gira no eixo x a partir de `pivo` (k 0 solto, 1 puxado contra o volante). */
-function paddle(s: number, y0: number, y1: number, x0: number, x1: number, cor: string) {
-  const piv = new THREE.Group();
-  const f = new THREE.Shape();
-  f.moveTo(s * x0, 0);
-  f.lineTo(s * x1, 0);
-  f.lineTo(s * (x1 - 0.008), y1 - y0);
-  f.lineTo(s * x0, y1 - y0);
-  f.closePath();
-  const m = extrudar(f, 0.004, 0.0012, mat(cor, 0.35, 0.3));
-  piv.add(m);
-  piv.position.set(0, y0, -0.034);
-  return piv;
-}
+// contorno do corpo (metade esquerda, do topo ao centro de baixo), com as "orelhas" em cima e os recortes junto às empunhaduras
+const CORPO: [number, number][] = [[236, 13], [130, 13], [98, 16], [76, 26], [63, 40], [57, 56], [60, 68], [84, 72], [86, 92], [84, 113], [88, 128], [96, 165], [104, 195], [118, 211], [138, 218], [170, 221], [226, 222]];
+const JANELAS: [number, number][][] = [
+  [[88, 73], [114, 72], [117, 82], [114, 92], [88, 91]],
+  [[88, 114], [113, 114], [115, 121], [112, 127], [88, 126]],
+];
+// empunhadura esquerda (borracha), medida na frente
+const PEGA: [number, number][] = [[46, 61], [66, 56], [80, 60], [81, 72], [80, 100], [74, 140], [67, 180], [63, 220], [62, 246], [56, 255], [46, 252], [40, 238], [33, 195], [27, 150], [27, 108], [32, 82], [38, 68]];
 
 export type Volante = THREE.Group;
 
-const LED_CORES = ["#18e05a", "#18e05a", "#18e05a", "#18e05a", "#18e05a", "#ff2a2a", "#ff2a2a", "#ff2a2a", "#ff2a2a", "#ff2a2a", "#3d6bff", "#3d6bff", "#3d6bff"];
+// luzes de troca: 15 em cima da tela (brancas, vermelhas e azuis como na referência)
+const LED_X = Array.from({ length: 15 }, (_, k) => 172 + k * 9.2);
+const LED_CORES = LED_X.map((_, k) => (k < 6 ? "#e8f4ff" : k < 11 ? "#ff2a2a" : "#3d6bff"));
 
 /** Volante genérico de 2026 (frente para +z). Peças para o desmonte e comandos para animar: ver api_cenas.md. */
 export function criarVolante(): Volante {
@@ -172,124 +193,227 @@ export function criarVolante(): Volante {
     v.add(peca(o, nome, sai, camada));
     return o;
   };
-  const fibra = new THREE.MeshStandardMaterial({ map: carbono(), roughness: 0.5, metalness: 0.15 });
+  const fibra = new THREE.MeshStandardMaterial({ map: carbono(), roughness: 0.42, metalness: 0.2 });
+  const em = (o: THREE.Object3D, x: number, y: number, z = ZF) => {
+    o.position.set(...P(x, y), z);
+    return o;
+  };
 
-  // carcaça de fibra (atrás), placa de circuitos e a frente
+  // carcaça (metade de trás do corpo) com o que fica atrás: cubo do engate, parafusos, caixa cilíndrica da embreagem
   const carc = new THREE.Group();
-  const corpo = extrudar(contorno(), 0.02, 0.003, fibra);
-  corpo.position.z = -0.022;
-  carc.add(corpo);
+  const tras = extrudar(formaPx(simetrico(CORPO), [...JANELAS, ...JANELAS.map((j) => j.map(([x, y]) => [espelho(x), y] as [number, number]))]), 0.011, 0.0015, fibra);
+  tras.position.z = -0.0115;
+  carc.add(tras);
+  for (const x of [85, espelho(85)]) {
+    const boss = new THREE.Mesh(new THREE.CylinderGeometry(0.0075, 0.0075, 0.004, 24), mat("#8f949c", 0.3, 0.8));
+    boss.rotation.x = Math.PI / 2;
+    em(boss, x, 40, -0.0135);
+    carc.add(boss);
+  }
+  // suporte triangular do cubo (atrás), com parafusos
+  const tri = formaPx([[175, 118], [296, 118], [262, 205], [236, 226], [210, 205]]);
+  const mtri = extrudar(tri, 0.004, 0.0012, mat("#6c7078", 0.35, 0.6));
+  mtri.position.z = -0.0175;
+  carc.add(mtri);
+  for (const [x, y] of [[190, 128], [282, 128], [200, 158], [272, 158], [236, 214], [236, 133]]) {
+    const pf = new THREE.Mesh(new THREE.CylinderGeometry(0.0034, 0.0034, 0.003, 14), mat("#b7bcc4", 0.3, 0.8));
+    pf.rotation.x = Math.PI / 2;
+    carc.add(em(pf, x, y, -0.0185));
+  }
+  // caixa cilíndrica embaixo à esquerda (aparece de frente e de trás)
+  const caixa = new THREE.Mesh(new THREE.CylinderGeometry(0.0136, 0.0136, 0.042, 28), mat("#4f5258", 0.35, 0.5));
+  carc.add(em(caixa, 100, 200, -0.016));
+  const topoCx = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0136, 0.004, 28), mat("#2a2c31", 0.4, 0.4));
+  carc.add(em(topoCx, 100, 169, -0.016));
   add(carc, "carcaca", [0, 0, 0], 3);
+
+  // placa de circuitos (dentro da frente: aparece quando a frente sai)
   const pcb = new THREE.Group();
-  const placa = extrudar(contorno(0.93), 0.002, 0, mat("#0f5a3a", 0.6));
-  placa.position.z = 0.0005;
+  // fica por dentro das janelas (não aparece por elas)
+  const placa = extrudar(formaPx(simetrico([[236, 24], [140, 26], [126, 40], [124, 150], [134, 205], [180, 212], [226, 213]])), 0.0015, 0, mat("#0f5a3a", 0.6));
+  placa.position.z = 0.0008;
   pcb.add(placa);
-  for (let k = 0; k < 14; k++) {
-    const chip = new THREE.Mesh(new THREE.BoxGeometry(0.008 + (k % 3) * 0.004, 0.006 + (k % 2) * 0.004, 0.002), mat(k % 4 ? "#18191c" : "#c9a54a", 0.5, k % 4 ? 0 : 0.7));
-    chip.position.set(-0.08 + (k % 7) * 0.027, k < 7 ? 0.035 : -0.035, 0.0035);
+  for (let k = 0; k < 18; k++) {
+    const chip = new THREE.Mesh(new THREE.BoxGeometry(0.007 + (k % 3) * 0.004, 0.006 + (k % 2) * 0.004, 0.0018), mat(k % 4 ? "#18191c" : "#c9a54a", 0.5, k % 4 ? 0 : 0.7));
+    chip.position.set(-0.075 + (k % 9) * 0.019, k < 9 ? 0.03 : -0.03, 0.0032);
     pcb.add(chip);
   }
-  add(pcb, "placa_de_circuitos", [0, 0, 0.02], 2);
+  add(pcb, "placa_de_circuitos", [0, 0, 0.022], 2);
 
+  // frente: placa de fibra com as molduras, painel de baixo, tela, rodinhas e o complemento
   const frente = new THREE.Group();
-  const capa = extrudar(contorno(), 0.004, 0.0015, fibra);
-  capa.position.z = 0.006;
+  const capa = extrudar(formaPx(simetrico(CORPO), [...JANELAS, ...JANELAS.map((j) => j.map(([x, y]) => [espelho(x), y] as [number, number]))]), 0.0085, 0.0018, fibra);
+  capa.position.z = 0.0002;
   frente.add(capa);
-  // painel de baixo (onde ficam os seletores), um pouco mais escuro
-  const baixo = new THREE.Shape();
-  baixo.moveTo(-0.058, -0.028);
-  baixo.lineTo(0.058, -0.028);
-  baixo.quadraticCurveTo(0.064, -0.028, 0.062, -0.04);
-  baixo.lineTo(0.054, -0.066);
-  baixo.lineTo(-0.054, -0.066);
-  baixo.lineTo(-0.062, -0.04);
-  baixo.quadraticCurveTo(-0.064, -0.028, -0.058, -0.028);
-  const pb = extrudar(baixo, 0.001, 0, mat("#1b1c20", 0.55));
-  pb.position.z = 0.0115;
-  frente.add(pb);
-  // complemento: forma e cor da referência, sem função própria
-  for (const [x, y, t, c] of [[-0.097, 0.066, "", "#f2c400"], [-0.071, 0.064, "+10", "#7a3fd0"], [0.097, 0.066, "", "#e0262f"],
-    [-0.085, -0.021, "×", "#e0262f"]] as const) {
-    const b = botao(t, c, 0.0062);
-    b.position.set(x, y, 0.0115);
-    frente.add(b);
+  // queixo: painel mais escuro onde ficam os 3 seletores, com as faixas curvas da referência
+  const queixo = extrudar(formaPx(simetrico([[160, 168], [200, 163], [236, 162]]).concat([[322, 212], [236, 216], [150, 212]] as [number, number][])), 0.0006, 0, mat("#17181c", 0.6));
+  queixo.position.z = ZF;
+  frente.add(queixo);
+  for (const [x, cor] of [[178, "#2bb39a"], [292, "#e0522f"]] as const) {
+    const arco = new THREE.Mesh(new THREE.RingGeometry(0.0225, 0.0255, 32, 1, Math.PI * 0.28, Math.PI * 0.44), mat(cor, 0.5));
+    arco.rotation.z = x < CX ? 0.25 : -0.25;
+    frente.add(em(arco, x, 190, ZF + 0.0008));
   }
-  for (const s of [-1, 1]) {
-    // rodinhas douradas ao lado da tela e os seletores das pontas
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.0065, 0.0065, 0.016, 20), mat("#c9a54a", 0.35, 0.7));
-    rod.position.set(s * 0.067, 0.018, 0.016);
-    frente.add(rod);
+  // rodinhas douradas ao lado da tela
+  for (const x of [118, espelho(118)]) {
+    const rod = serrilhado(0.0062, 0.022, "#c9a54a", 22);
+    frente.add(em(rod, x, 101, ZF + 0.002));
+  }
+  // seletores das pontas das orelhas (ENTRY / os da direita), inclinados para fora
+  for (const [x, y, cor, s] of [[64, 74, "#c8325e", -1], [espelho(64), 75, "#2f8fd6", 1]] as const) {
+    const ponta = serrilhado(0.0085, 0.017, cor, 24);
+    ponta.rotation.z = s * 0.95;
+    frente.add(em(ponta, x, y, ZF - 0.002));
+  }
+  // barras de luz verdes ao lado dos botões do meio
+  for (const x of [106, espelho(106)])
     for (let k = 0; k < 3; k++) {
-      const luz = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.002, 0.001), new THREE.MeshStandardMaterial({ color: "#8fe0a0", emissive: "#3fdc6a", emissiveIntensity: 0.4 }));
-      luz.position.set(s * 0.1, -0.003 - k * 0.0035, 0.0118);
-      frente.add(luz);
+      const luz = new THREE.Mesh(new THREE.BoxGeometry(0.009, 0.0032, 0.0012), new THREE.MeshStandardMaterial({ color: "#7fdc96", emissive: "#2fd46a", emissiveIntensity: 0.45 }));
+      frente.add(em(luz, x, 141 + k * 7, ZF + 0.0006));
     }
+  // complemento: botões com a forma e a cor da referência, sem função própria
+  for (const [x, y, t, cor, tc] of [[78, 45, "", "#f2d21a", "#222"], [106, 47, "+10", "#6a37c6", "#fff"], [espelho(80), 45, "", "#e8262c", "#fff"], [128, 162, "✕", "#e0262f", "#fff"]] as const) {
+    frente.add(em(botao(t, cor, x === 128 ? 11 : 12, tc), x, y));
   }
-  add(frente, "frente", [0, 0, 0.045], 1);
+  // parafusos da face
+  for (const [x, y] of [[147, 207], [325, 207], [98, 36], [espelho(98), 36], [236, 156]]) {
+    const pf = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.0022, 0.0014, 12), mat("#9aa0a8", 0.3, 0.8));
+    pf.rotation.x = Math.PI / 2;
+    frente.add(em(pf, x, y, ZF + 0.0006));
+  }
+  add(frente, "frente", [0, 0, 0.05], 1);
 
-  // tela
+  // tela: moldura em relevo + vidro com o conteúdo
   const tela = new THREE.Group();
-  const moldura = new THREE.Mesh(new THREE.BoxGeometry(0.118, 0.074, 0.006), mat("#0a0a0c", 0.4));
-  moldura.position.set(0, 0.026, 0.014);
+  const rr = new THREE.Shape();
+  const [x0, y0] = P(146, 152);
+  const [x1, y1] = P(326, 28);
+  const raio = 0.008;
+  rr.moveTo(x0 + raio, y0);
+  rr.lineTo(x1 - raio, y0);
+  rr.quadraticCurveTo(x1, y0, x1, y0 + raio);
+  rr.lineTo(x1, y1 - raio);
+  rr.quadraticCurveTo(x1, y1, x1 - raio, y1);
+  rr.lineTo(x0 + raio, y1);
+  rr.quadraticCurveTo(x0, y1, x0, y1 - raio);
+  rr.lineTo(x0, y0 + raio);
+  rr.quadraticCurveTo(x0, y0, x0 + raio, y0);
+  const moldura = extrudar(rr, 0.0035, 0.0012, mat("#3b3e45", 0.35, 0.5));
+  moldura.position.z = ZF;
+  tela.add(moldura);
   const c = document.createElement("canvas");
-  c.width = 512;
-  c.height = 320;
+  c.width = 640;
+  c.height = 360;
   const texTela = new THREE.CanvasTexture(c);
   texTela.colorSpace = THREE.SRGBColorSpace;
-  const vidro = new THREE.Mesh(new THREE.PlaneGeometry(0.106, 0.064), new THREE.MeshBasicMaterial({ map: texTela, toneMapped: false }));
-  vidro.position.set(0, 0.026, 0.0172);
-  tela.add(moldura, vidro);
-  add(tela, "tela", [0, 0.015, 0.07], 0);
+  const [sx0, sy0] = P(160, 138);
+  const [sx1, sy1] = P(312, 56);
+  const vidro = new THREE.Mesh(new THREE.PlaneGeometry(sx1 - sx0, sy1 - sy0), new THREE.MeshBasicMaterial({ map: texTela, toneMapped: false }));
+  vidro.position.set((sx0 + sx1) / 2, (sy0 + sy1) / 2, ZF + 0.0054); // acima da moldura (3,5 mm + bisel)
+  tela.add(vidro);
+  add(tela, "tela", [0, 0.012, 0.075], 0);
 
-  // luzes de troca de marcha
+  // luzes de troca de marcha (na moldura, em cima da tela) e as laterais
   const leds = new THREE.Group();
-  const lmats = LED_CORES.map((cor) => new THREE.MeshStandardMaterial({ color: "#222", emissive: cor, emissiveIntensity: 0 }));
-  LED_CORES.forEach((_, k) => {
-    const l = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 12, 8), lmats[k]);
-    l.position.set(-0.054 + k * 0.009, 0.072, 0.012);
-    leds.add(l);
+  const lmats = LED_CORES.map((cor) => new THREE.MeshStandardMaterial({ color: "#d9dde3", roughness: 0.3, emissive: cor, emissiveIntensity: 0 }));
+  LED_X.forEach((x, k) => {
+    const l = new THREE.Mesh(new THREE.SphereGeometry(0.0029, 14, 10), lmats[k]);
+    leds.add(em(l, x, 41, ZF + 0.0048));
   });
-  add(leds, "luzes", [0, 0.03, 0.06], 0);
+  for (const x of [153, espelho(153)])
+    for (const y of [54, 66, 78]) {
+      const l = new THREE.Mesh(new THREE.SphereGeometry(0.0026, 12, 8), mat("#e8ecf2", 0.3));
+      leds.add(em(l, x, y, ZF + 0.0048));
+    }
+  add(leds, "luzes", [0, 0.03, 0.065], 0);
 
-  // comandos principais
+  // comandos principais (posições e cores da referência; rótulos nossos)
   const botoes: Record<string, THREE.Group> = {};
-  for (const [nome, t, cor, x, y] of [["ot", "OT", "#e8e8ea", 0.085, 0.002], ["boost", "BOOST", "#7a3fd0", 0.071, 0.064], ["aero", "AERO", "#f08a1c", -0.085, 0.002],
-    ["pl", "PL", "#e8e8ea", 0.085, 0.042], ["n", "N", "#1f8f5a", -0.085, 0.042], ["radio", "RÁDIO", "#25b14f", 0.085, -0.021],
-    ["bb_mais", "BB+", "#8d929b", 0.09, -0.05], ["bb_menos", "BB−", "#8d929b", -0.09, -0.05]] as const) {
-    const b = botao(t, cor);
-    b.position.set(x, y, 0.0115);
+  for (const [nome, t, cor, tc, x, y, r] of [
+    ["n", "N", "#2fa596", "#0d2a26", 122, 66, 10], ["pl", "PL", "#f2d21a", "#222", espelho(122), 66, 11], ["boost", "BOOST", "#6a37c6", "#fff", espelho(106), 47, 12],
+    ["aero", "AERO", "#f08a1c", "#2a1200", 130, 135, 11], ["ot", "OT", "#2f7fd6", "#fff", espelho(130), 135, 12],
+    ["radio", "RÁDIO", "#27a845", "#fff", espelho(128), 164, 12], ["bb_menos", "BB−", "#5d6169", "#fff", 128, 193, 11], ["bb_mais", "BB+", "#5d6169", "#fff", espelho(126), 193, 11],
+  ] as const) {
+    const b = botao(t, cor, r, tc);
+    em(b, x, y);
     botoes[nome] = b;
-    add(b, `botao_${nome}`, [x * 0.5, y * 0.4, 0.09], 0);
+    add(b, `botao_${nome}`, [b.position.x * 0.5, b.position.y * 0.4, 0.1], 0);
   }
   const seletores: Record<string, THREE.Group> = {};
-  for (const [nome, x, cores] of [["esquerdo", -0.034, ["#2fd47a", "#e8e8ea", "#3b8ee0", "#f2c400"]], ["central", 0, ["#e8e8ea", "#f08a1c", "#9aa0a8"]],
-    ["direito", 0.034, ["#e0262f", "#f08a1c", "#e8e8ea"]]] as const) {
-    const s = seletor([...cores]);
-    s.position.set(x, -0.047, 0.0118);
+  for (const [nome, x, y, r, cor, cores] of [
+    ["esquerdo", 180, 191, 15, "#2bb39a", ["#2fd47a", "#f2d21a", "#e8e8ea", "#3b8ee0"]], ["central", 233, 185, 13, "#e8e8ea", ["#e8e8ea", "#f08a1c", "#9aa0a8", "#3b8ee0"]],
+    ["direito", 287, 191, 15, "#e0522f", ["#e0262f", "#f08a1c", "#e8e8ea"]],
+  ] as const) {
+    const s = seletor(r, cor, [...cores]);
+    em(s, x, y, ZF + 0.0006);
     seletores[nome] = s;
-    add(s, `seletor_${nome}`, [x * 0.6, -0.02, 0.1], 0);
+    add(s, `seletor_${nome}`, [s.position.x * 0.6, -0.02, 0.11], 0);
   }
 
-  // empunhaduras e paddles
+  // empunhaduras de borracha (grossas, com bisel largo) e parafusos de trás
+  const borracha = mat("#4f5259", 0.93);
   for (const s of [-1, 1]) {
     const lado = s < 0 ? "esquerda" : "direita";
-    add(empunhadura(s), `empunhadura_${lado}`, [s * 0.06, 0, 0], 1);
+    const g = new THREE.Group();
+    const pts = s < 0 ? PEGA : PEGA.map(([x, y]) => [espelho(x), y] as [number, number]);
+    const m = extrudar(formaPx(pts), 0.026, 0.0075, borracha, 5, 0.0025);
+    m.position.z = -0.022;
+    g.add(m);
+    for (const y of [125, 205]) {
+      const pf = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 16), mat("#6b6f77", 0.4, 0.6));
+      pf.rotation.x = Math.PI / 2;
+      g.add(em(pf, s < 0 ? 45 : espelho(45), y, -0.0305));
+    }
+    add(g, `empunhadura_${lado}`, [s * 0.065, 0, 0], 1);
   }
+
+  // paddles de marcha (medidos atrás: barra de x 0,012 a 0,105 m, ponta cinza) e de embreagem (assimétricos)
   const paddles: Record<string, THREE.Group> = {};
+  const paddle = (nome: string, pts: [number, number][], ponta: [number, number][] | null, cor: string, pivoY: number, z: number) => {
+    const piv = new THREE.Group();
+    piv.position.set(0, pivoY, z);
+    // suporte que prende o paddle à carcaça
+    const sup = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.01, -0.013 - z), mat("#2a2c31", 0.4, 0.5));
+    sup.position.set(pts[0][0] + Math.sign(pts[0][0] || 1) * 0.006, 0, (-0.013 - z) / 2 + 0.002);
+    piv.add(sup);
+    const s = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y - pivoY)));
+    const m = extrudar(s, 0.004, 0.0012, mat(cor, 0.4, 0.4));
+    piv.add(m);
+    if (ponta) {
+      const sp = new THREE.Shape(ponta.map(([x, y]) => new THREE.Vector2(x, y - pivoY)));
+      const mp = extrudar(sp, 0.0045, 0.0012, mat("#585c64", 0.85));
+      mp.position.z = -0.0003;
+      piv.add(mp);
+    }
+    paddles[nome] = piv;
+    return piv;
+  };
   for (const s of [-1, 1]) {
     const lado = s < 0 ? "esquerda" : "direita";
-    paddles[`marcha_${lado}`] = add(paddle(s, 0.022, 0.07, 0.03, 0.118, "#2a2c31"), `paddle_marcha_${lado}`, [s * 0.02, 0.02, -0.06], 1) as THREE.Group;
-    paddles[`embreagem_${lado}`] = add(paddle(s, -0.075, -0.02, 0.028, 0.1, "#9aa0a8"), `embreagem_${lado}`, [s * 0.02, -0.03, -0.07], 1) as THREE.Group;
+    const pts: [number, number][] = [[s * 0.012, 0.016], [s * 0.104, 0.019], [s * 0.106, 0.004], [s * 0.012, 0.002]];
+    const ponta: [number, number][] = [[s * 0.082, 0.0215], [s * 0.106, 0.0215], [s * 0.108, 0.0005], [s * 0.082, 0.0]];
+    add(paddle(`marcha_${lado}`, pts, ponta, "#34363c", 0.016, -0.037), `paddle_marcha_${lado}`, [s * 0.02, 0.02, -0.06], 1);
   }
-  // engate rápido e coluna
+  // embreagem direita: alavanca com suporte em L; esquerda: placa azulada longa
+  add(paddle("embreagem_direita", [[0.018, -0.046], [0.074, -0.044], [0.112, -0.03], [0.114, -0.072], [0.074, -0.066], [0.018, -0.062]], null, "#6f747c", -0.044, -0.034),
+    "embreagem_direita", [0.02, -0.03, -0.07], 1);
+  add(paddle("embreagem_esquerda", [[-0.012, -0.052], [-0.078, -0.05], [-0.078, -0.064], [-0.012, -0.066]], null, "#8fa3b3", -0.05, -0.034),
+    "embreagem_esquerda", [-0.02, -0.03, -0.07], 1);
+
+  // engate rápido (estrias + conector verde) e coluna
   const eng = new THREE.Group();
-  const cubo = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.024, 0.026, 28), mat("#9aa0a8", 0.35, 0.8));
+  const cubo = serrilhado(0.017, 0.022, "#a3a8b0", 30);
   cubo.rotation.x = Math.PI / 2;
-  cubo.position.z = -0.048;
+  cubo.position.set(0.001, -0.037, -0.03);
+  const anel = new THREE.Mesh(new THREE.TorusGeometry(0.0185, 0.0025, 10, 40), mat("#6c7078", 0.3, 0.8));
+  anel.position.set(0.001, -0.037, -0.041);
+  const conector = new THREE.Mesh(new THREE.CircleGeometry(0.0095, 28), mat("#7fae7a", 0.5, 0.2));
+  conector.rotation.y = Math.PI;
+  conector.position.set(0.001, -0.037, -0.0412);
   const coluna = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.22, 20), mat("#2a2c31", 0.4, 0.5));
   coluna.rotation.x = Math.PI / 2;
-  coluna.position.z = -0.17;
-  eng.add(cubo, coluna);
+  coluna.position.set(0.001, -0.037, -0.152);
+  eng.add(cubo, anel, conector, coluna);
   add(eng, "engate_rapido", [0, 0, -0.12], 2);
 
   // estado dos comandos (tudo volta ao normal antes de cada quadro)
@@ -300,37 +424,52 @@ export function criarVolante(): Volante {
     if (chave === ultima) return; // redesenha a tela só quando o que ela mostra muda
     ultima = chave;
     const x = c.getContext("2d")!;
-    x.fillStyle = "#06070a";
-    x.fillRect(0, 0, 512, 320);
-    x.fillStyle = "#11131a";
-    x.fillRect(12, 12, 150, 296);
-    x.fillRect(350, 12, 150, 296);
+    x.fillStyle = "#08090c";
+    x.fillRect(0, 0, 640, 360);
+    // grade de dados, como na referência
+    x.strokeStyle = "#2a2e38";
+    x.lineWidth = 3;
+    x.strokeRect(14, 14, 612, 332);
+    for (const xx of [222, 418]) {
+      x.beginPath();
+      x.moveTo(xx, 14);
+      x.lineTo(xx, 346);
+      x.stroke();
+    }
+    for (const yy of [120, 236]) {
+      x.beginPath();
+      x.moveTo(14, yy);
+      x.lineTo(222, yy);
+      x.moveTo(418, yy);
+      x.lineTo(626, yy);
+      x.stroke();
+    }
     x.textAlign = "center";
     x.textBaseline = "middle";
     x.fillStyle = "#ffffff";
-    x.font = "800 190px 'Segoe UI', sans-serif";
-    x.fillText(est.marcha, 256, 140);
-    x.font = "700 26px 'Consolas', monospace";
-    x.fillStyle = "#8a90a0";
-    x.fillText("DELTA", 87, 50);
-    x.fillText("KM/H", 425, 50);
-    x.fillText("BATERIA", 87, 200);
-    x.font = "800 44px 'Consolas', monospace";
-    x.fillStyle = est.delta.startsWith("-") ? "#18e05a" : "#ff4a4a";
-    x.fillText(est.delta, 87, 100);
-    x.fillStyle = "#ffffff";
-    x.fillText(String(Math.round(est.velocidade)), 425, 100);
+    x.font = "800 170px 'Segoe UI', sans-serif";
+    x.fillText(est.marcha, 320, 120);
+    x.font = "700 22px 'Consolas', monospace";
+    x.fillStyle = "#7d8494";
+    x.fillText("DELTA", 118, 36);
+    x.fillText("KM/H", 522, 36);
+    x.fillText("BATERIA", 118, 152);
+    x.font = "800 50px 'Consolas', monospace";
+    x.fillStyle = est.delta.startsWith("-") ? "#2fe06a" : "#ff6a4a";
+    x.fillText(est.delta, 118, 80);
+    x.fillStyle = "#ffc93a";
+    x.fillText(String(Math.round(est.velocidade)), 522, 80);
     x.fillStyle = "#2a2d36";
-    x.fillRect(32, 230, 110, 40);
+    x.fillRect(38, 180, 160, 36);
     x.fillStyle = est.bateria > 0.25 ? "#3d9bff" : "#ff4a4a";
-    x.fillRect(32, 230, 110 * Math.max(0, Math.min(1, est.bateria)), 40);
-    if (est.modo) {
-      x.fillStyle = "#ffc400";
-      x.fillRect(176, 262, 160, 44);
-      x.fillStyle = "#06070a";
-      x.font = "800 32px 'Segoe UI', sans-serif";
-      x.fillText(est.modo, 256, 285);
-    }
+    x.fillRect(38, 180, 160 * Math.max(0, Math.min(1, est.bateria)), 36);
+    x.fillStyle = "#2fe06a";
+    x.fillRect(604, 30, 12, 300 * Math.max(0, Math.min(1, est.bateria)));
+    x.fillStyle = est.modo ? "#2f6bd6" : "#1a2a55";
+    x.fillRect(240, 224, 160, 46);
+    x.fillStyle = "#ffffff";
+    x.font = "800 30px 'Segoe UI', sans-serif";
+    x.fillText(est.modo || "—", 320, 248);
     texTela.needsUpdate = true;
   };
   desenhar();
@@ -356,8 +495,8 @@ const de = (v: Volante) => v.userData.volante as Estado;
 export function apertar(v: Volante, nome: string, k = 1) {
   const b = de(v).botoes[nome];
   if (!b) throw new Error(`botão desconhecido: ${nome}`);
-  (b.userData.tampa as THREE.Group).position.z = -0.003 * k;
-  (b.userData.luz as THREE.MeshStandardMaterial).emissiveIntensity = 0.55 * k;
+  (b.userData.tampa as THREE.Group).position.z = -0.0025 * k;
+  (b.userData.luz as THREE.MeshStandardMaterial).emissiveIntensity = 0.6 * k;
 }
 
 /** Gira um seletor (esquerdo, central, direito) até a posição 0 a 11 (aceita fração, para animar). */
@@ -371,13 +510,13 @@ export function girar(v: Volante, nome: string, posicao: number) {
 export function puxar(v: Volante, nome: string, k = 1) {
   const p = de(v).paddles[nome];
   if (!p) throw new Error(`paddle desconhecido: ${nome}`);
-  p.rotation.x = -0.22 * k;
+  p.rotation.x = -0.28 * k; // a ponta de baixo vem na direção do volante (+z)
 }
 
-/** Luzes de troca de marcha: f 0 apagadas, 1 todas acesas (verde → vermelho → azul). */
+/** Luzes de troca de marcha: f 0 apagadas, 1 todas acesas (brancas → vermelhas → azuis). */
 export function luzesDeTroca(v: Volante, f: number) {
   const n = Math.round(Math.max(0, Math.min(1, f)) * LED_CORES.length);
-  de(v).lmats.forEach((m, k) => (m.emissiveIntensity = k < n ? 2.2 : 0));
+  de(v).lmats.forEach((m, k) => (m.emissiveIntensity = k < n ? 2.4 : 0));
 }
 
 /** O que a tela mostra: marcha ("N", "1" a "8"), modo (ex.: "OT", "BOOST", "AERO"), delta ("-0.214"), bateria 0 a 1, km/h. */
