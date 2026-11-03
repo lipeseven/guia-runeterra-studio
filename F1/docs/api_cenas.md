@@ -35,6 +35,8 @@ Metros. y = altura. Carros andam para -z (câmera em +z atrás vê a traseira). 
 equipe e: 0 vermelho, 1 laranja, 2 verde-água, 3 azul, 4 roxo, 5 amarelo, 6 Mercedes (preto e prata, linha verde Petronas), 7 preto e
 verde-limão, 8 preto e dourado (Cadillac), 9 verde, 10 branco e azul. Carros 12 e 13 = Mercedes.
 `numeroNoCarro(w, k, "12")`: número no bico e nas laterais do carro k (fica nele).
+`pneus(w, k, "macio")`: composto dos pneus do carro k (faixa no flanco): macio (vermelho), medio (amarelo, o padrão),
+duro (branco), intermediario (verde), chuva (azul). Fica no carro até trocar de novo.
 `poeCinza(w, k, x, z)`: carro cinza (eliminado). `grade(w, n, dz)`: n carros no grid de largada (pole em z = Z_POLE = -100;
 `gridX(k)`, `gridZ(k)` = lugar k no grid). `halo(w, n, x, z, cor, opacidade)`: auréola de luz no chão (n = 0 a 21).
 Outro carro com pintura própria: `obj(w, "carro:ferrari", () => carro({ base, clara, escura, faixa, acento }))` (cores

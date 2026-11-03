@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { AbsoluteFill, continueRender, delayRender, useCurrentFrame } from "remotion";
 import { bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, esconderExtras, numeroNoCarro, obj, pontoNoMapa, topoDoPodio } from "./extras";
 import { camera, montar, poe, preparar, Z_POLE, type Mundo } from "./mundo";
+import { trocarComposto } from "./Carro3D";
 
 const VITRINE: ((w: Mundo, s: number) => void)[] = [
   (w, s) => {
@@ -70,6 +71,16 @@ VISTAS.forEach(([x, y, z, lente]) =>
     camera(w, [x, y, z], [0, 0.45, 0], lente, 0, y > 10);
   }),
 );
+// close das rodas: um carro em cada composto
+VITRINE.push((w, s) => {
+  preparar(w, "claro", "estudio");
+  ["macio", "medio", "duro"].forEach((c, i) => {
+    trocarComposto(w.carros[i * 2], c);
+    poe(w, i * 2, 0, -i * 6.5);
+  });
+  const z = -Math.min(2, Math.floor(s * 3)) * 6.5;
+  camera(w, [2.3, 0.55, z - 0.7], [0.8, 0.36, z - 1.55], 34);
+});
 export const DURACAO_VITRINE = VITRINE.length * 30;
 
 export const Vitrine: React.FC = () => {
