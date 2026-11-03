@@ -28,7 +28,7 @@ menor = mais zoom). `topo = true` para vista de cima. Movimente sempre com `c.s`
 
 ## Unidades e direções
 Metros. y = altura. Carros andam para -z (câmera em +z atrás vê a traseira). Pessoas, pódio e escada olham para +z
-(câmera em +z vê de frente). Carro: 5,6 m; piloto: 1,75 m; kart: 1,8 m.
+(câmera em +z vê de frente). Carro (molde de 2026): 5,4 m de comprimento, 1,9 m de largura, eixos em z = -1,55 e 1,85; piloto: 1,75 m; kart: 1,8 m.
 
 ## Carros de F1 (já existem, 22)
 `poe(w, k, x, z, giro = 0)`: mostra o carro k (0 a 21) em (x, 0, z). Equipe = k/2 arredondado para baixo; pintura da

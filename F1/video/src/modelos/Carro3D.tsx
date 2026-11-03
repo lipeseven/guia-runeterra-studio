@@ -72,17 +72,16 @@ const haste = (a: THREE.Vector3, b: THREE.Vector3, r: number, cor: string) => {
 };
 
 /** Lâmina da asa dianteira em ângulo: das pontas até um miolo plano. */
-const lamina = (y: number, z: number, prof: number, cor: string) => {
+const lamina = (y: number, z: number, prof: number, cor: string, meia = 1.02, volta = 0.3) => {
   const f = new THREE.Shape();
-  const volta = 0.3;
-  f.moveTo(-1.02, z + volta);
+  f.moveTo(-meia, z + volta);
   f.lineTo(-0.2, z);
   f.lineTo(0.2, z);
-  f.lineTo(1.02, z + volta);
-  f.lineTo(1.02, z + volta + prof);
+  f.lineTo(meia, z + volta);
+  f.lineTo(meia, z + volta + prof);
   f.lineTo(0.2, z + prof);
   f.lineTo(-0.2, z + prof);
-  f.lineTo(-1.02, z + volta + prof);
+  f.lineTo(-meia, z + volta + prof);
   f.closePath();
   const g = new THREE.ExtrudeGeometry(f, { depth: 0.035, bevelEnabled: false });
   g.rotateX(Math.PI / 2);
@@ -107,14 +106,20 @@ export function roda(x: number, z: number, r: number, l: number, friso: string) 
   pneu.receiveShadow = true;
   g.add(pneu);
   for (const s of [-1, 1]) {
-    const faixa = new THREE.Mesh(new THREE.TorusGeometry(r - 0.012, 0.012, 8, 56), new THREE.MeshStandardMaterial({ color: friso, roughness: 0.4 }));
+    // faixa do composto no flanco do pneu
+    const faixa = new THREE.Mesh(new THREE.RingGeometry(r * 0.8, r * 0.85, 56), new THREE.MeshStandardMaterial({ color: friso, roughness: 0.4, side: THREE.DoubleSide }));
     faixa.rotation.y = Math.PI / 2;
-    faixa.position.x = s * l * 0.37;
+    faixa.position.x = s * (l / 2 + 0.002);
     g.add(faixa);
-    const aro = new THREE.Mesh(new THREE.CircleGeometry(0.17, 28), new THREE.MeshStandardMaterial({ color: "#8c929c", metalness: 0.8, roughness: 0.35, side: THREE.DoubleSide }));
+    // aro de 18" (2026): pneu de perfil baixo, aro escuro com borda clara
+    const aro = new THREE.Mesh(new THREE.CircleGeometry(r * 0.64, 32), new THREE.MeshStandardMaterial({ color: "#26282e", metalness: 0.6, roughness: 0.4, side: THREE.DoubleSide }));
     aro.rotation.y = Math.PI / 2;
     aro.position.x = s * (l / 2 + 0.001);
     g.add(aro);
+    const borda = new THREE.Mesh(new THREE.RingGeometry(r * 0.6, r * 0.66, 40), new THREE.MeshStandardMaterial({ color: "#9aa0a8", metalness: 0.8, roughness: 0.3, side: THREE.DoubleSide }));
+    borda.rotation.y = Math.PI / 2;
+    borda.position.x = s * (l / 2 + 0.003);
+    g.add(borda);
   }
   g.position.set(x, r, z);
   return g;
@@ -126,76 +131,97 @@ export function carro(p: Pintura): THREE.Group {
   const clara = C(p.clara);
   const escura = C(p.escura);
   const faixa = C(p.faixa);
-  const acento = C(p.acento);
   const corpo = (x: number, y: number, z: number) => {
     if (Math.abs(x) < 0.055 + Math.max(0, -z) * 0.004 && y > 0.3) return faixa;
     if (y < 0.2) return escura;
     return base.clone().lerp(clara, Math.max(0, Math.min(0.6, (y - 0.42) * 0.9)));
   };
-  const lateral = (x: number, y: number, z: number) => {
-    const fora = Math.abs(x);
-    if (z > 0.35 && z < 1.0 && y > 0.38 && fora < 0.13) return acento;
-    if (y < 0.2) return escura;
+  const lateral = (_x: number, y: number) => {
+    if (y < 0.22) return escura;
     return base.clone().lerp(clara, Math.max(0, Math.min(0.55, (y - 0.3) * 0.9)));
   };
+  const preto = "#0c0d11";
 
-  // piso preto angular
+  // Molde de 2026 em metros reais (regulamento FIA 2026): 1,9 m de largura, 3,4 m entre eixos, rodas de 18".
+  // Frente para -z. Eixo dianteiro em z = -1,55; traseiro em z = 1,85.
+  // assoalho: estreito na frente, largo no meio, fino antes das rodas traseiras
   const piso = new THREE.Shape();
-  [[-0.26, -0.75], [-0.8, -0.1], [-0.88, 1.5], [-0.72, 2.45], [0.72, 2.45], [0.88, 1.5], [0.8, -0.1], [0.26, -0.75]].forEach(([x, z], i) => (i ? piso.lineTo(x, z) : piso.moveTo(x, z)));
+  [[-0.26, -1.15], [-0.72, -0.55], [-0.74, 1.15], [-0.5, 1.5], [-0.5, 2.2], [0.5, 2.2], [0.5, 1.5], [0.74, 1.15], [0.72, -0.55], [0.26, -1.15]].forEach(([x, z], i) => (i ? piso.lineTo(x, z) : piso.moveTo(x, z)));
   piso.closePath();
-  const gp = new THREE.ExtrudeGeometry(piso, { depth: 0.05, bevelEnabled: false });
+  const gp = new THREE.ExtrudeGeometry(piso, { depth: 0.04, bevelEnabled: false });
   gp.rotateX(Math.PI / 2);
-  const mp = new THREE.Mesh(gp, new THREE.MeshStandardMaterial({ color: "#0c0d11", roughness: 0.5 }));
-  mp.position.y = 0.11;
+  const mp = new THREE.Mesh(gp, new THREE.MeshStandardMaterial({ color: "#2a2c32", roughness: 0.55 }));
+  mp.position.y = 0.09;
   mp.castShadow = true;
   g.add(mp);
+  // difusor: rampa preta atrás do assoalho
+  const dif = caixa(0.96, 0.03, 0.5, 0, 0.13, 2.4, preto, 0.5);
+  dif.rotation.x = -0.32;
+  g.add(dif);
 
-  g.add(casco([[-2.85, 0.05, 0.3, 0.2], [-2.3, 0.1, 0.36, 0.17], [-1.5, 0.17, 0.46, 0.15], [-0.85, 0.27, 0.6, 0.11], [-0.25, 0.36, 0.73, 0.1], [0.45, 0.37, 0.8, 0.1], [0.95, 0.31, 0.95, 0.1], [1.6, 0.24, 0.76, 0.1], [2.3, 0.12, 0.52, 0.12], [2.78, 0.04, 0.4, 0.17]], corpo));
+  // monocoque: bico baixo e fino, sobe até o cockpit e desce pela tampa do motor
+  g.add(casco([[-2.6, 0.05, 0.24, 0.15], [-2.35, 0.09, 0.29, 0.13], [-1.9, 0.13, 0.39, 0.13], [-1.3, 0.2, 0.52, 0.12], [-0.75, 0.27, 0.6, 0.1], [-0.2, 0.3, 0.64, 0.1], [0.25, 0.27, 0.66, 0.1], [0.85, 0.22, 0.62, 0.1], [1.5, 0.16, 0.52, 0.11], [2.1, 0.12, 0.44, 0.13], [2.45, 0.06, 0.37, 0.18]], corpo));
+  // entrada de ar sobre o piloto (santo antônio) e espinha da tampa do motor
+  g.add(casco([[-0.02, 0.03, 0.78, 0.6], [0.12, 0.13, 0.98, 0.58], [0.4, 0.15, 0.95, 0.56], [0.9, 0.12, 0.83, 0.5], [1.5, 0.06, 0.63, 0.45], [1.95, 0.02, 0.5, 0.42]], corpo));
+  const tomada = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshStandardMaterial({ color: "#050507", roughness: 0.6 }));
+  tomada.scale.set(0.085, 0.07, 1);
+  tomada.position.set(0, 0.88, 0.07);
+  tomada.rotation.y = Math.PI;
+  g.add(tomada);
+
   for (const s of [-1, 1]) {
-    g.add(casco([[-0.3, 0.03, 0.32, 0.14], [0.05, 0.22, 0.56, 0.1], [0.75, 0.3, 0.55, 0.1], [1.55, 0.22, 0.42, 0.1], [2.25, 0.05, 0.25, 0.1]], lateral, s * 0.55));
-    // boca da entrada de ar
-    const boca = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.2, 0.03), new THREE.MeshStandardMaterial({ color: "#050507", roughness: 0.6 }));
-    boca.position.set(s * 0.56, 0.42, -0.02);
+    // sidepod: boca larga na frente, com rebaixo embaixo, afinando até a "garrafa de coca" atrás
+    g.add(casco([[-0.5, 0.02, 0.5, 0.3], [-0.42, 0.3, 0.54, 0.28], [-0.1, 0.33, 0.55, 0.22], [0.4, 0.26, 0.5, 0.16], [1.0, 0.14, 0.42, 0.13], [1.6, 0.04, 0.32, 0.12]], lateral, s * 0.28, 64, 90, 0.42));
+    const boca = caixa(0.22, 0.14, 0.02, s * 0.44, 0.43, -0.45, "#050507", 0.6);
     g.add(boca);
-    // pneus
-    g.add(roda(s * 0.94, -1.8, 0.36, 0.3, p.acento));
-    g.add(roda(s * 0.96, 1.95, 0.37, 0.42, p.acento));
-    // suspensão
-    for (const [zc, zb, xb] of [[-1.72, -1.15, 0.17], [-1.88, -1.5, 0.15], [1.9, 1.4, 0.32], [2.05, 1.95, 0.25]] as const) {
-      g.add(haste(new THREE.Vector3(s * 0.8, 0.4, zc), new THREE.Vector3(s * xb, 0.42, zb), 0.018, "#17181d"));
+    // retrovisor sobre o sidepod
+    g.add(caixa(0.16, 0.07, 0.04, s * 0.56, 0.76, -0.42, "#17181d"));
+    g.add(haste(new THREE.Vector3(s * 0.5, 0.74, -0.4), new THREE.Vector3(s * 0.36, 0.62, -0.3), 0.012, "#17181d"));
+    // rodas: dianteira mais estreita que a traseira
+    g.add(roda(s * 0.81, -1.55, 0.36, 0.28, p.acento));
+    g.add(roda(s * 0.76, 1.85, 0.36, 0.38, p.acento));
+    // suspensão em braços (dianteira e traseira)
+    for (const [xc, yc, zc, xr, yr, zr] of [
+      [0.18, 0.32, -1.3, 0.66, 0.3, -1.55], [0.18, 0.32, -1.85, 0.66, 0.3, -1.55], [0.16, 0.5, -1.35, 0.66, 0.46, -1.55], [0.16, 0.5, -1.8, 0.66, 0.46, -1.55],
+      [0.14, 0.28, 1.6, 0.56, 0.28, 1.85], [0.14, 0.28, 2.1, 0.56, 0.28, 1.85], [0.14, 0.46, 1.65, 0.56, 0.46, 1.85], [0.14, 0.46, 2.05, 0.56, 0.46, 1.85],
+    ] as const) {
+      g.add(haste(new THREE.Vector3(s * xc, yc, zc), new THREE.Vector3(s * xr, yr, zr), 0.016, "#17181d"));
     }
-    // placas das asas
-    g.add(caixa(0.035, 0.26, 0.62, s * 1.02, 0.19, -2.65, "#0e0f13"));
-    g.add(caixa(0.012, 0.13, 0.5, s * 1.04, 0.2, -2.65, p.acento));
-    g.add(caixa(0.035, 0.48, 0.62, s * 0.62, 0.72, 2.72, "#0e0f13"));
-    g.add(caixa(0.012, 0.24, 0.5, s * 0.64, 0.86, 2.72, p.acento));
-    // aletas das entradas e espelhos
-    g.add(caixa(0.1, 0.05, 0.06, s * 0.5, 0.74, -0.32, "#17181d"));
+    // placas laterais das asas
+    g.add(caixa(0.02, 0.14, 0.4, s * 0.9, 0.17, -2.52, preto));
+    g.add(caixa(0.02, 0.4, 0.4, s * 0.53, 0.8, 2.42, preto));
+    g.add(caixa(0.006, 0.16, 0.32, s * 0.542, 0.88, 2.42, p.acento));
   }
-  g.add(lamina(0.25, -3.0, 0.14, p.acento));
-  g.add(lamina(0.2, -2.85, 0.1, p.faixa));
-  g.add(lamina(0.15, -2.74, 0.18, p.base));
-  g.add(caixa(1.25, 0.04, 0.26, 0, 0.92, 2.62, p.base, 0.3));
-  g.add(caixa(1.25, 0.045, 0.14, 0, 1.0, 2.82, p.acento, 0.3));
-  g.add(caixa(0.06, 0.4, 0.12, 0, 0.72, 2.66, "#0e0f13"));
-  const luz = caixa(0.14, 0.05, 0.03, 0, 0.42, 2.98, "#ff2d20");
+  // asa dianteira: três lâminas, das pontas ao miolo
+  g.add(lamina(0.11, -2.74, 0.14, p.base, 0.9, 0.1));
+  g.add(lamina(0.16, -2.62, 0.1, p.faixa, 0.9, 0.12));
+  g.add(lamina(0.21, -2.52, 0.12, p.acento, 0.9, 0.14));
+  // asa traseira: plano principal, flap e pilar central
+  g.add(caixa(1.04, 0.035, 0.3, 0, 0.8, 2.38, p.base, 0.3));
+  const flap = caixa(1.04, 0.03, 0.2, 0, 0.93, 2.5, p.acento, 0.3);
+  flap.rotation.x = 0.35;
+  g.add(flap);
+  g.add(haste(new THREE.Vector3(0, 0.42, 2.25), new THREE.Vector3(0, 0.8, 2.36), 0.025, preto));
+  // estrutura de impacto com a luz de chuva
+  g.add(caixa(0.12, 0.1, 0.36, 0, 0.34, 2.45, preto));
+  const luz = caixa(0.1, 0.06, 0.02, 0, 0.34, 2.64, "#ff2d20");
   (luz.material as THREE.MeshStandardMaterial).emissive = C("#ff2d20");
   g.add(luz);
 
   // cockpit, capacete e halo
   const cabine = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), new THREE.MeshStandardMaterial({ color: "#050507", roughness: 0.55 }));
-  cabine.scale.set(0.25, 0.1, 0.56);
-  cabine.position.set(0, 0.73, 0.02);
+  cabine.scale.set(0.21, 0.06, 0.42);
+  cabine.position.set(0, 0.64, -0.28);
   g.add(cabine);
-  const capacete = new THREE.Mesh(new THREE.SphereGeometry(0.135, 32, 24), new THREE.MeshStandardMaterial({ color: "#f5c518", roughness: 0.2, metalness: 0.15 }));
-  capacete.position.set(0, 0.84, 0.08);
+  const capacete = new THREE.Mesh(new THREE.SphereGeometry(0.13, 32, 24), new THREE.MeshStandardMaterial({ color: "#f5c518", roughness: 0.2, metalness: 0.15 }));
+  capacete.position.set(0, 0.72, -0.12);
   capacete.castShadow = true;
   g.add(capacete);
-  const curva = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.27, 0.78, 0.42), new THREE.Vector3(-0.25, 0.98, 0.05), new THREE.Vector3(0, 1.03, -0.28), new THREE.Vector3(0.25, 0.98, 0.05), new THREE.Vector3(0.27, 0.78, 0.42)]);
-  const halo = new THREE.Mesh(new THREE.TubeGeometry(curva, 48, 0.028, 10), new THREE.MeshStandardMaterial({ color: "#2a2c33", roughness: 0.4 }));
+  const curva = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.26, 0.64, 0.12), new THREE.Vector3(-0.24, 0.84, -0.16), new THREE.Vector3(0, 0.89, -0.44), new THREE.Vector3(0.24, 0.84, -0.16), new THREE.Vector3(0.26, 0.64, 0.12)]);
+  const halo = new THREE.Mesh(new THREE.TubeGeometry(curva, 48, 0.026, 10), new THREE.MeshStandardMaterial({ color: "#2a2c33", roughness: 0.4 }));
   halo.castShadow = true;
   g.add(halo);
-  g.add(haste(new THREE.Vector3(0, 1.03, -0.28), new THREE.Vector3(0, 0.66, -0.5), 0.028, "#2a2c33"));
+  g.add(haste(new THREE.Vector3(0, 0.89, -0.44), new THREE.Vector3(0, 0.6, -0.68), 0.026, "#2a2c33"));
   return g;
 }
 
@@ -345,8 +371,7 @@ function montar(canvas: HTMLCanvasElement): Cena3D {
     const z = zDaPosicao(k);
     const c = modelos[k === 1 ? 0 : 1 + (k * 3) % (PINTURAS.length - 1)].clone();
     c.position.set(x, 0, z);
-    c.scale.set(0.7, 0.9, 1.1);
-    cena.add(c, plano(2.5, 7.2, x, z, sombra));
+    cena.add(c, plano(2.5, 6.2, x, z, sombra));
     // colchete da posição
     cena.add(plano(1.9, 0.09, x, z - 3.9, branco, 0.02), plano(0.09, 0.62, x - 0.95, z - 3.62, branco, 0.02), plano(0.09, 0.62, x + 0.95, z - 3.62, branco, 0.02));
     cena.add(plano(1.05, 1.05, x + Math.sign(x) * 1.55, z - 3.35, numero(k), 0.02));

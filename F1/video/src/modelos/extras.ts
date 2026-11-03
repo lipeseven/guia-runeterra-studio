@@ -443,12 +443,12 @@ export function numeroNoCarro(w: Mundo, k: number, numero: string, cor = "#fffff
   const m = new THREE.MeshBasicMaterial({ map: texturaTexto(numero, cor, "", 256, 256), transparent: true, depthWrite: false });
   const g = new THREE.Group();
   g.name = chave;
-  const bico = malha(new THREE.PlaneGeometry(0.42, 0.42), m, 0, 0.48, -1.75);
-  bico.rotation.x = -Math.PI / 2 + 0.16;
+  const bico = malha(new THREE.PlaneGeometry(0.3, 0.3), m, 0, 0.42, -1.85);
+  bico.rotation.x = -Math.PI / 2 + 0.22;
   bico.rotation.z = Math.PI;
   g.add(bico);
   for (const lado of [-1, 1]) {
-    const p = malha(new THREE.PlaneGeometry(0.46, 0.46), m, lado * 0.36, 0.78, 0.75);
+    const p = malha(new THREE.PlaneGeometry(0.26, 0.26), m, lado * 0.155, 0.8, 0.45);
     p.rotation.y = (lado * Math.PI) / 2;
     g.add(p);
   }
