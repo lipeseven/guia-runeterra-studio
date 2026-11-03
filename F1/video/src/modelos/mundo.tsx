@@ -418,6 +418,8 @@ export const gridZ = (k: number) => Z_POLE + k * 4.4;
 export const camera = (w: Mundo, pos: V, olha: V, lente = 40, rolar = 0, topo = false) => {
   w.cam.position.set(...pos);
   w.cam.fov = lente;
+  // close de peça pequena (botão do volante): o plano de corte perto da lente acompanha a distância
+  w.cam.near = Math.max(0.004, Math.min(0.1, Math.hypot(pos[0] - olha[0], pos[1] - olha[1], pos[2] - olha[2]) * 0.08));
   w.cam.updateProjectionMatrix();
   if (topo) w.cam.up.set(0, 0, -1);
   else w.cam.up.set(Math.sin(rolar), Math.cos(rolar), 0);

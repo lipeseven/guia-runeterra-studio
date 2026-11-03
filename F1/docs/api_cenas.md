@@ -69,6 +69,21 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
 - `rotulo("TEXTO", { altura, cor, fundo })`: placa 3D que olha para a câmera (dentro de `obj`).
 - Também prontos no mundo: `w.trofeu` (troféu dourado: `.visible = true` e posição), `w.sc` (Safety Car).
 
+## Volante (genérico de 2026, sem equipe)
+`obj(w, "volante", () => criarVolante())`: volante real em metros (~29 cm de largura), frente para +z. É pequeno: use
+`enquadrar(w, v, [0, 0.08, 1], 1.08, 30)` para a frente inteira, `[0.7, 0.25, -1]` para ver os paddles atrás; close de um
+botão com `camera()` a ~8 cm. Comandos (chame a cada quadro, na palavra que cita):
+- `apertar(v, nome, k)`: ot (modo de ultrapassagem), boost (energia extra), aero (modo reta da asa ativa), pl (limitador
+  do pit), n (neutro), radio, bb_mais / bb_menos (balanço de freio). k 0 solto, 1 afundado e aceso.
+- `girar(v, "esquerdo" | "central" | "direito", posicao 0 a 11)`: seletores giratórios (anime com fração).
+- `puxar(v, "marcha_direita" | "marcha_esquerda" | "embreagem_direita" | "embreagem_esquerda", k)`: paddles atrás.
+- `luzesDeTroca(v, f)`: luzes de troca de marcha (0 apagadas, 1 todas: verde, vermelho, azul).
+- `telaDoVolante(v, { marcha, modo, delta, bateria, velocidade })`: o que a tela mostra (ex.: marcha "7", modo "OT").
+Peças para o desmonte: tela, luzes, botao_ot, botao_boost, botao_aero, botao_pl, botao_n, botao_radio, botao_bb_mais,
+botao_bb_menos, seletor_esquerdo, seletor_central, seletor_direito, frente, placa_de_circuitos, carcaca,
+empunhadura_esquerda, empunhadura_direita, paddle_marcha_esquerda, paddle_marcha_direita, embreagem_esquerda,
+embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
+
 ## Desmonte (mostrar como uma peça funciona)
 A peça que faz o trabalho se abre: vale mais que dez voltas de câmera. Tudo volta ao normal no quadro seguinte (chame a
 cada quadro). Funciona no carro (`w.carros[k]`) e em todo modelo com peças marcadas; `nomesDasPecas(modelo)` lista os nomes.
