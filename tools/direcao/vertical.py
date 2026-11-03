@@ -133,6 +133,11 @@ def resolver(brutos: list[dict], palavras: list[dict]) -> tuple[list[dict], list
                         p[campo][para] = j
         if isinstance(p.get("riscado"), dict) and "i" not in p["riscado"]:
             p["riscado"]["i"] = i
+        if isinstance(p.get("som"), dict) and p["som"].get("o_que"):  # o "em" fica: a revisão volta a localizar
+            j = localizar(palavras, p["som"].get("em"), i)
+            p["som"]["i"] = j if j is not None else i
+        else:
+            p.pop("som", None)
         planos.append(p)
     if not planos:
         raise RuntimeError("o diretor não devolveu nenhum plano válido")
@@ -141,7 +146,7 @@ def resolver(brutos: list[dict], palavras: list[dict]) -> tuple[list[dict], list
 
 
 FORMATO = ("Responda SOMENTE com JSON {\"chaves\": [um termo-chave por frase, como aparece na fala], \"planos\": [{\"em\", "
-           "\"set\", \"clima\", \"codigo\" (ou \"tipo\" + parâmetros), \"marcas\"?, sobreposições?}]}. O código é JavaScript "
+           "\"set\", \"clima\", \"codigo\" (ou \"tipo\" + parâmetros), \"marcas\"?, \"som\"?, sobreposições?}]}. O código é JavaScript "
            "puro dentro de uma string JSON.")
 
 
@@ -391,7 +396,7 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
               "Aplique os pedidos. Devolva SÓ os planos que mudam, completos, com o mesmo id (plano sem mudança NÃO volta). "
               "Plano novo (dividir uma cena) vem sem id, com \"depois_de\": id do plano que vem antes dele. Plano que sai: "
               "id em \"remover\". Responda SOMENTE JSON {\"planos\": [{\"id\", \"em\", \"set\", \"clima\", \"codigo\" (ou "
-              "\"tipo\" + parâmetros), \"marcas\"?, sobreposições?}], \"remover\": [ids]}. O código é JavaScript puro dentro "
+              "\"tipo\" + parâmetros), \"marcas\"?, \"som\"?, sobreposições?}], \"remover\": [ids]}. O código é JavaScript puro dentro "
               "de uma string JSON.")
     aviso("o diretor aplica os seus pedidos")
     r = chamar_json(prompt, sistema(), modelo="opus", etiqueta="vertical-revisao")
@@ -457,6 +462,57 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
     return saida
 
 
+SOM_INTERVALO = 3.0  # segundos entre efeitos (vídeo curto: mais curto que no Runeterra, mas nunca colado)
+SOM_POR_SEGUNDOS = 7.0  # teto: no máximo 1 efeito a cada 7 s de vídeo, em média
+SOM_VOLUME = {"clique": 0.22, "seletor": 0.22, "radio": 0.26, "whoosh": 0.24, "carro_passando": 0.32, "acelerando": 0.3}
+
+
+def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
+    """Efeitos pedidos pelo diretor (`som` do plano) → arquivos do catálogo do canal (busca CLAP pela descrição).
+    As regras valem aqui mesmo que o diretor exagere: intervalo mínimo, teto pela duração, sem repetir o mesmo som.
+    A escolha fica guardada (mesmos pedidos = mesmos sons, sem carregar o CLAP de novo)."""
+    pedidos = sorted(((palavras[min(p["som"]["i"], len(palavras) - 1)]["i"], p["som"]["o_que"]) for p in direcao["planos"]
+                      if isinstance(p.get("som"), dict) and "i" in p["som"]), key=lambda x: x[0])
+    teto = max(1, int(palavras[-1]["f"] / SOM_POR_SEGUNDOS))
+    aceitos, ultimo = [], -1e9
+    for t, o_que in pedidos:
+        if t - ultimo >= SOM_INTERVALO and len(aceitos) < teto:
+            aceitos.append((round(t, 3), o_que))
+            ultimo = t
+    if not aceitos:
+        return []
+    guardado = trabalho / "sons_vertical.json"
+    chave = hashlib.sha1(json.dumps(aceitos, ensure_ascii=False).encode()).hexdigest()
+    if guardado.exists():
+        g = json.loads(guardado.read_text(encoding="utf-8"))
+        if g.get("chave") == chave and all(Path(s["arquivo"]).exists() for s in g["sons"]):
+            return g["sons"]
+    try:
+        import sys
+
+        sys.path.insert(0, str(RAIZ / "tools" / "audio"))
+        from sfx import PASTA as PASTA_SFX, Busca
+
+        busca = Busca()
+    except Exception as e:  # sem catálogo/CLAP: o vídeo sai só com a voz, nunca quebra o render
+        print("efeitos sonoros indisponíveis:", e)
+        return []
+    usados: set[int] = set()
+    saida = []
+    for t, o_que in aceitos:
+        achados = busca.buscar(o_que, 4, evitar=usados)
+        if not achados:
+            continue
+        sid = achados[0][0]
+        usados.add(sid)
+        cat = busca.info[sid]["categoria"]
+        saida.append({"t": t, "o_que": o_que, "arquivo": str(PASTA_SFX / busca.info[sid]["arquivo"]), "categoria": cat,
+                      "volume": SOM_VOLUME.get(cat, 0.26)})
+    busca.liberar()
+    guardado.write_text(json.dumps({"chave": chave, "sons": saida}, ensure_ascii=False, indent=1), encoding="utf-8")
+    return saida
+
+
 def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, progresso=None) -> float:
     """Render por blocos com cache (como no Runeterra): só os blocos com plano alterado são renderizados de novo; a
     voz entra no FFmpeg, sem recomprimir o vídeo. A pasta trabalho/ do vídeo (com voz.wav) é a pasta pública do Remotion."""
@@ -490,8 +546,19 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
     juntar = trabalho / "render_blocos.txt"
     juntar.write_text("".join(f"file '{(cache / (b['impressao'] + '.mp4')).as_posix()}'\n" for b in lista), encoding="utf-8")
     total = math.ceil((palavras[-1]["f"] + 0.35) * FPS) / FPS
-    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(juntar), "-i", str(trabalho / "voz.wav"),
-                        "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", f"{total:.3f}",
+    # áudio = voz + efeitos (cada um 2 quadros antes da palavra, ~15 dB abaixo da voz), mixado aqui mesmo
+    efeitos = sons(direcao, palavras, trabalho)
+    entradas = ["-f", "concat", "-safe", "0", "-i", str(juntar), "-i", str(trabalho / "voz.wav")]
+    filtros = ["[1:a]aresample=48000,aformat=channel_layouts=stereo[voz]"]
+    rotulos = ["[voz]"]
+    for j, s in enumerate(efeitos, start=2):
+        entradas += ["-i", s["arquivo"]]
+        ms = max(0, round((s["t"] - 2 / FPS) * 1000))
+        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,volume={s['volume']},adelay={ms}:all=1[s{j}]")
+        rotulos.append(f"[s{j}]")
+    filtros.append(f"{''.join(rotulos)}amix=inputs={len(rotulos)}:duration=first:normalize=0,apad,atrim=0:{total:.3f}[audio]")
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", *entradas, "-filter_complex", ";".join(filtros),
+                        "-map", "0:v", "-map", "[audio]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", f"{total:.3f}",
                         "-movflags", "+faststart", str(saida)], capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0 or not saida.exists():
         raise RuntimeError("junção dos blocos falhou: " + r.stderr[-600:])
