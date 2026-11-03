@@ -1,4 +1,4 @@
-# Folha de estilos — vertical (versão 2, para o Felipe corrigir)
+# Folha de estilos — vertical (versão 3, aprovada pelo Felipe em 2026-11-03; vai sendo refinada vídeo a vídeo)
 
 Fonte: 6 reels de "Fórmula a fondo", lidos com as ferramentas gratuitas do Hypit. Detalhe por reel e horários em `analise_reels.md`.
 Vistos em amostras a cada 1,5 s e, nos trechos de transição, a cada 0,25 a 0,4 s. Nenhum trecho foi lido quadro a quadro.
@@ -29,7 +29,8 @@ A peça principal nunca segura o vídeo sozinha: alterna com vistas, diagramas e
 - **Dado físico vira imagem:** ar em setas e bolinhas, calor na cor, desgaste em migalhas, distância em linha luminosa, tempo em cronômetro.
 - **Placas:** vidro escuro arredondado, número grande em negrito, unidade pequena; contam junto com a cena. Laranja para calor, azul para ar, verde para "certo", vermelho para perda.
 - **Legenda:** terço superior, centrada, pequena. Só o que já foi dito: anterior em cinza, atual em branco e negrito. Um termo por frase com caixa azul fina.
-- **Desenho:** vetor com gradiente, brilho e textura; poucas linhas de contorno. Carros com asa, bico e pintura de verdade.
+- **Desenho:** 3D de verdade (Three.js), com luz e sombra; nada de vetor plano. Carros com o molde de 2026, asa, bico e
+  pintura da equipe; pneus com a faixa do composto pintada no flanco. Peça presa na tela o vídeo inteiro: nunca.
 - **Som:** só a voz em primeiro plano, quase sem efeitos, sem música perceptível.
 
 ## Movimento e transições
@@ -63,6 +64,19 @@ A peça principal nunca segura o vídeo sozinha: alterna com vistas, diagramas e
 
 Fundo sempre escuro ou dessaturado; o acento forte vem do objeto, em pequena área. Só as comparações ficam claras.
 
-## A decidir com o Felipe
-- Até onde chegar perto dessa aparência (o pedido é parecido, mas não copiado): paleta, caixa da legenda e pintura dos carros.
+## Enquadramento
+- O assunto aparece INTEIRO e grande no quadro vertical: nada cortado, minúsculo ou escondido atrás de outra coisa.
+- Modelo ou grupo parado (escada, pódio, kart com piloto, mapa, carro parado, pilotos lado a lado) = `enquadrar()` da API;
+  o movimento vem de animar a direção, a folga ou a lente. Câmera à mão só para perseguição, POV e passagem rápida.
+- Kart e carro com piloto: a câmera fica alta o bastante para ver o capacete por cima da carroceria.
+
+## Pessoas
+- Piloto sem rosto, com tom de pele. No carro: capacete. Fora do carro (pódio, entrevista, box): boné nas cores da equipe.
+- Cores de equipe só as conferidas (`criarPiloto({ equipe })` ou as do briefing); nunca inventar.
+
+## Decisões do Felipe
+- Linguagem igual à das referências (câmera, legenda, placas, números, tipo de desenho); cores, pintura e caixa da legenda
+  próprias. Nomes reais e logos das equipes liberados.
 - Temas e comparações próprios: os da tabela são da referência e não devem ser repetidos como estão.
+- Cada vídeo é um projeto novo: as cenas são escritas para aquele texto; só os modelos da biblioteca são reaproveitados.
+- Câmera segue o sentimento do roteiro: zooms, cortes, pans, POV.

@@ -843,19 +843,27 @@ def tirar_pedido(vid: int, n: int):
 
 class RefazerAnimacao(BaseModel):
     do_zero: bool = False
+    so_render: bool = False  # sem Claude: renderiza de novo a direção atual (ex.: um modelo 3D mudou)
 
 
 @app.post("/api/videos/{vid}/animacao/refazer")
 def refazer_animacao(vid: int, corpo: RefazerAnimacao):
-    """Com os pedidos (só os planos pedidos mudam) ou do zero (o diretor escolhe tudo de novo)."""
+    """Com os pedidos (só os planos pedidos mudam), do zero (o diretor escolhe tudo de novo) ou só o render."""
     dirc = _dirc(vid)
-    if not corpo.do_zero and not motor.pedidos_animacao(dirc):
+    if corpo.so_render and not (dirc / "vertical.json").exists():
+        raise HTTPException(400, "ainda não há animação para renderizar")
+    if corpo.so_render and motor.pedidos_animacao(dirc):
+        raise HTTPException(400, "há pedidos na fila: use “Refazer com os pedidos” (ou tire os pedidos)")
+    if not corpo.do_zero and not corpo.so_render and not motor.pedidos_animacao(dirc):
         raise HTTPException(400, "escreva ao menos um pedido, ou peça para refazer do zero")
     with conectar() as con:
         motor.fechar_pendencia(con, vid, "ver_final")
         if corpo.do_zero:
             atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "do zero")
             registrar(con, vid, "Animação: refazer do zero", "info")
+        elif corpo.so_render:
+            atualizar_etapa(con, vid, "render", "andamento", "na fila", "só o render (sem Claude)")
+            registrar(con, vid, "Animação: renderizar de novo, sem Claude", "info")
         else:
             atualizar_etapa(con, vid, "render", "andamento", "na fila", "com os seus pedidos")
             registrar(con, vid, f"Animação: {len(motor.pedidos_animacao(dirc))} pedido(s) enviados ao diretor", "info")

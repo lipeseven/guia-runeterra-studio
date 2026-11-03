@@ -425,6 +425,33 @@ export const camera = (w: Mundo, pos: V, olha: V, lente = 40, rolar = 0, topo = 
   w.sol.target.position.set(olha[0], 0, olha[2]);
   w.sol.target.updateMatrixWorld();
 };
+/** Câmera que mostra os objetos INTEIROS no quadro vertical (nada cortado), vindo da direção `de` (vetor a partir do
+ * centro deles). `folga` > 1 = mais respiro; `alvoY` desloca o ponto para onde olha. Devolve a distância usada. */
+export const enquadrar = (w: Mundo, alvo: THREE.Object3D | THREE.Object3D[], de: V = [0.6, 0.35, 1], folga = 1.15, lente = 36, alvoY = 0) => {
+  const caixa = new THREE.Box3();
+  for (const o of Array.isArray(alvo) ? alvo : [alvo]) {
+    o.updateMatrixWorld(true);
+    caixa.expandByObject(o);
+  }
+  if (caixa.isEmpty()) return 0;
+  const centro = caixa.getCenter(new THREE.Vector3());
+  centro.y += alvoY;
+  const dir = new THREE.Vector3(...de).normalize();
+  const cima = Math.abs(dir.y) > 0.97 ? new THREE.Vector3(0, 0, -1) : new THREE.Vector3(0, 1, 0);
+  const direita = new THREE.Vector3().crossVectors(cima, dir).normalize();
+  const alto = new THREE.Vector3().crossVectors(dir, direita);
+  const tv = Math.tan((lente * Math.PI) / 360);
+  const th = tv * w.cam.aspect;
+  let d = 0.5;
+  for (const x of [caixa.min.x, caixa.max.x]) for (const y of [caixa.min.y, caixa.max.y]) for (const z of [caixa.min.z, caixa.max.z]) {
+    const c = new THREE.Vector3(x, y, z).sub(centro);
+    const prof = c.dot(dir);
+    d = Math.max(d, prof + (Math.abs(c.dot(direita)) * folga) / th, prof + (Math.abs(c.dot(alto)) * folga) / tv);
+  }
+  const pos = centro.clone().addScaledVector(dir, d);
+  camera(w, [pos.x, pos.y, pos.z], [centro.x, centro.y, centro.z], lente, 0, Math.abs(dir.y) > 0.97);
+  return d;
+};
 export const poe = (w: Mundo, k: number, x: number, z: number, giro = 0) => {
   const c = w.carros[k];
   c.visible = true;

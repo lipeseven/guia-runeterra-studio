@@ -25,6 +25,12 @@ Para animar: `suave(t, a, b)` (0→1 suave entre os segundos a e b), `entra(t, a
 `camera(w, [x, y, z], [alvoX, alvoY, alvoZ], lente = 40, rolar = 0, topo = false)`: posição, para onde olha, lente (graus;
 menor = mais zoom). `topo = true` para vista de cima. Movimente sempre com `c.s` ou `c.k` (a câmera nunca para).
 `camCircuito(w, s, angulo, distancia)`: câmera do circuito inteiro.
+`enquadrar(w, objetos, de = [0.6, 0.35, 1], folga = 1.15, lente = 36, alvoY = 0)`: câmera que mostra o objeto (ou a
+lista de objetos) INTEIRO no quadro vertical, vindo da direção `de` (vetor a partir do centro deles: [0, 1, 0] = de cima,
+[1, 0.2, 0] = de lado, [0, 0.3, 1] = de frente). Devolve a distância. **Regra:** cena cujo assunto é um modelo ou um grupo
+(escada, pódio, kart com piloto, mapa, carro parado, pilotos lado a lado) usa `enquadrar`; para movimentar, anime `de`,
+`folga` (1.4 → 1.05 = aproxima) ou `lente` com `c.k`. `camera()` à mão só para perseguição, POV e passagem rápida.
+Exemplo: `enquadrar(w, escada, [0.35, 0.3, 1], 1.25 - c.k * 0.15, 36)`.
 
 ## Unidades e direções
 Metros. y = altura. Carros andam para -z (câmera em +z atrás vê a traseira). Pessoas, pódio e escada olham para +z

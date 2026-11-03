@@ -6,7 +6,7 @@ import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurren
 import * as THREE from "three";
 import { FONTE, Legenda, Placa, entra, suave, type Palavra } from "./kit";
 import {
-  Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, drawRastro, fumaca, grade, gridX, gridZ, halo,
+  Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, enquadrar, drawRastro, fumaca, grade, gridX, gridZ, halo,
   luzGantry, luzesDesfocadas, montar, num, poe, poeCinza, poePneu, preparar, seed, solta, type Mundo,
 } from "./modelos/mundo";
 import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
@@ -380,13 +380,15 @@ const TIPOS: Record<string, Tipo> = {
 };
 export const TIPOS_VERTICAL = Object.keys(TIPOS);
 
-// O que o código das cenas enxerga (por nome). O Python lê os nomes entre as marcas para conferir o código com o tsc.
+const pneus = (w: Mundo, k: number, composto: string) => trocarComposto(w.carros[k], composto);
+
+// O que o código das cenas enxerga (por nome). O Python lê os nomes entre as marcas para conferir o código com o tsc:
+// só nomes aqui dentro (nada de função escrita no bloco).
 // API:inicio
 export const API = {
-  THREE, camera, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
+  THREE, camera, enquadrar, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
   luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
-  criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS,
-  pneus: (w: Mundo, k: number, composto: string) => trocarComposto(w.carros[k], composto),
+  criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
 };
 // API:fim
 const NOMES_API = Object.keys(API);

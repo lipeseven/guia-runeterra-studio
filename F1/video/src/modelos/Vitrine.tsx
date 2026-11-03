@@ -2,7 +2,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { AbsoluteFill, continueRender, delayRender, useCurrentFrame } from "remotion";
 import { bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, esconderExtras, numeroNoCarro, obj, pontoNoMapa, topoDoPodio } from "./extras";
-import { camera, montar, poe, preparar, Z_POLE, type Mundo } from "./mundo";
+import { camera, enquadrar, montar, poe, preparar, Z_POLE, type Mundo } from "./mundo";
 import { trocarComposto } from "./Carro3D";
 
 const VITRINE: ((w: Mundo, s: number) => void)[] = [
@@ -20,7 +20,7 @@ const VITRINE: ((w: Mundo, s: number) => void)[] = [
     preparar(w, "tarde", "pista");
     const k = obj(w, "kart", () => criarKart({ cor: "#ffd21f", numero: "1" }));
     k.position.set(0, 0, -200);
-    camera(w, [2.4 * Math.cos(s), 1.2, -200 - 2.4 * Math.sin(s + 1)], [0, 0.3, -200], 36);
+    enquadrar(w, k, [Math.cos(s), 0.45, -Math.sin(s + 1)], 1.15);
   },
   (w) => {
     preparar(w, "claro", "estudio");
@@ -36,8 +36,9 @@ const VITRINE: ((w: Mundo, s: number) => void)[] = [
   },
   (w) => {
     preparar(w, "vazio", "estudio");
-    obj(w, "escada", () => criarEscada(["F4", "REGIONAL", "F3", "F2", "F1"], { pulados: [2] })).position.set(0, 0, 0);
-    camera(w, [2, 6, 15], [0, 2, 0], 40);
+    const e = obj(w, "escada", () => criarEscada(["F4", "REGIONAL", "F3", "F2", "F1"], { pulados: [2] }));
+    e.position.set(0, 0, 0);
+    enquadrar(w, e, [0.35, 0.3, 1], 1.15);
   },
   (w) => {
     preparar(w, "claro", "livre");

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import re
 import subprocess
 import time
@@ -361,42 +362,144 @@ def para_o_claude(planos: list[dict]) -> list[dict]:
     return saida
 
 
+def _resumo(p: dict) -> dict:
+    """Plano sem pedido, como contexto barato: só o que ele mostra (sem o código)."""
+    q = {k: p[k] for k in ("id", "em", "set", "clima", "tipo") if k in p}
+    if p.get("codigo"):
+        q["codigo"] = f"({len(p['codigo'].splitlines())} linhas, fica igual)"
+    return q
+
+
 def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: str = "", trabalho: Path | None = None,
             aviso=lambda m: None) -> dict:
-    """Pedidos do Felipe (gerais ou por plano) → planos novos. Planos sem pedido devem voltar iguais; só os que
-    mudaram passam pela conferência das imagens."""
-    linhas = [f"- plano {p['plano']}: {p['texto']}" if p.get("plano") else f"- geral: {p['texto']}" for p in pedidos]
-    prompt = (_docs() + f"ROTEIRO:\n{frases(palavras)}\n\n{_briefing(briefing)}DIREÇÃO ATUAL (cada plano com id):\n"
-              f"{json.dumps(para_o_claude(direcao['planos']), ensure_ascii=False)}\n\n"
-              f"PEDIDOS DO FELIPE:\n{chr(10).join(linhas)}\n\n"
-              "Aplique os pedidos. Planos sem pedido voltam iguais (mesmo id, mesmo código). " + FORMATO
-              + " Devolva a lista completa de planos.")
+    """Pedidos do Felipe (gerais ou por plano) → só os planos pedidos vão completos ao Claude (os outros, resumidos) e
+    só os que mudaram voltam; o resto fica intacto. Só os que mudaram passam pela conferência das imagens."""
+    ids = [p["id"] for p in direcao["planos"]]
+    numero = {pid: n + 1 for n, pid in enumerate(ids)}
+    alvo = {p["plano"] for p in pedidos if p.get("plano") in numero}
+    geral = any(not p.get("plano") or p["plano"] not in numero for p in pedidos)
+    linhas = [f"- plano {numero[p['plano']]} (id {p['plano']}): {p['texto']}" if p.get("plano") in numero else f"- geral: {p['texto']}"
+              for p in pedidos]
+    claude = para_o_claude(direcao["planos"])
+    # pedido geral pode mexer em qualquer cena: aí todas vão completas (mas só as alteradas voltam)
+    atuais = [q if geral or q["id"] in alvo else _resumo(q) for q in claude]
+    prompt = (_docs() + f"ROTEIRO:\n{frases(palavras)}\n\n{_briefing(briefing)}DIREÇÃO ATUAL (na ordem; "
+              + ("todos os planos completos" if geral else "os planos pedidos vêm completos, os outros resumidos")
+              + f"):\n{json.dumps(atuais, ensure_ascii=False)}\n\nPEDIDOS DO FELIPE:\n{chr(10).join(linhas)}\n\n"
+              "Aplique os pedidos. Devolva SÓ os planos que mudam, completos, com o mesmo id (plano sem mudança NÃO volta). "
+              "Plano novo (dividir uma cena) vem sem id, com \"depois_de\": id do plano que vem antes dele. Plano que sai: "
+              "id em \"remover\". Responda SOMENTE JSON {\"planos\": [{\"id\", \"em\", \"set\", \"clima\", \"codigo\" (ou "
+              "\"tipo\" + parâmetros), \"marcas\"?, sobreposições?}], \"remover\": [ids]}. O código é JavaScript puro dentro "
+              "de uma string JSON.")
     aviso("o diretor aplica os seus pedidos")
-    nova = _pedir(prompt, palavras, "vertical-revisao")
-    if not nova["chaves"]:
-        nova["chaves"] = direcao.get("chaves", [])
+    r = chamar_json(prompt, sistema(), modelo="opus", etiqueta="vertical-revisao")
+    novos = [n for n in (r.get("planos") if isinstance(r, dict) else r) or [] if isinstance(n, dict)]
+    remover = set(r.get("remover") or []) if isinstance(r, dict) else set()
+    por_id = {n["id"]: n for n in novos if n.get("id") in numero}
+    depois: dict[str, list[dict]] = {}
+    for n in novos:
+        if n.get("id") not in numero:
+            depois.setdefault(n.get("depois_de") if n.get("depois_de") in numero else ids[-1], []).append(
+                {k: v for k, v in n.items() if k not in ("id", "depois_de")})
+    brutos = []
+    for q in claude:
+        if q["id"] not in remover:
+            n = por_id.get(q["id"])
+            if n:  # o plano volta completo; trecho e cena que faltarem ficam os de antes
+                n = {k: v for k, v in n.items() if k != "depois_de"}
+                n.setdefault("em", q["em"])
+                if not n.get("codigo") and not n.get("tipo"):
+                    n.update({k: q[k] for k in ("codigo", "tipo", "set") if k in q})
+            brutos.append(n or q)
+        brutos += depois.get(q["id"], [])
+    planos, avisos = resolver(brutos, palavras)
+    nova = {**direcao, "planos": planos, "avisos": avisos, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
     antes = {p["id"]: json.dumps(p, sort_keys=True, ensure_ascii=False) for p in direcao["planos"]}
     mudou = {p["id"] for p in nova["planos"] if antes.get(p["id"]) != json.dumps(p, sort_keys=True, ensure_ascii=False)}
+    aviso(f"o diretor mudou {len(mudou)} cena(s)")
     return conferir(nova, palavras, briefing, trabalho if mudou else None, aviso, mudou)
 
+# ------------------------------------------------------------------------------------------------ render
+FPS = 30
+
+
+def _fonte_remotion(projeto: Path) -> str:
+    """Impressão do código que desenha as cenas: mudou um modelo = todos os blocos são refeitos."""
+    h = hashlib.sha1()
+    for arq in sorted([*(projeto / "src").rglob("*"), projeto / "package.json"]):
+        if arq.is_file() and arq.name != Path(ARQ_CONFERIR).name:
+            h.update(arq.relative_to(projeto).as_posix().encode())
+            h.update(arq.read_bytes())
+    return h.hexdigest()
+
+
+def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
+    """Planos agrupados em blocos de ~3 planos (corte decidido pelo id do plano, não pela posição: inserir ou tirar um
+    plano não muda os blocos dos outros). Cada bloco = intervalo de quadros + impressão do que aparece nele."""
+    planos = direcao["planos"]
+    total = math.ceil((palavras[-1]["f"] + 0.35) * FPS)
+    q = [0] + [min(total, math.ceil(palavras[p["i"]]["i"] * FPS - 1e-6)) for p in planos[1:]] + [total]
+    comum = hashlib.sha1(json.dumps([[w["t"], w["i"], w["f"]] for w in palavras] + [direcao.get("chaves", []), fonte],
+                                    ensure_ascii=False).encode()).hexdigest()
+    saida, atual = [], []
+    for n, p in enumerate(planos):
+        atual.append(n)
+        if int(p["id"][:6], 16) % 3 == 0 or len(atual) >= 5 or n == len(planos) - 1:
+            ini, fim = q[atual[0]], q[n + 1] - 1
+            if fim >= ini:
+                chave = json.dumps({"planos": [planos[k] for k in atual], "q": [ini, fim], "comum": comum}, sort_keys=True,
+                                   ensure_ascii=False)
+                saida.append({"inicio": ini, "fim": fim, "planos": [planos[k]["id"] for k in atual],
+                              "impressao": hashlib.sha1(chave.encode()).hexdigest()[:16]})
+            atual = []
+    return saida
+
+
 def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, progresso=None) -> float:
-    """Render da composição do canal. A pasta trabalho/ do vídeo (com voz.wav) vira a pasta pública do Remotion."""
+    """Render por blocos com cache (como no Runeterra): só os blocos com plano alterado são renderizados de novo; a
+    voz entra no FFmpeg, sem recomprimir o vídeo. A pasta trabalho/ do vídeo (com voz.wav) é a pasta pública do Remotion."""
     projeto = RAIZ / CFG.get("projeto", "")
+    cache = trabalho.parent / "blocos_vertical"  # fora de trabalho/: a pasta pública é copiada a cada render
+    cache.mkdir(parents=True, exist_ok=True)
     props = trabalho / "vertical_props.json"
     props.write_text(json.dumps(_props(direcao, palavras), ensure_ascii=False), encoding="utf-8")
-
-    saida.parent.mkdir(parents=True, exist_ok=True)
-    cmd = ["npx.cmd", "remotion", "render", "src/index.ts", CFG.get("composicao", "Vertical"), str(saida),
-           f"--props={props}", f"--public-dir={trabalho}", "--gl=angle", "--concurrency=3"]
+    lista = blocos(direcao, palavras, _fonte_remotion(projeto))
+    faltam = [b for b in lista if not (cache / f"{b['impressao']}.mp4").exists()]
     inicio = time.time()
-    proc = subprocess.Popen(cmd, cwd=projeto, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                            encoding="utf-8", errors="replace")
-    cauda: list[str] = []
-    for linha in proc.stdout:
-        cauda = (cauda + [linha.rstrip()])[-30:]
-        m = re.search(r"Rendered (\d+)/(\d+)", linha)
-        if m and progresso:
-            progresso(int(m.group(1)) / int(m.group(2)), inicio)
-    if proc.wait() != 0 or not saida.exists():
-        raise RuntimeError("render falhou: " + " | ".join(l for l in cauda if l.strip())[-600:])
+    if faltam:
+        pedido = trabalho / "render_blocos_pedido.json"
+        pedido.write_text(json.dumps({"composicao": CFG.get("composicao", "Vertical"), "props": str(props), "publicDir": str(trabalho),
+                                      "blocos": [{"inicio": b["inicio"], "fim": b["fim"], "saida": str(cache / f"{b['impressao']}.mp4")}
+                                                 for b in faltam]}), encoding="utf-8")
+        a_fazer = sum(b["fim"] - b["inicio"] + 1 for b in faltam)
+        feitos = [0] * len(faltam)
+        proc = subprocess.Popen(["node", "render_blocos.mjs", str(pedido)], cwd=projeto, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
+        cauda: list[str] = []
+        for linha in proc.stdout:
+            cauda = (cauda + [linha.rstrip()])[-30:]
+            m = re.match(r"PROG (\d+) (\d+)", linha)
+            if m and progresso:
+                feitos[int(m.group(1))] = int(m.group(2))
+                progresso(sum(feitos) / a_fazer, inicio)
+        if proc.wait() != 0 or any(not (cache / f"{b['impressao']}.mp4").exists() for b in faltam):
+            raise RuntimeError("render falhou: " + " | ".join(l for l in cauda if l.strip())[-600:])
+    saida.parent.mkdir(parents=True, exist_ok=True)
+    juntar = trabalho / "render_blocos.txt"
+    juntar.write_text("".join(f"file '{(cache / (b['impressao'] + '.mp4')).as_posix()}'\n" for b in lista), encoding="utf-8")
+    total = math.ceil((palavras[-1]["f"] + 0.35) * FPS) / FPS
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(juntar), "-i", str(trabalho / "voz.wav"),
+                        "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", f"{total:.3f}",
+                        "-movflags", "+faststart", str(saida)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0 or not saida.exists():
+        raise RuntimeError("junção dos blocos falhou: " + r.stderr[-600:])
+    # o cache guarda os blocos desta versão e os da anterior (para voltar atrás sem renderizar)
+    usados = {b["impressao"] for b in lista}
+    anterior = trabalho.parent / "blocos_vertical.json"
+    if anterior.exists():
+        usados |= set(json.loads(anterior.read_text(encoding="utf-8")))
+    for velho in cache.glob("*.mp4"):
+        if velho.stem not in usados:
+            velho.unlink(missing_ok=True)
+    anterior.write_text(json.dumps(sorted(b["impressao"] for b in lista)), encoding="utf-8")
     return time.time() - inicio
