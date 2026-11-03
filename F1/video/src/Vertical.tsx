@@ -9,7 +9,7 @@ import {
   Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, drawRastro, fumaca, grade, gridX, gridZ, halo,
   luzGantry, luzesDesfocadas, montar, num, poe, poeCinza, poePneu, preparar, seed, solta, type Mundo,
 } from "./modelos/mundo";
-import { PINTURAS, carro } from "./modelos/Carro3D";
+import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
 import {
   bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, degrau, esconderExtras, numeroNoCarro, obj, pontoNoMapa, rotulo,
   topoDoPodio,
@@ -386,6 +386,7 @@ export const API = {
   THREE, camera, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
   luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS,
+  pneus: (w: Mundo, k: number, composto: string) => trocarComposto(w.carros[k], composto),
 };
 // API:fim
 const NOMES_API = Object.keys(API);
