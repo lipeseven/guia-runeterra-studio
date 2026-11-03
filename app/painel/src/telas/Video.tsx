@@ -51,7 +51,7 @@ export function Video({ id }: { id: number }) {
   const previaPainel = (
             <Painel titulo="Prévia" lateral={previa ? `${previa.titulo.toLowerCase()} · ${previa.detalhe ?? ''}` : undefined}>
               {previa && typeof previa.dados.video === 'string' ? (
-                <video key={previa.dados.video} src={arquivo(previa.dados.video)} controls className={vozIa ? 'mx-auto max-h-[720px] rounded-lg bg-black' : 'w-full rounded-lg bg-black'} />
+                <video id="previa-video" key={previa.dados.video} src={arquivo(previa.dados.video)} controls className={vozIa ? 'mx-auto max-h-[720px] rounded-lg bg-black' : 'w-full rounded-lg bg-black'} />
               ) : previa && typeof previa.dados.audio === 'string' ? (
                 <div>
                   {!vozIa && <p className="mb-2 text-xs text-suave">Voz guia — só para o rascunho, nunca vai para o vídeo publicado.</p>}

@@ -1,10 +1,19 @@
 import { useState } from 'react'
+import { Play } from 'lucide-react'
 import { api, useAoVivo, type Etapa } from '../api'
 
 type Plano = { id: string; n: number; tipo: string; clima: string | null; inicio: number; trecho: string; extras: string[] }
 type Pedido = { plano: string | null; texto: string; quando: string }
 type Dados = { planos: Plano[]; pedidos: Pedido[]; avisos: string[] }
 
+/** Toca a Prévia a partir do segundo do plano (o player fica ao lado, na página do vídeo). */
+const tocar = (s: number) => {
+  const v = document.getElementById('previa-video') as HTMLVideoElement | null
+  if (!v) return
+  v.currentTime = s
+  void v.play()
+  v.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+}
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
 /** Vídeo vertical: a direção da animação, plano a plano. Pedidos ficam na fila até "Refazer com os pedidos". */
@@ -76,7 +85,14 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
             return (
               <li key={p.id} className="border-b border-borda/60 px-3 py-2 last:border-0">
                 <div className="flex items-start gap-3">
-                  <span className="w-10 shrink-0 pt-0.5 font-mono text-[11px] text-apagado">{mmss(p.inicio)}</span>
+                  <button
+                    onClick={() => tocar(p.inicio)}
+                    title="Assistir a partir deste trecho"
+                    className="flex w-14 shrink-0 items-center gap-1 pt-0.5 font-mono text-[11px] text-apagado hover:text-ouro"
+                  >
+                    <Play className="size-3" />
+                    {mmss(p.inicio)}
+                  </button>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-texto/90">{p.trecho}</p>
                     <p className="mt-0.5 font-mono text-[11px] text-suave">
