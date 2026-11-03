@@ -523,7 +523,7 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     return saida
 
 
-MUSICA_DB = -16.0  # volume da música de fundo (fora da fala); sob a voz o ducking abaixa mais ~8 dB
+MUSICA_DB = -15.0  # volume padrão (~10 dB abaixo da voz no vídeo) da música (ganho sobre a trilha normalizada); o painel ajusta por vídeo (musica.json "volume")
 EXT_AUDIO = (".mp3", ".wav", ".m4a", ".ogg", ".flac")
 
 
@@ -562,9 +562,11 @@ def _com_audio(video: list[str], trabalho: Path, direcao: dict, palavras: list[d
     if musica:
         j = len(efeitos) + 2
         entradas += ["-stream_loop", "-1", "-i", str(musica)]
-        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{total:.3f},volume={MUSICA_DB}dB,"
+        vol = float(config_musica(trabalho.parent).get("volume", MUSICA_DB))
+        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{total:.3f},volume={vol}dB,"
                        f"afade=t=in:d=1.5,afade=t=out:st={max(0, total - 2.5):.3f}:d=2.5[m0]")
-        filtros.append("[m0][vsc]sidechaincompress=threshold=0.03:ratio=5:attack=40:release=700[mus]")
+        # ducking suave: abaixa ~4 a 6 dB enquanto há fala (antes era forte demais e só sobravam os pratos)
+        filtros.append("[m0][vsc]sidechaincompress=threshold=0.06:ratio=2.5:attack=60:release=800[mus]")
         rotulos.append("[mus]")
     filtros.append(f"{''.join(rotulos)}amix=inputs={len(rotulos)}:duration=first:normalize=0,apad,atrim=0:{total:.3f}[audio]")
     r = subprocess.run(["ffmpeg", "-v", "error", "-y", *entradas, "-filter_complex", ";".join(filtros),

@@ -16,7 +16,7 @@ const tocar = (s: number) => {
 }
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
-type Musica = { ligada: boolean; descricao: string; pasta: string; em_uso: string | null; propria: boolean }
+type Musica = { ligada: boolean; descricao: string; volume?: number; pasta: string; em_uso: string | null; propria: boolean }
 
 /** Música de fundo do vídeo: gerada no PC pela descrição (ou a do Felipe, posta na pasta musica/ do projeto).
  *  Aplicar refaz só o áudio do último vídeo: sem Claude e sem renderizar a imagem. */
@@ -24,18 +24,21 @@ function MusicaDeFundo({ videoId, trabalhando, aoMudar }: { videoId: number; tra
   const { dados, recarregar } = useAoVivo<Musica>(`/videos/${videoId}/musica`, 8000)
   const [ligada, setLigada] = useState<boolean | null>(null)
   const [descricao, setDescricao] = useState<string | null>(null)
+  const [volume, setVolume] = useState<number | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const lig = ligada ?? dados?.ligada ?? false
   const desc = descricao ?? dados?.descricao ?? ''
+  const vol = volume ?? dados?.volume ?? -15
   const aplicar = async () => {
     setErro(null)
     try {
-      await api(`/videos/${videoId}/musica`, { method: 'POST', body: JSON.stringify({ ligada: lig, descricao: desc }) })
+      await api(`/videos/${videoId}/musica`, { method: 'POST', body: JSON.stringify({ ligada: lig, descricao: desc, volume: vol }) })
     } catch (e) {
       return setErro(String(e).match(/"detail":"([^"]+)"/)?.[1] ?? String(e))
     }
     setLigada(null)
     setDescricao(null)
+    setVolume(null)
     recarregar()
     aoMudar()
   }
@@ -57,6 +60,13 @@ function MusicaDeFundo({ videoId, trabalhando, aoMudar }: { videoId: number; tra
           placeholder="como ela é, em inglês: calm modern electronic, soft pads, light beat"
           className="mt-2 w-full rounded-md border border-borda bg-painel-2 px-2 py-1.5 text-xs outline-none focus:border-suave"
         />
+      )}
+      {lig && (
+        <label className="mt-2 flex items-center gap-3 text-xs text-suave">
+          volume
+          <input type="range" min={-30} max={-3} step={1} value={vol} onChange={(e) => setVolume(Number(e.target.value))} className="flex-1" />
+          <span className="w-24 font-mono text-[11px] text-apagado">{vol} dB{vol === -15 ? " (padrão)" : ""}</span>
+        </label>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button

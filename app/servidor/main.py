@@ -844,6 +844,7 @@ def tirar_pedido(vid: int, n: int):
 class Musica(BaseModel):
     ligada: bool
     descricao: str = ""
+    volume: float = -15.0  # dB sobre a trilha normalizada; -15 fica ~10 dB abaixo da voz
 
 
 @app.get("/api/videos/{vid}/musica")
@@ -869,7 +870,7 @@ def mudar_musica(vid: int, corpo: Musica):
     cfg = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {}
     if corpo.descricao.strip() != cfg.get("descricao", ""):
         cfg.pop("arquivo", None)  # descrição nova = trilha nova
-    cfg.update({"ligada": corpo.ligada, "descricao": corpo.descricao.strip()})
+    cfg.update({"ligada": corpo.ligada, "descricao": corpo.descricao.strip(), "volume": max(-40.0, min(0.0, corpo.volume))})
     arq.write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8")
     (dirc.parent / "musica").mkdir(exist_ok=True)
     with conectar() as con:
