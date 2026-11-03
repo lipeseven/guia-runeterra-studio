@@ -277,8 +277,7 @@ export function montar(canvas: HTMLCanvasElement): Mundo {
   const fazer = (mod: THREE.Group, pai: THREE.Object3D = cena) => {
     const g = new THREE.Group();
     const c = mod.clone();
-    c.scale.set(0.7, 0.9, 1.1);
-    g.add(c, plano(2.5, 7.2, 0, 0, sombra));
+    g.add(c, plano(2.5, 6.2, 0, 0, sombra));
     pai.add(g);
     return g;
   };

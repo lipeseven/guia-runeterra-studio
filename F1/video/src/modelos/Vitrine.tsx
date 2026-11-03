@@ -60,6 +60,16 @@ VITRINE.push((w, s) => {
   const x = s < 0.5 ? 0 : -0.75;
   camera(w, [x + 0.35, 1.74, 0.95], [x, 1.66, 0], 34);
 });
+// carro de cima, de lado, de trás e em 3/4 (para comparar com desenhos de referência)
+const VISTAS: [number, number, number, number][] = [[0, 14, 0.01, 26], [22, 0.6, 0, 30], [0, 1, 12, 22], [6, 2.4, -7, 34]];
+VISTAS.forEach(([x, y, z, lente]) =>
+  VITRINE.push((w) => {
+    preparar(w, "claro", "estudio");
+    numeroNoCarro(w, 12, "12");
+    poe(w, 12, 0, 0);
+    camera(w, [x, y, z], [0, 0.45, 0], lente, 0, y > 10);
+  }),
+);
 export const DURACAO_VITRINE = VITRINE.length * 30;
 
 export const Vitrine: React.FC = () => {
