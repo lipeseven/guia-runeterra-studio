@@ -529,7 +529,8 @@ EXT_AUDIO = (".mp3", ".wav", ".m4a", ".ogg", ".flac")
 
 def config_musica(projeto: Path) -> dict:
     arq = projeto / "direcao" / "musica.json"
-    return json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {"ligada": False, "descricao": ""}
+    # utf-8-sig: um musica.json salvo por outro programa com BOM não pode derrubar a página
+    return json.loads(arq.read_text(encoding="utf-8-sig")) if arq.exists() else {"ligada": False, "descricao": ""}
 
 
 def arquivo_musica(projeto: Path) -> Path | None:

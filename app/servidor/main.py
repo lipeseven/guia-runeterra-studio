@@ -867,16 +867,17 @@ def mudar_musica(vid: int, corpo: Musica):
     if not any((dirc.parent / "saida").glob("final_v*.mp4")):
         raise HTTPException(400, "ainda não há vídeo renderizado")
     arq = dirc / "musica.json"
-    cfg = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {}
-    if corpo.descricao.strip() != cfg.get("descricao", ""):
+    cfg = json.loads(arq.read_text(encoding="utf-8-sig")) if arq.exists() else {}
+    descricao = corpo.descricao.strip() or cfg.get("descricao", "")  # campo vazio = mantém a música que já existe
+    if descricao != cfg.get("descricao", ""):
         cfg.pop("arquivo", None)  # descrição nova = trilha nova
-    cfg.update({"ligada": corpo.ligada, "descricao": corpo.descricao.strip(), "volume": max(-40.0, min(0.0, corpo.volume))})
+    cfg.update({"ligada": corpo.ligada, "descricao": descricao, "volume": max(-40.0, min(0.0, corpo.volume))})
     arq.write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8")
     (dirc.parent / "musica").mkdir(exist_ok=True)
     with conectar() as con:
         motor.fechar_pendencia(con, vid, "ver_final")
         atualizar_etapa(con, vid, "render", "andamento", "na fila", "música de fundo" if corpo.ligada else "tirando a música")
-        registrar(con, vid, "Música de fundo: " + (f"ligada ({corpo.descricao.strip() or 'padrão'})" if corpo.ligada else "desligada"), "info")
+        registrar(con, vid, "Música de fundo: " + (f"ligada ({descricao or 'padrão'})" if corpo.ligada else "desligada"), "info")
         con.commit()
     motor.FILA.put((vid, "musica"))
     return {"ok": True}
