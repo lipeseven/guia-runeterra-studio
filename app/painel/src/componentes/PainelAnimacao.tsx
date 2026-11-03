@@ -57,7 +57,7 @@ function MusicaDeFundo({ videoId, trabalhando, aoMudar }: { videoId: number; tra
         <input
           value={desc}
           onChange={(e) => setDescricao(e.target.value)}
-          placeholder="como ela é, em inglês: calm modern electronic, soft pads, light beat"
+          placeholder="como ela é, em inglês (vazio = calm modern electronic, soft pads, light beat)"
           className="mt-2 w-full rounded-md border border-borda bg-painel-2 px-2 py-1.5 text-xs outline-none focus:border-suave"
         />
       )}
