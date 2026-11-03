@@ -69,6 +69,17 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
 - `rotulo("TEXTO", { altura, cor, fundo })`: placa 3D que olha para a câmera (dentro de `obj`).
 - Também prontos no mundo: `w.trofeu` (troféu dourado: `.visible = true` e posição), `w.sc` (Safety Car).
 
+## Desmonte (mostrar como uma peça funciona)
+A peça que faz o trabalho se abre: vale mais que dez voltas de câmera. Tudo volta ao normal no quadro seguinte (chame a
+cada quadro). Funciona no carro (`w.carros[k]`) e em todo modelo com peças marcadas; `nomesDasPecas(modelo)` lista os nomes.
+- `explodir(modelo, k, distancia = 1)`: k 0 = montado, 1 = aberto; as peças de fora saem primeiro (anime k com `suave`).
+- `isolar(modelo, "nome" | ["nomes"], k = 1)`: só as peças citadas ficam inteiras; o resto vira fantasma.
+- `raioX(modelo, "nome" | ["nomes"], k = 1)`: as peças citadas (a casca) viram vidro.
+- `cortar(modelo, [nx, ny, nz], [x, y, z])`: some tudo do lado para onde a normal aponta (no espaço do modelo).
+Peças do carro: asa_dianteira, asa_traseira, halo, tampa_do_motor, monocoque, assoalho, suspensao, sidepod_esquerda,
+sidepod_direita, roda_dianteira_esquerda, roda_dianteira_direita, roda_traseira_esquerda, roda_traseira_direita.
+Exemplo: `explodir(w.carros[12], suave(c.t, c.m("pecas", 0.2), c.m("pecas", 0.2) + 1.2)); enquadrar(w, w.carros[12], [0.8, 0.6, -0.9], 1.1);`
+
 ## Efeitos
 `confete(w, t, inicio, x, altura)`, `fumaca(w, t, x, z)`, `bandeira(w, n, x, z, giroY, t, escala)` (n: 0 verde,
 1 amarela, 2 azul, 3 vermelha, 4 preta, 5 quadriculada), `luzGantry(w, n, acesa)` (n = 0 a 4, pórtico em Z_PORTICO = -111,

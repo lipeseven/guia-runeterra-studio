@@ -4,6 +4,7 @@ import { AbsoluteFill, continueRender, delayRender, useCurrentFrame } from "remo
 import { bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, esconderExtras, numeroNoCarro, obj, pontoNoMapa, topoDoPodio } from "./extras";
 import { camera, enquadrar, montar, poe, preparar, Z_POLE, type Mundo } from "./mundo";
 import { trocarComposto } from "./Carro3D";
+import { cortar, explodir, isolar, raioX, restaurar } from "./desmonte";
 
 const VITRINE: ((w: Mundo, s: number) => void)[] = [
   (w, s) => {
@@ -82,6 +83,18 @@ VITRINE.push((w, s) => {
   const z = -Math.min(2, Math.floor(s * 3)) * 6.5;
   camera(w, [2.3, 0.55, z - 0.7], [0.8, 0.36, z - 1.55], 34);
 });
+// desmonte do carro: explodir, isolar a roda, raio-X da tampa, corte ao meio
+VITRINE.push((w, s) => {
+  preparar(w, "claro", "estudio");
+  poe(w, 12, 0, 0);
+  const car = w.carros[12];
+  const f = Math.floor(s * 4);
+  if (f === 0) explodir(car, 1);
+  if (f === 1) isolar(car, "roda_dianteira_esquerda");
+  if (f === 2) raioX(car, ["tampa_do_motor", "sidepod_esquerda", "sidepod_direita"]);
+  if (f === 3) cortar(car, [1, 0, 0]);
+  enquadrar(w, car, [0.75, 0.55, -0.9], f === 0 ? 1.05 : 1.15);
+});
 export const DURACAO_VITRINE = VITRINE.length * 30;
 
 export const Vitrine: React.FC = () => {
@@ -92,6 +105,7 @@ export const Vitrine: React.FC = () => {
   useLayoutEffect(() => {
     const w = mundo.current ?? (mundo.current = montar(ref.current!));
     esconderExtras(w);
+    restaurar();
     VITRINE[Math.min(VITRINE.length - 1, Math.floor(q / 30))](w, (q % 30) / 30);
     w.r.render(w.cena, w.cam);
     continueRender(alca);

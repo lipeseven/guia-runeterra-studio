@@ -148,6 +148,7 @@ function faixaCurva(pts: THREE.Vector3[], largura: number, y: number, m: THREE.M
 export function montar(canvas: HTMLCanvasElement): Mundo {
   const r = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   r.setSize(1080, 1920, false);
+  r.localClippingEnabled = true; // corte dos modelos (desmonte.ts)
   r.outputColorSpace = THREE.SRGBColorSpace;
   r.toneMapping = THREE.ACESFilmicToneMapping;
   r.toneMappingExposure = 0.96;

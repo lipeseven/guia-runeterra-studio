@@ -10,6 +10,7 @@ import {
   luzGantry, luzesDesfocadas, montar, num, poe, poeCinza, poePneu, preparar, seed, solta, type Mundo,
 } from "./modelos/mundo";
 import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
+import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "./modelos/desmonte";
 import {
   bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, degrau, esconderExtras, numeroNoCarro, obj, pontoNoMapa, rotulo,
   topoDoPodio,
@@ -389,6 +390,7 @@ export const API = {
   THREE, camera, enquadrar, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
   luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
+  explodir, isolar, raioX, cortar, nomesDasPecas,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
@@ -517,6 +519,7 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
   useLayoutEffect(() => {
     const w = mundo.current ?? (mundo.current = montar(ref.current!));
     esconderExtras(w);
+    restaurar(); // desmonte do quadro anterior (explodir, isolar, raio-X, corte) não vaza para este
     const cena = p.codigo ? cenas[p.id] : null;
     let feito = false;
     if (cena) {

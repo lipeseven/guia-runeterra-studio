@@ -70,6 +70,13 @@ Fundo sempre escuro ou dessaturado; o acento forte vem do objeto, em pequena ár
   o movimento vem de animar a direção, a folga ou a lente. Câmera à mão só para perseguição, POV e passagem rápida.
 - Kart e carro com piloto: a câmera fica alta o bastante para ver o capacete por cima da carroceria.
 
+## Desmonte e modelos novos (método do Teardown)
+- Explicar uma peça = abrir a peça: explodir, isolar (o resto vira fantasma), raio-X ou corte, na palavra que a cita.
+  A cor de destaque marca só a peça que está trabalhando agora.
+- Modelo novo para a biblioteca: referência real primeiro (foto, desenho em corte, vídeo), medidas reais conferidas e
+  anotadas no código, cada peça com nome (`peca()`), e o movimento como função de UMA entrada (ex.: giro do seletor de 0
+  a 1). Antes de entrar na biblioteca: quadro de perto de cada vista, comparado com a referência.
+
 ## Pessoas
 - Piloto sem rosto, com tom de pele. No carro: capacete. Fora do carro (pódio, entrevista, box): boné nas cores da equipe.
 - Cores de equipe só as conferidas (`criarPiloto({ equipe })` ou as do briefing); nunca inventar.
