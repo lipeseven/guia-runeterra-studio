@@ -96,26 +96,28 @@ VITRINE.push((w, s) => {
   if (f === 3) cortar(car, [1, 0, 0]);
   enquadrar(w, car, [0.75, 0.55, -0.9], f === 0 ? 1.05 : 1.15);
 });
-// volante: frente com comandos acionados, 3/4 de trás (paddles), explodido e close dos seletores
+// volante: de frente e de trás (para comparar com a referência), 3/4 com comandos acionados, explodido e close
 VITRINE.push((w, s) => {
   preparar(w, "claro", "estudio");
   const v = obj(w, "volante", () => criarVolante());
   v.position.set(0, 1, 0);
-  const f = Math.floor(s * 4);
-  if (f === 0) {
+  const f = Math.min(5, Math.floor(s * 6));
+  if (f === 0) enquadrar(w, v, [0, 0, 1], 1.02, 12);
+  else if (f === 1) enquadrar(w, v, [0, 0, -1], 1.02, 12);
+  else if (f === 2) {
     apertar(v, "ot");
     luzesDeTroca(v, 0.7);
     telaDoVolante(v, { marcha: "7", modo: "OT", delta: "-0.214", velocidade: 318 });
-    enquadrar(w, v, [0, 0.08, 1], 1.08, 30);
-  } else if (f === 1) {
+    enquadrar(w, v, [0.55, 0.3, 1], 1.06, 28);
+  } else if (f === 3) {
     puxar(v, "marcha_direita");
-    enquadrar(w, v, [0.7, 0.25, -1], 1.08, 30);
-  } else if (f === 2) {
+    enquadrar(w, v, [0.6, 0.35, -1], 1.06, 28);
+  } else if (f === 4) {
     explodir(v, 1);
-    enquadrar(w, v, [0.85, 0.3, 1], 1.05, 30);
+    enquadrar(w, v, [0.85, 0.3, 1], 1.04, 28);
   } else {
     girar(v, "central", 7);
-    camera(w, [0.04, 0.96, 0.16], [0, 0.955, 0], 30);
+    camera(w, [0.03, 0.97, 0.1], [0, 0.958, 0.01], 34);
   }
 });
 export const DURACAO_VITRINE = VITRINE.length * 30;
