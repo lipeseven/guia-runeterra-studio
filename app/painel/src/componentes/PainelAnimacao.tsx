@@ -16,6 +16,65 @@ const tocar = (s: number) => {
 }
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
+type Musica = { ligada: boolean; descricao: string; pasta: string; em_uso: string | null; propria: boolean }
+
+/** Música de fundo do vídeo: gerada no PC pela descrição (ou a do Felipe, posta na pasta musica/ do projeto).
+ *  Aplicar refaz só o áudio do último vídeo: sem Claude e sem renderizar a imagem. */
+function MusicaDeFundo({ videoId, trabalhando, aoMudar }: { videoId: number; trabalhando: boolean; aoMudar: () => void }) {
+  const { dados, recarregar } = useAoVivo<Musica>(`/videos/${videoId}/musica`, 8000)
+  const [ligada, setLigada] = useState<boolean | null>(null)
+  const [descricao, setDescricao] = useState<string | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const lig = ligada ?? dados?.ligada ?? false
+  const desc = descricao ?? dados?.descricao ?? ''
+  const aplicar = async () => {
+    setErro(null)
+    try {
+      await api(`/videos/${videoId}/musica`, { method: 'POST', body: JSON.stringify({ ligada: lig, descricao: desc }) })
+    } catch (e) {
+      return setErro(String(e).match(/"detail":"([^"]+)"/)?.[1] ?? String(e))
+    }
+    setLigada(null)
+    setDescricao(null)
+    recarregar()
+    aoMudar()
+  }
+  return (
+    <div className="mt-4 rounded-lg border border-borda p-3">
+      <div className="flex items-center justify-between gap-3">
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input type="checkbox" checked={lig} onChange={(e) => setLigada(e.target.checked)} />
+          Música de fundo
+        </label>
+        <span className="truncate font-mono text-[11px] text-apagado">
+          {dados?.em_uso ? (dados.propria ? `sua música: ${dados.em_uso}` : 'gerada no PC') : 'sem música'}
+        </span>
+      </div>
+      {lig && (
+        <input
+          value={desc}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="como ela é, em inglês: calm modern electronic, soft pads, light beat"
+          className="mt-2 w-full rounded-md border border-borda bg-painel-2 px-2 py-1.5 text-xs outline-none focus:border-suave"
+        />
+      )}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <button
+          disabled={trabalhando}
+          onClick={aplicar}
+          className="rounded-md border border-ouro/60 px-3 py-1.5 text-xs text-ouro hover:bg-ouro/10 disabled:opacity-40"
+        >
+          {lig ? 'Aplicar música' : 'Tirar a música'}
+        </button>
+        <span className="text-[11px] text-apagado">
+          baixa e abaixando sozinha quando há fala · só refaz o áudio (sem Claude) · sua própria música: ponha o arquivo em {dados?.pasta ?? 'musica/'}
+        </span>
+      </div>
+      {erro && <p className="mt-2 text-xs text-atencao">{erro}</p>}
+    </div>
+  )
+}
+
 /** Vídeo vertical: a direção da animação, plano a plano. Pedidos ficam na fila até "Refazer com os pedidos". */
 export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId: number; direcao: Etapa; render: Etapa; aoMudar: () => void }) {
   const { dados, recarregar } = useAoVivo<Dados>(`/videos/${videoId}/animacao`, 5000)
@@ -191,6 +250,7 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
           </div>
         </div>
       )}
+      {planos.length > 0 && <MusicaDeFundo videoId={videoId} trabalhando={trabalhando} aoMudar={aoMudar} />}
       {erro && <p className="mt-2 text-xs text-atencao">{erro}</p>}
     </section>
   )

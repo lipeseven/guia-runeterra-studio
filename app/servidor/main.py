@@ -841,6 +841,46 @@ def tirar_pedido(vid: int, n: int):
     return {"ok": True, "pedidos": pedidos}
 
 
+class Musica(BaseModel):
+    ligada: bool
+    descricao: str = ""
+
+
+@app.get("/api/videos/{vid}/musica")
+def ver_musica(vid: int):
+    """Vertical: música de fundo (gerada no PC, ou a do Felipe na pasta musica/ do projeto, que tem prioridade)."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    import vertical
+
+    dirc = _dirc(vid)
+    cfg = vertical.config_musica(dirc.parent)
+    em_uso = vertical.arquivo_musica(dirc.parent) if cfg.get("ligada") else None
+    return {**cfg, "pasta": str(dirc.parent / "musica"), "em_uso": em_uso.name if em_uso else None,
+            "propria": bool(em_uso and not em_uso.name.startswith("trilha_"))}
+
+
+@app.post("/api/videos/{vid}/musica")
+def mudar_musica(vid: int, corpo: Musica):
+    """Salva a escolha e põe na fila: gera a trilha (se precisar) e refaz só o áudio do último vídeo."""
+    dirc = _dirc(vid)
+    if not any((dirc.parent / "saida").glob("final_v*.mp4")):
+        raise HTTPException(400, "ainda não há vídeo renderizado")
+    arq = dirc / "musica.json"
+    cfg = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {}
+    if corpo.descricao.strip() != cfg.get("descricao", ""):
+        cfg.pop("arquivo", None)  # descrição nova = trilha nova
+    cfg.update({"ligada": corpo.ligada, "descricao": corpo.descricao.strip()})
+    arq.write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8")
+    (dirc.parent / "musica").mkdir(exist_ok=True)
+    with conectar() as con:
+        motor.fechar_pendencia(con, vid, "ver_final")
+        atualizar_etapa(con, vid, "render", "andamento", "na fila", "música de fundo" if corpo.ligada else "tirando a música")
+        registrar(con, vid, "Música de fundo: " + (f"ligada ({corpo.descricao.strip() or 'padrão'})" if corpo.ligada else "desligada"), "info")
+        con.commit()
+    motor.FILA.put((vid, "musica"))
+    return {"ok": True}
+
+
 class RefazerAnimacao(BaseModel):
     do_zero: bool = False
     so_render: bool = False  # sem Claude: renderiza de novo a direção atual (ex.: um modelo 3D mudou)
@@ -858,6 +898,7 @@ def refazer_animacao(vid: int, corpo: RefazerAnimacao):
         raise HTTPException(400, "escreva ao menos um pedido, ou peça para refazer do zero")
     with conectar() as con:
         motor.fechar_pendencia(con, vid, "ver_final")
+        motor.fechar_pendencia(con, vid, "sem_mudanca")
         if corpo.do_zero:
             atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "do zero")
             registrar(con, vid, "Animação: refazer do zero", "info")

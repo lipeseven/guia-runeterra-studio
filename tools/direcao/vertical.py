@@ -397,7 +397,8 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
               "Plano novo (dividir uma cena) vem sem id, com \"depois_de\": id do plano que vem antes dele. Plano que sai: "
               "id em \"remover\". Responda SOMENTE JSON {\"planos\": [{\"id\", \"em\", \"set\", \"clima\", \"codigo\" (ou "
               "\"tipo\" + parâmetros), \"marcas\"?, \"som\"?, sobreposições?}], \"remover\": [ids]}. O código é JavaScript puro dentro "
-              "de uma string JSON.")
+              "de uma string JSON. Pedido que não se resolve com cena (música de fundo, voz, texto falado) não muda plano: "
+              "explique em \"nao_da\": [\"motivo curto\"].")
     aviso("o diretor aplica os seus pedidos")
     r = chamar_json(prompt, sistema(), modelo="opus", etiqueta="vertical-revisao")
     novos = [n for n in (r.get("planos") if isinstance(r, dict) else r) or [] if isinstance(n, dict)]
@@ -423,6 +424,15 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
     nova = {**direcao, "planos": planos, "avisos": avisos, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
     antes = {p["id"]: json.dumps(p, sort_keys=True, ensure_ascii=False) for p in direcao["planos"]}
     mudou = {p["id"] for p in nova["planos"] if antes.get(p["id"]) != json.dumps(p, sort_keys=True, ensure_ascii=False)}
+    mudou |= set(antes) - {p["id"] for p in nova["planos"]}  # plano removido também é mudança
+    if trabalho is not None:  # cada rodada fica guardada: o que foi pedido e o que o diretor devolveu
+        pasta = trabalho.parent / "direcao" / "revisoes"
+        pasta.mkdir(parents=True, exist_ok=True)
+        (pasta / f"{time.strftime('%Y%m%d-%H%M%S')}.json").write_text(
+            json.dumps({"pedidos": pedidos, "resposta": r, "mudou": sorted(mudou)}, ensure_ascii=False, indent=1), encoding="utf-8")
+    if not mudou:
+        motivo = "; ".join(str(x) for x in (r.get("nao_da") or []) if x) if isinstance(r, dict) else ""
+        return {**direcao, "sem_mudanca": motivo or "o diretor não mudou nenhum plano"}
     aviso(f"o diretor mudou {len(mudou)} cena(s)")
     return conferir(nova, palavras, briefing, trabalho if mudou else None, aviso, mudou)
 
@@ -513,6 +523,85 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     return saida
 
 
+MUSICA_DB = -16.0  # volume da música de fundo (fora da fala); sob a voz o ducking abaixa mais ~8 dB
+EXT_AUDIO = (".mp3", ".wav", ".m4a", ".ogg", ".flac")
+
+
+def config_musica(projeto: Path) -> dict:
+    arq = projeto / "direcao" / "musica.json"
+    return json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {"ligada": False, "descricao": ""}
+
+
+def arquivo_musica(projeto: Path) -> Path | None:
+    """A música que entra no vídeo: a do Felipe (qualquer áudio em <projeto>/musica/) tem prioridade; senão a gerada."""
+    cfg = config_musica(projeto)
+    if not cfg.get("ligada"):
+        return None
+    pasta = projeto / "musica"
+    propria = sorted(p for p in pasta.glob("*") if p.suffix.lower() in EXT_AUDIO and not p.name.startswith("trilha_")) if pasta.exists() else []
+    if propria:
+        return propria[0]
+    gerada = projeto / cfg["arquivo"] if cfg.get("arquivo") else None
+    return gerada if gerada and gerada.exists() else None
+
+
+def _com_audio(video: list[str], trabalho: Path, direcao: dict, palavras: list[dict], saida: Path) -> None:
+    """Vídeo (sem recomprimir) + áudio: voz, efeitos (2 quadros antes da palavra, ~15 dB abaixo da voz) e, se ligada,
+    a música de fundo em laço, baixa e com ducking (abaixa sozinha enquanto alguém fala), entrando e saindo em fade."""
+    total = math.ceil((palavras[-1]["f"] + 0.35) * FPS) / FPS
+    efeitos = sons(direcao, palavras, trabalho)
+    musica = arquivo_musica(trabalho.parent)
+    entradas = [*video, "-i", str(trabalho / "voz.wav")]
+    filtros = ["[1:a]aresample=48000,aformat=channel_layouts=stereo" + (",asplit=2[voz][vsc]" if musica else "[voz]")]
+    rotulos = ["[voz]"]
+    for j, s in enumerate(efeitos, start=2):
+        entradas += ["-i", s["arquivo"]]
+        ms = max(0, round((s["t"] - 2 / FPS) * 1000))
+        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,volume={s['volume']},adelay={ms}:all=1[s{j}]")
+        rotulos.append(f"[s{j}]")
+    if musica:
+        j = len(efeitos) + 2
+        entradas += ["-stream_loop", "-1", "-i", str(musica)]
+        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{total:.3f},volume={MUSICA_DB}dB,"
+                       f"afade=t=in:d=1.5,afade=t=out:st={max(0, total - 2.5):.3f}:d=2.5[m0]")
+        filtros.append("[m0][vsc]sidechaincompress=threshold=0.03:ratio=5:attack=40:release=700[mus]")
+        rotulos.append("[mus]")
+    filtros.append(f"{''.join(rotulos)}amix=inputs={len(rotulos)}:duration=first:normalize=0,apad,atrim=0:{total:.3f}[audio]")
+    r = subprocess.run(["ffmpeg", "-v", "error", "-y", *entradas, "-filter_complex", ";".join(filtros),
+                        "-map", "0:v", "-map", "[audio]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", f"{total:.3f}",
+                        "-movflags", "+faststart", str(saida)], capture_output=True, text=True, encoding="utf-8", errors="replace")
+    if r.returncode != 0 or not saida.exists():
+        raise RuntimeError("mixagem do áudio falhou: " + r.stderr[-600:])
+
+
+def remixar(trabalho: Path, direcao: dict, palavras: list[dict], base: Path, saida: Path) -> None:
+    """Só o áudio de novo (ex.: música ligada/trocada): a imagem do vídeo `base` é copiada, sem renderizar."""
+    _com_audio(["-i", str(base)], trabalho, direcao, palavras, saida)
+
+
+def gerar_musica(projeto: Path, segundos: float, aviso=lambda m: None) -> Path | None:
+    """Gera a trilha descrita em musica.json se ainda não houver uma para essa descrição (ou se o Felipe pôs a dele)."""
+    cfg = config_musica(projeto)
+    if not cfg.get("ligada"):
+        return None
+    pasta = projeto / "musica"
+    if pasta.exists() and any(p.suffix.lower() in EXT_AUDIO and not p.name.startswith("trilha_") for p in pasta.glob("*")):
+        return arquivo_musica(projeto)  # a do Felipe vale
+    chave = hashlib.sha1(f"{cfg.get('descricao', '')}|{math.ceil(segundos)}".encode()).hexdigest()[:10]
+    destino = pasta / f"trilha_{chave}.wav"
+    if not destino.exists():
+        import sys
+
+        sys.path.insert(0, str(RAIZ / "tools" / "audio"))
+        from trilha import gerar
+
+        aviso("gerando a música de fundo")
+        gerar(cfg.get("descricao") or "calm modern electronic, soft pads, light beat", segundos + 3, destino)
+    cfg["arquivo"] = destino.relative_to(projeto).as_posix()
+    (projeto / "direcao" / "musica.json").write_text(json.dumps(cfg, ensure_ascii=False, indent=1), encoding="utf-8")
+    return destino
+
+
 def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, progresso=None) -> float:
     """Render por blocos com cache (como no Runeterra): só os blocos com plano alterado são renderizados de novo; a
     voz entra no FFmpeg, sem recomprimir o vídeo. A pasta trabalho/ do vídeo (com voz.wav) é a pasta pública do Remotion."""
@@ -546,22 +635,7 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
     juntar = trabalho / "render_blocos.txt"
     juntar.write_text("".join(f"file '{(cache / (b['impressao'] + '.mp4')).as_posix()}'\n" for b in lista), encoding="utf-8")
     total = math.ceil((palavras[-1]["f"] + 0.35) * FPS) / FPS
-    # áudio = voz + efeitos (cada um 2 quadros antes da palavra, ~15 dB abaixo da voz), mixado aqui mesmo
-    efeitos = sons(direcao, palavras, trabalho)
-    entradas = ["-f", "concat", "-safe", "0", "-i", str(juntar), "-i", str(trabalho / "voz.wav")]
-    filtros = ["[1:a]aresample=48000,aformat=channel_layouts=stereo[voz]"]
-    rotulos = ["[voz]"]
-    for j, s in enumerate(efeitos, start=2):
-        entradas += ["-i", s["arquivo"]]
-        ms = max(0, round((s["t"] - 2 / FPS) * 1000))
-        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,volume={s['volume']},adelay={ms}:all=1[s{j}]")
-        rotulos.append(f"[s{j}]")
-    filtros.append(f"{''.join(rotulos)}amix=inputs={len(rotulos)}:duration=first:normalize=0,apad,atrim=0:{total:.3f}[audio]")
-    r = subprocess.run(["ffmpeg", "-v", "error", "-y", *entradas, "-filter_complex", ";".join(filtros),
-                        "-map", "0:v", "-map", "[audio]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", f"{total:.3f}",
-                        "-movflags", "+faststart", str(saida)], capture_output=True, text=True, encoding="utf-8", errors="replace")
-    if r.returncode != 0 or not saida.exists():
-        raise RuntimeError("junção dos blocos falhou: " + r.stderr[-600:])
+    _com_audio(["-f", "concat", "-safe", "0", "-i", str(juntar)], trabalho, direcao, palavras, saida)
     # o cache guarda os blocos desta versão e os da anterior (para voltar atrás sem renderizar)
     usados = {b["impressao"] for b in lista}
     anterior = trabalho.parent / "blocos_vertical.json"

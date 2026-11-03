@@ -761,6 +761,9 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
         definir_progresso("Animação", "1/2 · o diretor aplica os seus pedidos")
         etapa("direcao", "andamento", "aplicando os seus pedidos…", f"{len(pedidos)} pedido(s)")
         direcao = vertical.revisar(json.loads(arq.read_text(encoding="utf-8")), pedidos, palavras, para_o_diretor(dirc), trab, passo)
+        if direcao.get("sem_mudanca"):  # nada mudou: não renderiza à toa e os pedidos voltam para a fila
+            _sem_mudanca(vid, slug, saida, direcao["sem_mudanca"], pedidos)
+            return
     elif revisar and arq.exists():
         direcao = json.loads(arq.read_text(encoding="utf-8"))
     else:
@@ -781,6 +784,7 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
 
     versao = proxima_versao(saida, "final")
     arquivo = saida / f"final_v{versao}.mp4"
+    vertical.gerar_musica(pasta, palavras[-1]["f"] + 0.35, lambda m: definir_progresso("Animação", f"2/2 · {m}"))
     etapa("render", "andamento", f"renderizando v{versao}…", "Remotion")
     segundos = vertical.renderizar(trab, direcao, palavras, arquivo,
                                    progresso=lambda fr, ini: definir_progresso(f"Animação v{versao}", "2/2 · render", fr, ini))
@@ -792,6 +796,59 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
                         "Se estiver bom, clique em “Vídeo aprovado”.")
         con.execute("UPDATE videos SET coluna='revisao', atualizado_em=? WHERE id=?", (agora(), vid))
         registrar(con, vid, f"Animação v{versao} pronta ({len(direcao['planos'])} planos, render em {mmss(segundos)}) → Revisão", "ok")
+        con.commit()
+
+
+def _ultimo_final(saida: Path) -> Path | None:
+    finais = [p for p in saida.glob("final_v*.mp4") if re.fullmatch(r"final_v\d+", p.stem)]
+    return max(finais, key=lambda p: int(p.stem[7:])) if finais else None
+
+
+def _sem_mudanca(vid: int, slug: str, saida: Path, motivo: str, pedidos: list[dict]) -> None:
+    """O diretor não mudou nenhum plano: o vídeo atual continua, os pedidos ficam na fila e o Felipe é avisado."""
+    dica = " Música de fundo é no bloco “Música de fundo” do painel Animação." if any(
+        re.search(r"m[uú]sica|trilha", p.get("texto", ""), re.I) for p in pedidos) else ""
+    ultimo = _ultimo_final(saida)
+    with conectar() as con:
+        atualizar_etapa(con, vid, "direcao", "concluido", "nada mudou", motivo[:200])
+        if ultimo:
+            n = int(ultimo.stem[7:])
+            atualizar_etapa(con, vid, "render", "atencao", f"v{n} (sem mudança)", "o diretor não mudou nenhum plano",
+                            {"video": caminho_rel(slug, "saida", ultimo.name), "versao": n})
+        abrir_pendencia(con, vid, "sem_mudanca", "direcao", "O diretor não aplicou o pedido",
+                        f"Nenhuma cena mudou ({motivo}). Os pedidos continuam na fila: reescreva com mais detalhe ou descarte.{dica}")
+        registrar(con, vid, f"Diretor não mudou nada: {motivo}", "alerta")
+        con.commit()
+
+
+def tarefa_musica(vid: int) -> None:
+    """Liga, troca ou desliga a música de fundo: gera a trilha (se for o caso) e refaz SÓ o áudio do último vídeo."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    import vertical
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    pasta = PASTA_PROJETOS / slug
+    dirc, trab, saida = pasta / "direcao", pasta / "trabalho", pasta / "saida"
+    palavras = json.loads((dirc / "tempos_voz.json").read_text(encoding="utf-8"))
+    direcao = json.loads((dirc / "vertical.json").read_text(encoding="utf-8"))
+    base = _ultimo_final(saida)
+    if not base:
+        raise RuntimeError("ainda não há vídeo renderizado para pôr a música")
+    vertical.gerar_musica(pasta, palavras[-1]["f"] + 0.35, lambda m: definir_progresso("Música", m))
+    versao = proxima_versao(saida, "final")
+    arquivo = saida / f"final_v{versao}.mp4"
+    definir_progresso("Música", "mixando a voz, os efeitos e a música")
+    vertical.remixar(trab, direcao, palavras, base, arquivo)
+    ligada = vertical.arquivo_musica(pasta) is not None
+    with conectar() as con:
+        fechar_pendencia(con, vid, "ver_final")
+        atualizar_etapa(con, vid, "render", "atencao", f"{mmss(palavras[-1]['f'])} · v{versao}",
+                        "com música de fundo" if ligada else "sem música de fundo",
+                        {"video": caminho_rel(slug, "saida", arquivo.name), "versao": versao})
+        abrir_pendencia(con, vid, "ver_final", "render", "Assista a animação",
+                        "Confira na Prévia. Se estiver bom, clique em “Vídeo aprovado”.")
+        registrar(con, vid, f"Animação v{versao}: " + ("música de fundo aplicada" if ligada else "música de fundo removida"), "ok")
         con.commit()
 
 
@@ -1195,7 +1252,7 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "voz_ia": tarefa_voz_ia, "direcao": tare
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
            "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
-           "importar_riot": tarefa_importar_riot,
+           "importar_riot": tarefa_importar_riot, "musica": tarefa_musica,
            "apos_publicar": tarefa_apos_publicar,
            "remontar_gravacao": tarefa_remontar_gravacao, "retrospectiva": tarefa_retrospectiva}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
