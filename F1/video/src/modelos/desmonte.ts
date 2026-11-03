@@ -6,13 +6,14 @@
 import * as THREE from "three";
 
 type V = [number, number, number];
-type Original = { transparent: boolean; opacity: number; depthWrite: boolean };
 const mexidos = new Set<THREE.Object3D>();
 // estado guardado fora do userData (o userData é copiado em JSON quando um modelo é clonado)
 const pos0 = new WeakMap<THREE.Object3D, THREE.Vector3>();
-const original = new WeakMap<THREE.Mesh, Original>();
-const planos = new WeakMap<THREE.Mesh, THREE.Plane>();
-const SEM_CORTE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 1e6);
+// Materiais gêmeos fixos por malha (como no Teardown): o efeito TROCA de material, nunca liga/desliga a transparência
+// do original. Ligar e desligar a cada quadro fazia cada aba do render (são 3 em paralelo) montar o shader de um jeito,
+// e os quadros alternados piscavam.
+type Gemeos = { orig: THREE.Material; fantasma: THREE.MeshStandardMaterial; corte: THREE.MeshStandardMaterial; plano: THREE.Plane };
+const gemeos = new WeakMap<THREE.Mesh, Gemeos>();const SEM_CORTE = new THREE.Plane(new THREE.Vector3(0, 1, 0), 1e6);
 
 /** Marca um grupo como peça do modelo (para explodir, isolar e raio-X). */
 export function peca<T extends THREE.Object3D>(o: T, nome: string, sai: V = [0, 0, 0], camada = 0): T {
@@ -50,27 +51,35 @@ export function explodir(modelo: THREE.Object3D, k: number, distancia = 1) {
   }
 }
 
-/** Material próprio de cada malha (o modelo é clonado e os clones dividem materiais): copiado uma vez só. */
-const proprio = (m: THREE.Mesh) => {
-  if (!original.has(m)) {
-    const mt = (m.material as THREE.Material).clone();
-    m.material = mt;
-    original.set(m, { transparent: mt.transparent, opacity: mt.opacity, depthWrite: mt.depthWrite });
+const deMalha = (m: THREE.Mesh): Gemeos => {
+  let g = gemeos.get(m);
+  if (!g) {
+    const orig = m.material as THREE.Material;
+    const plano = SEM_CORTE.clone();
+    const fantasma = orig.clone() as THREE.MeshStandardMaterial;
+    const corte = orig.clone() as THREE.MeshStandardMaterial;
+    g = { orig, fantasma, corte, plano };
+    gemeos.set(m, g);
+  } else if (m.material !== g.fantasma && m.material !== g.corte) {
+    g.orig = m.material as THREE.Material; // o material da malha foi trocado por fora (ex.: composto do pneu)
   }
   mexidos.add(m);
-  return m.material as THREE.MeshStandardMaterial;
+  return g;
+};
+/** Recopia o original (cor, brilho do botão apertado…) e fixa o que o gêmeo tem de próprio: sempre o mesmo shader. */
+const prepararFantasma = (g: Gemeos, opacidade: number) => {
+  g.fantasma.copy(g.orig as THREE.MeshStandardMaterial);
+  Object.assign(g.fantasma, { transparent: true, opacity: opacidade, depthWrite: false, clippingPlanes: [g.plano], polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  return g.fantasma;
 };
 
 const transparencia = (o: THREE.Object3D, opacidade: number) =>
   o.traverse((x) => {
     const m = x as THREE.Mesh;
     if (!m.isMesh) return;
-    const mt = proprio(m);
-    mt.transparent = opacidade < 0.999;
-    mt.opacity = opacidade;
-    mt.depthWrite = opacidade > 0.5;
+    m.material = prepararFantasma(deMalha(m), opacidade);
+    m.renderOrder = 10; // ordem fixa entre as transparentes: nada troca de lugar quando a câmera anda
   });
-
 /** Só as peças citadas ficam inteiras; o resto vira fantasma (k = 0 normal, 1 quase invisível). */
 export function isolar(modelo: THREE.Object3D, nomes: string | string[], k = 1) {
   const quero = new Set(Array.isArray(nomes) ? nomes : [nomes]);
@@ -92,20 +101,15 @@ export function cortar(modelo: THREE.Object3D, normal: V = [1, 0, 0], em: V = [0
   modelo.traverse((x) => {
     const m = x as THREE.Mesh;
     if (!m.isMesh) return;
-    const mt = proprio(m);
-    let p = planos.get(m);
-    if (!p) {
-      // o plano fica no material para sempre (trocar a lista de planos recompila o shader); sem corte = plano bem longe
-      p = new THREE.Plane();
-      planos.set(m, p);
-      mt.clippingPlanes = [p];
-      mt.side = THREE.DoubleSide;
-      mt.needsUpdate = true;
+    const g = deMalha(m);
+    g.plano.setFromNormalAndCoplanarPoint(n, ponto);
+    if (m.material !== g.fantasma) {
+      g.corte.copy(g.orig as THREE.MeshStandardMaterial);
+      Object.assign(g.corte, { clippingPlanes: [g.plano], side: THREE.DoubleSide });
+      m.material = g.corte;
     }
-    p.setFromNormalAndCoplanarPoint(n, ponto);
   });
 }
-
 // modelos com estado próprio (botão apertado, seletor girado) voltam ao normal junto
 const voltas = new Set<() => void>();
 export const aoRestaurar = (fn: () => void) => voltas.add(fn);
@@ -117,9 +121,12 @@ export function restaurar() {
     const p0 = pos0.get(o);
     if (p0) o.position.copy(p0);
     const m = o as THREE.Mesh;
-    const orig = m.isMesh ? original.get(m) : undefined;
-    if (orig) Object.assign(m.material as THREE.Material, orig);
-    planos.get(m)?.copy(SEM_CORTE);
+    const g = m.isMesh ? gemeos.get(m) : undefined;
+    if (g) {
+      if (m.material === g.fantasma || m.material === g.corte) m.material = g.orig;
+      m.renderOrder = 0;
+      g.plano.copy(SEM_CORTE);
+    }
   }
   mexidos.clear();
 }
