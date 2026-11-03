@@ -47,6 +47,21 @@ export function Video({ id }: { id: number }) {
   const vozIa = v.etapas.find((e) => e.chave === 'voz_ia')
   const publicacaoEtapa = v.etapas.find((e) => e.chave === 'publicacao')!
 
+  const animacaoPerto = Boolean(vozIa) && v.etapas.find((e) => e.chave === 'direcao')!.status !== 'pendente'
+  const previaPainel = (
+            <Painel titulo="Prévia" lateral={previa ? `${previa.titulo.toLowerCase()} · ${previa.detalhe ?? ''}` : undefined}>
+              {previa && typeof previa.dados.video === 'string' ? (
+                <video key={previa.dados.video} src={arquivo(previa.dados.video)} controls className={vozIa ? 'mx-auto max-h-[720px] rounded-lg bg-black' : 'w-full rounded-lg bg-black'} />
+              ) : previa && typeof previa.dados.audio === 'string' ? (
+                <div>
+                  {!vozIa && <p className="mb-2 text-xs text-suave">Voz guia — só para o rascunho, nunca vai para o vídeo publicado.</p>}
+                  <audio key={`${previa.dados.audio}-${previa.atualizado_em}`} src={arquivo(previa.dados.audio)} controls className="w-full" />
+                </div>
+              ) : (
+                <p className="text-sm text-suave">Ainda não há voz guia, rascunho nem render para ouvir/assistir.</p>
+              )}
+            </Painel>
+  )
   return (
     <Moldura trilha={trilha}>
       <div className="mx-auto max-w-[1680px] px-6 py-6">
@@ -130,13 +145,17 @@ export function Video({ id }: { id: number }) {
             {publicacaoEtapa.status !== 'em_breve' && (['revisao', 'publicado'].includes(v.coluna) || publicacaoEtapa.status !== 'pendente') && (
               <PainelPublicacao videoId={v.id} etapa={publicacaoEtapa} publicado={v.coluna === 'publicado'} aoMudar={recarregar} />
             )}
-            {vozIa && v.etapas.find((e) => e.chave === 'direcao')!.status !== 'pendente' && (
-              <PainelAnimacao
-                videoId={v.id}
-                direcao={v.etapas.find((e) => e.chave === 'direcao')!}
-                render={v.etapas.find((e) => e.chave === 'render')!}
-                aoMudar={recarregar}
-              />
+            {/* vertical: o vídeo fica ao lado da lista de planos (pedir mudança olhando a cena) */}
+            {animacaoPerto && (
+              <div className="grid items-start gap-5 xl:grid-cols-[auto_minmax(0,1fr)]">
+                {previaPainel}
+                <PainelAnimacao
+                  videoId={v.id}
+                  direcao={v.etapas.find((e) => e.chave === 'direcao')!}
+                  render={v.etapas.find((e) => e.chave === 'render')!}
+                  aoMudar={recarregar}
+                />
+              </div>
             )}
             {vozIa && vozIa.status !== 'pendente' && <PainelVoz videoId={v.id} etapa={vozIa} aoMudar={recarregar} />}
             {gravacao && (['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente') && (
@@ -149,18 +168,7 @@ export function Video({ id }: { id: number }) {
                 {!vozIa && <PainelCapa videoId={v.id} aprovada={Boolean(v.capa_aprovada)} aoMudar={recarregar} />}
               </>
             )}
-            <Painel titulo="Prévia" lateral={previa ? `${previa.titulo.toLowerCase()} · ${previa.detalhe ?? ''}` : undefined}>
-              {previa && typeof previa.dados.video === 'string' ? (
-                <video key={previa.dados.video} src={arquivo(previa.dados.video)} controls className={vozIa ? 'mx-auto max-h-[720px] rounded-lg bg-black' : 'w-full rounded-lg bg-black'} />
-              ) : previa && typeof previa.dados.audio === 'string' ? (
-                <div>
-                  {!vozIa && <p className="mb-2 text-xs text-suave">Voz guia — só para o rascunho, nunca vai para o vídeo publicado.</p>}
-                  <audio key={`${previa.dados.audio}-${previa.atualizado_em}`} src={arquivo(previa.dados.audio)} controls className="w-full" />
-                </div>
-              ) : (
-                <p className="text-sm text-suave">Ainda não há voz guia, rascunho nem render para ouvir/assistir.</p>
-              )}
-            </Painel>
+            {!animacaoPerto && previaPainel}
           </div>
 
           <div className="flex flex-col gap-5">
