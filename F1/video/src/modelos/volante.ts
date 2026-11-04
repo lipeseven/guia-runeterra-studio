@@ -9,26 +9,25 @@
 import * as THREE from "three";
 import { aoRestaurar, deslocar, peca } from "./desmonte";
 
-/** Nome do canal na LATERAL de fora das empunhaduras (marca d'água): texto na vertical, rente à borracha. */
+/** Nome do canal no TOPO do volante (na borda de cima, como etiqueta): texto deitado, lido de quem olha de frente. */
 const NOME_CANAL = "EXPLICANDOF1";
-function nomeNaPega(texto: string) {
+function nomeNoTopo(texto: string) {
   const c = document.createElement("canvas");
-  c.width = 128;
-  c.height = 640;
+  c.width = 1024;
+  c.height = 128;
   const x = c.getContext("2d")!;
-  x.translate(64, 320);
-  x.rotate(Math.PI / 2); // lê de cima para baixo
   x.fillStyle = "#e9edf3";
-  x.font = "900 64px 'Segoe UI', sans-serif";
+  x.font = "900 92px 'Segoe UI', sans-serif";
   x.textAlign = "center";
   x.textBaseline = "middle";
-  x.fillText(texto, 0, 4);
+  x.fillText(texto, 512, 70);
   const tx = new THREE.CanvasTexture(c);
   tx.colorSpace = THREE.SRGBColorSpace;
   tx.anisotropy = 8;
-  return new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.1), new THREE.MeshStandardMaterial({ map: tx, transparent: true, roughness: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(0.13, 0.016), new THREE.MeshStandardMaterial({ map: tx, transparent: true, roughness: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  m.rotation.x = -Math.PI / 2; // deitado na borda, virado para cima
+  return m;
 }
-
 type V = [number, number, number];
 const S = 0.00068; // metros por pixel da referência
 const CX = 236; // centro da referência da frente (px)
@@ -245,6 +244,10 @@ export function criarVolante(): Volante {
   carc.add(em(caixa, 100, 200, -0.016));
   const topoCx = new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0136, 0.004, 28), mat("#2a2c31", 0.4, 0.4));
   carc.add(em(topoCx, 100, 169, -0.016));
+  // nome do canal no topo da borda (y ≈ 0,0745 m: borda de cima + bisel), no meio da espessura do corpo
+  const topo = nomeNoTopo(NOME_CANAL);
+  topo.position.set(0, 0.0749, -0.0012);
+  carc.add(topo);
   add(carc, "carcaca", [0, 0, 0], 3);
 
   // placa de circuitos (dentro da frente: aparece quando a frente sai)
@@ -379,11 +382,6 @@ export function criarVolante(): Volante {
     const m = extrudar(formaPx(pts), 0.026, 0.0075, borracha, 5, 0.0025);
     m.position.z = -0.022;
     g.add(m);
-    const nome = nomeNaPega(NOME_CANAL);
-    // lateral de fora da borracha (x ≈ 0,145 m), virada para fora; a borracha vai de z -0,03 a +0,012
-    em(nome, s < 0 ? 22.6 : espelho(22.6), 150, -0.009);
-    nome.rotation.y = (s * Math.PI) / 2;
-    g.add(nome);
     for (const y of [125, 205]) {
       const pf = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 16), mat("#6b6f77", 0.4, 0.6));
       pf.rotation.x = Math.PI / 2;
