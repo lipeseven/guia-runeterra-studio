@@ -111,7 +111,8 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
   traseiro: `car.localToWorld(new THREE.Vector3(0, 0.35, z))`, eixos em z = -1,55 e 1,85; rodas em x = ±0,81 / ±0,76).
 - `aura(w, modelo, c.t, k, cor = "#3d9bff")`: aura elétrica pulsando e faíscas em volta (ex.: carro no Boost).
 - `criarCurva({ raio, largura, angulo, rotulos })` (dentro de `obj`) + `naCurva(curva, f)` → {x, z, giro}: o carro faz a
-  curva de verdade (`poe(w, k, q.x, q.z, q.giro)`; f 0 entrada, 0,5 meio, 1 saída).
+  curva de verdade (`poe(w, k, q.x, q.z, q.giro); estercar(w.carros[k], q.esterco)`; f 0 entrada, 0,5 meio, 1 saída).
+- `estercar(carro, angulo)`: vira as rodas dianteiras (positivo = esquerda). Carro em curva sempre com as rodas viradas.
 - `embaralhar(volante, k, semente)`: os botões trocam de lugar (só no quadro; "cada equipe tem seu layout").
 - A abertura (primeiros ~15 s) nunca fica parada: troca de plano, comando sendo usado, tela mudando, peça saltando.
 

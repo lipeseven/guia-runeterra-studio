@@ -10,6 +10,7 @@ const mexidos = new Set<THREE.Object3D>();
 // estado guardado fora do userData (o userData é copiado em JSON quando um modelo é clonado)
 const pos0 = new WeakMap<THREE.Object3D, THREE.Vector3>();
 const escala0 = new WeakMap<THREE.Object3D, THREE.Vector3>();
+const rot0 = new WeakMap<THREE.Object3D, THREE.Euler>();
 // Materiais gêmeos fixos por malha (como no Teardown): o efeito TROCA de material, nunca liga/desliga a transparência
 // do original. Ligar e desligar a cada quadro fazia cada aba do render (são 3 em paralelo) montar o shader de um jeito,
 // e os quadros alternados piscavam.
@@ -36,6 +37,14 @@ export function deslocar(o: THREE.Object3D, d: THREE.Vector3, escala = 1) {
   if (!escala0.has(o)) escala0.set(o, o.scale.clone());
   o.position.add(d);
   if (escala !== 1) o.scale.copy(escala0.get(o)!).multiplyScalar(escala);
+  mexidos.add(o);
+}
+
+/** Gira uma peça só neste quadro (volta sozinha no restaurar): ex.: roda dianteira esterçando. */
+export function girarPeca(o: THREE.Object3D, x: number, y: number, z: number) {
+  if (!rot0.has(o)) rot0.set(o, o.rotation.clone());
+  const r = rot0.get(o)!;
+  o.rotation.set(r.x + x, r.y + y, r.z + z);
   mexidos.add(o);
 }
 
@@ -141,6 +150,8 @@ export function restaurar() {
     if (p0) o.position.copy(p0);
     const e0 = escala0.get(o);
     if (e0) o.scale.copy(e0);
+    const r0 = rot0.get(o);
+    if (r0) o.rotation.copy(r0);
     const m = o as THREE.Mesh;
     const g = m.isMesh ? gemeos.get(m) : undefined;
     if (g) {

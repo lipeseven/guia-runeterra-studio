@@ -9,7 +9,7 @@
 import * as THREE from "three";
 import { aoRestaurar, deslocar, peca } from "./desmonte";
 
-/** Nome do canal nas empunhaduras (como uma marca de patrocinador): texto na vertical, rente à borracha. */
+/** Nome do canal na LATERAL de fora das empunhaduras (marca d'água): texto na vertical, rente à borracha. */
 const NOME_CANAL = "EXPLICANDOF1";
 function nomeNaPega(texto: string) {
   const c = document.createElement("canvas");
@@ -26,7 +26,7 @@ function nomeNaPega(texto: string) {
   const tx = new THREE.CanvasTexture(c);
   tx.colorSpace = THREE.SRGBColorSpace;
   tx.anisotropy = 8;
-  return new THREE.Mesh(new THREE.PlaneGeometry(0.024, 0.12), new THREE.MeshStandardMaterial({ map: tx, transparent: true, roughness: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+  return new THREE.Mesh(new THREE.PlaneGeometry(0.02, 0.1), new THREE.MeshStandardMaterial({ map: tx, transparent: true, roughness: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
 }
 
 type V = [number, number, number];
@@ -380,7 +380,9 @@ export function criarVolante(): Volante {
     m.position.z = -0.022;
     g.add(m);
     const nome = nomeNaPega(NOME_CANAL);
-    em(nome, s < 0 ? 55 : espelho(55), 150, 0.0119);
+    // lateral de fora da borracha (x ≈ 0,145 m), virada para fora; a borracha vai de z -0,03 a +0,012
+    em(nome, s < 0 ? 22.6 : espelho(22.6), 150, -0.009);
+    nome.rotation.y = (s * Math.PI) / 2;
     g.add(nome);
     for (const y of [125, 205]) {
       const pf = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 16), mat("#6b6f77", 0.4, 0.6));

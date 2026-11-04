@@ -2,7 +2,7 @@
 // de frenagem andando de um eixo ao outro), aura elétrica em volta do carro (Boost) e a curva de pista para o carro
 // fazer de verdade (entrada, meio e saída). Tudo é refeito a cada quadro.
 import * as THREE from "three";
-import { achar, deslocar } from "./desmonte";
+import { achar, deslocar, girarPeca } from "./desmonte";
 import { obj, rotulo } from "./extras";
 import type { Mundo } from "./mundo";
 
@@ -104,5 +104,14 @@ export function naCurva(curva: THREE.Object3D, f: number) {
   const local = new THREE.Vector3(Math.cos(th) * raio, 0, -Math.sin(th) * raio);
   const p = curva.localToWorld(local.clone());
   const dir = new THREE.Vector3(-Math.sin(th), 0, -Math.cos(th)).transformDirection(curva.matrixWorld);
-  return { x: p.x, z: p.z, giro: Math.atan2(-dir.x, -dir.z) };
+  // esterço das rodas dianteiras para essa curva (entre-eixos 3,4 m; positivo = para a esquerda)
+  return { x: p.x, z: p.z, giro: Math.atan2(-dir.x, -dir.z), esterco: Math.atan(3.4 / raio) };
+}
+
+/** Vira as rodas dianteiras do carro (radianos; positivo = para a esquerda), só neste quadro: na curva use naCurva(...).esterco. */
+export function estercar(carro: THREE.Object3D, angulo: number) {
+  for (const nome of ["roda_dianteira_esquerda", "roda_dianteira_direita"]) {
+    const roda = achar(carro, nome)?.children[0];
+    if (roda) girarPeca(roda, 0, Math.max(-0.6, Math.min(0.6, angulo)), 0);
+  }
 }

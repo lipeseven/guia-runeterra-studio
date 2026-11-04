@@ -457,6 +457,14 @@ def _fonte_remotion(projeto: Path) -> str:
     return h.hexdigest()
 
 
+def _corte(pid: str) -> bool:
+    """O bloco termina depois deste plano? Decidido pelo id (hexadecimal; id escrito à mão também vale)."""
+    try:
+        return int(pid[:6], 16) % 3 == 0
+    except ValueError:
+        return int(hashlib.sha1(pid.encode()).hexdigest()[:6], 16) % 3 == 0
+
+
 def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
     """Planos agrupados em blocos de ~3 planos (corte decidido pelo id do plano, não pela posição: inserir ou tirar um
     plano não muda os blocos dos outros). Cada bloco = intervalo de quadros + impressão do que aparece nele."""
@@ -468,7 +476,7 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
     saida, atual = [], []
     for n, p in enumerate(planos):
         atual.append(n)
-        if int(p["id"][:6], 16) % 3 == 0 or len(atual) >= 5 or n == len(planos) - 1:
+        if _corte(p["id"]) or len(atual) >= 5 or n == len(planos) - 1:
             ini, fim = q[atual[0]], q[n + 1] - 1
             if fim >= ini:
                 chave = json.dumps({"planos": [planos[k] for k in atual], "q": [ini, fim], "comum": comum}, sort_keys=True,
@@ -530,7 +538,7 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     return saida
 
 
-MUSICA_DB = -12.0  # volume padrão sobre a trilha já nivelada em -20 LUFS (~11 dB abaixo da voz); o painel ajusta por vídeo (musica.json "volume")
+MUSICA_DB = -14.0  # volume padrão sobre a trilha já nivelada em -20 LUFS (~11 dB abaixo da voz); o painel ajusta por vídeo (musica.json "volume")
 EXT_AUDIO = (".mp3", ".wav", ".m4a", ".ogg", ".flac")
 
 
