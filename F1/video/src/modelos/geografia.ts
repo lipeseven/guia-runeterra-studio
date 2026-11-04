@@ -248,3 +248,64 @@ export function destacarTrecho(w: Mundo, circ: THREE.Object3D, de: number, ate: 
   (m.material as THREE.MeshBasicMaterial).opacity = 0.85 * k;
   return m;
 }
+
+let texNum: Map<string, THREE.CanvasTexture> | null = null;
+/** Número de curva num círculo (azul-marinho com borda verde-água). */
+function texturaNumero(n: string) {
+  texNum ??= new Map();
+  let t = texNum.get(n);
+  if (t) return t;
+  const c = document.createElement("canvas");
+  c.width = c.height = 128;
+  const x = c.getContext("2d")!;
+  x.fillStyle = "rgba(9,19,38,0.95)";
+  x.beginPath();
+  x.arc(64, 64, 56, 0, Math.PI * 2);
+  x.fill();
+  x.strokeStyle = "#2ec4b6";
+  x.lineWidth = 9;
+  x.stroke();
+  x.fillStyle = "#ffffff";
+  x.font = `900 ${n.length > 1 ? 58 : 66}px 'Segoe UI', sans-serif`;
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.fillText(n, 64, 68);
+  t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  texNum.set(n, t);
+  return t;
+}
+
+/** Curvas numeradas do circuito (posições reais de cada curva na volta, MultiViewer): um número num círculo, fora da
+ *  pista, ligado por uma linha fina ao ponto da curva. Elas entram uma a uma ao longo de k (0 a 1); `destaque` = número
+ *  de uma curva que fica maior e amarela. `tam` = diâmetro do círculo em metros (60 serve à vista do alto). */
+export function numerarCurvas(w: Mundo, circ: THREE.Object3D, k = 1, o: { destaque?: number; tam?: number; distancia?: number } = {}) {
+  const dados = (CIRCUITOS as unknown as Record<string, { curvas?: { n: number; f: number }[] }>)["interlagos"];
+  const curvas = circ.userData.curvas as { n: number; f: number }[] | undefined ?? dados.curvas ?? [];
+  const info = infoDe(circ);
+  const N = info.pontos.length;
+  // centro do traçado: o número vai para fora, longe do centro
+  const centro = info.pontos.reduce((s, p) => s.add(p), new THREE.Vector3()).multiplyScalar(1 / N);
+  circ.updateMatrixWorld(true);
+  const tam = o.tam ?? 60;
+  curvas.forEach((cv, i) => {
+    const e = Math.max(0, Math.min(1, k * curvas.length - i)); // uma a uma
+    if (e <= 0) return;
+    const p = info.pontos[Math.floor(cv.f * N) % N].clone();
+    const fora = p.clone().sub(centro).setY(0).normalize();
+    const alvo = p.clone().addScaledVector(fora, o.distancia ?? 95).setY(30);
+    const grande = cv.n === o.destaque;
+    const s = obj(w, `curva:${circ.uuid}:${cv.n}`, () => new THREE.Sprite(new THREE.SpriteMaterial({ map: texturaNumero(String(cv.n)), transparent: true, depthTest: false })));
+    s.position.copy(circ.localToWorld(alvo.clone()));
+    s.scale.setScalar(tam * (grande ? 1.5 : 1) * (0.6 + 0.4 * e));
+    (s.material as THREE.SpriteMaterial).opacity = e;
+    (s.material as THREE.SpriteMaterial).color.set(grande ? "#ffc93a" : "#ffffff");
+    s.renderOrder = 31;
+    const l = obj(w, `curva:${circ.uuid}:${cv.n}:linha`, () => new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: "#2ec4b6", transparent: true, depthTest: false })));
+    const ini = circ.localToWorld(p.clone().setY(1));
+    const fim = circ.localToWorld(alvo.clone().addScaledVector(fora, -tam * 0.45));
+    (l.geometry as THREE.BufferGeometry).setFromPoints([ini, fim]);
+    (l.material as THREE.LineBasicMaterial).opacity = e;
+    l.renderOrder = 30;
+  });
+}
