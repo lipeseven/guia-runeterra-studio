@@ -20,7 +20,7 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
   - `titulo`: {"texto": "RÁDIO — COMUNICAÇÃO", "sub": "COM A EQUIPE", "em": "trecho"}: só na troca de assunto.
   - `grafico`: {"tipo", "em": "trecho" (entra), "ate_em": "trecho" (fim do movimento), ...}:
     `icone` {icone: radio | raio | engrenagem | bateria | freio | diferencial | alerta | volante | pneu | seletor |
-    cronometro | motor, texto?}: ícone grande num círculo com brilho.
+    cronometro | motor | nuvem | chuva | calendario | bandeira | trofeu | pista, texto?}: ícone grande num círculo com brilho.
     `regua` {esquerda: "FRENTE", direita: "TRÁS", de: 0.5, ate: 0.3}: marcador andando entre os dois lados (0 a 1).
     `bateria` {de: 1, ate: 0.3, segmentos: 5, texto?}: bateria por segmentos (abaixo de 25% fica vermelha).
     `seletor` {cliques: 3, de: 0, ate: 2, texto?}: seletor 2D girando em cliques ("1 de 3 cliques").
@@ -111,7 +111,9 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 - `noCircuito(circ, f, lado)` → {x, z, giro, esterco}: carro na volta (`poe` + `estercar`). Visto do alto, o carro some
   (5 m numa pista de 1 km): marque-o com `brilho(w, "carro", posição, 40, 1)`.
 - `pontoNoCircuito(circ, f, altura)`: ponto para câmera e rótulos. `revelarCircuito(circ, k)`: o traçado sendo desenhado.
-  `destacarTrecho(w, circ, de, ate, k, cor)`: acende um trecho (S do Senna, miolo, subida).
+  `destacarTrecho(w, circ, de, ate, k, cor, largura = 40)`: acende um trecho (S do Senna, miolo, subida).
+- `numerarCurvas(w, circ, k, { destaque, tam })`: as curvas numeradas (posição real de cada uma), número num círculo ligado
+  por uma linha à curva; entram uma a uma com k. Use na vista do alto quando a fala citar as curvas ("15 curvas").
 - Câmera do alto: `enquadrar(w, circ, [0.1, 1, 0.25], 1.08, 40)`. Perseguição: atrás do carro a ~12 m, olhando à frente.
 - `obj(w, "mapa:brasil", () => criarMapaBrasil({ estado: "35", cidade: "3550308" }))`: Brasil com os estados (IBGE),
   São Paulo destacado e a cidade de São Paulo em amarelo por cima. `areaNoMapa(mapa, "pais" | "estado" | "cidade")` →
