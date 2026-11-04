@@ -404,7 +404,7 @@ export function montar(canvas: HTMLCanvasElement): Mundo {
     sets.pit.add(m);
     return m;
   });
-  const cam = new THREE.PerspectiveCamera(40, 1080 / 1920, 0.1, 3200);
+  const cam = new THREE.PerspectiveCamera(40, 1080 / 1920, 0.1, 9000);
   return { r, cena, cam, sol, fundos, sets, carros, cinzas, halos, parts, sc, luzesSc, batido, amarelo, linhaChegada, portico, lampadas, brilhos, bandeiras, rastro, marcador, chao, pneus, barras, trofeu: trof, moedas, teto, asa, flap, roda, equipe, circuitoPontos };
 }
 
@@ -419,7 +419,9 @@ export const camera = (w: Mundo, pos: V, olha: V, lente = 40, rolar = 0, topo = 
   w.cam.position.set(...pos);
   w.cam.fov = lente;
   // close de peça pequena (botão do volante): o plano de corte perto da lente acompanha a distância
-  w.cam.near = Math.max(0.004, Math.min(0.1, Math.hypot(pos[0] - olha[0], pos[1] - olha[1], pos[2] - olha[2]) * 0.08));
+  // e de muito longe (circuito real visto do alto) ele se afasta, para a profundidade não "brigar" nas camadas da pista
+  const dist = Math.hypot(pos[0] - olha[0], pos[1] - olha[1], pos[2] - olha[2]);
+  w.cam.near = dist > 300 ? dist * 0.05 : Math.max(0.004, Math.min(0.1, dist * 0.08));
   w.cam.updateProjectionMatrix();
   if (topo) w.cam.up.set(0, 0, -1);
   else w.cam.up.set(Math.sin(rolar), Math.cos(rolar), 0);
@@ -434,7 +436,10 @@ export const enquadrar = (w: Mundo, alvo: THREE.Object3D | THREE.Object3D[], de:
   const caixa = new THREE.Box3();
   for (const o of Array.isArray(alvo) ? alvo : [alvo]) {
     o.updateMatrixWorld(true);
-    caixa.expandByObject(o);
+    // chão grande do modelo (grama do circuito, mar do mapa) não conta: marcado com userData.foraDoEnquadro
+    o.traverse((x) => {
+      if ((x as THREE.Mesh).isMesh && !x.userData.foraDoEnquadro && !x.parent?.userData.foraDoEnquadro) caixa.union(new THREE.Box3().setFromObject(x, false));
+    });
   }
   if (caixa.isEmpty()) return 0;
   const centro = caixa.getCenter(new THREE.Vector3());
@@ -570,8 +575,9 @@ export function preparar(w: Mundo, clima: string, set: string) {
     w.cena.background = w.fundos[clima] ?? w.fundos.tarde;
     const nv = w.cena.fog as THREE.Fog;
     nv.color.set(set === "estudio" && clima !== "claro" ? "#0a0e1a" : cl.nevoa);
-    nv.near = set === "circuito" ? 2000 : set === "estudio" ? 40 : 90;
-    nv.far = set === "circuito" ? 3100 : set === "estudio" ? 120 : 260;
+    // "real" = circuito de verdade e mapa (geografia.ts): nenhum cenário fixo, névoa bem longe
+    nv.near = set === "real" ? 2500 : set === "circuito" ? 2000 : set === "estudio" ? 40 : 90;
+    nv.far = set === "real" ? 7000 : set === "circuito" ? 3100 : set === "estudio" ? 120 : 260;
     w.sol.color.set(cl.sol);
     w.sol.intensity = cl.forca;
     for (const [n, g] of Object.entries(w.sets)) g.visible = n === set;

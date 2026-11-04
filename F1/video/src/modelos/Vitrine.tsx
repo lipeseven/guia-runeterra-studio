@@ -4,6 +4,8 @@ import { AbsoluteFill, continueRender, delayRender, useCurrentFrame } from "remo
 import { bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, esconderExtras, numeroNoCarro, obj, pontoNoMapa, topoDoPodio } from "./extras";
 import { camera, enquadrar, montar, poe, preparar, Z_POLE, type Mundo } from "./mundo";
 import { trocarComposto } from "./Carro3D";
+import { estercar } from "./efeitos3d";
+import { areaNoMapa, criarCircuito, criarMapaBrasil, noCircuito } from "./geografia";
 import { cortar, explodir, isolar, raioX, restaurar } from "./desmonte";
 import { apertar, criarVolante, girar, luzesDeTroca, puxar, telaDoVolante } from "./volante";
 
@@ -118,6 +120,28 @@ VITRINE.push((w, s) => {
   } else {
     girar(v, "central", 7);
     camera(w, [0.03, 0.97, 0.1], [0, 0.958, 0.01], 34);
+  }
+});
+// geografia real: Brasil → estado de SP → cidade; Interlagos de cima (com marcas de fração da volta) e de perto
+VITRINE.push((w, s) => {
+  const f = Math.min(5, Math.floor(s * 6));
+  if (f <= 2) {
+    preparar(w, "claro", "real");
+    const m = obj(w, "mapa:brasil", () => criarMapaBrasil());
+    m.position.set(0, 0, 0);
+    const a = areaNoMapa(m, f === 0 ? "pais" : f === 1 ? "estado" : "cidade");
+    camera(w, [a.centro.x, a.tamanho * 1.9 + 0.6, a.centro.z + a.tamanho * 0.55 + 0.05], [a.centro.x, 0, a.centro.z], 40);
+    return;
+  }
+  preparar(w, "tarde", "real");
+  const c = obj(w, "circ:interlagos", () => criarCircuito("interlagos", { rotulos: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9].map((x) => ({ texto: String(x), f: x })) }));
+  c.position.set(0, 0, 0);
+  if (f === 3) enquadrar(w, c, [0, 1, 0], 1.05, 40);
+  else {
+    const q = noCircuito(c, f === 4 ? 0.06 : 0.93);
+    poe(w, 6, q.x, q.z, q.giro);
+    estercar(w.carros[6], q.esterco);
+    camera(w, [q.x + 30, 22, q.z + 30], [q.x, 0, q.z], 40);
   }
 });
 export const DURACAO_VITRINE = VITRINE.length * 30;

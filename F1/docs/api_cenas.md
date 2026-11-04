@@ -103,6 +103,21 @@ botao_bb_menos, seletor_esquerdo, seletor_central, seletor_direito, frente, plac
 empunhadura_esquerda, empunhadura_direita, paddle_marcha_esquerda, paddle_marcha_direita, embreagem_esquerda,
 embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 
+## Geografia real (set "real": nenhum cenário fixo, névoa longe)
+- `obj(w, "circ:interlagos", () => criarCircuito("interlagos", { rotulos }))`: o circuito com o TRAÇADO REAL, em metros
+  (4,309 km; asfalto, área de escape, zebras, linha de chegada). Vídeo sobre um circuito usa SEMPRE o traçado real, nunca a
+  reta genérica. f = fração da volta no sentido da corrida (0 = linha de chegada). Interlagos: S do Senna 0,04–0,11; Reta
+  Oposta 0,15–0,30; miolo (parte interna) 0,38–0,75; Junção 0,78–0,84; Subida dos Boxes 0,84–0,99.
+- `noCircuito(circ, f, lado)` → {x, z, giro, esterco}: carro na volta (`poe` + `estercar`). Visto do alto, o carro some
+  (5 m numa pista de 1 km): marque-o com `brilho(w, "carro", posição, 40, 1)`.
+- `pontoNoCircuito(circ, f, altura)`: ponto para câmera e rótulos. `revelarCircuito(circ, k)`: o traçado sendo desenhado.
+  `destacarTrecho(w, circ, de, ate, k, cor)`: acende um trecho (S do Senna, miolo, subida).
+- Câmera do alto: `enquadrar(w, circ, [0.1, 1, 0.25], 1.08, 40)`. Perseguição: atrás do carro a ~12 m, olhando à frente.
+- `obj(w, "mapa:brasil", () => criarMapaBrasil({ estado: "35", cidade: "3550308" }))`: Brasil com os estados (IBGE),
+  São Paulo destacado e a cidade de São Paulo em amarelo por cima. `areaNoMapa(mapa, "pais" | "estado" | "cidade")` →
+  {centro, tamanho}: para a câmera ir do país ao estado e à cidade. `pontoNoMapa(mapa, lat, lon)` funciona nele
+  (Interlagos: -23,7036, -46,6997). Alfinete: escale com o tamanho da área (`pino.scale.setScalar(area.tamanho * 0.2)`).
+
 ## Destaque, brilho, aura e curva
 - `destacar(w, modelo, "peça" | ["peças"], k, distancia = 0.05, cor)`: a peça SAI do modelo para a frente, cresce um
   pouco e ganha brilho atrás; o resto fica normal. É ASSIM que se destaca um comando do volante (nunca isolar/raio-X,
