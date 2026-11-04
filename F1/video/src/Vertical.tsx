@@ -11,6 +11,8 @@ import {
 } from "./modelos/mundo";
 import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
 import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "./modelos/desmonte";
+import { ligar } from "./modelos/ligacoes";
+import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
 import { apertar, criarVolante, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
 import {
   bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, degrau, esconderExtras, numeroNoCarro, obj, pontoNoMapa, rotulo,
@@ -21,6 +23,7 @@ type PlacaV = { texto: string; unidade?: string; i?: number; cor?: string; pos?:
 export type PlanoV = {
   id: string; i: number; tipo?: string; set?: string; codigo?: string; clima?: string; equipe?: number; n?: number; cor?: string; cores?: string[]; acao?: string;
   modo?: string; angulo?: string; de?: number; ate?: number; valores?: number[]; sai?: number; marcas?: Record<string, number>;
+  titulo?: TituloV; grafico?: GraficoV; foco?: boolean; // gráficos informativos (Infograficos.tsx)
   placas?: PlacaV[]; contador?: { de: number; ate: number; unidade?: string; casas?: number; formato?: string; i0?: number; i1?: number; cor_final?: string };
   chips?: { itens: string[]; ativo?: number; i?: number }; selo?: { texto: string; i?: number }; riscado?: { texto: string; i: number };
   medidor?: { texto: string; sub?: string; i?: number }; gota?: { texto: string }; chuva?: boolean;
@@ -391,7 +394,7 @@ export const API = {
   THREE, camera, enquadrar, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
   luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
-  explodir, isolar, raioX, cortar, nomesDasPecas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
+  explodir, isolar, raioX, cortar, nomesDasPecas, ligar, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
@@ -484,6 +487,8 @@ function Sobre({ c, tempo }: { c: CV; tempo: (i?: number) => number }): ReactNod
       </div>,
     );
   }
+  if (p.titulo) extra.push(<Titulo key="tit" t={t} titulo={p.titulo} inicio={p.titulo.i !== undefined ? tempo(p.titulo.i) : ini} />);
+  if (p.grafico) extra.push(<Grafico key="graf" g={p.grafico} t={t} tempo={tempo} ini={ini} fim={fim} foco={p.foco} />);
   return <>{extra}</>;
 }
 
@@ -545,7 +550,8 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
   return (
     <AbsoluteFill style={{ background: "#0b0c11" }}>
       <Audio src={staticFile(audio)} />
-      <canvas ref={ref} width={1080} height={1920} style={{ position: "absolute", width: 1080, height: 1920 }} />
+      {/* modo quadro informativo: a cena 3D escurece e desfoca atrás do gráfico */}
+      <canvas ref={ref} width={1080} height={1920} style={{ position: "absolute", width: 1080, height: 1920, filter: p.foco ? "blur(10px) brightness(0.42) saturate(0.85)" : undefined }} />
       {claro && <FundoLegenda />}
       <Sobre c={c} tempo={tempo} />
       <Legenda palavras={palavras} chaves={chaves} />

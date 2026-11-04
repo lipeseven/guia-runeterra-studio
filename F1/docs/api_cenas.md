@@ -16,6 +16,21 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
   na fala: clique de botão apertado ou seletor girando ("single button click", "rotary knob clicks"), bipe de rádio
   ("radio beep static"), carro passando ou acelerando ("race car pass by", "race car accelerating"), whoosh de troca
   rápida. Raro: no máximo 1 a cada ~7 s (o motor corta o excesso, mínimo de 3 s entre eles); nunca música.
+- Gráficos informativos (campos do plano, 2D por cima da cena; UM por plano, só quando reforçam a fala):
+  - `titulo`: {"texto": "RÁDIO — COMUNICAÇÃO", "sub": "COM A EQUIPE", "em": "trecho"}: só na troca de assunto.
+  - `grafico`: {"tipo", "em": "trecho" (entra), "ate_em": "trecho" (fim do movimento), ...}:
+    `icone` {icone: radio | raio | engrenagem | bateria | freio | diferencial | alerta | volante | pneu | seletor |
+    cronometro | motor, texto?}: ícone grande num círculo com brilho.
+    `regua` {esquerda: "FRENTE", direita: "TRÁS", de: 0.5, ate: 0.3}: marcador andando entre os dois lados (0 a 1).
+    `bateria` {de: 1, ate: 0.3, segmentos: 5, texto?}: bateria por segmentos (abaixo de 25% fica vermelha).
+    `seletor` {cliques: 3, de: 0, ate: 2, texto?}: seletor 2D girando em cliques ("1 de 3 cliques").
+    `numero` {valor: 311, de: 0, unidade: "KM/H", max?}: número contando com barras.
+    `etapas` {itens: ["ENTRADA", "MEIO", "SAÍDA"], itens_em: ["trecho", ...]}: cada etapa acende na sua palavra.
+    `alerta` {texto: "ENERGIA LIMITADA"}.
+    `pos`: "meio" (centro) ou "baixo" (padrão, abaixo do assunto 3D). Com gráfico embaixo, deixe o assunto 3D no meio ou um pouco acima (ex.: alvoY negativo no enquadrar).
+  - `foco`: true = modo quadro informativo: a cena 3D escurece e desfoca atrás e o gráfico vai para o centro (trecho
+    que é explicação pura). Nunca dois planos seguidos com foco.
+  Gráfico e placa no mesmo plano: não (um ou outro).
 - Sobreposições (placas, contador, chips, selo, riscado, medidor, gota, chuva): campos do JSON, como no catálogo. Nunca
   desenhe texto de tela no código; rótulo 3D (`rotulo`) só para nomear coisas dentro da cena.
 
@@ -87,6 +102,12 @@ Peças para o desmonte: tela, luzes, botao_ot, botao_boost, botao_aero, botao_pl
 botao_bb_menos, seletor_esquerdo, seletor_central, seletor_direito, frente, placa_de_circuitos, carcaca,
 empunhadura_esquerda, empunhadura_direita, paddle_marcha_esquerda, paddle_marcha_direita, embreagem_esquerda,
 embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
+
+## Ligações (ícone preso à peça)
+`ligar(w, modelo, [{peca: "botao_radio", icone: "radio", desvio: [-0.06, 0.05]}, ...], k, tam = 0.045)`: ícone num círculo,
+ligado por uma linha fina à peça (nomes de peça do modelo). `desvio` = para onde o ícone vai no plano do modelo, em metros
+(o volante tem ~0,29 m de largura); `k` 0 a 1 = entrada (anime com `suave`). Bom para "é um painel de controle" (vários
+ícones em volta do volante) ou para apontar o comando citado. No máximo 5 ícones.
 
 ## Desmonte (mostrar como uma peça funciona)
 A peça que faz o trabalho se abre: vale mais que dez voltas de câmera. Tudo volta ao normal no quadro seguinte (chame a
