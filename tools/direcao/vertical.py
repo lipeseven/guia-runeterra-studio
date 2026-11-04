@@ -125,12 +125,17 @@ def resolver(brutos: list[dict], palavras: list[dict]) -> tuple[list[dict], list
             if j is not None:
                 pl["i"] = j
         for campo, chaves in (("contador", (("em", "i0"), ("ate_em", "i1"))), ("chips", (("em", "i"),)), ("selo", (("em", "i"),)),
-                              ("medidor", (("em", "i"),)), ("riscado", (("em", "i"),))):
+                              ("medidor", (("em", "i"),)), ("riscado", (("em", "i"),)),
+                              ("titulo", (("em", "i"),)), ("grafico", (("em", "i"), ("ate_em", "i1")))):
             if isinstance(p.get(campo), dict):
                 for de, para in chaves:
                     j = localizar(palavras, p[campo].pop(de, None), i)
                     if j is not None:
                         p[campo][para] = j
+        if isinstance(p.get("grafico"), dict) and isinstance(p["grafico"].get("itens_em"), list):  # cada etapa na sua palavra
+            idx = [localizar(palavras, x, i) for x in p["grafico"].pop("itens_em")]
+            if all(j is not None for j in idx):
+                p["grafico"]["itens_i"] = idx
         if isinstance(p.get("riscado"), dict) and "i" not in p["riscado"]:
             p["riscado"]["i"] = i
         if isinstance(p.get("som"), dict) and p["som"].get("o_que"):  # o "em" fica: a revisão volta a localizar
@@ -331,7 +336,9 @@ def _revisar_imagens(direcao: dict, palavras: list[dict], briefing: str, trabalh
         + "As imagens mostram um quadro de cada plano (número no canto, 60% do plano), na ordem. Confira cada um contra a "
           "fala: mostra o que a fala diz? O assunto está enquadrado (nada cortado, vazio, minúsculo ou atrás de outra coisa)? "
           "Peça atravessando outra, peça solta no ar, pessoa enterrada no chão ou dentro do carro, rótulo cobrindo o que "
-          "nomeia, número na placa que não bate com a cena? (colisão se corrige com número na posição, nunca escondendo "
+          "nomeia, número na placa que não bate com a cena? Gráfico informativo cobrindo o assunto, tela poluída (dois "
+          "gráficos ou gráfico + placa), gráfico que não reforça a fala, carro na tela quando a fala é sobre o volante? "
+          "(colisão se corrige com número na posição, nunca escondendo "
           "com a câmera.) Cena repetida demais? Plano com erro_ao_rodar quebrou e precisa de código novo. Devolva SÓ os planos que precisam "
           "mudar, completos, com o mesmo id.\n\nPLANOS:\n" + json.dumps(lista, ensure_ascii=False)
           + "\n\nResponda SOMENTE JSON {\"planos\": [...], \"observacao\": \"1 frase\"}.",

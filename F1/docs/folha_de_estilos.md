@@ -71,6 +71,17 @@ Fundo sempre escuro ou dessaturado; o acento forte vem do objeto, em pequena ár
   o movimento vem de animar a direção, a folga ou a lente. Câmera à mão só para perseguição, POV e passagem rápida.
 - Kart e carro com piloto: a câmera fica alta o bastante para ver o capacete por cima da carroceria.
 
+## Gráficos informativos (decisão do Felipe, 2026-11-03)
+- O ASSUNTO DA FALA manda na cena: falou do volante ou de um comando, a cena é o volante (de perto, o comando citado
+  em destaque); o carro só aparece quando a fala é sobre o carro (rodas, eixo, curva, reta).
+- Gráficos reforçam o que é dito, entrando na palavra: ícone do sistema, régua FRENTE–TRÁS, bateria, seletor em
+  cliques, número com barras, etapas ENTRADA/MEIO/SAÍDA, alerta, ícones ligados aos botões. UM por vez, só quando
+  ajuda; nunca enfeite. Rótulo só com palavra da fala.
+- Título no alto (branco + subtítulo verde-água) só na troca de assunto. Explicação pura = modo quadro informativo
+  (3D escurecido e desfocado atrás), nunca dois seguidos.
+- Paleta dos gráficos: azul-marinho, branco, verde-água de destaque; amarelo para o marcador/energia, vermelho só
+  para alerta.
+
 ## Desmonte e modelos novos (método do Teardown)
 - Explicar uma peça = abrir a peça: explodir, isolar (o resto vira fantasma), raio-X ou corte, na palavra que a cita.
   A cor de destaque marca só a peça que está trabalhando agora.
