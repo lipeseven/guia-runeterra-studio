@@ -7,7 +7,27 @@
 // e 3 seletores giratórios. O resto da face é complemento (forma e cor da referência, sem função).
 // Frente do volante para +z (o piloto olha para -z). Tudo volta ao normal a cada quadro (desmonte.restaurar).
 import * as THREE from "three";
-import { aoRestaurar, peca } from "./desmonte";
+import { aoRestaurar, deslocar, peca } from "./desmonte";
+
+/** Nome do canal nas empunhaduras (como uma marca de patrocinador): texto na vertical, rente à borracha. */
+const NOME_CANAL = "EXPLICANDOF1";
+function nomeNaPega(texto: string) {
+  const c = document.createElement("canvas");
+  c.width = 128;
+  c.height = 640;
+  const x = c.getContext("2d")!;
+  x.translate(64, 320);
+  x.rotate(Math.PI / 2); // lê de cima para baixo
+  x.fillStyle = "#e9edf3";
+  x.font = "900 64px 'Segoe UI', sans-serif";
+  x.textAlign = "center";
+  x.textBaseline = "middle";
+  x.fillText(texto, 0, 4);
+  const tx = new THREE.CanvasTexture(c);
+  tx.colorSpace = THREE.SRGBColorSpace;
+  tx.anisotropy = 8;
+  return new THREE.Mesh(new THREE.PlaneGeometry(0.024, 0.12), new THREE.MeshStandardMaterial({ map: tx, transparent: true, roughness: 0.6, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
+}
 
 type V = [number, number, number];
 const S = 0.00068; // metros por pixel da referência
@@ -359,6 +379,9 @@ export function criarVolante(): Volante {
     const m = extrudar(formaPx(pts), 0.026, 0.0075, borracha, 5, 0.0025);
     m.position.z = -0.022;
     g.add(m);
+    const nome = nomeNaPega(NOME_CANAL);
+    em(nome, s < 0 ? 55 : espelho(55), 150, 0.0119);
+    g.add(nome);
     for (const y of [125, 205]) {
       const pf = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.002, 16), mat("#6b6f77", 0.4, 0.6));
       pf.rotation.x = Math.PI / 2;
@@ -490,6 +513,23 @@ export function criarVolante(): Volante {
 
 type Estado = { botoes: Record<string, THREE.Group>; seletores: Record<string, THREE.Group>; paddles: Record<string, THREE.Group>; lmats: THREE.MeshStandardMaterial[]; est: Record<string, unknown>; desenhar: () => void };
 const de = (v: Volante) => v.userData.volante as Estado;
+
+/** Embaralha os botões principais entre si (k 0 = no lugar, 1 = trocados): mostra que cada equipe tem um layout
+ *  próprio. Só neste quadro; o modelo continua o mesmo. `semente` escolhe a troca. */
+export function embaralhar(v: Volante, k = 1, semente = 3) {
+  const lista = Object.values(de(v).botoes);
+  const ordem = lista.map((_, n) => n);
+  for (let n = ordem.length - 1; n > 0; n--) {
+    const j = Math.floor(((Math.sin((n + 1) * 12.9898 + semente * 78.233) * 43758.5453) % 1 + 1) % 1 * (n + 1));
+    [ordem[n], ordem[j]] = [ordem[j], ordem[n]];
+  }
+  const lugares = lista.map((b) => b.position.clone());
+  lista.forEach((b, n) => {
+    const d = lugares[ordem[n]].clone().sub(b.position);
+    d.z += Math.sin(Math.PI * k) * 0.02; // salta um pouco no caminho, para não atravessar os outros
+    deslocar(b, d.multiplyScalar(1).setX(d.x * k).setY(d.y * k));
+  });
+}
 
 /** Aperta um botão (ot, boost, aero, pl, n, radio, bb_mais, bb_menos): k 0 solto, 1 afundado e aceso. */
 export function apertar(v: Volante, nome: string, k = 1) {

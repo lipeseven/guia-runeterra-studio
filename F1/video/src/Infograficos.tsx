@@ -32,9 +32,9 @@ export function Titulo({ t, titulo, inicio }: { t: number; titulo: TituloV; inic
   if (t < inicio) return null;
   const e = entra(t, inicio, 0.3);
   return (
-    <div style={{ position: "absolute", top: 520, left: 70, right: 70, textAlign: "center", zIndex: 45, fontFamily: FONTE, opacity: e, transform: `translateY(${(1 - e) * 14}px)` }}>
-      <div style={{ fontSize: 60, fontWeight: 900, letterSpacing: 3, color: COR.texto, textShadow: "0 3px 16px rgba(0,0,0,.75)" }}>{titulo.texto}</div>
-      {titulo.sub && <div style={{ marginTop: 6, fontSize: 46, fontWeight: 800, letterSpacing: 2, color: COR.destaque, textShadow: "0 3px 16px rgba(0,0,0,.75)" }}>{titulo.sub}</div>}
+    <div style={{ position: "absolute", top: 560, left: 90, right: 90, textAlign: "center", zIndex: 45, fontFamily: FONTE, opacity: e, transform: `translateY(${(1 - e) * 14}px)` }}>
+      <div style={{ fontSize: 44, fontWeight: 900, letterSpacing: 3, color: COR.texto, textShadow: "0 3px 16px rgba(0,0,0,.75)" }}>{titulo.texto}</div>
+      {titulo.sub && <div style={{ marginTop: 4, fontSize: 32, fontWeight: 800, letterSpacing: 2, color: COR.destaque, textShadow: "0 3px 16px rgba(0,0,0,.75)" }}>{titulo.sub}</div>}
     </div>
   );
 }

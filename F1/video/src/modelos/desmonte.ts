@@ -9,6 +9,7 @@ type V = [number, number, number];
 const mexidos = new Set<THREE.Object3D>();
 // estado guardado fora do userData (o userData é copiado em JSON quando um modelo é clonado)
 const pos0 = new WeakMap<THREE.Object3D, THREE.Vector3>();
+const escala0 = new WeakMap<THREE.Object3D, THREE.Vector3>();
 // Materiais gêmeos fixos por malha (como no Teardown): o efeito TROCA de material, nunca liga/desliga a transparência
 // do original. Ligar e desligar a cada quadro fazia cada aba do render (são 3 em paralelo) montar o shader de um jeito,
 // e os quadros alternados piscavam.
@@ -27,6 +28,24 @@ const pecas = (modelo: THREE.Object3D) => {
   const lista: THREE.Object3D[] = [];
   modelo.traverse((o) => o.userData.peca && lista.push(o));
   return lista;
+};
+
+/** Move/escala uma peça só neste quadro (volta sozinha no restaurar): base de destacar e embaralhar. */
+export function deslocar(o: THREE.Object3D, d: THREE.Vector3, escala = 1) {
+  if (!pos0.has(o)) pos0.set(o, o.position.clone());
+  if (!escala0.has(o)) escala0.set(o, o.scale.clone());
+  o.position.add(d);
+  if (escala !== 1) o.scale.copy(escala0.get(o)!).multiplyScalar(escala);
+  mexidos.add(o);
+}
+
+/** A peça com esse nome (ou null). */
+export const achar = (modelo: THREE.Object3D, nome: string) => {
+  let r: THREE.Object3D | null = null;
+  modelo.traverse((o) => {
+    if (!r && o.userData.peca === nome) r = o;
+  });
+  return r as THREE.Object3D | null;
 };
 
 /** Nomes das peças de um modelo (para o diretor saber o que pode isolar). */
@@ -120,6 +139,8 @@ export function restaurar() {
   for (const o of mexidos) {
     const p0 = pos0.get(o);
     if (p0) o.position.copy(p0);
+    const e0 = escala0.get(o);
+    if (e0) o.scale.copy(e0);
     const m = o as THREE.Mesh;
     const g = m.isMesh ? gemeos.get(m) : undefined;
     if (g) {
