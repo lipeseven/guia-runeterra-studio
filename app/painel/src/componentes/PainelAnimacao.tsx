@@ -28,7 +28,7 @@ function MusicaDeFundo({ videoId, trabalhando, aoMudar }: { videoId: number; tra
   const [erro, setErro] = useState<string | null>(null)
   const lig = ligada ?? dados?.ligada ?? false
   const desc = descricao ?? dados?.descricao ?? ''
-  const vol = volume ?? dados?.volume ?? -12
+  const vol = volume ?? dados?.volume ?? -14
   const aplicar = async () => {
     setErro(null)
     try {
@@ -65,7 +65,7 @@ function MusicaDeFundo({ videoId, trabalhando, aoMudar }: { videoId: number; tra
         <label className="mt-2 flex items-center gap-3 text-xs text-suave">
           volume
           <input type="range" min={-30} max={0} step={1} value={vol} onChange={(e) => setVolume(Number(e.target.value))} className="flex-1" />
-          <span className="w-24 font-mono text-[11px] text-apagado">{vol} dB{vol === -12 ? " (padrão)" : ""}</span>
+          <span className="w-24 font-mono text-[11px] text-apagado">{vol} dB{vol === -14 ? " (padrão)" : ""}</span>
         </label>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-2">
