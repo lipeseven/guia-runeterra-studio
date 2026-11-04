@@ -12,8 +12,9 @@ import {
 import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
 import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "./modelos/desmonte";
 import { ligar } from "./modelos/ligacoes";
+import { aura, brilho, criarCurva, destacar, naCurva } from "./modelos/efeitos3d";
 import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
-import { apertar, criarVolante, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
+import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
 import {
   bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, degrau, esconderExtras, numeroNoCarro, obj, pontoNoMapa, rotulo,
   topoDoPodio,
@@ -394,7 +395,7 @@ export const API = {
   THREE, camera, enquadrar, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
   luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
-  explodir, isolar, raioX, cortar, nomesDasPecas, ligar, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
+  explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, embaralhar, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
 };
 // API:fim
 const NOMES_API = Object.keys(API);

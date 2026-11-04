@@ -573,7 +573,8 @@ def _com_audio(video: list[str], trabalho: Path, direcao: dict, palavras: list[d
         vol = float(config_musica(trabalho.parent).get("volume", MUSICA_DB))
         # trilha gerada: corta o chiado dos pratos (agudos acima de ~6 kHz, que no fone parecem interferência);
         # todas: nível por loudness (não por pico), para o controle de volume valer igual em qualquer música
-        eq = "highpass=f=50,treble=g=-6:f=5000,lowpass=f=7500," if musica.name.startswith("trilha_") else ""
+        # (e o grave que celular e fone não reproduzem: sub abaixo de ~110 Hz sai, a melodia nos médios sobe um pouco)
+        eq = "highpass=f=110,equalizer=f=1200:t=q:w=1:g=3,treble=g=-6:f=5000,lowpass=f=7500," if musica.name.startswith("trilha_") else ""
         filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,atrim=0:{total:.3f},{eq}loudnorm=I=-20:TP=-2:LRA=11,"
                        f"aresample=48000,volume={vol}dB,"
                        f"afade=t=in:d=1.5,afade=t=out:st={max(0, total - 2.5):.3f}:d=2.5[m0]")

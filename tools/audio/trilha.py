@@ -36,8 +36,8 @@ def gerar(descricao: str, segundos: float, destino: Path, semente: int = 7) -> P
 
     g = Gerador()
     try:
-        prompt = f"{descricao}, background music, instrumental, smooth and pleasant, steady, warm mix, soft percussion, no hi-hats, no vocals, high quality"
-        a = g.pipe(prompt, negative_prompt="vocals, voice, speech, singing, hi-hats, cymbals, harsh treble, hiss, distorted, noise, low quality",
+        prompt = f"{descricao}, background music, instrumental, pleasant clear melody in the mid range, plucks and soft keys, light percussion, no hi-hats, no vocals, high quality"
+        a = g.pipe(prompt, negative_prompt="vocals, voice, speech, singing, hi-hats, cymbals, harsh treble, hiss, sub bass, rumble, drone, distorted, noise, low quality",
                    num_inference_steps=100, audio_end_in_s=TRECHO,
                    generator=g.torch.Generator("cuda").manual_seed(semente)).audios[0]
         sr = g.pipe.vae.sampling_rate

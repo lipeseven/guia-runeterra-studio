@@ -103,6 +103,18 @@ botao_bb_menos, seletor_esquerdo, seletor_central, seletor_direito, frente, plac
 empunhadura_esquerda, empunhadura_direita, paddle_marcha_esquerda, paddle_marcha_direita, embreagem_esquerda,
 embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 
+## Destaque, brilho, aura e curva
+- `destacar(w, modelo, "peça" | ["peças"], k, distancia = 0.05, cor)`: a peça SAI do modelo para a frente, cresce um
+  pouco e ganha brilho atrás; o resto fica normal. É ASSIM que se destaca um comando do volante (nunca isolar/raio-X,
+  que deixam o volante transparente). Com título no alto, mostre o volante inteiro e destaque o comando.
+- `brilho(w, "chave", posição, tamanho, k, cor)`: luz num ponto (ex.: a força de frenagem andando do eixo dianteiro ao
+  traseiro: `car.localToWorld(new THREE.Vector3(0, 0.35, z))`, eixos em z = -1,55 e 1,85; rodas em x = ±0,81 / ±0,76).
+- `aura(w, modelo, c.t, k, cor = "#3d9bff")`: aura elétrica pulsando e faíscas em volta (ex.: carro no Boost).
+- `criarCurva({ raio, largura, angulo, rotulos })` (dentro de `obj`) + `naCurva(curva, f)` → {x, z, giro}: o carro faz a
+  curva de verdade (`poe(w, k, q.x, q.z, q.giro)`; f 0 entrada, 0,5 meio, 1 saída).
+- `embaralhar(volante, k, semente)`: os botões trocam de lugar (só no quadro; "cada equipe tem seu layout").
+- A abertura (primeiros ~15 s) nunca fica parada: troca de plano, comando sendo usado, tela mudando, peça saltando.
+
 ## Ligações (ícone preso à peça)
 `ligar(w, modelo, [{peca: "botao_radio", icone: "radio", desvio: [-0.06, 0.05]}, ...], k, tam = 0.06)`: ícone num círculo,
 ligado por uma linha fina à peça (nomes de peça do modelo). `desvio` = para onde o ícone vai no plano do modelo, em metros
