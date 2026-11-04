@@ -104,7 +104,7 @@ empunhadura_esquerda, empunhadura_direita, paddle_marcha_esquerda, paddle_marcha
 embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 
 ## Ligações (ícone preso à peça)
-`ligar(w, modelo, [{peca: "botao_radio", icone: "radio", desvio: [-0.06, 0.05]}, ...], k, tam = 0.045)`: ícone num círculo,
+`ligar(w, modelo, [{peca: "botao_radio", icone: "radio", desvio: [-0.06, 0.05]}, ...], k, tam = 0.06)`: ícone num círculo,
 ligado por uma linha fina à peça (nomes de peça do modelo). `desvio` = para onde o ícone vai no plano do modelo, em metros
 (o volante tem ~0,29 m de largura); `k` 0 a 1 = entrada (anime com `suave`). Bom para "é um painel de controle" (vários
 ícones em volta do volante) ou para apontar o comando citado. No máximo 5 ícones.

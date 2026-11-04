@@ -29,8 +29,8 @@ function textura(icone: string) {
 export type Ligacao = { peca: string; icone: string; desvio?: [number, number] };
 
 /** Liga ícones às peças do modelo: `desvio` = para onde o ícone vai, no plano do modelo (metros; padrão: para cima).
- *  `k` 0 a 1 = entrada (anime com suave); `tam` = diâmetro do ícone em metros (0,045 serve ao volante). */
-export function ligar(w: Mundo, modelo: THREE.Object3D, itens: Ligacao[], k = 1, tam = 0.045) {
+ *  `k` 0 a 1 = entrada (anime com suave); `tam` = diâmetro do ícone em metros (0,06 serve ao volante). */
+export function ligar(w: Mundo, modelo: THREE.Object3D, itens: Ligacao[], k = 1, tam = 0.06) {
   modelo.updateMatrixWorld(true);
   for (const it of itens) {
     let peca: THREE.Object3D | null = null;
