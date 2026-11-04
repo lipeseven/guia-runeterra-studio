@@ -228,15 +228,16 @@ export function revelarCircuito(circ: THREE.Object3D, k: number) {
   info.escape.geometry.setDrawRange(0, n);
 }
 
-/** Acende um trecho do traçado (de/ate em fração da volta) com brilho, ex.: o S do Senna. */
-export function destacarTrecho(w: Mundo, circ: THREE.Object3D, de: number, ate: number, k = 1, cor = "#ffc93a") {
+/** Acende um trecho do traçado (de/ate em fração da volta) com brilho, ex.: o S do Senna. `largura` em metros: ~40 para
+ *  ver do alto (a pista inteira de longe), ~10 de perto. */
+export function destacarTrecho(w: Mundo, circ: THREE.Object3D, de: number, ate: number, k = 1, cor = "#ffc93a", largura = 40) {
   const info = infoDe(circ);
-  const chave = `trecho:${circ.uuid}:${de}:${ate}`;
+  const chave = `trecho:${circ.uuid}:${de}:${ate}:${largura}`;
   const m = obj(w, chave, () => {
     const N = info.pontos.length;
     const pts: THREE.Vector3[] = [];
     for (let i = Math.floor(de * N); i <= Math.floor(ate * N); i++) pts.push(info.pontos[((i % N) + N) % N].clone().setY(0.06));
-    const tubo = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length, 4.2, 6, false),
+    const tubo = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length, largura / 2, 6, false),
       new THREE.MeshBasicMaterial({ color: cor, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
     tubo.scale.y = 0.05;
     return tubo;
