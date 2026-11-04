@@ -102,7 +102,7 @@ VITRINE.push((w, s) => {
   const v = obj(w, "volante", () => criarVolante());
   v.position.set(0, 1, 0);
   const f = Math.min(5, Math.floor(s * 6));
-  if (f === 0) enquadrar(w, v, [0, 0, 1], 1.02, 12);
+  if (f === 0) enquadrar(w, v, [0, 0.55, 1], 1.05, 26); // de frente, um pouco de cima (mostra o nome no topo)
   else if (f === 1) enquadrar(w, v, [0, 0, -1], 1.02, 12);
   else if (f === 2) {
     apertar(v, "ot");
