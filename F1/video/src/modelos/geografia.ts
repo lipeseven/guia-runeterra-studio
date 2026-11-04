@@ -238,8 +238,9 @@ export function destacarTrecho(w: Mundo, circ: THREE.Object3D, de: number, ate: 
     const pts: THREE.Vector3[] = [];
     for (let i = Math.floor(de * N); i <= Math.floor(ate * N); i++) pts.push(info.pontos[((i % N) + N) % N].clone().setY(0.06));
     const tubo = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length, largura / 2, 6, false),
-      new THREE.MeshBasicMaterial({ color: cor, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      new THREE.MeshBasicMaterial({ color: cor, transparent: true, depthWrite: false, depthTest: false, blending: THREE.AdditiveBlending }));
     tubo.scale.y = 0.05;
+    tubo.renderOrder = 20; // por cima da pista (as faixas da pista são puxadas para a frente na profundidade)
     return tubo;
   });
   circ.updateMatrixWorld(true);
