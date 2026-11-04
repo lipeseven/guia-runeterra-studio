@@ -42,7 +42,7 @@ def _doc(nome: str) -> str:
     return p.read_text(encoding="utf-8") if p.exists() else ""
 
 
-SETS = {"pista", "circuito", "estudio", "pit", "livre"}
+SETS = {"pista", "circuito", "estudio", "pit", "livre", "real"}
 
 
 def sistema() -> str:

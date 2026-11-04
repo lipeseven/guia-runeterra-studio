@@ -1,0 +1,248 @@
+// Geografia real: o Brasil com os estados (IBGE) e uma cidade destacada, e circuitos com o traçado de verdade
+// (bacinger/f1-circuits, MIT). Dados em ./geo/*.json. Circuito em METROS reais: o carro (5,4 m) anda nele em escala.
+import * as THREE from "three";
+import BRASIL from "./geo/brasil.json";
+import CIRCUITOS from "./geo/circuitos.json";
+import PAISES from "./paises.json";
+import { aoRestaurar } from "./desmonte";
+import { obj, rotulo } from "./extras";
+import type { Mundo } from "./mundo";
+
+type Anel = [number, number][];
+const mat = (cor: string, rough = 0.6, extra: THREE.MeshStandardMaterialParameters = {}) =>
+  new THREE.MeshStandardMaterial({ color: cor, roughness: rough, ...extra });
+
+// ------------------------------------------------------------------------------------------------ mapa do Brasil
+const NOME_UF: Record<string, string> = { "35": "SÃO PAULO", "33": "RIO DE JANEIRO", "31": "MINAS GERAIS", "41": "PARANÁ" };
+const CIDADES: Record<string, { nome: string }> = { "3550308": { nome: "SÃO PAULO" } };
+
+export type MapaBrasil = THREE.Group & {
+  userData: { ponto: (lat: number, lon: number) => THREE.Vector3; areas: Record<string, { centro: THREE.Vector3; tamanho: number }> };
+};
+
+/** Brasil com os 27 estados (IBGE), o `estado` destacado (código do IBGE: "35" = SP) e a `cidade` destacada por cima
+ *  ("3550308" = São Paulo). Deitado no chão, norte para -z, maior lado = `tamanho` metros. `areaNoMapa(mapa, "estado" |
+ *  "cidade" | "pais")` dá o centro e o tamanho de cada área, para a câmera chegar até ela. */
+export function criarMapaBrasil(o: { tamanho?: number; estado?: string; cidade?: string; cor?: string; corEstado?: string; corCidade?: string } = {}): MapaBrasil {
+  const ufs = (BRASIL as unknown as { uf: Record<string, Anel[]> }).uf;
+  const muni = (BRASIL as unknown as { municipio: Record<string, Anel[]> }).municipio;
+  const todos = Object.values(ufs).flat();
+  const xs = todos.flat().map((p) => p[0]);
+  const ys = todos.flat().map((p) => p[1]);
+  const lon0 = (Math.min(...xs) + Math.max(...xs)) / 2;
+  const lat0 = (Math.min(...ys) + Math.max(...ys)) / 2;
+  const kx = Math.cos((lat0 * Math.PI) / 180);
+  const S = (o.tamanho ?? 20) / Math.max((Math.max(...xs) - Math.min(...xs)) * kx, Math.max(...ys) - Math.min(...ys));
+  const proj = (lon: number, lat: number) => new THREE.Vector2((lon - lon0) * kx * S, (lat - lat0) * S);
+  const forma = (a: Anel) => new THREE.Shape(a.map(([x, y]) => proj(x, y)));
+  const g = new THREE.Group() as MapaBrasil;
+  const plano = new THREE.Group();
+  plano.rotation.x = -Math.PI / 2; // forma em x/y → chão em x/-z (norte para -z)
+  g.add(plano);
+  const contorno = (a: Anel, cor: string, z: number) => {
+    const l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(a.map(([x, y]) => { const p = proj(x, y); return new THREE.Vector3(p.x, p.y, z); })),
+      new THREE.LineBasicMaterial({ color: cor }));
+    plano.add(l);
+  };
+  const destaque = o.estado ?? "35";
+  for (const [cod, aneis] of Object.entries(ufs)) {
+    const eh = cod === destaque;
+    const prof = eh ? 0.55 : 0.3;
+    plano.add(new THREE.Mesh(new THREE.ExtrudeGeometry(aneis.map(forma), { depth: prof, bevelEnabled: false }), mat(eh ? (o.corEstado ?? "#2ec4b6") : (o.cor ?? "#3d7a5a"), 0.65)));
+    for (const a of aneis) contorno(a, eh ? "#ffffff" : "#a8c9b4", prof + 0.002);
+  }
+  // cidade em cima do estado, mais alta e em amarelo
+  const areas: MapaBrasil["userData"]["areas"] = {};
+  const caixa = (aneis: Anel[]) => {
+    const p = aneis.flat().map(([x, y]) => proj(x, y));
+    const x0 = Math.min(...p.map((v) => v.x)), x1 = Math.max(...p.map((v) => v.x)), y0 = Math.min(...p.map((v) => v.y)), y1 = Math.max(...p.map((v) => v.y));
+    return { centro: new THREE.Vector3((x0 + x1) / 2, 0.6, -(y0 + y1) / 2), tamanho: Math.max(x1 - x0, y1 - y0) };
+  };
+  areas.pais = caixa(todos);
+  areas.estado = caixa(ufs[destaque] ?? todos);
+  const cod = o.cidade ?? "3550308";
+  if (muni[cod]) {
+    // fina, em cima do estado (o estado tem 0,55 de altura): uma camada amarela, não uma torre
+    const cid = new THREE.Mesh(new THREE.ExtrudeGeometry(muni[cod].map(forma), { depth: 0.03, bevelEnabled: false }), mat(o.corCidade ?? "#ffc93a", 0.45, { emissive: "#ffc93a", emissiveIntensity: 0.35 }));
+    cid.position.z = 0.552;
+    plano.add(cid);
+    for (const a of muni[cod]) contorno(a, "#ffffff", 0.585);
+    areas.cidade = caixa(muni[cod]);
+  }
+  // países vizinhos (Natural Earth) mais claros e o mar
+  const base = PAISES as unknown as Record<string, { aneis: Anel[] }>;
+  const viz: THREE.Shape[] = [];
+  for (const [iso, p] of Object.entries(base)) {
+    if (iso === "BRA") continue;
+    for (const a of p.aneis) {
+      const c = a[0];
+      if (Math.abs(c[0] - lon0) < 30 && Math.abs(c[1] - lat0) < 30) viz.push(forma(a));
+    }
+  }
+  if (viz.length) plano.add(new THREE.Mesh(new THREE.ExtrudeGeometry(viz, { depth: 0.08, bevelEnabled: false }), mat("#c9cdc4", 0.85)));
+  const mar = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), mat("#8cc6ea", 1, { emissive: "#8cc6ea", emissiveIntensity: 0.45 }));
+  mar.rotation.x = -Math.PI / 2;
+  mar.position.y = -0.02;
+  mar.userData.foraDoEnquadro = true;
+  g.add(mar);
+  if (NOME_UF[destaque]) areas.estado.centro.y = 0.6;
+  g.userData = { ponto: (lat: number, lon: number) => { const p = proj(lon, lat); return new THREE.Vector3(p.x, 0.6, -p.y); }, areas };
+  void CIDADES;
+  return g;
+}
+
+/** Centro (no mundo) e tamanho (metros) de uma área do mapa do Brasil: "pais", "estado" ou "cidade". */
+export function areaNoMapa(mapa: THREE.Object3D, area: "pais" | "estado" | "cidade") {
+  mapa.updateMatrixWorld(true);
+  const a = (mapa as MapaBrasil).userData.areas[area] ?? (mapa as MapaBrasil).userData.areas.pais;
+  return { centro: mapa.localToWorld(a.centro.clone()), tamanho: a.tamanho * mapa.scale.x };
+}
+
+// ------------------------------------------------------------------------------------------------ circuito real
+type InfoCircuito = { pontos: THREE.Vector3[]; comprimento: number; curvatura: number[]; pista: THREE.Mesh; escape: THREE.Mesh; total: number };
+
+/** Circuito com o traçado real, em metros (Interlagos: 4,309 km), sentido da corrida = sentido dos pontos (f 0 = linha
+ *  de chegada, f 1 = volta completa). Asfalto, linhas brancas, zebras nas curvas fortes, linha de chegada quadriculada,
+ *  grama em volta. `rotulos`: [{texto, f}] marcando trechos (ex.: S do Senna). */
+export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulos?: { texto: string; f: number }[] } = {}) {
+  const dados = (CIRCUITOS as unknown as Record<string, { pontos: [number, number][]; comprimento: number }>)[nome];
+  if (!dados) throw new Error(`circuito desconhecido: ${nome}`);
+  const lon0 = dados.pontos.reduce((s, p) => s + p[0], 0) / dados.pontos.length;
+  const lat0 = dados.pontos.reduce((s, p) => s + p[1], 0) / dados.pontos.length;
+  const kx = 111320 * Math.cos((lat0 * Math.PI) / 180);
+  const brutos = dados.pontos.slice(0, -1).map(([x, y]) => new THREE.Vector3((x - lon0) * kx, 0, -(y - lat0) * 110540));
+  const curva = new THREE.CatmullRomCurve3(brutos, true, "centripetal");
+  const N = 1600;
+  const pontos = curva.getSpacedPoints(N).slice(0, N);
+  const comp = curva.getLength();
+  const larg = o.largura ?? 13;
+  const g = new THREE.Group();
+  // grama
+  const grama = new THREE.Mesh(new THREE.PlaneGeometry(5000, 5000), mat("#2f6a3c", 1));
+  grama.rotation.x = -Math.PI / 2;
+  grama.receiveShadow = true;
+  grama.userData.foraDoEnquadro = true;
+  g.add(grama);
+  // faixas ao longo do traçado: d0..d1 = distância do centro (negativo = à esquerda), y = altura
+  // `camada`: ordem de desenho das faixas sobrepostas (escape < asfalto < zebras/linhas), sem briga de profundidade de longe
+  const faixa = (d0: number, d1: number, y: number, cor: (i: number) => THREE.Color | null, camada = 1) => {
+    const pos: number[] = [];
+    const cores: number[] = [];
+    const ind: number[] = [];
+    for (let i = 0; i <= N; i++) {
+      const a = pontos[i % N];
+      const b = pontos[(i + 1) % N];
+      const t = b.clone().sub(a).normalize();
+      const nx = -t.z, nz = t.x; // normal à esquerda
+      for (const dd of [d0, d1]) pos.push(a.x + nx * dd, y, a.z + nz * dd);
+      const c = cor(i % N) ?? new THREE.Color(0, 0, 0);
+      cores.push(c.r, c.g, c.b, c.r, c.g, c.b);
+      if (i < N && cor(i % N)) ind.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(cores, 3));
+    geo.setIndex(ind);
+    geo.computeVertexNormals();
+    const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -camada * 2, polygonOffsetUnits: -camada * 4 }));
+    m.receiveShadow = true;
+    return m;
+  };
+  // curvatura (para zebras e esterço): ângulo entre segmentos por metro
+  const passo = comp / N;
+  const curvatura = pontos.map((_, i) => {
+    const a = pontos[(i - 3 + N) % N], b = pontos[i], c = pontos[(i + 3) % N];
+    const t1 = b.clone().sub(a).normalize(), t2 = c.clone().sub(b).normalize();
+    const ang = Math.atan2(t1.x * t2.z - t1.z * t2.x, t1.dot(t2)); // positivo = virando à direita (no plano x/z, z para o sul)
+    return -ang / (passo * 3);
+  });
+  const asfalto = new THREE.Color("#4a4f59");
+  // área de escape clara em volta do asfalto: deixa o traçado legível visto do alto (a pista sozinha some a 1 km)
+  const escape = faixa(-larg * 1.6, larg * 1.6, 0.012, () => new THREE.Color("#c9ccd2"), 1);
+  g.add(escape);
+  const pista = faixa(-larg / 2, larg / 2, 0.02, () => asfalto, 2);
+  g.add(pista);
+  const branco = new THREE.Color("#f2f2f2");
+  g.add(faixa(-larg / 2, -larg / 2 + 0.35, 0.03, () => branco, 3), faixa(larg / 2 - 0.35, larg / 2, 0.03, () => branco, 3));
+  const zebra = (i: number) => (Math.abs(curvatura[i]) > 0.006 ? (Math.floor(i / 2) % 2 ? new THREE.Color("#d92b2b") : branco) : null);
+  g.add(faixa(-larg / 2 - 1.4, -larg / 2, 0.025, zebra, 3), faixa(larg / 2, larg / 2 + 1.4, 0.025, zebra, 3));
+  // linha de chegada quadriculada em f = 0
+  const p0 = pontos[0], t0 = pontos[1].clone().sub(p0).normalize();
+  const tex = document.createElement("canvas");
+  tex.width = 256;
+  tex.height = 32;
+  const x = tex.getContext("2d")!;
+  for (let i = 0; i < 32; i++) for (let j = 0; j < 4; j++) {
+    x.fillStyle = (i + j) % 2 ? "#111" : "#fff";
+    x.fillRect(i * 8, j * 8, 8, 8);
+  }
+  const chegada = new THREE.Mesh(new THREE.PlaneGeometry(larg, 1.6), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(tex) }));
+  chegada.rotation.x = -Math.PI / 2;
+  chegada.rotation.z = Math.atan2(t0.x, -t0.z) + Math.PI / 2;
+  chegada.position.set(p0.x, 0.04, p0.z);
+  g.add(chegada);
+  for (const r of o.rotulos ?? []) {
+    const s = rotulo(r.texto, { altura: 60 });
+    const p = pontos[Math.floor((((r.f % 1) + 1) % 1) * N)];
+    s.position.set(p.x, 70, p.z);
+    g.add(s);
+  }
+  const info: InfoCircuito = { pontos, comprimento: comp, curvatura, pista, escape, total: (pista.geometry.index?.count ?? 0) };
+  g.userData.circuito = info;
+  aoRestaurar(() => {
+    pista.geometry.setDrawRange(0, info.total);
+    escape.geometry.setDrawRange(0, info.total);
+  });
+  return g;
+}
+
+const infoDe = (c: THREE.Object3D) => c.userData.circuito as InfoCircuito;
+
+/** Posição e giro do carro na volta (f 0 a 1) e o esterço das rodas: poe(w, k, q.x, q.z, q.giro); estercar(carro, q.esterco).
+ *  `lado` desloca do centro da pista (metros; positivo = à esquerda). */
+export function noCircuito(circ: THREE.Object3D, f: number, lado = 0) {
+  const { pontos, curvatura } = infoDe(circ);
+  const N = pontos.length;
+  const u = (((f % 1) + 1) % 1) * N;
+  const i = Math.floor(u), a = pontos[i], b = pontos[(i + 1) % N];
+  const p = a.clone().lerp(b, u - i);
+  const t = b.clone().sub(a).normalize();
+  p.x += -t.z * lado;
+  p.z += t.x * lado;
+  circ.updateMatrixWorld(true);
+  const w = circ.localToWorld(p);
+  return { x: w.x, z: w.z, giro: Math.atan2(-t.x, -t.z), esterco: Math.max(-0.5, Math.min(0.5, Math.atan(3.4 * curvatura[i]))) };
+}
+
+/** Ponto do circuito no mundo (f 0 a 1), para câmera e rótulos. */
+export function pontoNoCircuito(circ: THREE.Object3D, f: number, altura = 0) {
+  const q = noCircuito(circ, f);
+  return new THREE.Vector3(q.x, altura, q.z);
+}
+
+/** Desenha o traçado aos poucos (k 0 = nada, 1 = a volta inteira), como um traço sendo revelado. */
+export function revelarCircuito(circ: THREE.Object3D, k: number) {
+  const info = infoDe(circ);
+  const n = Math.floor((info.total / 6) * Math.max(0, Math.min(1, k))) * 6;
+  info.pista.geometry.setDrawRange(0, n);
+  info.escape.geometry.setDrawRange(0, n);
+}
+
+/** Acende um trecho do traçado (de/ate em fração da volta) com brilho, ex.: o S do Senna. */
+export function destacarTrecho(w: Mundo, circ: THREE.Object3D, de: number, ate: number, k = 1, cor = "#ffc93a") {
+  const info = infoDe(circ);
+  const chave = `trecho:${circ.uuid}:${de}:${ate}`;
+  const m = obj(w, chave, () => {
+    const N = info.pontos.length;
+    const pts: THREE.Vector3[] = [];
+    for (let i = Math.floor(de * N); i <= Math.floor(ate * N); i++) pts.push(info.pontos[((i % N) + N) % N].clone().setY(0.06));
+    const tubo = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length, 4.2, 6, false),
+      new THREE.MeshBasicMaterial({ color: cor, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    tubo.scale.y = 0.05;
+    return tubo;
+  });
+  circ.updateMatrixWorld(true);
+  m.position.setFromMatrixPosition(circ.matrixWorld);
+  (m.material as THREE.MeshBasicMaterial).opacity = 0.85 * k;
+  return m;
+}
