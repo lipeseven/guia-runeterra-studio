@@ -16,7 +16,7 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
   um efeito no plano. Só com sentido na fala: whoosh em troca forte ("fast cinematic whoosh"), pop quando algo aparece ("short
   soft bubble pop"), alerta quando algo dá errado ("short clean two tone alert beep"), clique de botão ou seletor ("single
   button click", "rotary knob clicks"), bipe de rádio ("radio beep static"). Barulho de carro: nunca. Só em momento-chave, em
-  que algo muda na tela naquela palavra; a maioria dos planos fica sem efeito. Teto de 1 a cada 8 s no vídeo (o motor corta o excesso por igual). A trilha não é daqui: é ligada no painel.
+  que algo muda na tela naquela palavra; a maioria dos planos fica sem efeito. O efeito bate na palavra citada e dura pouco (pop 0,3 s). Teto de 1 a cada 12 s no vídeo (o motor corta o excesso por igual). A trilha não é daqui: é ligada no painel.
 - `sem_legenda`: true tira a legenda do plano (quando a frase já está em letra grande com o gráfico `frase`).
 - Gráficos informativos (campos do plano, 2D por cima da cena; UM por plano, só quando reforçam a fala):
   - `titulo`: {"texto": "RÁDIO — COMUNICAÇÃO", "sub": "COM A EQUIPE", "em": "trecho"}: só na troca de assunto.

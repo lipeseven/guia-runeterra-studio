@@ -14,8 +14,8 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
 - **Plano só no carro, sem nada acontecendo, é fraco.** Toda cena mostra o que a fala diz.
 - **Som:** nada de barulho de carro. Swoosh em troca forte de cena, pop quando algo aparece, alerta quando algo dá errado.
   **Efeito só em momento-chave, ligado a algo que muda na tela naquela palavra** (a cor do carro troca, um número aparece, o
-  alerta da perda de posições). Sem isso, não leva som: efeito em toda cena vira "barulhinho" e não destaca nada. No máximo uma
-  lista por vídeo com um efeito por item; ~15 efeitos em 2 min 20 s é o limite.
+  alerta da perda de posições). Sem isso, não leva som: efeito em toda cena vira "goteira" e não destaca nada. O efeito bate numa
+  palavra-chave falada, nunca numa pausa. No máximo uma lista por vídeo com um efeito por item; ~9 efeitos em 2 min 20 s é a medida.
 - **O autódromo fica na cidade**, não numa floresta nem numa rodovia: muros, arquibancadas e prédios em volta da pista, poucas árvores só no miolo.
 - **Câmera transita.** Plano com carro usa `filmar` com 2 ou 3 posições, nunca uma posição só do começo ao fim.
 - **Velocidade do carro é constante no plano e parecida entre planos** (~0,015 da volta por segundo; reta rápida ~0,021).
