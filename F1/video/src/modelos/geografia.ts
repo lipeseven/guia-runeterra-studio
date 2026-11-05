@@ -109,11 +109,12 @@ type InfoCircuito = { pontos: THREE.Vector3[]; comprimento: number; curvatura: n
 const CENARIOS: Record<string, Cenario> = {
   interlagos: {
     arquibancadas: [
-      { f0: 0.955, f1: 1.03, coberta: true, dist: 58 }, { f0: 1.04, f1: 1.09, dist: 66 }, { f0: 0.12, f1: 0.165, dist: 72 },
-      { f0: 0.733, f1: 0.757, dist: 88, coberta: true }, { f0: 0.86, f1: 0.94, dist: 58 },
+      { f0: 0.945, f1: 1.04, coberta: true, dist: 62 }, { f0: 1.045, f1: 1.1, dist: 86 }, { f0: 0.118, f1: 0.17, dist: 88 },
+      { f0: 0.18, f1: 0.3, dist: 56 }, { f0: 0.315, f1: 0.365, dist: 88 }, { f0: 0.733, f1: 0.757, dist: 92, coberta: true },
+      { f0: 0.78, f1: 0.935, dist: 62 },
     ],
     boxes: { f0: 0.965, f1: 1.035, dist: -42 },
-    lagos: [{ f: 0.33, dist: 300, r: 170 }, { f: 0.22, dist: 320, r: 140 }],
+    lagos: [{ f: 0.33, dist: 900, r: 420 }, { f: 0.6, dist: -1100, r: 480 }],
   },
 };
 
@@ -136,6 +137,7 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   const kx = 111320 * Math.cos((lat0 * Math.PI) / 180);
   const brutos = dados.pontos.slice(0, -1).map(([x, y]) => new THREE.Vector3((x - lon0) * kx, 0, -(y - lat0) * 110540));
   const curva = new THREE.CatmullRomCurve3(brutos, true, "centripetal");
+  curva.arcLengthDivisions = 16000; // o padrão (200) deixa os pontos irregulares: o carro "pulsava", acelerando e freando
   const N = 1600;
   const pontos = curva.getSpacedPoints(N).slice(0, N);
   const comp = curva.getLength();
@@ -161,13 +163,19 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
       const b = pontos[(i + 1) % N];
       const t = b.clone().sub(a).normalize();
       const nx = -t.z, nz = t.x; // normal à esquerda
-      for (const dd of [d0, d1]) {
-        const d = typeof dd === "function" ? dd(i % N) : dd;
-        pos.push(a.x + nx * d, y, a.z + nz * d);
+      const c = cor(i % N);
+      if (i === N || !c) continue;
+      // 4 vértices por segmento: a cor fica nítida (zebra sem degradê)
+      const ta = pontos[(i + 2) % N].clone().sub(b).normalize();
+      const v = pos.length / 3;
+      for (const [q, ux, uz] of [[a, nx, nz], [b, -ta.z, ta.x]] as [THREE.Vector3, number, number][]) {
+        for (const dd of [d0, d1]) {
+          const d = typeof dd === "function" ? dd(q === a ? i % N : (i + 1) % N) : dd;
+          pos.push(q.x + ux * d, y, q.z + uz * d);
+        }
       }
-      const c = cor(i % N) ?? new THREE.Color(0, 0, 0);
-      cores.push(c.r, c.g, c.b, c.r, c.g, c.b);
-      if (i < N && cor(i % N)) ind.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+      for (let k = 0; k < 4; k++) cores.push(c.r, c.g, c.b);
+      ind.push(v, v + 1, v + 2, v + 1, v + 3, v + 2);
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
@@ -189,6 +197,7 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   });
   const asfalto = new THREE.Color("#4a4f59");
   // área de escape clara em volta do asfalto: deixa o traçado legível visto do alto (a pista sozinha some a 1 km)
+  let bordas = { fora: (_: number) => larg, dentro: (_: number) => larg };
   const fatorEscape = o.cenario ? 0.95 : 1.6;
   const escape = faixa(-larg * fatorEscape, larg * fatorEscape, 0.012, () => new THREE.Color(o.cenario ? "#9aa0a6" : "#c9ccd2"), 1);
   if (o.cenario) {
@@ -206,6 +215,7 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
     const areia = new THREE.Color("#d8bd8a"), terra = new THREE.Color("#a98559");
     // vira à esquerda (curvatura positiva) = o lado de fora é a direita = distância positiva
     const fora = (i: number) => largura(i, 1), dentro = (i: number) => largura(i, -1);
+    bordas = { fora, dentro };
     g.add(faixa(larg * 0.9, fora, 0.006, () => areia, 0.5), faixa((i) => -dentro(i), -larg * 0.9, 0.006, () => areia, 0.5));
     g.add(faixa(larg * 0.9, (i) => fora(i) * 0.72, 0.009, (i) => (fora(i) > larg * 2 ? terra : null), 0.7),
       faixa((i) => -dentro(i) * 0.72, -larg * 0.9, 0.009, (i) => (dentro(i) > larg * 2 ? terra : null), 0.7));
@@ -241,7 +251,7 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   }
   const info: InfoCircuito = { pontos, comprimento: comp, curvatura, pista, escape, total: (pista.geometry.index?.count ?? 0), faixas };
   g.userData.circuito = info;
-  if (o.cenario) vestirCircuito(g, pontos, comp, CENARIOS[nome] ?? { arquibancadas: [] });
+  if (o.cenario) vestirCircuito(g, pontos, comp, CENARIOS[nome] ?? { arquibancadas: [] }, bordas);
   aoRestaurar(() => {
     for (const m of faixas) m.geometry.setDrawRange(0, m.geometry.index?.count ?? 0);
   });
@@ -258,12 +268,15 @@ export function noCircuito(circ: THREE.Object3D, f: number, lado = 0) {
   const u = (((f % 1) + 1) % 1) * N;
   const i = Math.floor(u), a = pontos[i], b = pontos[(i + 1) % N];
   const p = a.clone().lerp(b, u - i);
-  const t = b.clone().sub(a).normalize();
+  // direção e esterço em janela de ~20 m: sem isso o carro treme nos pontos do traçado
+  const t = pontos[(i + 4) % N].clone().sub(pontos[(i - 4 + N) % N]).normalize();
+  let cv = 0;
+  for (let d = -6; d <= 6; d++) cv += curvatura[(i + d + N) % N] / 13;
   p.x += -t.z * lado;
   p.z += t.x * lado;
   circ.updateMatrixWorld(true);
   const w = circ.localToWorld(p);
-  return { x: w.x, z: w.z, giro: Math.atan2(-t.x, -t.z), esterco: Math.max(-0.5, Math.min(0.5, Math.atan(3.4 * curvatura[i]))) };
+  return { x: w.x, z: w.z, giro: Math.atan2(-t.x, -t.z), esterco: Math.max(-0.5, Math.min(0.5, Math.atan(3.4 * cv))) };
 }
 
 /** Carro na volta do circuito, com esterço. `escala` > 1 só para vista de longe (senão o carro some). */
@@ -293,6 +306,47 @@ export function perseguir(w: Mundo, circ: THREE.Object3D, f: number, o: { atras?
   const a = noCircuito(circ, f - (o.atras ?? 15) / comprimento);
   const b = noCircuito(circ, f + (o.frente ?? 22) / comprimento);
   camera(w, [a.x, o.alto ?? 5.5, a.z], [b.x, 0.5, b.z], o.lente ?? 46, o.rolar ?? 0);
+}
+
+/** Posições de câmera em volta do carro (metros, no referencial dele): `tras` atrás (negativo = à frente do carro), `lado`
+ *  (positivo = direita), `alto`, `olha` = quanto à frente do carro ela mira, `lente`. */
+export const CAMERAS = {
+  atras: { tras: 14, lado: 0, alto: 4.5, olha: 12, lente: 46 },
+  curva: { tras: 17, lado: 0, alto: 6.5, olha: 20, lente: 50 },
+  rasante: { tras: 8, lado: 1, alto: 0.9, olha: 16, lente: 62 },
+  lado: { tras: 1, lado: 19, alto: 1.8, olha: 0, lente: 38 },
+  ladoesq: { tras: 1, lado: -19, alto: 1.8, olha: 0, lente: 38 },
+  frente: { tras: -17, lado: 2, alto: 1.7, olha: 0, lente: 40 },
+  alto: { tras: 24, lado: -6, alto: 20, olha: 2, lente: 44 },
+  heli: { tras: 46, lado: 30, alto: 46, olha: 2, lente: 40 },
+  roda: { tras: 2.6, lado: 2.1, alto: 0.45, olha: 8, lente: 56 },
+};
+type Rig = (typeof CAMERAS)["atras"];
+type NomeCamera = keyof typeof CAMERAS;
+
+/** Câmera que transita entre posições ao longo do plano, sempre em movimento e sem tranco. `u` = 0 a 1 no plano (c.k);
+ *  `lista` = posições em ordem. Referencial = direção da pista suavizada em ~50 m, então a câmera não sacode nas curvas. */
+export function filmar(w: Mundo, circ: THREE.Object3D, f: number, u: number, lista: (NomeCamera | Rig)[], o: { lado?: number } = {}) {
+  const { comprimento } = infoDe(circ);
+  const n = lista.length;
+  const pos = Math.max(0, Math.min(0.9999, u)) * n;
+  const seg = Math.floor(pos);
+  const local = pos - seg;
+  // cada posição fica um tempo e a passagem para a próxima ocupa o último 45% do trecho, com leve deriva durante a parada
+  const mix = Math.max(0, (local - 0.55) / 0.45);
+  const m = mix * mix * (3 - 2 * mix);
+  const rig = (x: NomeCamera | Rig) => (typeof x === "string" ? CAMERAS[x] : x);
+  const a = rig(lista[seg]), b = rig(lista[Math.min(n - 1, seg + 1)]);
+  const v = (k: keyof Rig) => a[k] + (b[k] - a[k]) * m;
+  const deriva = 1 + 0.1 * (u - 0.5);
+  const c = noCircuito(circ, f, o.lado ?? 0);
+  const p0 = noCircuito(circ, f - 25 / comprimento), p1 = noCircuito(circ, f + 25 / comprimento);
+  const L = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1;
+  const tx = (p1.x - p0.x) / L, tz = (p1.z - p0.z) / L;
+  const dir = { x: -tz, z: tx };
+  const px = c.x - tx * v("tras") * deriva + dir.x * v("lado") * deriva;
+  const pz = c.z - tz * v("tras") * deriva + dir.z * v("lado") * deriva;
+  camera(w, [px, v("alto"), pz], [c.x + tx * v("olha"), 0.55, c.z + tz * v("olha")], v("lente"));
 }
 
 /** Vários carros andando na volta. `v` em frações de volta por segundo. */

@@ -217,10 +217,15 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
           <line x1={0} y1={18} x2={0} y2={-R * 0.72} stroke={COR.alerta} strokeWidth={8} strokeLinecap="round" transform={`rotate(${(mm / 60) * 360})`} />
           <circle r={11} fill="#1a2333" />
         </svg>
-        <div style={{ opacity: passou ? entra(t, em[atual], 0.2) : 0 }}>
+        <div>
           {g.texto && <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: 3, color: COR.suave }}>{g.texto}</div>}
-          <div style={{ fontSize: 118, lineHeight: 1.02, fontWeight: 900, color: COR.ouro, fontVariantNumeric: "tabular-nums" }}>{fmtHora(h)}</div>
-          <div style={{ fontSize: 38, fontWeight: 800, color: COR.texto }}>{h.texto}</div>
+          {(passou || atual > 0) && (
+            // enquanto o ponteiro gira, a hora anterior continua escrita; o painel nunca fica vazio
+            <div style={{ opacity: passou ? entra(t, em[atual], 0.2) : 1 }}>
+              <div style={{ fontSize: 118, lineHeight: 1.02, fontWeight: 900, color: COR.ouro, fontVariantNumeric: "tabular-nums" }}>{fmtHora(passou ? h : antes)}</div>
+              <div style={{ fontSize: 38, fontWeight: 800, color: COR.texto }}>{(passou ? h : horas[atual - 1]).texto}</div>
+            </div>
+          )}
         </div>
       </div>,
       1510,

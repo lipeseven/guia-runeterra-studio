@@ -1,5 +1,6 @@
-// Cenário do circuito em volta do traçado real (low-poly): relevo, árvores, lago, arquibancadas com torcida, prédio dos
-// boxes e paddock. Só aparência: o traçado e as distâncias continuam os reais. Ligado por criarCircuito(nome, { cenario: true }).
+// Cenário do circuito em volta do traçado real (low-poly): autódromo DENTRO DA CIDADE (decisão do Felipe, 2026-11-04): prédios
+// e ruas em volta, muros e alambrados ao longo da pista, arquibancadas com torcida, boxes e paddock, poucas árvores só no miolo.
+// Só aparência: o traçado e as distâncias continuam os reais. Ligado por criarCircuito(nome, { cenario: true }).
 // Nada aqui muda por quadro: tudo é fixo na criação.
 import * as THREE from "three";
 import { seed } from "./mundo";
@@ -25,6 +26,18 @@ const distanciaAoTracado = (pts: THREE.Vector3[]) => {
   };
 };
 
+/** O ponto está dentro do contorno da pista? */
+const dentroDoTracado = (pts: THREE.Vector3[]) => {
+  const c = pts.filter((_, i) => i % 8 === 0);
+  return (x: number, z: number) => {
+    let d = false;
+    for (let i = 0, j = c.length - 1; i < c.length; j = i++) {
+      if (c[i].z > z !== c[j].z > z && x < ((c[j].x - c[i].x) * (z - c[i].z)) / (c[j].z - c[i].z) + c[i].x) d = !d;
+    }
+    return d;
+  };
+};
+
 /** Lugar `dist` metros ao lado do traçado na fração f (dist positiva = à direita do sentido da corrida). */
 export function aoLado(pts: THREE.Vector3[], f: number, dist: number) {
   const N = pts.length;
@@ -34,25 +47,27 @@ export function aoLado(pts: THREE.Vector3[], f: number, dist: number) {
   return { x: a.x - t.z * dist, z: a.z + t.x * dist };
 }
 
-// ---- relevo: grama em facetas, plana perto da pista, com morros suaves longe dela
-function relevo(pts: THREE.Vector3[], lagos: { x: number; z: number; r: number }[]) {
-  const geo = new THREE.PlaneGeometry(6000, 6000, 150, 150).toNonIndexed();
+type Local = { x: number; z: number; r: number };
+const LIMITE_AUTODROMO = 105; // metros além da pista onde começa a cidade
+
+// ---- chão: grama no autódromo, cidade em volta, morros só bem longe
+function relevo(pts: THREE.Vector3[], altura: (x: number, z: number) => number, ehCidade: (x: number, z: number) => boolean) {
+  const geo = new THREE.PlaneGeometry(9000, 9000, 180, 180).toNonIndexed();
   geo.rotateX(-Math.PI / 2);
   const pos = geo.getAttribute("position") as THREE.BufferAttribute;
-  const dist = distanciaAoTracado(pts);
-  const onda = (x: number, z: number) => Math.sin(x * 0.0041 + 1.3) * Math.cos(z * 0.0037) + 0.6 * Math.sin(x * 0.011 - z * 0.009) + 0.3 * Math.cos(x * 0.023 + z * 0.019);
   const cores: number[] = [];
-  const tons = ["#6fae4b", "#5c9c42", "#4b8a3a"].map((c) => new THREE.Color(c));
+  const grama = ["#6fae4b", "#64a345", "#5c9c42"].map((c) => new THREE.Color(c));
+  const rua = ["#8f8d88", "#9a9892", "#85837f"].map((c) => new THREE.Color(c));
   for (let i = 0; i < pos.count; i += 3) {
-    let soma = 0;
+    let cx = 0, cz = 0;
     for (let j = 0; j < 3; j++) {
       const x = pos.getX(i + j), z = pos.getZ(i + j);
-      const dLago = Math.min(Infinity, ...lagos.map((l) => Math.hypot((x - l.x) / 1.5, z - l.z) - l.r * 1.1)); // o lago fica em terreno plano
-      const longe = Math.min(1, Math.max(0, Math.min(dist(x, z) - 70, dLago) / 260));
-      pos.setY(i + j, -0.15 + longe * longe * (14 + onda(x, z) * 16));
-      soma += onda(x, z);
+      pos.setY(i + j, altura(x, z));
+      cx += x / 3;
+      cz += z / 3;
     }
-    const c = tons[soma > 1 ? 0 : soma > -1 ? 1 : 2];
+    const n = Math.floor(seed(i + 17) * 3);
+    const c = ehCidade(cx, cz) ? rua[n] : grama[n];
     for (let j = 0; j < 3; j++) cores.push(c.r, c.g, c.b);
   }
   geo.setAttribute("color", new THREE.Float32BufferAttribute(cores, 3));
@@ -62,19 +77,116 @@ function relevo(pts: THREE.Vector3[], lagos: { x: number; z: number; r: number }
   return m;
 }
 
-// ---- árvores: copas em facetas, em grupos (instanciadas: milhares sem pesar)
-function arvores(pts: THREE.Vector3[], reservado: (x: number, z: number) => boolean) {
+// ---- cidade: quarteirões em grade, muitos prédios baixos e torres espalhadas (instanciados)
+let texJanelas: THREE.CanvasTexture | null = null;
+function janelas() {
+  if (texJanelas) return texJanelas;
+  const c = document.createElement("canvas");
+  c.width = 64;
+  c.height = 128;
+  const x = c.getContext("2d")!;
+  x.fillStyle = "#ffffff";
+  x.fillRect(0, 0, 64, 128);
+  for (let l = 0; l < 8; l++) for (let k = 0; k < 4; k++) {
+    x.fillStyle = seed(l * 7 + k * 31) > 0.72 ? "#8b98a8" : "#46505e";
+    x.fillRect(5 + k * 15, 5 + l * 15.6, 9, 9);
+  }
+  texJanelas = new THREE.CanvasTexture(c);
+  texJanelas.wrapS = texJanelas.wrapT = THREE.RepeatWrapping;
+  texJanelas.colorSpace = THREE.SRGBColorSpace;
+  return texJanelas;
+}
+
+function cidade(altura: (x: number, z: number) => number, ehCidade: (x: number, z: number) => boolean, livre: (x: number, z: number) => boolean, centro: THREE.Vector3) {
+  const PASSO = 48;
+  const lugares: { x: number; z: number; l: number; p: number; h: number; c: THREE.Color }[] = [];
+  const tons = ["#d9d3c4", "#c9c2b2", "#e4e0d6", "#b8b3a8", "#c98f6b", "#a9b4bd", "#d6c7a8", "#9aa3a8"].map((c) => new THREE.Color(c));
+  for (let a = -70; a <= 70; a++) for (let b = -70; b <= 70; b++) {
+    if (a % 6 === 0 || b % 6 === 0) continue; // avenidas
+    const x = centro.x + a * PASSO, z = centro.z + b * PASSO;
+    const R = Math.hypot(x - centro.x, z - centro.z);
+    const s = a * 211 + b * 89;
+    if (R > 3300 || !ehCidade(x, z) || !livre(x, z) || seed(s) > 0.86) continue;
+    const r = seed(s + 1);
+    const h = r > 0.965 ? 62 + seed(s + 2) * 60 : r > 0.84 ? 24 + seed(s + 2) * 30 : 6 + seed(s + 2) * 12;
+    lugares.push({ x: x + (seed(s + 3) - 0.5) * 8, z: z + (seed(s + 4) - 0.5) * 8, l: 20 + seed(s + 5) * 16, p: 20 + seed(s + 6) * 16, h, c: tons[Math.floor(seed(s + 7) * tons.length) % tons.length] });
+  }
+  const lado = new THREE.MeshStandardMaterial({ map: janelas(), roughness: 0.9 });
+  const topo = new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 1 });
+  const m = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), [lado, lado, topo, topo, lado, lado], lugares.length);
+  const a = new THREE.Object3D();
+  lugares.forEach((q, i) => {
+    a.position.set(q.x, altura(q.x, q.z) + q.h / 2, q.z);
+    a.scale.set(q.l, q.h, q.p);
+    a.updateMatrix();
+    m.setMatrixAt(i, a.matrix);
+    m.setColorAt(i, q.c);
+  });
+  return m;
+}
+
+// ---- muro ao longo do traçado: faixa vertical; `d(i)` = distância lateral (positiva = direita), `cor(i)` null = sem muro ali
+function muro(pts: THREE.Vector3[], d: (i: number) => number, y0: number, y1: number, cor: (i: number) => THREE.Color | null, material?: THREE.Material) {
+  const N = pts.length;
+  const pos: number[] = [], cores: number[] = [], ind: number[] = [];
+  const lado = (i: number) => {
+    const a = pts[i % N], t = pts[(i + 1) % N].clone().sub(a).normalize(), dd = d(i % N);
+    return [a.x - t.z * dd, a.z + t.x * dd];
+  };
+  for (let i = 0; i < N; i++) {
+    const c = cor(i);
+    if (!c) continue;
+    const [ax, az] = lado(i), [bx, bz] = lado(i + 1);
+    const v = pos.length / 3;
+    pos.push(ax, y0, az, ax, y1, az, bx, y0, bz, bx, y1, bz);
+    for (let k = 0; k < 4; k++) cores.push(c.r, c.g, c.b);
+    ind.push(v, v + 1, v + 2, v + 1, v + 3, v + 2);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(cores, 3));
+  geo.setIndex(ind);
+  geo.computeVertexNormals();
+  return new THREE.Mesh(geo, material ?? new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide }));
+}
+
+/** Muros de proteção dos dois lados, placas coloridas sem marca, alambrado por cima e o muro externo do autódromo. */
+function muros(pts: THREE.Vector3[], bordas: { fora: (i: number) => number; dentro: (i: number) => number }, distancia: (x: number, z: number) => number, noMiolo: (x: number, z: number) => boolean) {
+  const g = new THREE.Group();
+  const N = pts.length;
+  const placas = ["#1f5fd1", "#f4f4f2", "#d92b2b", "#169c46", "#ffd21f", "#22262e", "#f4f4f2"].map((c) => new THREE.Color(c));
+  const concreto = new THREE.Color("#c9c9c4");
+  const livre = (i: number, dd: number) => {
+    const a = pts[i], t = pts[(i + 1) % N].clone().sub(a).normalize();
+    return distancia(a.x - t.z * dd, a.z + t.x * dd) > Math.abs(dd) * 0.72; // não atravessa outro trecho da pista
+  };
+  const fora = (i: number) => bordas.fora(i) + 3, dentro = (i: number) => -(bordas.dentro(i) + 3);
+  for (const d of [fora, dentro]) {
+    g.add(muro(pts, d, 0, 1.3, (i) => (livre(i, d(i)) ? concreto : null)));
+    g.add(muro(pts, d, 1.3, 2.5, (i) => (livre(i, d(i)) ? placas[Math.floor(i / 7) % placas.length] : null)));
+    g.add(muro(pts, d, 2.5, 6.5, (i) => (livre(i, d(i)) ? new THREE.Color("#aab2ba") : null),
+      new THREE.MeshStandardMaterial({ vertexColors: true, transparent: true, opacity: 0.22, side: THREE.DoubleSide, depthWrite: false })));
+  }
+  const externo = () => LIMITE_AUTODROMO - 8;
+  const externoLivre = (i: number) => {
+    const a = pts[i], t = pts[(i + 1) % N].clone().sub(a).normalize(), dd = externo();
+    return livre(i, dd) && !noMiolo(a.x - t.z * dd, a.z + t.x * dd); // o muro externo nunca entra no miolo do autódromo
+  };
+  g.add(muro(pts, externo, 0, 6, (i) => (externoLivre(i) ? new THREE.Color("#b7b2a6") : null)));
+  return g;
+}
+
+// ---- árvores: poucas, só no miolo do autódromo
+function arvores(pts: THREE.Vector3[], reservado: (x: number, z: number) => boolean, dentro: (x: number, z: number) => boolean) {
   const dist = distanciaAoTracado(pts);
   const lugares: [number, number, number][] = [];
   const area = new THREE.Box3().setFromPoints(pts);
-  for (let i = 0; lugares.length < 1500 && i < 14000; i++) {
-    const g = Math.floor(i / 9);
-    const cx = area.min.x - 500 + seed(g * 3 + 1) * (area.max.x - area.min.x + 1000);
-    const cz = area.min.z - 500 + seed(g * 3 + 2) * (area.max.z - area.min.z + 1000);
-    const x = cx + (seed(i * 2 + 11) - 0.5) * 110;
-    const z = cz + (seed(i * 2 + 12) - 0.5) * 110;
-    if (dist(x, z) < 42 || reservado(x, z)) continue;
-    lugares.push([x, z, 15 + seed(i + 5) * 16]);
+  for (let i = 0; lugares.length < 130 && i < 6000; i++) {
+    const g = Math.floor(i / 6);
+    const x = area.min.x + seed(g * 3 + 1) * (area.max.x - area.min.x) + (seed(i * 2 + 11) - 0.5) * 50;
+    const z = area.min.z + seed(g * 3 + 2) * (area.max.z - area.min.z) + (seed(i * 2 + 12) - 0.5) * 50;
+    if (!dentro(x, z) || dist(x, z) < 72 || reservado(x, z)) continue;
+    lugares.push([x, z, 12 + seed(i + 5) * 10]);
   }
   const copa = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 1), mat("#ffffff"), lugares.length);
   const tronco = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.16, 0.22, 1, 5), mat("#6b4a2e"), lugares.length);
@@ -204,25 +316,34 @@ function lago(cx: number, cz: number, r: number) {
 export type Cenario = {
   arquibancadas: { f0: number; f1: number; coberta?: boolean; dist: number }[];
   boxes?: { f0: number; f1: number; dist: number };
-  lagos?: { f: number; dist: number; r: number }[];
+  lagos?: { f: number; dist: number; r: number }[]; // os lagos ficam longe, para além da cidade
 };
 
-/** Veste o circuito: tudo entra marcado como fora do enquadramento (enquadrar() só olha a pista). */
-export function vestirCircuito(g: THREE.Group, pts: THREE.Vector3[], comprimento: number, o: Cenario) {
+/** Veste o circuito: tudo entra marcado como fora do enquadramento (enquadrar() só olha a pista). `bordas` = até onde vão as
+ *  áreas de escape em cada ponto da volta, para o muro ficar depois delas. */
+export function vestirCircuito(g: THREE.Group, pts: THREE.Vector3[], comprimento: number, o: Cenario, bordas: { fora: (i: number) => number; dentro: (i: number) => number }) {
   const tudo = new THREE.Group();
-  // o lago sai de perto da pista: empurrado para fora até ficar longe do traçado (nunca cobre o asfalto)
   const dist = distanciaAoTracado(pts);
+  const dentro = dentroDoTracado(pts);
   const meio = new THREE.Box3().setFromPoints(pts).getCenter(new THREE.Vector3());
-  const lagos = (o.lagos ?? []).map((l) => {
+  // o lago sai de perto da pista: empurrado para fora até ficar longe do traçado (nunca cobre o asfalto)
+  const lagos: Local[] = (o.lagos ?? []).map((l) => {
     const q = aoLado(pts, l.f, l.dist);
-    for (let i = 0; i < 40 && dist(q.x, q.z) < l.r * 1.7 + 60; i++) {
+    for (let i = 0; i < 80 && dist(q.x, q.z) < l.r * 1.7 + 260; i++) {
       const n = Math.hypot(q.x - meio.x, q.z - meio.z) || 1;
       q.x += ((q.x - meio.x) / n) * 40;
       q.z += ((q.z - meio.z) / n) * 40;
     }
     return { ...q, r: l.r };
   });
-  tudo.add(relevo(pts, lagos));
+  const noLago = (x: number, z: number, folga = 1.12) => lagos.some((l) => Math.hypot((x - l.x) / 1.5, z - l.z) < l.r * folga);
+  const ehCidade = (x: number, z: number) => !dentro(x, z) && dist(x, z) > LIMITE_AUTODROMO && !noLago(x, z, 1.04);
+  // plano até 1,8 km do centro; morros só no horizonte
+  const altura = (x: number, z: number) => {
+    const longe = Math.min(1, Math.max(0, (Math.hypot(x - meio.x, z - meio.z) - 1800) / 1400));
+    return -0.15 + longe * longe * (70 + Math.sin(x * 0.0021 + 1.3) * Math.cos(z * 0.0017) * 60);
+  };
+  tudo.add(relevo(pts, altura, ehCidade));
   for (const l of lagos) tudo.add(lago(l.x, l.z, l.r));
   const grupo = new THREE.Group();
   for (const a of o.arquibancadas) grupo.add(arquibancadas(pts, a.f0, a.f1, a.dist, a.coberta ?? false, comprimento));
@@ -232,10 +353,12 @@ export function vestirCircuito(g: THREE.Group, pts: THREE.Vector3[], comprimento
   const blocos: THREE.Box3[] = [];
   grupo.children.forEach((x) => x.children.length && blocos.push(new THREE.Box3().setFromObject(x).expandByScalar(9)));
   const reservado = (x: number, z: number) => {
-    if (lagos.some((l) => Math.hypot((x - l.x) / 1.5, z - l.z) < l.r * 1.12)) return true;
+    if (noLago(x, z)) return true;
     const p = new THREE.Vector3(x, 1, z);
     return blocos.some((b) => b.containsPoint(p));
   };
-  tudo.add(arvores(pts, reservado));
+  tudo.add(muros(pts, bordas, dist, dentro));
+  tudo.add(cidade(altura, ehCidade, (x, z) => !reservado(x, z), meio));
+  tudo.add(arvores(pts, reservado, dentro));
   g.add(fora(tudo));
 }

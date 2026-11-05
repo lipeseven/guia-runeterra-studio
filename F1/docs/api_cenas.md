@@ -15,8 +15,8 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
 - `som` (opcional): {"o_que": "descrição curta EM INGLÊS do som", "em": "trecho exato"}; `sons`: lista igual, para mais de
   um efeito no plano. Só com sentido na fala: whoosh em troca forte ("fast cinematic whoosh"), pop quando algo aparece ("short
   soft bubble pop"), alerta quando algo dá errado ("short clean two tone alert beep"), clique de botão ou seletor ("single
-  button click", "rotary knob clicks"), bipe de rádio ("radio beep static"). Barulho de carro: nunca. No máximo 1 a cada ~7 s
-  (o motor corta o excesso, mínimo de 3 s entre eles). A trilha não é daqui: é ligada no painel.
+  button click", "rotary knob clicks"), bipe de rádio ("radio beep static"). Barulho de carro: nunca. Lista falada: um por item.
+  Mínimo de 0,5 s entre eles e teto de 1 a cada 3 s no vídeo (o motor corta o excesso por igual). A trilha não é daqui: é ligada no painel.
 - `sem_legenda`: true tira a legenda do plano (quando a frase já está em letra grande com o gráfico `frase`).
 - Gráficos informativos (campos do plano, 2D por cima da cena; UM por plano, só quando reforçam a fala):
   - `titulo`: {"texto": "RÁDIO — COMUNICAÇÃO", "sub": "COM A EQUIPE", "em": "trecho"}: só na troca de assunto.
@@ -123,9 +123,10 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
   0,46–0,49 (6-7); Laranjinha 0,53 (8); Pinheirinho 0,56 (9); Bico de Pato 0,627 (10); Mergulho 0,675 (11); Junção 0,743 (12);
   Subida dos Boxes 0,77–0,99 (13-15).
 - **Sempre `criarCircuito("interlagos", { cenario: true })`** (chave `"circ:cen"`, é o mesmo objeto em todos os planos): relevo,
-  árvores, lago, arquibancadas e boxes em volta do traçado real. Lado positivo = direita do sentido da corrida = por fora.
+  cidade, muros, arquibancadas, boxes e poucas árvores em volta do traçado real. Lado positivo = direita do sentido da corrida = por fora.
 - `poeNoCircuito(w, k, circ, f, { lado, escala })`: carro na volta, já com esterço; `escala` só em vista de longe (4 a 7).
 - `poePinturaNoCircuito(w, "chave", { base, clara, escura, faixa, acento }, circ, f, { escala })`: carro com pintura própria (só cores conferidas).
+- **`filmar(w, circ, f, c.k, ["curva", "lado", "atras"], { lado })`: câmera padrão de carro na volta.** Transita pelas posições ao longo do plano, sem tranco: atras, curva, rasante, lado, ladoesq, frente, alto, heli, roda. Use 2 ou 3 posições; com dois carros: alto, atras, frente ou heli (lado corta o outro).
 - `perseguir(w, circ, f, { atras, alto, frente, lente })`: câmera atrás do carro olhando a pista à frente; a curva aparece antes de ele virar. Curva: atras 17, alto 6,5, frente 30, lente 50. Reta rápida: atras 11, alto 2,3, frente 30, lente 62. Velocidade real: ~0,016 da volta por segundo.
 - `panorama(w, circ, azimute, alto, folga)`: a pista inteira em diagonal (alto 0 rasante, 1 de cima; folga 0,86 cabe na tela).
 - `transito(w, circ, c.t, [carros], { escala, v })`: carros andando pela volta. `nomearTrechos(w, circ, k)`: nomes reais dos trechos sobre a pista.
