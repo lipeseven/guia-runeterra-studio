@@ -487,7 +487,9 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
         if _corte(p["id"]) or len(atual) >= 5 or n == len(planos) - 1:
             ini, fim = q[atual[0]], q[n + 1] - 1
             if fim >= ini:
-                chave = json.dumps({"planos": [planos[k] for k in atual], "q": [ini, fim], "comum": comum}, sort_keys=True,
+                # efeito sonoro não entra: é só áudio, não muda a imagem do bloco
+                sem_som = [{c: v for c, v in planos[k].items() if c not in ("som", "sons")} for k in atual]
+                chave = json.dumps({"planos": sem_som, "q": [ini, fim], "comum": comum}, sort_keys=True,
                                    ensure_ascii=False)
                 saida.append({"inicio": ini, "fim": fim, "planos": [planos[k]["id"] for k in atual],
                               "impressao": hashlib.sha1(chave.encode()).hexdigest()[:16]})
@@ -496,7 +498,46 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
 
 
 SOM_INTERVALO = 0.5  # segundos entre efeitos: só uma lista falada curta chega perto disso
-SOM_POR_SEGUNDOS = 8.0  # teto: 37 efeitos em 137 s foi "barulhinho toda hora" (Felipe, 2026-11-04); ~1 a cada 8 s é o máximo
+SOM_POR_SEGUNDOS = 12.0  # teto: até 15 efeitos em 137 s ainda foi "goteira" (Felipe, 2026-11-04); ~1 a cada 12 s é o máximo
+SOM_DURACAO = {"pop": 0.3, "clique": 0.25, "alerta": 0.8, "seletor": 0.7, "radio": 0.9, "whoosh": 1.2}  # segundos que tocam de cada efeito
+
+
+def _toques(arquivo: str) -> list[float]:
+    """Instantes (s) em que o som "bate": vários arquivos do catálogo repetem o toque, o que soa como goteira."""
+    import numpy as np
+    import soundfile as sf
+
+    a, sr = sf.read(arquivo, always_2d=True)
+    a = a.mean(1)
+    h = max(1, sr // 100)
+    db = 20 * np.log10(np.array([np.sqrt(np.mean(a[i:i + h] ** 2)) for i in range(0, max(1, len(a) - h), h)]) + 1e-6)
+    piso = db.max() - 24
+    toques: list[float] = []
+    for i in range(len(db)):
+        antes = db[max(0, i - 3):i].max() if i else -120.0
+        if db[i] > piso and db[i] - antes > 8 and (not toques or i / 100 - toques[-1] > 0.08):
+            toques.append(i / 100)
+    return toques
+
+
+def _na_fala(trabalho: Path) -> callable:
+    """Devolve a função que cola um instante no começo real da palavra na voz (a tabela de tempos pode vir um pouco adiantada)."""
+    import numpy as np
+    import soundfile as sf
+
+    v, sr = sf.read(trabalho / "voz.wav", always_2d=True)
+    v = v.mean(1)
+    h = sr // 100
+    db = 20 * np.log10(np.array([np.sqrt(np.mean(v[i:i + h] ** 2)) for i in range(0, len(v) - h, h)]) + 1e-6)
+
+    def colar(t: float) -> float:
+        i0, i1 = max(0, int(t * 100)), min(len(db), int((t + 0.35) * 100))  # já há fala em t = fica em t; tabela adiantada = anda até a fala
+        for i in range(i0, i1):
+            if db[i] > -38:
+                return round(i / 100, 3)
+        return t
+
+    return colar
 SOM_VOLUME = {"clique": 0.22, "seletor": 0.22, "radio": 0.26, "whoosh": 0.24, "pop": 0.24, "alerta": 0.22}
 
 
@@ -518,7 +559,7 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     if not aceitos:
         return []
     guardado = trabalho / "sons_vertical.json"
-    chave = hashlib.sha1(json.dumps(aceitos, ensure_ascii=False).encode()).hexdigest()
+    chave = hashlib.sha1(json.dumps(["um-toque-2", aceitos], ensure_ascii=False).encode()).hexdigest()
     if guardado.exists():
         g = json.loads(guardado.read_text(encoding="utf-8"))
         if g.get("chave") == chave and all(Path(s["arquivo"]).exists() for s in g["sons"]):
@@ -535,17 +576,26 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
         return []
     usados: set[int] = set()
     saida = []
+    colar = _na_fala(trabalho)
     for t, o_que in aceitos:
-        achados = busca.buscar(o_que, 4, evitar=usados)
+        achados = busca.buscar(o_que, 8, evitar=usados)
         if not achados:
             continue
         # o melhor que ainda não tocou neste vídeo, mas da mesma categoria: repetir um pop é melhor que trocá-lo por um rádio
         melhor = busca.info[achados[0][0]]["categoria"]
-        sid = next((s for s, _ in achados if s not in usados and busca.info[s]["categoria"] == melhor), achados[0][0])
+        iguais = [s for s, _ in achados if busca.info[s]["categoria"] == melhor]
+        toques = {s: _toques(str(PASTA_SFX / busca.info[s]["arquivo"])) for s in iguais}
+        # prefere um som de um toque só; entre eles, um que ainda não tocou no vídeo
+        sid = next((s for s in iguais if len(toques[s]) == 1 and s not in usados), None) or next(
+            (s for s in iguais if len(toques[s]) == 1), None) or iguais[0]
         usados.add(sid)
         cat = busca.info[sid]["categoria"]
-        saida.append({"t": t, "o_que": o_que, "arquivo": str(PASTA_SFX / busca.info[sid]["arquivo"]), "categoria": cat,
-                      "volume": SOM_VOLUME.get(cat, 0.26)})
+        tq = toques[sid]
+        dur = SOM_DURACAO.get(cat, 1.0)
+        if len(tq) > 1:  # corta antes do segundo toque
+            dur = min(dur, tq[1] - tq[0] - 0.02)
+        saida.append({"t": colar(t), "o_que": o_que, "arquivo": str(PASTA_SFX / busca.info[sid]["arquivo"]), "categoria": cat,
+                      "volume": SOM_VOLUME.get(cat, 0.26), "inicio": max(0.0, (tq[0] if tq else 0.0) - 0.005), "duracao": round(dur, 3)})
     busca.liberar()
     guardado.write_text(json.dumps({"chave": chave, "sons": saida}, ensure_ascii=False, indent=1), encoding="utf-8")
     return saida
@@ -585,8 +635,10 @@ def _com_audio(video: list[str], trabalho: Path, direcao: dict, palavras: list[d
     rotulos = ["[voz]"]
     for j, s in enumerate(efeitos, start=2):
         entradas += ["-i", s["arquivo"]]
-        ms = max(0, round((s["t"] - 2 / FPS) * 1000))
-        filtros.append(f"[{j}:a]aresample=48000,aformat=channel_layouts=stereo,volume={s['volume']},adelay={ms}:all=1[s{j}]")
+        ms = max(0, round(s["t"] * 1000))  # o toque bate no começo da palavra e o som acaba logo depois
+        d = s.get("duracao", 1.0)
+        filtros.append(f"[{j}:a]atrim=start={s.get('inicio', 0)}:duration={d},asetpts=PTS-STARTPTS,aresample=48000,aformat=channel_layouts=stereo,"
+                       f"afade=t=out:st={max(0, d - 0.06):.3f}:d=0.06,volume={s['volume']},adelay={ms}:all=1[s{j}]")
         rotulos.append(f"[s{j}]")
     if musica:
         j = len(efeitos) + 2
