@@ -136,6 +136,11 @@ def resolver(brutos: list[dict], palavras: list[dict]) -> tuple[list[dict], list
             idx = [localizar(palavras, x, i) for x in p["grafico"].pop("itens_em")]
             if all(j is not None for j in idx):
                 p["grafico"]["itens_i"] = idx
+        for campo in ("palavras", "marcos", "horas"):  # itens de gráfico que entram cada um na sua palavra
+            for item in (p["grafico"].get(campo) or []) if isinstance(p.get("grafico"), dict) else []:
+                j = localizar(palavras, item.pop("em", None), i)
+                if j is not None:
+                    item["i"] = j
         if isinstance(p.get("riscado"), dict) and "i" not in p["riscado"]:
             p["riscado"]["i"] = i
         if isinstance(p.get("som"), dict) and p["som"].get("o_que"):  # o "em" fica: a revisão volta a localizar
@@ -143,6 +148,9 @@ def resolver(brutos: list[dict], palavras: list[dict]) -> tuple[list[dict], list
             p["som"]["i"] = j if j is not None else i
         else:
             p.pop("som", None)
+        for s in p.get("sons") or []:  # mais de um efeito no plano, cada um na sua palavra
+            j = localizar(palavras, s.get("em"), i)
+            s["i"] = j if j is not None else i
         planos.append(p)
     if not planos:
         raise RuntimeError("o diretor não devolveu nenhum plano válido")
@@ -489,15 +497,16 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
 
 SOM_INTERVALO = 3.0  # segundos entre efeitos (vídeo curto: mais curto que no Runeterra, mas nunca colado)
 SOM_POR_SEGUNDOS = 7.0  # teto: no máximo 1 efeito a cada 7 s de vídeo, em média
-SOM_VOLUME = {"clique": 0.22, "seletor": 0.22, "radio": 0.26, "whoosh": 0.24, "carro_passando": 0.32, "acelerando": 0.3}
+SOM_VOLUME = {"clique": 0.22, "seletor": 0.22, "radio": 0.26, "whoosh": 0.24, "pop": 0.24, "alerta": 0.22}
 
 
 def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     """Efeitos pedidos pelo diretor (`som` do plano) → arquivos do catálogo do canal (busca CLAP pela descrição).
     As regras valem aqui mesmo que o diretor exagere: intervalo mínimo, teto pela duração, sem repetir o mesmo som.
     A escolha fica guardada (mesmos pedidos = mesmos sons, sem carregar o CLAP de novo)."""
-    pedidos = sorted(((palavras[min(p["som"]["i"], len(palavras) - 1)]["i"], p["som"]["o_que"]) for p in direcao["planos"]
-                      if isinstance(p.get("som"), dict) and "i" in p["som"]), key=lambda x: x[0])
+    pedidos = sorted(((palavras[min(s["i"], len(palavras) - 1)]["i"], s["o_que"]) for p in direcao["planos"]
+                      for s in ([p["som"]] if isinstance(p.get("som"), dict) else []) + (p.get("sons") or [])
+                      if "i" in s and s.get("o_que")), key=lambda x: x[0])
     teto = max(1, int(palavras[-1]["f"] / SOM_POR_SEGUNDOS))
     aceitos, ultimo = [], -1e9
     for t, o_que in pedidos:
@@ -528,7 +537,9 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
         achados = busca.buscar(o_que, 4, evitar=usados)
         if not achados:
             continue
-        sid = achados[0][0]
+        # o melhor que ainda não tocou neste vídeo, mas da mesma categoria: repetir um pop é melhor que trocá-lo por um rádio
+        melhor = busca.info[achados[0][0]]["categoria"]
+        sid = next((s for s, _ in achados if s not in usados and busca.info[s]["categoria"] == melhor), achados[0][0])
         usados.add(sid)
         cat = busca.info[sid]["categoria"]
         saida.append({"t": t, "o_que": o_que, "arquivo": str(PASTA_SFX / busca.info[sid]["arquivo"]), "categoria": cat,
@@ -545,7 +556,7 @@ EXT_AUDIO = (".mp3", ".wav", ".m4a", ".ogg", ".flac")
 def config_musica(projeto: Path) -> dict:
     arq = projeto / "direcao" / "musica.json"
     # utf-8-sig: um musica.json salvo por outro programa com BOM não pode derrubar a página
-    return json.loads(arq.read_text(encoding="utf-8-sig")) if arq.exists() else {"ligada": False, "descricao": ""}
+    return json.loads(arq.read_text(encoding="utf-8-sig")) if arq.exists() else {"ligada": True, "descricao": ""}  # trilha baixa é o padrão do vertical (Felipe, 2026-11-04)
 
 
 def arquivo_musica(projeto: Path) -> Path | None:

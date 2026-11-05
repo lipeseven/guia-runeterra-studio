@@ -70,8 +70,10 @@ CATEGORIAS = {
     "radio": ("radio static beep", "short two-way radio beep with brief static crackle, sound effect", 1.5),
     "carro_passando": ("race car pass by", "formula one race car passing by at high speed, doppler engine scream, sound effect", 3.0),
     "acelerando": ("race car accelerating", "formula one race car accelerating hard, high pitched engine rev, sound effect", 3.0),
+    "pop": ("pop interface", "short soft bubble pop for a user interface element appearing, sound effect", 0.5),
+    "alerta": ("alert notification", "short clean two-tone alert notification beep, user interface, sound effect", 1.0),
 }
-RUNETERRA = [c for c in CATEGORIAS if c not in ("clique", "seletor", "radio", "carro_passando", "acelerando")]
+RUNETERRA = [c for c in CATEGORIAS if c not in ("clique", "seletor", "radio", "carro_passando", "acelerando", "pop", "alerta")]
 
 
 def categorias_do_canal() -> list[str]:
@@ -217,7 +219,9 @@ class Busca:
         from clap import Clap
 
         self.con = abrir_acervo()
-        linhas = self.con.execute("SELECT id, arquivo, categoria, vetor FROM sons WHERE vetor IS NOT NULL").fetchall()
+        do_canal = set(categorias_do_canal())  # o catálogo guarda sons antigos; só os do canal entram na busca
+        linhas = [r for r in self.con.execute("SELECT id, arquivo, categoria, vetor FROM sons WHERE vetor IS NOT NULL").fetchall()
+                  if r["categoria"] in do_canal]
         self.ids = [r["id"] for r in linhas]
         self.info = {r["id"]: dict(arquivo=r["arquivo"], categoria=r["categoria"]) for r in linhas}
         self.matriz = np.stack([np.frombuffer(r["vetor"], dtype=np.float32) for r in linhas]) if linhas else None

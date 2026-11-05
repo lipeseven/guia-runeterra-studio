@@ -309,7 +309,7 @@ export function criarPodio(o: { cor?: string; numeros?: string; largura?: number
   ["2", "1", "3"].forEach((n, i) => {
     const h = alturas[i];
     g.add(malha(new THREE.BoxGeometry(L, h, 1.2), mat(o.cor ?? "#eef0f3", 0.45), xs[i], h / 2, 0));
-    g.add(malha(new THREE.BoxGeometry(L + 0.02, 0.06, 1.22), mat(n === "1" ? "#d9a520" : n === "2" ? "#aeb4bd" : "#b06a35", 0.35, 0.5), xs[i], h - 0.03, 0));
+    g.add(malha(new THREE.BoxGeometry(L + 0.02, 0.06, 1.22), mat(n === "1" ? "#d9a520" : n === "2" ? "#aeb4bd" : "#b06a35", 0.35, 0.5), xs[i], h - 0.022, 0)); // 8 mm acima do degrau: faces na mesma altura piscam
     const num = malha(new THREE.PlaneGeometry(0.7, 0.7), new THREE.MeshStandardMaterial({ map: texturaTexto(n, o.numeros ?? "#14161c", "", 256, 256), transparent: true }), xs[i], h * 0.48, 0.605);
     g.add(num);
     tops.push(new THREE.Vector3(xs[i], h, 0));

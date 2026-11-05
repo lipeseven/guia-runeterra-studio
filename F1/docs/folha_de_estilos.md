@@ -31,8 +31,8 @@ A peça principal nunca segura o vídeo sozinha: alterna com vistas, diagramas e
 - **Legenda:** terço superior, centrada, pequena. Só o que já foi dito: anterior em cinza, atual em branco e negrito. Um termo por frase com caixa azul fina.
 - **Desenho:** 3D de verdade (Three.js), com luz e sombra; nada de vetor plano. Carros com o molde de 2026, asa, bico e
   pintura da equipe; pneus com a faixa do composto pintada no flanco. Peça presa na tela o vídeo inteiro: nunca.
-- **Som:** a voz em primeiro plano, sem música. Efeitos só quando fazem sentido na fala (clique do botão citado, bipe
-  de rádio, carro passando), ~15 dB abaixo da voz e nunca em toda cena (decisão do Felipe, 2026-11-03).
+- **Som:** a voz em primeiro plano, trilha baixa por baixo (ligada por padrão, ajustável no painel; decisão do Felipe, 2026-11-04).
+  Efeitos só com sentido: swoosh, pop, alerta, clique do botão citado, bipe de rádio; barulho de carro nunca. ~15 dB abaixo da voz e nunca em toda cena.
 
 ## Movimento e transições
 - **Abertura em cerca de 1 s:** um movimento rápido de câmera que termina no assunto. Vistos: recuo pelo grid, pneu caindo com borrão e quique, travessia de anéis até o turbo, zoom saindo de perto do disco, luzes de largada passando.
