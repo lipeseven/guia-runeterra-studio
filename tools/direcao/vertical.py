@@ -495,8 +495,8 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
     return saida
 
 
-SOM_INTERVALO = 3.0  # segundos entre efeitos (vídeo curto: mais curto que no Runeterra, mas nunca colado)
-SOM_POR_SEGUNDOS = 7.0  # teto: no máximo 1 efeito a cada 7 s de vídeo, em média
+SOM_INTERVALO = 0.5  # segundos entre efeitos: listas faladas pedem um efeito por item (Felipe, 2026-11-04)
+SOM_POR_SEGUNDOS = 3.0  # teto: no máximo 1 efeito a cada 3 s de vídeo, em média
 SOM_VOLUME = {"clique": 0.22, "seletor": 0.22, "radio": 0.26, "whoosh": 0.24, "pop": 0.24, "alerta": 0.22}
 
 
@@ -510,9 +510,11 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     teto = max(1, int(palavras[-1]["f"] / SOM_POR_SEGUNDOS))
     aceitos, ultimo = [], -1e9
     for t, o_que in pedidos:
-        if t - ultimo >= SOM_INTERVALO and len(aceitos) < teto:
+        if t - ultimo >= SOM_INTERVALO:
             aceitos.append((round(t, 3), o_que))
             ultimo = t
+    if len(aceitos) > teto:  # corta por igual ao longo do vídeo: cortar só o excesso do fim deixaria o final sem efeito
+        aceitos = [aceitos[round(k * (len(aceitos) - 1) / max(1, teto - 1))] for k in range(teto)]
     if not aceitos:
         return []
     guardado = trabalho / "sons_vertical.json"
