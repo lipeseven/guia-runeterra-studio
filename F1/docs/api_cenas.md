@@ -15,8 +15,8 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
 - `som` (opcional): {"o_que": "descrição curta EM INGLÊS do som", "em": "trecho exato"}; `sons`: lista igual, para mais de
   um efeito no plano. Só com sentido na fala: whoosh em troca forte ("fast cinematic whoosh"), pop quando algo aparece ("short
   soft bubble pop"), alerta quando algo dá errado ("short clean two tone alert beep"), clique de botão ou seletor ("single
-  button click", "rotary knob clicks"), bipe de rádio ("radio beep static"). Barulho de carro: nunca. Lista falada: um por item.
-  Mínimo de 0,5 s entre eles e teto de 1 a cada 3 s no vídeo (o motor corta o excesso por igual). A trilha não é daqui: é ligada no painel.
+  button click", "rotary knob clicks"), bipe de rádio ("radio beep static"). Barulho de carro: nunca. Só em momento-chave, em
+  que algo muda na tela naquela palavra; a maioria dos planos fica sem efeito. Teto de 1 a cada 8 s no vídeo (o motor corta o excesso por igual). A trilha não é daqui: é ligada no painel.
 - `sem_legenda`: true tira a legenda do plano (quando a frase já está em letra grande com o gráfico `frase`).
 - Gráficos informativos (campos do plano, 2D por cima da cena; UM por plano, só quando reforçam a fala):
   - `titulo`: {"texto": "RÁDIO — COMUNICAÇÃO", "sub": "COM A EQUIPE", "em": "trecho"}: só na troca de assunto.
