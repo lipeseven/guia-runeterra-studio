@@ -495,8 +495,8 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
     return saida
 
 
-SOM_INTERVALO = 0.5  # segundos entre efeitos: listas faladas pedem um efeito por item (Felipe, 2026-11-04)
-SOM_POR_SEGUNDOS = 3.0  # teto: no máximo 1 efeito a cada 3 s de vídeo, em média
+SOM_INTERVALO = 0.5  # segundos entre efeitos: só uma lista falada curta chega perto disso
+SOM_POR_SEGUNDOS = 8.0  # teto: 37 efeitos em 137 s foi "barulhinho toda hora" (Felipe, 2026-11-04); ~1 a cada 8 s é o máximo
 SOM_VOLUME = {"clique": 0.22, "seletor": 0.22, "radio": 0.26, "whoosh": 0.24, "pop": 0.24, "alerta": 0.22}
 
 

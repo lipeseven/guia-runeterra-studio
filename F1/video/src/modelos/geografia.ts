@@ -314,8 +314,8 @@ export const CAMERAS = {
   atras: { tras: 14, lado: 0, alto: 4.5, olha: 12, lente: 46 },
   curva: { tras: 17, lado: 0, alto: 6.5, olha: 20, lente: 50 },
   rasante: { tras: 8, lado: 1, alto: 0.9, olha: 16, lente: 62 },
-  lado: { tras: 1, lado: 19, alto: 1.8, olha: 0, lente: 38 },
-  ladoesq: { tras: 1, lado: -19, alto: 1.8, olha: 0, lente: 38 },
+  lado: { tras: 1, lado: 13, alto: 1.8, olha: 0, lente: 52 },
+  ladoesq: { tras: 1, lado: -13, alto: 1.8, olha: 0, lente: 52 },
   frente: { tras: -17, lado: 2, alto: 1.7, olha: 0, lente: 40 },
   alto: { tras: 24, lado: -6, alto: 20, olha: 2, lente: 44 },
   heli: { tras: 46, lado: 30, alto: 46, olha: 2, lente: 40 },
@@ -344,8 +344,20 @@ export function filmar(w: Mundo, circ: THREE.Object3D, f: number, u: number, lis
   const L = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1;
   const tx = (p1.x - p0.x) / L, tz = (p1.z - p0.z) / L;
   const dir = { x: -tz, z: tx };
-  const px = c.x - tx * v("tras") * deriva + dir.x * v("lado") * deriva;
-  const pz = c.z - tz * v("tras") * deriva + dir.z * v("lado") * deriva;
+  let px = c.x - tx * v("tras") * deriva + dir.x * v("lado") * deriva;
+  let pz = c.z - tz * v("tras") * deriva + dir.z * v("lado") * deriva;
+  // abaixo do alto do alambrado, a câmera não sai da pista: o muro fica a 19 m do centro e não pode passar na frente do carro
+  const { pontos } = infoDe(circ);
+  const N = pontos.length, i0 = Math.floor((((f % 1) + 1) % 1) * N), janela = Math.ceil((120 / comprimento) * N);
+  let d = Infinity;
+  for (let k = -janela; k <= janela; k += 2) {
+    const q = pontos[(i0 + k + N * 2) % N];
+    d = Math.min(d, Math.hypot(q.x - px, q.z - pz));
+  }
+  const baixa = Math.max(0, Math.min(1, (9 - v("alto")) / 2));
+  const puxa = 1 + (Math.min(1, 14 / Math.max(d, 0.01)) - 1) * baixa;
+  px = c.x + (px - c.x) * puxa;
+  pz = c.z + (pz - c.z) * puxa;
   camera(w, [px, v("alto"), pz], [c.x + tx * v("olha"), 0.55, c.z + tz * v("olha")], v("lente"));
 }
 
