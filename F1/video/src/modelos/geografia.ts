@@ -113,7 +113,7 @@ const CENARIOS: Record<string, Cenario> = {
       { f0: 0.18, f1: 0.3, dist: 56 }, { f0: 0.315, f1: 0.365, dist: 88 }, { f0: 0.733, f1: 0.757, dist: 92, coberta: true },
       { f0: 0.78, f1: 0.935, dist: 62 },
     ],
-    boxes: { f0: 0.965, f1: 1.035, dist: -42 },
+    boxes: { f0: 0.983, f1: 1.045, dist: -42 },
     lagos: [{ f: 0.33, dist: 900, r: 420 }, { f: 0.6, dist: -1100, r: 480 }],
   },
 };
