@@ -4,12 +4,18 @@
 import type { ReactNode } from "react";
 import { FONTE, entra, suave } from "./kit";
 import { ICONES } from "./modelos/icones";
+import { Dinamicos } from "./InfograficosDinamicos";
 
 export const COR = { fundo: "rgba(9,19,38,.86)", borda: "rgba(46,196,182,.55)", destaque: "#2ec4b6", texto: "#ffffff", suave: "#8fa4bf", alerta: "#ff5a4e", ouro: "#ffc93a" };
 
 export type TituloV = { texto: string; sub?: string; i?: number };
 export type GraficoV = {
-  tipo: "icone" | "regua" | "bateria" | "seletor" | "numero" | "etapas" | "alerta";
+  tipo: "icone" | "regua" | "bateria" | "seletor" | "numero" | "etapas" | "alerta" | "frase" | "palavra" | "ano" | "linhatempo" | "minimapa" | "perfil" | "torre" | "relogio" | "sentido";
+  palavras?: { t: string; i?: number; brasil?: boolean }[]; // frase: cada palavra entra na sua hora
+  marcos?: { rotulo: string; nome?: string; cor?: string; i?: number }[]; // linha do tempo
+  trecho?: [number, number]; // minimapa: trecho aceso (fração da volta)
+  n?: number; // torre: quantos carros
+  horas?: { h: number; m?: number; texto?: string; i?: number }[]; // relógio
   i?: number; i1?: number; // palavra em que entra / em que o movimento termina
   texto?: string; icone?: string; cor?: string;
   esquerda?: string; direita?: string; de?: number; ate?: number; // régua (0 = esquerda, 1 = direita), bateria (0 a 1)
@@ -49,6 +55,8 @@ export function Grafico({ g, t, tempo, ini, fim, foco }: { g: GraficoV; t: numbe
   const cor = g.cor === "alerta" ? COR.alerta : g.cor === "ouro" ? COR.ouro : COR.destaque;
   const centro = foco || g.pos === "meio" ? 1040 : 1490; // baixo: abaixo do assunto 3D (que fica no meio do quadro)
   let corpo: ReactNode = null;
+  const dinamico = Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor });
+  if (dinamico) return dinamico;
 
   if (g.tipo === "icone") {
     const r = 120;

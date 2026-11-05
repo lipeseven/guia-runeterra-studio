@@ -10,7 +10,7 @@ aviso_legal = "f1"
 exemplo_titulo = "A Maior Rivalidade da Fórmula 1 Explicada em 12 minutos"
 glossario = "Fórmula 1, Grand Prix, pit stop, DRS, FIA, Interlagos, Mônaco, Monza, Senna, Prost, Schumacher, Hamilton, Verstappen"
 formatos = ["horizontal", "vertical"]       # o card escolhe ao nascer: horizontal = documentário; vertical = curto animado
-sfx = ["clique", "seletor", "radio", "carro_passando", "acelerando", "whoosh"]   # efeitos sonoros do canal (tools/audio/sfx.py)
+sfx = ["clique", "seletor", "radio", "whoosh", "pop", "alerta"]   # efeitos sonoros do canal (tools/audio/sfx.py)
 
 [vertical]                                  # animação do vídeo vertical: projeto Remotion do canal + catálogo do diretor
 projeto = "F1/video"

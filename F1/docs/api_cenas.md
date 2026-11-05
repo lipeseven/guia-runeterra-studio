@@ -12,10 +12,12 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
 - `clima`: luz e céu: tarde, manha, sol, noite, brasa, chumbo, vazio (estúdio escuro), claro (estúdio claro).
 - `codigo`: a cena (abaixo). Ou `tipo`: uma cena pronta do catálogo, sem código, quando ela já diz exatamente a fala.
 - `marcas`: {nome: "trecho exato"}: momentos dentro do plano; no código, `c.m("nome")` dá o segundo da palavra.
-- `som` (opcional): {"o_que": "descrição curta EM INGLÊS do som", "em": "trecho exato"}. Só quando o som faz sentido
-  na fala: clique de botão apertado ou seletor girando ("single button click", "rotary knob clicks"), bipe de rádio
-  ("radio beep static"), carro passando ou acelerando ("race car pass by", "race car accelerating"), whoosh de troca
-  rápida. Raro: no máximo 1 a cada ~7 s (o motor corta o excesso, mínimo de 3 s entre eles); nunca música.
+- `som` (opcional): {"o_que": "descrição curta EM INGLÊS do som", "em": "trecho exato"}; `sons`: lista igual, para mais de
+  um efeito no plano. Só com sentido na fala: whoosh em troca forte ("fast cinematic whoosh"), pop quando algo aparece ("short
+  soft bubble pop"), alerta quando algo dá errado ("short clean two tone alert beep"), clique de botão ou seletor ("single
+  button click", "rotary knob clicks"), bipe de rádio ("radio beep static"). Barulho de carro: nunca. No máximo 1 a cada ~7 s
+  (o motor corta o excesso, mínimo de 3 s entre eles). A trilha não é daqui: é ligada no painel.
+- `sem_legenda`: true tira a legenda do plano (quando a frase já está em letra grande com o gráfico `frase`).
 - Gráficos informativos (campos do plano, 2D por cima da cena; UM por plano, só quando reforçam a fala):
   - `titulo`: {"texto": "RÁDIO — COMUNICAÇÃO", "sub": "COM A EQUIPE", "em": "trecho"}: só na troca de assunto.
   - `grafico`: {"tipo", "em": "trecho" (entra), "ate_em": "trecho" (fim do movimento), ...}:
@@ -27,6 +29,16 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
     `numero` {valor: 311, de: 0, unidade: "KM/H", max?}: número contando com barras.
     `etapas` {itens: ["ENTRADA", "MEIO", "SAÍDA"], itens_em: ["trecho", ...]}: cada etapa acende na sua palavra.
     `alerta` {texto: "ENERGIA LIMITADA"}.
+    `frase` {palavras: [{t: "Brasil?", em: "Brasil?", brasil: true}, ...]}: a frase em letra grande, palavra por palavra; `brasil` = verde e amarelo com traço.
+    `palavra` {texto: "HISTÓRIA", em}: palavra grande no corte rápido de uma lista falada (um plano por item).
+    `ano` {de: 2026, valor: 1973, texto, em, ate_em}: o ano rola até o valor falado.
+    `linhatempo` {marcos: [{rotulo: "1974", nome: "EMERSON FITTIPALDI", cor, em}, ...]}: linha que avança, marco atual em destaque.
+    `minimapa` {de, ate, trecho: [a, b], texto}: traçado real de Interlagos no canto, trecho aceso e ponto do carro. `de`/`ate` = as MESMAS frações da volta que o carro percorre no plano (`f = de + (ate - de) * c.k`).
+    `perfil` {de, ate, texto}: altitude real da volta de Interlagos, com o ponto andando.
+    `torre` {n: 6, de: 1, ate: 4, texto, em}: torre de posições sem nomes; a linha acesa cai (vermelha) ou sobe (verde) e troca de lugar com as outras.
+    `relogio` {texto: "SEXTA", horas: [{h: 12, m: 30, texto: "TREINO LIVRE 1", em}, ...]}: ponteiros giram até cada hora falada.
+    `sentido` {texto: "ANTI-HORÁRIO", em}: seta circular girando no sentido da volta.
+    `etapas` e `foco` são tempero (regras de direção): prefira os gráficos acima.
     `pos`: "meio" (centro) ou "baixo" (padrão, abaixo do assunto 3D). Com gráfico embaixo, deixe o assunto 3D no meio ou um pouco acima (ex.: alvoY negativo no enquadrar).
   - `foco`: true = modo quadro informativo: a cena 3D escurece e desfoca atrás e o gráfico vai para o centro (trecho
     que é explicação pura). Nunca dois planos seguidos com foco.
@@ -106,8 +118,18 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 ## Geografia real (set "real": nenhum cenário fixo, névoa longe)
 - `obj(w, "circ:interlagos", () => criarCircuito("interlagos", { rotulos }))`: o circuito com o TRAÇADO REAL, em metros
   (4,309 km; asfalto, área de escape, zebras, linha de chegada). Vídeo sobre um circuito usa SEMPRE o traçado real, nunca a
-  reta genérica. f = fração da volta no sentido da corrida (0 = linha de chegada). Interlagos: S do Senna 0,04–0,11; Reta
-  Oposta 0,15–0,30; miolo (parte interna) 0,38–0,75; Junção 0,78–0,84; Subida dos Boxes 0,84–0,99.
+  reta genérica. f = fração da volta no sentido da corrida (0 = linha de chegada). Interlagos (numeração oficial): S do
+  Senna 0,07–0,11 (curvas 1-2); Curva do Sol 0,146 (3); Reta Oposta 0,165–0,31; Descida do Lago 0,32–0,36 (4-5); Ferradura
+  0,46–0,49 (6-7); Laranjinha 0,53 (8); Pinheirinho 0,56 (9); Bico de Pato 0,627 (10); Mergulho 0,675 (11); Junção 0,743 (12);
+  Subida dos Boxes 0,77–0,99 (13-15).
+- **Sempre `criarCircuito("interlagos", { cenario: true })`** (chave `"circ:cen"`, é o mesmo objeto em todos os planos): relevo,
+  árvores, lago, arquibancadas e boxes em volta do traçado real. Lado positivo = direita do sentido da corrida = por fora.
+- `poeNoCircuito(w, k, circ, f, { lado, escala })`: carro na volta, já com esterço; `escala` só em vista de longe (4 a 7).
+- `poePinturaNoCircuito(w, "chave", { base, clara, escura, faixa, acento }, circ, f, { escala })`: carro com pintura própria (só cores conferidas).
+- `perseguir(w, circ, f, { atras, alto, frente, lente })`: câmera atrás do carro olhando a pista à frente; a curva aparece antes de ele virar. Curva: atras 17, alto 6,5, frente 30, lente 50. Reta rápida: atras 11, alto 2,3, frente 30, lente 62. Velocidade real: ~0,016 da volta por segundo.
+- `panorama(w, circ, azimute, alto, folga)`: a pista inteira em diagonal (alto 0 rasante, 1 de cima; folga 0,86 cabe na tela).
+- `transito(w, circ, c.t, [carros], { escala, v })`: carros andando pela volta. `nomearTrechos(w, circ, k)`: nomes reais dos trechos sobre a pista.
+- Vista panorâmica acompanhando o carro: `camera(w, [q.x + 330 * sin(az), 400, q.z + 330 * cos(az)], [q.x, 0, q.z], 38)` com carro em escala 7.
 - `noCircuito(circ, f, lado)` → {x, z, giro, esterco}: carro na volta (`poe` + `estercar`). Visto do alto, o carro some
   (5 m numa pista de 1 km): marque-o com `brilho(w, "carro", posição, 40, 1)`.
 - `pontoNoCircuito(circ, f, altura)`: ponto para câmera e rótulos. `revelarCircuito(circ, k)`: o traçado sendo desenhado.

@@ -465,6 +465,7 @@ export const poe = (w: Mundo, k: number, x: number, z: number, giro = 0) => {
   c.visible = true;
   c.position.set(x, 0, z);
   c.rotation.y = giro;
+  c.scale.setScalar(1); // uma vista de longe pode ter aumentado o carro (poeNoCircuito)
 };
 export const poeCinza = (w: Mundo, k: number, x: number, z: number) => {
   w.cinzas[k].visible = true;

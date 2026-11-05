@@ -12,7 +12,7 @@ import {
 import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
 import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "./modelos/desmonte";
 import { ligar } from "./modelos/ligacoes";
-import { areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, pontoNoCircuito, revelarCircuito } from "./modelos/geografia";
+import { nomearTrechos, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "./modelos/geografia";
 import { aura, brilho, criarCurva, destacar, estercar, naCurva } from "./modelos/efeitos3d";
 import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
 import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
@@ -26,6 +26,7 @@ export type PlanoV = {
   id: string; i: number; tipo?: string; set?: string; codigo?: string; clima?: string; equipe?: number; n?: number; cor?: string; cores?: string[]; acao?: string;
   modo?: string; angulo?: string; de?: number; ate?: number; valores?: number[]; sai?: number; marcas?: Record<string, number>;
   titulo?: TituloV; grafico?: GraficoV; foco?: boolean; // gráficos informativos (Infograficos.tsx)
+  sem_legenda?: boolean; // a frase já está na tela em letra grande (gráfico "frase"): a legenda sairia duplicada
   placas?: PlacaV[]; contador?: { de: number; ate: number; unidade?: string; casas?: number; formato?: string; i0?: number; i1?: number; cor_final?: string };
   chips?: { itens: string[]; ativo?: number; i?: number }; selo?: { texto: string; i?: number }; riscado?: { texto: string; i: number };
   medidor?: { texto: string; sub?: string; i?: number }; gota?: { texto: string }; chuva?: boolean;
@@ -396,7 +397,7 @@ export const API = {
   THREE, camera, enquadrar, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
   luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
-  explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, estercar, embaralhar, criarMapaBrasil, areaNoMapa, criarCircuito, noCircuito, pontoNoCircuito, revelarCircuito, destacarTrecho, numerarCurvas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
+  explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, estercar, embaralhar, criarMapaBrasil, areaNoMapa, criarCircuito, noCircuito, pontoNoCircuito, revelarCircuito, poeNoCircuito, poePinturaNoCircuito, perseguir, panorama, transito, nomearTrechos, destacarTrecho, numerarCurvas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
@@ -556,7 +557,7 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
       <canvas ref={ref} width={1080} height={1920} style={{ position: "absolute", width: 1080, height: 1920, filter: p.foco ? "blur(10px) brightness(0.42) saturate(0.85)" : undefined }} />
       {claro && <FundoLegenda />}
       <Sobre c={c} tempo={tempo} />
-      <Legenda palavras={palavras} chaves={chaves} />
+      {!p.sem_legenda && <Legenda palavras={palavras} chaves={chaves} />}
       <AbsoluteFill style={{ background: "#000", opacity: suave(t, falaFim + 0.05, falaFim + 0.25), zIndex: 99 }} />
     </AbsoluteFill>
   );
