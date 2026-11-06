@@ -1,6 +1,6 @@
 // Pneu Pirelli de F1 (2026) redesenhado a partir das fotos oficiais em F1/dados/modelos3d/<composto>*.jpg:
 // lateral com as marcações exatas (lateral.ts, extraídas das fotos), sulcos do intermediário e do de chuva,
-// aro preto de 10 raios. Usado pelas rodas do Carro3D e pelo pneu do estúdio (mundo.tsx).
+// roda de liga leve vazada de 10 raios. Usado pelas rodas do Carro3D e pelo pneu do estúdio (mundo.tsx).
 import * as THREE from "three";
 import { ALTURA, CHUVA, LARGURA, RAIO, SLICK } from "./lateral";
 
@@ -24,9 +24,8 @@ export function compostoDe(c: string): string {
 const molhado = (c: string) => c === "intermediario" || c === "chuva";
 
 const texturas: Record<string, THREE.CanvasTexture> = {};
-const pronta = (nome: string, c: HTMLCanvasElement, cor = false) => {
+const pronta = (nome: string, c: HTMLCanvasElement) => {
   const t = new THREE.CanvasTexture(c);
-  if (cor) t.colorSpace = THREE.SRGBColorSpace;
   t.wrapS = THREE.RepeatWrapping;
   t.anisotropy = 8;
   texturas[nome] = t;
@@ -116,53 +115,65 @@ const matLateral = (c: string) =>
 const matBanda = (c: string) =>
   material(`banda_${c}`, () => new THREE.MeshStandardMaterial({ color: "#060708", alphaMap: texturaBanda(c as "intermediario" | "chuva"), alphaTest: 0.5, roughness: 0.9 }));
 
-let texAro: THREE.CanvasTexture | null = null;
-/** Aro preto de 10 raios retos, borda cinza e cubo escuro com furo (como nas fotos). */
-function texturaAro() {
-  if (texAro) return texAro;
-  const c = document.createElement("canvas");
-  c.width = c.height = 512;
-  const x = c.getContext("2d")!;
-  const m = 256;
-  x.fillStyle = "#3a3d43";
-  x.beginPath();
-  x.arc(m, m, 256, 0, Math.PI * 2);
-  x.fill();
-  x.fillStyle = "#050506";
-  x.beginPath();
-  x.arc(m, m, 224, 0, Math.PI * 2);
-  x.fill();
-  x.strokeStyle = "#1f2125";
-  x.lineWidth = 9;
-  x.beginPath();
-  x.arc(m, m, 212, 0, Math.PI * 2);
-  x.stroke();
-  x.lineCap = "round";
+/** Roda de liga leve vazada (eixo em y): 10 raios que se abrem em Y junto ao aro, borda cinza e cubo com furo passante. */
+function rodaLiga(ri: number, h: number): THREE.Group {
+  const g = new THREE.Group();
+  g.name = "roda_liga";
+  const liga = material("liga", () => new THREE.MeshStandardMaterial({ color: "#121316", metalness: 0.6, roughness: 0.32, side: THREE.DoubleSide }));
+  const borda = material("liga_borda", () => new THREE.MeshStandardMaterial({ color: "#6d7076", metalness: 0.2, roughness: 0.55, side: THREE.DoubleSide }));
+  const fundo = material("liga_fundo", () => new THREE.MeshStandardMaterial({ color: "#1c1d21", metalness: 0.5, roughness: 0.5, side: THREE.DoubleSide }));
+  // barril do aro (por dentro do pneu) e a borda cinza dos dois lados
+  const barril = new THREE.Mesh(new THREE.CylinderGeometry(ri * 0.97, ri * 0.97, h * 1.7, 64, 1, true), fundo);
+  g.add(barril);
+  for (const s of [-1, 1]) {
+    const b = new THREE.Mesh(new THREE.RingGeometry(ri * 0.9, ri * 1.01, 64), borda);
+    b.rotation.x = Math.PI / 2;
+    b.position.y = s * h * 0.85;
+    g.add(b);
+  }
+  // face com os raios: disco com 10 janelas recortadas
+  const ro = ri * 0.93;
+  const rj = ri * 0.84; // borda externa das janelas
+  const rh = ri * 0.27; // cubo
+  const fora = ri * 0.1; // meia largura do Y do raio junto ao aro (afina até o cubo)
+  const dentro = ri * 0.035;
+  const perna = ri * 0.045; // largura de cada perna do Y
+  const face = new THREE.Shape();
+  face.absarc(0, 0, ro, 0, Math.PI * 2, false);
   for (let k = 0; k < 10; k++) {
     const a = (k / 10) * Math.PI * 2;
-    for (const [l, cor] of [[26, "#121316"], [12, "#2c2f35"]] as const) {
-      x.strokeStyle = cor;
-      x.lineWidth = l;
-      x.beginPath();
-      x.moveTo(m + Math.cos(a) * 62, m + Math.sin(a) * 62);
-      x.lineTo(m + Math.cos(a) * 214, m + Math.sin(a) * 214);
-      x.stroke();
-    }
+    const b = ((k + 1) / 10) * Math.PI * 2;
+    const j = new THREE.Path();
+    j.absarc(0, 0, rj, a + fora / rj, b - fora / rj, false);
+    j.absarc(0, 0, rh * 1.25, b - dentro / (rh * 1.25) - 0.05, a + dentro / (rh * 1.25) + 0.05, true);
+    j.closePath();
+    face.holes.push(j);
+    // vão dentro do Y
+    const y = new THREE.Path();
+    const d = (fora - perna) / rj;
+    y.moveTo(Math.cos(a - d) * rj, Math.sin(a - d) * rj);
+    y.absarc(0, 0, rj, a - d, a + d, false);
+    y.lineTo(Math.cos(a) * rj * 0.86, Math.sin(a) * rj * 0.86);
+    y.closePath();
+    face.holes.push(y);
   }
-  x.fillStyle = "#16171a";
-  x.beginPath();
-  x.arc(m, m, 70, 0, Math.PI * 2);
-  x.fill();
-  x.fillStyle = "#2a2c31";
-  x.beginPath();
-  x.arc(m, m, 46, 0, Math.PI * 2);
-  x.fill();
-  x.fillStyle = "#000";
-  x.beginPath();
-  x.arc(m, m, 26, 0, Math.PI * 2);
-  x.fill();
-  texAro = pronta("aro", c, true);
-  return texAro;
+  const prof = ri * 0.09;
+  const raios = new THREE.Mesh(new THREE.ExtrudeGeometry(face, { depth: prof, bevelEnabled: true, bevelSize: ri * 0.012, bevelThickness: ri * 0.012, bevelSegments: 2, curveSegments: 48 }), liga);
+  raios.rotation.x = -Math.PI / 2;
+  raios.position.y = -prof / 2;
+  g.add(raios);
+  // cubo com furo passante (atravessa a roda: aparece dos dois lados)
+  const anel = new THREE.Shape();
+  anel.absarc(0, 0, rh * 0.8, 0, Math.PI * 2, false);
+  const furo = new THREE.Path();
+  furo.absarc(0, 0, rh * 0.42, 0, Math.PI * 2, true);
+  anel.holes.push(furo);
+  const cubo = new THREE.Mesh(new THREE.ExtrudeGeometry(anel, { depth: h * 0.9, bevelEnabled: true, bevelSize: ri * 0.01, bevelThickness: ri * 0.01, curveSegments: 32 }), liga);
+  cubo.rotation.x = -Math.PI / 2;
+  cubo.position.y = -h * 0.45;
+  g.add(cubo);
+  g.traverse((o) => (o.castShadow = true));
+  return g;
 }
 
 /**
@@ -202,11 +213,8 @@ export function pneuPirelli(r: number, l: number, composto = "medio"): THREE.Gro
     const lat = new THREE.Mesh(geo, matLateral("medio"));
     lat.name = "lateral_pneu";
     g.add(lat);
-    const aro = new THREE.Mesh(new THREE.CircleGeometry(ri, 64), new THREE.MeshStandardMaterial({ map: texturaAro(), metalness: 0.45, roughness: 0.42 }));
-    aro.rotation.x = s > 0 ? -Math.PI / 2 : Math.PI / 2;
-    aro.position.y = s * h * 0.76;
-    g.add(aro);
   }
+  g.add(rodaLiga(ri, h));
   const coroa = Array.from({ length: 9 }, (_, k) => new THREE.Vector2(r * 1.002, -(h - q) + ((h - q) * 2 * k) / 8));
   const banda = new THREE.Mesh(new THREE.LatheGeometry(coroa, 192), matBanda("chuva"));
   banda.name = "banda_pneu";
