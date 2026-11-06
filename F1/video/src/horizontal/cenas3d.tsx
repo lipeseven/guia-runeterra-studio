@@ -48,7 +48,14 @@ function emPlanta(carro: THREE.Group, cor: string) {
   }
 }
 
-export type CameraEstudio = { tipo: "orbita" | "aproximar" | "deslizar" | "chegada" | "frente" | "traseira" | "passagem"; de?: number; vel?: number };
+export type CameraEstudio = {
+  tipo: "orbita" | "aproximar" | "deslizar" | "chegada" | "frente" | "traseira" | "perfil" | "cima" | "baixo" | "detalhe" | "passagem";
+  de?: number; // graus de onde a câmera começa (positivo: frente para a esquerda; negativo: para a direita; ~180: de trás)
+  vel?: number;
+  sentido?: 1 | -1; // para que lado a câmera gira
+  enquadre?: "esquerda" | "centro" | "direita"; // onde o carro fica na tela (o resto fica livre para texto)
+  alvo?: "asa_dianteira" | "roda_dianteira" | "cockpit" | "asa_traseira" | "roda_traseira"; // detalhe
+};
 
 export type EstudioP = {
   carro: string;
@@ -80,30 +87,54 @@ export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { 
       return p;
     },
     (p, t, x) => {
+      const s = camera.sentido ?? 1;
       const a0 = ((camera.de ?? 39) * Math.PI) / 180;
-      const vel = camera.vel ?? 0.066;
-      let d = 10.2, h = 1.5, a = a0 + vel * t, alvoY = 0.5, lado = 0;
-      let andou = t * 0.4; // as rodas giram devagar mesmo parado (o carro "respira")
+      const fz = p.frenteZ;
+      let d = 10.2, h = 1.5, a = a0 + (camera.vel ?? 0.066) * s * t, pan = 0;
+      const alvo = new THREE.Vector3(0, 0.5, 0);
+      let andou = 0; // carro parado = rodas paradas
       p.g.position.set(0, 0, 0);
-      if (camera.tipo === "aproximar") { d = 12.5 - 4 * suave(t, 0, 4); a = a0 + 0.03 * t; }
-      if (camera.tipo === "deslizar") { lado = -1.2 + 0.6 * t; a = a0; }
-      if (camera.tipo === "frente") { d = 7.6; h = 0.85; a = a0 + 0.05 * t; alvoY = 0.35; }
-      if (camera.tipo === "traseira") { d = 7.8; h = 1.0; a = Math.PI + a0 * 0.4 + 0.05 * t; alvoY = 0.55; }
-      if (camera.tipo === "chegada") {
-        const falta = (1 - suave(t, 0, 1.8)) * 9;
-        p.g.position.z = -p.frenteZ * falta;
-        andou = 9 - falta;
+      switch (camera.tipo) {
+        case "aproximar": d = 12.5 - 4 * suave(t, 0, 4); a = a0 + 0.03 * s * t; break;
+        case "deslizar": a = a0; pan = (-0.6 + 0.3 * t) * s; break;
+        case "frente": d = 7.6; h = 0.85; a = a0 + 0.05 * s * t; alvo.y = 0.35; break;
+        case "traseira": d = 7.8; h = 1.0; a = Math.PI + a0 * 0.4 + 0.05 * s * t; alvo.y = 0.55; break;
+        case "perfil": d = 11; h = 0.9; a = (a0 < 0 ? -1 : 1) * Math.PI / 2 + 0.02 * s * t; alvo.y = 0.55; break;
+        case "cima": d = 2.6; h = 13 - 0.35 * t; a = a0 + 0.04 * s * t; alvo.y = 0; break;
+        case "baixo": d = 8.4 - 0.3 * t; h = 0.22; alvo.y = 0.75; a = a0 + 0.03 * s * t; break;
+        case "detalhe": {
+          const pontos = { asa_dianteira: [0, 0.2, 2.45], roda_dianteira: [0.72, 0.36, 1.8], cockpit: [0, 0.85, 0.1], asa_traseira: [0, 0.9, -2.45], roda_traseira: [0.72, 0.36, -1.75] };
+          const [px, py, pz] = pontos[camera.alvo ?? "asa_dianteira"];
+          alvo.set(px * Math.sign(Math.sin(a0) || 1), py, pz * fz);
+          d = 2.8 - 0.15 * t; h = py + 0.45; a = a0 + 0.06 * s * t;
+          break;
+        }
+        case "chegada": {
+          const falta = (1 - suave(t, 0, 1.8)) * 9;
+          p.g.position.z = -fz * falta;
+          andou = 9 - falta;
+          break;
+        }
+        case "passagem": {
+          // o carro cruza a tela a ~250 km/h diante da câmera parada (22–24 quadros, rastro forte)
+          const z = -30 + 70 * t;
+          p.g.position.z = fz * z;
+          andou = z + 30;
+          d = 7; h = 0.6; a = Math.PI / 2; alvo.y = 0.4;
+          break;
+        }
       }
-      if (camera.tipo === "passagem") {
-        // o carro cruza a tela a ~250 km/h diante da câmera parada (22–24 quadros, rastro forte)
-        const z = -30 + 70 * t;
-        p.g.position.z = -p.frenteZ * -z;
-        andou = z + 30;
-        d = 7; h = 0.6; a = Math.PI / 2; alvoY = 0.4;
+      for (const rd of p.rodas) rd.pivo.children[0].rotation.x = (andou / p.raio) * fz;
+      const pos = new THREE.Vector3(alvo.x + Math.sin(a) * d, h, alvo.z + Math.cos(a) * d * fz);
+      // enquadre: anda a câmera para o lado (o carro vai para o lado oposto da tela)
+      const k = (camera.enquadre === "esquerda" ? 1 : camera.enquadre === "direita" ? -1 : 0) + pan;
+      if (k) {
+        const lado = new THREE.Vector3().subVectors(alvo, pos).cross(new THREE.Vector3(0, 1, 0)).normalize().multiplyScalar(k * d * 0.1);
+        pos.add(lado);
+        alvo.add(lado);
       }
-      for (const rd of p.rodas) rd.pivo.children[0].rotation.x = (andou / p.raio) * p.frenteZ;
-      x.cam.position.set(Math.sin(a) * d + lado, h, Math.cos(a) * d * p.frenteZ);
-      x.cam.lookAt(lado * 0.6, alvoY, 0);
+      x.cam.position.copy(pos);
+      x.cam.lookAt(alvo);
     },
     passagem ? { borrao: 1, amostras: 8 } : {},
   );
