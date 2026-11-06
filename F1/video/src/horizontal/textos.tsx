@@ -39,11 +39,13 @@ export const Palavra: React.FC<PalavraP> = ({ texto, em = 0, ate, tam = 440, top
   const { t, fps } = useTempo();
   const q = (t - em) * fps;
   const sair = ate === undefined ? undefined : (t - ate) * fps;
+  // cabe na largura (letra condensada ~0,5 do corpo): palavra longa diminui em vez de sair da tela
+  const corpo = Math.min(tam, 1800 / (Math.max(...texto.split("\n").map((l) => l.length)) * 0.5));
   return (
     <div
       style={{
         position: "absolute", left: x, right: -x, top: topo, textAlign: "center", fontFamily: FONTE, fontStretch: "condensed",
-        fontWeight: 700, fontSize: tam, letterSpacing: -tam * 0.012, lineHeight: 1, color: cor ?? c.destaque, whiteSpace: "pre",
+        fontWeight: 700, fontSize: corpo, letterSpacing: -corpo * 0.012, lineHeight: 1, color: cor ?? c.destaque, whiteSpace: "pre",
         transform: `rotate(${giro}deg)`,
       }}
     >

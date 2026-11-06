@@ -20,7 +20,7 @@ try {
   for (const [i, b] of pedido.blocos.entries()) {
     let ultimo = -1;
     await renderMedia({
-      serveUrl, composition, inputProps, puppeteerInstance: navegador, chromiumOptions: gl, concurrency: 3,
+      serveUrl, composition, inputProps, puppeteerInstance: navegador, chromiumOptions: gl, concurrency: pedido.concorrencia ?? 3, timeoutInMilliseconds: 300000,
       codec: "h264", muted: true, imageFormat: "jpeg", jpegQuality: 90, overwrite: true, logLevel: "error",
       frameRange: [b.inicio, b.fim], outputLocation: b.saida,
       // progresso para a barra do painel (o Python soma os quadros de todos os blocos)

@@ -19,7 +19,7 @@ try {
   for (const { q, saida } of pedido.quadros) {
     await renderStill({
       serveUrl, composition, inputProps, puppeteerInstance: navegador, frame: Math.min(q, composition.durationInFrames - 1),
-      output: saida, imageFormat: "jpeg", jpegQuality: 82, scale: pedido.escala ?? 0.4, overwrite: true, chromiumOptions: { gl: "angle" },
+      output: saida, imageFormat: "jpeg", jpegQuality: 82, scale: pedido.escala ?? 0.4, overwrite: true, chromiumOptions: { gl: "angle" }, timeoutInMilliseconds: 300000,
       onBrowserLog: (l) => {
         if (l.type === "error") console.log(`ERRO ${q} ${l.text.replace(/\s+/g, " ").slice(0, 400)}`);
       },

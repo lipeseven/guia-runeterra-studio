@@ -280,13 +280,15 @@ def aprovar_roteiro(con, vid: int) -> None:
     atualizar_etapa_status(con, vid, "roteiro", "concluido")
     fechar_pendencia(con, vid, "aprovar_roteiro")
     registrar(con, vid, "Roteiro aprovado", "ok")
-    if con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"] == "vertical":
+    if _animado(con, vid):
         if con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='voz_ia'", (vid,)).fetchone()["status"] != "pendente":
             verificar_direcao(con, vid)  # voz já enviada (ou na fila): não pede de novo
             return
         atualizar_etapa(con, vid, "voz_ia", "atencao", "aguardando a voz", "envie o áudio")
-        abrir_pendencia(con, vid, "enviar_voz", "voz_ia", "Suba a voz do vídeo",
-                        "Gere a voz no seu programa e arraste o áudio no painel “Voz”, ou coloque-o na pasta entrada/ "
+        vertical = con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"] == "vertical"
+        abrir_pendencia(con, vid, "enviar_voz", "voz_ia", "Suba a voz do vídeo" if vertical else "Suba a sua gravação",
+                        ("Gere a voz no seu programa" if vertical else "Grave a narração (o motor tira regravações e pausas)")
+                        + " e arraste o áudio no painel “Voz”, ou coloque-o na pasta entrada/ "
                         "do vídeo e clique em “Já coloquei na pasta”.")
         return
     FILA.put((vid, "voz_guia"))
@@ -310,9 +312,10 @@ def condicoes_direcao(con, vid: int) -> dict:
 
 def verificar_direcao(con, vid: int) -> None:
     """Chamado sempre que uma condição muda: se todas estão ok, a Direção começa sozinha."""
-    if con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"] == "vertical":
+    if _animado(con, vid):
         st = {r["chave"]: r["status"] for r in con.execute("SELECT chave, status FROM etapas WHERE video_id=?", (vid,))}
-        if CANAL.get("vertical") and st.get("roteiro") == "concluido" and st.get("voz_ia") == "concluido" and st.get("direcao") == "pendente":
+        formato = con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"]
+        if CANAL.get("vertical" if formato == "vertical" else "horizontal") and st.get("roteiro") == "concluido" and st.get("voz_ia") == "concluido" and st.get("direcao") == "pendente":
             atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "aguardando a vez")
             FILA.put((vid, "direcao"))
         return
@@ -369,7 +372,7 @@ def ler_nomes_da_capa(capa: Path, detectar, chamar_json) -> tuple[list[dict], li
 
 def tarefa_direcao(vid: int) -> None:
     """Diretor completo: tempos -> plano (Claude) -> candidatos (local) -> escolha (Claude, imagens) -> montagem -> rascunho."""
-    if eh_vertical(vid):
+    if eh_animado(vid):
         return tarefa_animacao(vid)
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     from candidatos import preparar
@@ -560,7 +563,16 @@ def tarefa_voz_ia(vid: int) -> None:
     slug = v["slug"]
     pasta = PASTA_PROJETOS / slug
     wav, cache = pasta / "trabalho" / "voz.wav", pasta / "direcao" / "tempos_voz.json"
-    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(pasta / "entrada" / dados["arquivo"]), "-ar", "48000", "-ac", "2", str(wav)], check=True)
+    origem = pasta / "entrada" / dados["arquivo"]
+    if not eh_vertical(vid):  # horizontal animado: é a gravação do Felipe; sai regravação, fala fora do roteiro e pausa longa
+        from limpar_gravacao import limpar
+
+        definir_progresso("Narração", "limpando a gravação")
+        rel = limpar(origem, pasta / "trabalho" / "gravacao", (pasta / "direcao" / "roteiro.txt").read_text(encoding="utf-8"))
+        origem = pasta / "trabalho" / "gravacao" / "limpa.wav"
+        dados["limpeza"] = {"cortes": len(rel.get("removidos", [])), "original": rel.get("duracao_original"),
+                            "limpa": rel.get("duracao_limpa")}
+    subprocess.run(["ffmpeg", "-y", "-v", "error", "-i", str(origem), "-ar", "48000", "-ac", "2", str(wav)], check=True)
     cache.unlink(missing_ok=True)  # áudio novo: os tempos antigos não valem
     palavras = tempos_da_narracao(wav, (pasta / "direcao" / "roteiro.txt").read_text(encoding="utf-8"), cache)
     with conectar() as con:
@@ -726,6 +738,28 @@ def eh_vertical(vid: int) -> bool:
     return bool(r) and r["formato"] == "vertical"
 
 
+def _animado(con, vid: int) -> bool:
+    """Fluxo animado (vertical, ou horizontal do canal com [horizontal]): o card tem a etapa "voz_ia"."""
+    return con.execute("SELECT 1 FROM etapas WHERE video_id=? AND chave='voz_ia'", (vid,)).fetchone() is not None
+
+
+def eh_animado(vid: int) -> bool:
+    with conectar() as con:
+        return _animado(con, vid)
+
+
+def _diretor(vid: int):
+    """Módulo do diretor do card: o do vertical ou o do horizontal animado (mesmas funções)."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    if eh_vertical(vid):
+        import vertical
+
+        return vertical
+    import horizontal
+
+    return horizontal
+
+
 def pedidos_animacao(dirc: Path) -> list[dict]:
     arq = dirc / "pedidos_vertical.json"
     return json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else []
@@ -750,8 +784,9 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
     Remotion do canal renderiza com a voz pronta.
     `revisar` = aplica os pedidos do Felipe sobre a direção atual (planos sem pedido ficam iguais)."""
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
-    import vertical
     from briefing import para_o_diretor
+
+    vertical = _diretor(vid)  # o do vertical ou o do horizontal animado
 
     with conectar() as con:
         slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
@@ -877,11 +912,11 @@ def tarefa_publicacao(vid: int) -> None:
         atualizar_etapa(con, vid, "publicacao", "andamento", "escrevendo título e descrição…", "Claude")
         con.commit()
     pasta = PASTA_PROJETOS / v["slug"]
-    vertical = eh_vertical(vid)
-    tempos = pasta / "direcao" / ("tempos_voz.json" if vertical else "tempos_gravacao.json")
+    vertical, animado = eh_vertical(vid), eh_animado(vid)
+    tempos = pasta / "direcao" / ("tempos_voz.json" if animado else "tempos_gravacao.json")
     duracao = json.loads(tempos.read_text(encoding="utf-8"))[-1]["f"] if tempos.exists() else 0
     textos = publicacao.gerar_textos(pasta, v["titulo"] + (" (vídeo vertical curto: Shorts/Reels)" if vertical else ""), duracao)
-    if vertical:  # sem capa e sem encerramento: sobe o último vídeo como está
+    if animado:  # sem capa e sem encerramento: sobe o último vídeo como está
         final = max((pasta / "saida").glob("final_v*.mp4"), key=lambda p: p.stat().st_mtime, default=None)
         textos["thumbnail"] = None
         textos["video_publicar"] = caminho_rel(v["slug"], "saida", final.name) if final else None
@@ -971,7 +1006,7 @@ def gravacao_aprovada(vid: int, con=None) -> bool:
 
 def tarefa_rascunho(vid: int) -> None:
     """Refaz o rascunho com os ajustes do storyboard. Só chama o Claude se houver pedidos ao diretor."""
-    if eh_vertical(vid):
+    if eh_animado(vid):
         return tarefa_animacao(vid, revisar=True)
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     from planejar import frases_do_roteiro
@@ -1373,7 +1408,7 @@ def retomar_interrompidas(con) -> None:
         presas.setdefault(r["video_id"], set()).add(r["chave"])
     for vid, chaves in presas.items():
         tarefas = {ETAPA_PARA_TAREFA[k] for k in chaves if k in ETAPA_PARA_TAREFA}
-        if con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"] == "vertical" and "render" in chaves:
+        if _animado(con, vid) and "render" in chaves:
             tarefas = (tarefas - {"final"}) | {"rascunho"}  # vertical: re-render da direção salva
         if "direcao" in chaves and "rascunho" not in tarefas:  # direção do zero: retoma de onde parou (cache)
             con.execute("UPDATE etapas SET status='pendente' WHERE video_id=? AND chave='direcao'", (vid,))

@@ -23,8 +23,27 @@ ETAPAS_VERTICAL = [
 EM_BREVE_VERTICAL: set[str] = set()  # animação ligada em 2026-11-02 (diretor + projeto Remotion do canal)
 
 
-def etapas_do_formato(formato: str) -> list[dict]:
-    return ETAPAS_VERTICAL if formato == "vertical" else ETAPAS
+# Horizontal animado (canal com `[horizontal]` no canal.toml, ex.: Explicando F1): mesmo fluxo do vertical, mas a voz é a
+# gravação do Felipe (limpa no motor) e o diretor é o do horizontal. O painel e o motor reconhecem o fluxo animado
+# pela etapa "voz_ia".
+ETAPAS_HORIZONTAL_ANIMADO = [
+    {"chave": "roteiro", "titulo": "Roteiro", "descricao": "Texto final e fatos conferidos"},
+    {"chave": "voz_ia", "titulo": "Narração", "descricao": "Sua gravação, limpa e medida"},
+    {"chave": "direcao", "titulo": "Direção", "descricao": "Cenas no estilo do horizontal"},
+    {"chave": "render", "titulo": "Render", "descricao": "Vídeo final em 1920×1080"},
+    {"chave": "publicacao", "titulo": "Publicação", "descricao": "Título, descrição e créditos"},
+]
+
+
+def etapas_do_formato(formato: str, chaves: set[str] | None = None) -> list[dict]:
+    """`chaves` = etapas que o card já tem: card horizontal criado antes do fluxo animado continua no fluxo antigo."""
+    if formato == "vertical":
+        return ETAPAS_VERTICAL
+    if chaves is not None and "voz_ia" not in chaves:
+        return ETAPAS
+    from canal import CANAL  # tools/ já está no caminho (banco.py)
+
+    return ETAPAS_HORIZONTAL_ANIMADO if CANAL.get("horizontal") else ETAPAS
 
 
 # Etapas cujo código ainda não existe aparecem como "em breve".

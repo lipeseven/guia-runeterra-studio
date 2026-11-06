@@ -76,9 +76,7 @@ Sobreposições em `estudio` e `pista`:
 - Fontes no briefing, conferidas antes da voz, com a mesma regra do vertical.
 
 ## 5. O que ainda falta (próximos passos)
-1. Diretor do horizontal: gera o plano preso às palavras do roteiro, usando estas cenas.
-   - Planos em blocos com cache, como no vertical.
-   - Card horizontal do F1 com este fluxo no lugar do fluxo de imagens do Runeterra.
+1. ~~Diretor do horizontal~~ ✅ (2026-11-06): `tools/direcao/horizontal.py` + `api_horizontal.md`; card horizontal novo usa o fluxo animado (sua gravação → direção → render). Falta: rodada de conferência pelas imagens (como no vertical).
 2. Efeitos sonoros ligados às transições: whoosh no empurrar, pop na palavra.
 3. Acabamento de render: oclusão de ambiente, profundidade de campo e reflexos. O Blender fica para depois, para os
    respiros.

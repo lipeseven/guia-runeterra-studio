@@ -155,7 +155,7 @@ def _video(con, vid: int) -> dict:
         raise HTTPException(404, "vídeo não encontrado")
     etapas = {r["chave"]: dict(r) for r in con.execute("SELECT * FROM etapas WHERE video_id=?", (vid,))}
     lista = []
-    for n, e in enumerate(etapas_do_formato(v["formato"]), 1):
+    for n, e in enumerate(etapas_do_formato(v["formato"], set(etapas)), 1):
         r = etapas.get(e["chave"], {})
         dados = json.loads(r.get("dados") or "{}")
         # Arquivo que já não existe (ex.: limpeza depois de publicar) não vai para a tela: evita players quebrados/404.
@@ -269,8 +269,8 @@ def mover(vid: int, corpo: Mover):
         antiga = con.execute("SELECT coluna, travado, formato FROM videos WHERE id=?", (vid,)).fetchone()
         if not antiga:
             raise HTTPException(404)
-        if antiga["formato"] == "vertical" and corpo.coluna == "gravacao":
-            raise HTTPException(409, "vídeo vertical não tem gravação: a voz sobe no painel Voz")
+        if motor._animado(con, vid) and corpo.coluna == "gravacao":
+            raise HTTPException(409, "vídeo animado não usa a coluna Gravação: a voz sobe no painel Voz")
         if antiga["travado"]:
             raise HTTPException(409, "vídeo travado: destrave para mover")
         if antiga["coluna"] == "publicado" and corpo.coluna != "publicado":

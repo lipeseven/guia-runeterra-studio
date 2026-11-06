@@ -17,6 +17,14 @@ projeto = "F1/video"
 composicao = "Vertical"
 catalogo = "catalogo_vertical.md"           # em F1/docs; a 1ª coluna da tabela = tipos válidos
 
+[horizontal]                                # vídeo longo animado (F1/docs/folha_horizontal.md): sua voz gravada + diretor do horizontal
+projeto = "F1/video"
+composicao = "Horizontal"
+api = "api_horizontal.md"                  # em F1/docs
+modelo = "sonnet"                          # modelo do diretor (opus custa mais cota)
+modelos = "F1/dados/modelos3d"             # .glb do acervo 3D (entram por link na pasta pública do render)
+carro = "ferrari_sf26.glb"                # carro padrão do estúdio
+
 [pastas]
 acervo = 'C:\Users\Felipe\Downloads\canais\catálogo F1'   # pasta do Felipe (só leitura)
 dados_acervo = "F1/dados/acervo"            # banco, miniaturas, índices CLIP, tomadas, derivados

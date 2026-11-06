@@ -489,6 +489,8 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
             if fim >= ini:
                 # efeito sonoro não entra: é só áudio, não muda a imagem do bloco
                 sem_som = [{c: v for c, v in planos[k].items() if c not in ("som", "sons")} for k in atual]
+                if n + 1 < len(planos) and planos[n + 1].get("entrada"):  # horizontal: a transição da próxima cena começa neste bloco
+                    sem_som.append({"proxima_entrada": planos[n + 1]["entrada"]})
                 chave = json.dumps({"planos": sem_som, "q": [ini, fim], "comum": comum}, sort_keys=True,
                                    ensure_ascii=False)
                 saida.append({"inicio": ini, "fim": fim, "planos": [planos[k]["id"] for k in atual],
@@ -690,21 +692,24 @@ def gerar_musica(projeto: Path, segundos: float, aviso=lambda m: None) -> Path |
     return destino
 
 
-def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, progresso=None) -> float:
+def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, progresso=None, composicao: str | None = None,
+               props: dict | None = None, cache_nome: str = "blocos_vertical", concorrencia: int = 3) -> float:
     """Render por blocos com cache (como no Runeterra): só os blocos com plano alterado são renderizados de novo; a
     voz entra no FFmpeg, sem recomprimir o vídeo. A pasta trabalho/ do vídeo (com voz.wav) é a pasta pública do Remotion."""
     projeto = RAIZ / CFG.get("projeto", "")
-    cache = trabalho.parent / "blocos_vertical"  # fora de trabalho/: a pasta pública é copiada a cada render
+    cache = trabalho.parent / cache_nome  # fora de trabalho/: a pasta pública é copiada a cada render
     cache.mkdir(parents=True, exist_ok=True)
-    props = trabalho / "vertical_props.json"
-    props.write_text(json.dumps(_props(direcao, palavras), ensure_ascii=False), encoding="utf-8")
-    lista = blocos(direcao, palavras, _fonte_remotion(projeto))
+    arq_props = trabalho / ("vertical_props.json" if props is None else f"{cache_nome}_props.json")
+    arq_props.write_text(json.dumps(_props(direcao, palavras) if props is None else props, ensure_ascii=False), encoding="utf-8")
+    # props entram na impressão dos blocos: no horizontal elas trazem dados que não estão nos planos (paleta, carro)
+    lista = blocos(direcao, palavras, _fonte_remotion(projeto) + ("" if props is None else json.dumps(
+        {k: v for k, v in props.items() if k != "cenas"}, sort_keys=True)))
     faltam = [b for b in lista if not (cache / f"{b['impressao']}.mp4").exists()]
     inicio = time.time()
     if faltam:
         pedido = trabalho / "render_blocos_pedido.json"
-        pedido.write_text(json.dumps({"composicao": CFG.get("composicao", "Vertical"), "props": str(props), "publicDir": str(trabalho),
-                                      "blocos": [{"inicio": b["inicio"], "fim": b["fim"], "saida": str(cache / f"{b['impressao']}.mp4")}
+        pedido.write_text(json.dumps({"composicao": composicao or CFG.get("composicao", "Vertical"), "props": str(arq_props),
+                                      "publicDir": str(trabalho), "concorrencia": concorrencia, "blocos": [{"inicio": b["inicio"], "fim": b["fim"], "saida": str(cache / f"{b['impressao']}.mp4")}
                                                  for b in faltam]}), encoding="utf-8")
         a_fazer = sum(b["fim"] - b["inicio"] + 1 for b in faltam)
         feitos = [0] * len(faltam)
@@ -726,7 +731,7 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
     _com_audio(["-f", "concat", "-safe", "0", "-i", str(juntar)], trabalho, direcao, palavras, saida)
     # o cache guarda os blocos desta versão e os da anterior (para voltar atrás sem renderizar)
     usados = {b["impressao"] for b in lista}
-    anterior = trabalho.parent / "blocos_vertical.json"
+    anterior = trabalho.parent / f"{cache_nome}.json"
     if anterior.exists():
         usados |= set(json.loads(anterior.read_text(encoding="utf-8")))
     for velho in cache.glob("*.mp4"):

@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { staticFile } from "remotion";
-import { carregar, Cena, Fundo, suave, useCores, useTres, type Tres } from "./base";
+import { carregar, Cena, Cores, Fundo, suave, useCores, useTres, type Tres } from "./base";
 import { preparar, type Roda } from "./carro";
 import { criarChao, type Chao } from "./chao";
 import { Palavra, type PalavraP } from "./textos";
@@ -111,8 +111,11 @@ export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { 
     <Cena fundo={<Fundo modo={modo} />}>
       {palavra && <Palavra {...palavra} cor={palavra.cor ?? (modo === "cheio" ? "#ffffff" : undefined)} />}
       {tela}
-      {extra}
-      {anotacoes && <Anotacoes itens={anotacoes} />}
+      {/* no fundo escuro, anotação e rótulo são claros */}
+      <Cores.Provider value={escuro ? { ...c, tinta: "#f1efe9" } : c}>
+        {extra}
+        {anotacoes && <Anotacoes itens={anotacoes} />}
+      </Cores.Provider>
     </Cena>
   );
 };
