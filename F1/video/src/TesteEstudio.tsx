@@ -24,7 +24,7 @@ const sorteio = (i: number) => {
 };
 
 /** Carro do arquivo → grupo de pé no chão, 5,4 m, comprimento em z; rodas separadas em pivôs que giram no eixo x. */
-function preparar(cena: THREE.Group): { carro: THREE.Group; rodas: Roda[]; raio: number; frenteZ: number } {
+export function preparar(cena: THREE.Group): { carro: THREE.Group; rodas: Roda[]; raio: number; frenteZ: number } {
   cena.updateMatrixWorld(true);
   let caixa = new THREE.Box3().setFromObject(cena);
   let t = caixa.getSize(new THREE.Vector3());
