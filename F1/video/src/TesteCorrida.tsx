@@ -146,7 +146,9 @@ export const TesteCorrida: React.FC<{ pista: string; carro: string; fundo: strin
     m.rastro.geometry.setIndex(idx);
     // câmera: helicóptero baixo atrás e ao lado dos dois, deslizando para o lado de dentro
     const meio = new THREE.Vector3().addVectors(m.a.g.position, m.b.g.position).multiplyScalar(0.5);
-    const { tg } = naVolta((uA + uB) / 2, 0);
+    // direção da pista média em ±25 m: a câmera não sacode com cada pontinho da linha
+    const um = (uA + uB) / 2;
+    const tg = naVolta(um + 25 / m.comp, 0).p.sub(naVolta(um - 25 / m.comp, 0).p).setY(0).normalize();
     const lat = new THREE.Vector3().crossVectors(tg, up).normalize();
     const atras = 26 - 6 * suave(t, 0, 8);
     const ladoCam = 10 - 18 * suave(t, 1, 7);
