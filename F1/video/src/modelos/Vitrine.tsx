@@ -2,7 +2,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { AbsoluteFill, continueRender, delayRender, useCurrentFrame } from "remotion";
 import { bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, esconderExtras, numeroNoCarro, obj, pontoNoMapa, topoDoPodio } from "./extras";
-import { camera, enquadrar, montar, poe, preparar, Z_POLE, type Mundo } from "./mundo";
+import { camera, enquadrar, montar, poe, poePneu, preparar, Z_POLE, type Mundo } from "./mundo";
 import { trocarComposto } from "./Carro3D";
 import { estercar } from "./efeitos3d";
 import { areaNoMapa, criarCircuito, criarMapaBrasil, noCircuito } from "./geografia";
@@ -77,14 +77,22 @@ VISTAS.forEach(([x, y, z, lente]) =>
   }),
 );
 // close das rodas: um carro em cada composto
+const COMPOSTOS_PIRELLI = ["macio", "medio", "duro", "intermediario", "chuva"];
 VITRINE.push((w, s) => {
   preparar(w, "claro", "estudio");
-  ["macio", "medio", "duro"].forEach((c, i) => {
+  COMPOSTOS_PIRELLI.forEach((c, i) => {
     trocarComposto(w.carros[i * 2], c);
     poe(w, i * 2, 0, -i * 6.5);
   });
-  const z = -Math.min(2, Math.floor(s * 3)) * 6.5;
+  const z = -Math.min(4, Math.floor(s * 5)) * 6.5;
   camera(w, [2.3, 0.55, z - 0.7], [0.8, 0.36, z - 1.55], 34);
+});
+// pneu do estúdio (fotos oficiais da Pirelli): cada composto de frente e em 3/4
+VITRINE.push((w, s) => {
+  preparar(w, "claro", "estudio");
+  const f = Math.min(9, Math.floor(s * 10));
+  poePneu(w, 0, 0, 1.03, 0, COMPOSTOS_PIRELLI[f >> 1], 0, f % 2 ? Math.PI / 2 - 0.75 : Math.PI / 2);
+  camera(w, [0, 1.1, 5.6], [0, 1.03, 0], 34);
 });
 // desmonte do carro: explodir, isolar a roda, raio-X da tampa, corte ao meio
 VITRINE.push((w, s) => {

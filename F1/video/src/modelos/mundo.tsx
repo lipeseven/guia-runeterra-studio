@@ -5,6 +5,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { PINTURAS, carro, degradeRadial, plano, texturaPista, type Pintura } from "./Carro3D";
 import { FONTE } from "../kit";
 import { vantage } from "./Vantage";
+import { aplicarComposto, pneuPirelli } from "./pneus/pneu";
 
 type V = [number, number, number];
 
@@ -69,39 +70,15 @@ const bloco = (l: number, a: number, c: number, x: number, y: number, z: number,
 
 const CORES_BANDEIRA = ["#17a34a", "#ffcf00", "#1e6fe0", "#df1f1f", "#101114", "quadriculada"];
 
-type Pneu = { g: THREE.Group; giro: THREE.Group; anel: THREE.MeshStandardMaterial };
+type Pneu = { g: THREE.Group; giro: THREE.Group };
+/** Pneu do estúdio: o mesmo Pirelli das rodas do carro (fotos oficiais), em tamanho de destaque. */
 function pneu(): Pneu {
   const g = new THREE.Group();
-  const giro = new THREE.Group();
-  const perfil = [[0.42, -0.42], [0.62, -0.47], [0.92, -0.47], [1, -0.38], [1.03, -0.2], [1.03, 0.2], [1, 0.38], [0.92, 0.47], [0.62, 0.47], [0.42, 0.42]].map(([r, y]) => new THREE.Vector2(r, y));
-  const borracha = new THREE.Mesh(new THREE.LatheGeometry(new THREE.SplineCurve(perfil).getPoints(50), 96), mat("#17181c", 0.62));
-  const anel = new THREE.MeshStandardMaterial({ color: "#df1f1f", emissive: "#df1f1f", emissiveIntensity: 0.25, roughness: 0.45 });
-  for (const s of [-1, 1]) {
-    const a = new THREE.Mesh(new THREE.TorusGeometry(0.76, 0.045, 12, 96), anel);
-    a.rotation.x = Math.PI / 2;
-    a.position.y = s * 0.475;
-    giro.add(a);
-    for (let k = 0; k < 6; k++) {
-      const u = (k / 6) * Math.PI * 2;
-      const m = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.012, 0.05), mat("#e9e9ee", 0.5));
-      m.position.set(Math.cos(u) * 0.88, s * 0.475, Math.sin(u) * 0.88);
-      m.rotation.y = -u;
-      giro.add(m);
-    }
-  }
-  const aro = new THREE.Mesh(new THREE.CylinderGeometry(0.43, 0.43, 0.72, 48), mat("#3a3d44", 0.28, 0.9));
-  giro.add(borracha, aro);
-  for (let k = 0; k < 10; k++) {
-    const raio = bloco(0.38, 0.03, 0.06, Math.cos((k / 10) * 6.283) * 0.2, 0.37, Math.sin((k / 10) * 6.283) * 0.2, mat("#c9ccd4", 0.25, 0.9));
-    raio.rotation.y = -(k / 10) * 6.283;
-    giro.add(raio);
-  }
-  const miolo = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.8, 24), mat("#d4213c", 0.3, 0.7));
-  giro.add(miolo);
+  const giro = pneuPirelli(1.03, 0.94);
   giro.traverse((o) => (o.castShadow = true));
   g.rotation.z = Math.PI / 2;
   g.add(giro);
-  return { g, giro, anel };
+  return { g, giro };
 }
 
 function trofeu(): THREE.Group {
@@ -531,8 +508,7 @@ export const poePneu = (w: Mundo, n: number, x: number, y: number, z: number, co
   p.g.rotation.set(0, frenteY, Math.PI / 2);
   p.g.scale.setScalar(esc);
   p.giro.rotation.y = giro;
-  p.anel.color.set(cor);
-  p.anel.emissive.set(cor);
+  aplicarComposto(p.giro, cor);
 };
 export const luzesDesfocadas = (w: Mundo, t: number) =>
   solta(w, 26, (i) => ({ p: [(seed(i) - 0.5) * 34 + Math.sin(t * 0.4 + i) * 0.5, 0.6 + seed(i + 1) * 10, -14 - seed(i + 2) * 14], e: 1.6 + seed(i + 3) * 3, cor: ["#5e8bff", "#ffb35c", "#ff5470", "#7ae0ff"][i % 4], o: 0.28 }), THREE.AdditiveBlending);
