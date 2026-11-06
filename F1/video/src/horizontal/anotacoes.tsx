@@ -3,14 +3,20 @@
 import { MAO, sorteio, useCores, useTempo } from "./base";
 
 type P = [number, number];
-export type Anotacao =
+/** Jeito da mão (o editor de variedade sorteia por cena): letra, traço e marca-texto atrás da nota. */
+export type Estilo = { fonte?: "ink" | "print" | "script"; traco?: number; marca?: boolean };
+const FONTES = { ink: MAO, print: "Segoe Print", script: "Segoe Script" };
+export type Anotacao = ({ estilo?: Estilo }) & (
   | { tipo: "seta"; de: P; para: P; curva?: number; em: number; cor?: string }
   | { tipo: "circulo"; centro: P; rx: number; ry: number; em: number; cor?: string }
   | { tipo: "sublinhado"; de: P; para: P; em: number; cor?: string }
   | { tipo: "riscado"; de: P; para: P; em: number; cor?: string }
   | { tipo: "chave"; de: P; para: P; em: number; cor?: string }
   | { tipo: "nota"; texto: string; x: number; y: number; tam?: number; giro?: number; largura?: number; em: number; cor?: string }
-  | { tipo: "corrigido"; antes: string; depois: string; x: number; y: number; tam?: number; em: number; cor?: string };
+  | { tipo: "corrigido"; antes: string; depois: string; x: number; y: number; tam?: number; em: number; cor?: string }
+  | { tipo: "caixa"; centro: P; w: number; h: number; em: number; cor?: string }
+  | { tipo: "x" | "check"; centro: P; tam?: number; em: number; cor?: string }
+  | { tipo: "marca"; de: P; para: P; altura?: number; em: number; cor?: string });
 
 const VEL = 105; // px por quadro
 
@@ -39,6 +45,17 @@ function caminho(a: Anotacao): P[] {
       const r = 1 + (sorteio(Math.floor(i / 8) + 5) - 0.5) * 0.06;
       pts.push([a.centro[0] + Math.cos(g) * a.rx * r, a.centro[1] + Math.sin(g) * a.ry * r]);
     }
+  } else if (a.tipo === "caixa") {
+    // retângulo à mão: cantos que passam um pouco e lados levemente tortos
+    const [cx, cy] = a.centro;
+    const w = a.w / 2, h = a.h / 2;
+    const cantos: P[] = [[cx - w - 8, cy - h], [cx + w + 6, cy - h - 4], [cx + w, cy + h + 6], [cx - w + 4, cy + h], [cx - w - 2, cy - h - 10]];
+    for (let k = 0; k < cantos.length - 1; k++) for (let i = 0; i < 10; i++) pts.push([cantos[k][0] + (cantos[k + 1][0] - cantos[k][0]) * (i / 10), cantos[k][1] + (cantos[k + 1][1] - cantos[k][1]) * (i / 10)]);
+  } else if (a.tipo === "x" || a.tipo === "check") {
+    const [cx, cy] = a.centro;
+    const s = (a.tam ?? 90) / 2;
+    const seg: P[] = a.tipo === "x" ? [[cx - s, cy - s], [cx + s, cy + s]] : [[cx - s, cy], [cx - s * 0.3, cy + s * 0.8], [cx + s, cy - s]];
+    for (let k = 0; k < seg.length - 1; k++) for (let i = 0; i <= 12; i++) pts.push([seg[k][0] + (seg[k + 1][0] - seg[k][0]) * (i / 12), seg[k][1] + (seg[k + 1][1] - seg[k][1]) * (i / 12)]);
   } else if (a.tipo === "chave") {
     // chave "}" de de até para (vertical), bico no meio
     const [x, y0] = a.de;
@@ -68,11 +85,28 @@ export const Anotacoes: React.FC<{ itens: Anotacao[] }> = ({ itens }) => {
         </filter>
         {itens.map((a, i) => {
           if (a.tipo === "nota" || a.tipo === "corrigido" || t < a.em) return null;
-          const pts = caminho(a);
+          const pts = a.tipo === "marca" ? [a.de, a.para] : caminho(a);
           const q = (t - a.em) * fps;
           const k = Math.min(1, (q * VEL) / comprimento(pts));
           const cor = a.cor ?? c.tinta;
-          if (a.tipo !== "seta") return <Traco key={i} pts={pts} k={k} cor={cor} semente={i * 17} largura={a.tipo === "riscado" ? 9 : 7} />;
+          const larg = a.estilo?.traco ?? (a.tipo === "riscado" ? 9 : 7);
+          if (a.tipo === "marca") {
+            // marca-texto: faixa larga e translúcida passada por cima do texto
+            const [x0, y0] = a.de, [x1, y1] = a.para;
+            const km = Math.min(1, q / 8);
+            return <line key={i} x1={x0} y1={y0} x2={x0 + (x1 - x0) * km} y2={y0 + (y1 - y0) * km} stroke={a.cor ?? c.destaque} strokeOpacity={0.55} strokeWidth={a.altura ?? 70} strokeLinecap="square" />;
+          }
+          if (a.tipo === "x") {
+            const s = (a.tam ?? 90) / 2, [cx, cy] = a.centro;
+            const k2 = Math.min(1, Math.max(0, q - 5) / 5);
+            return (
+              <g key={i}>
+                <Traco pts={pts} k={k} cor={cor} semente={i * 17} largura={larg + 2} />
+                {k2 > 0 && <Traco pts={[[cx + s, cy - s], [cx - s, cy + s]]} k={k2} cor={cor} semente={i * 23} largura={larg + 2} />}
+              </g>
+            );
+          }
+          if (a.tipo !== "seta") return <Traco key={i} pts={pts} k={k} cor={cor} semente={i * 17} largura={larg} />;
           // ponta da seta depois do traço
           const [x1, y1] = pts[pts.length - 1];
           const [x0, y0] = pts[pts.length - 4];
@@ -81,8 +115,8 @@ export const Anotacoes: React.FC<{ itens: Anotacao[] }> = ({ itens }) => {
           const ponta: P[] = [[x1 + Math.cos(g + 2.6) * 34, y1 + Math.sin(g + 2.6) * 34], [x1, y1], [x1 + Math.cos(g - 2.6) * 34, y1 + Math.sin(g - 2.6) * 34]];
           return (
             <g key={i}>
-              <Traco pts={pts} k={k} cor={cor} semente={i * 17} />
-              {p > 0 && <Traco pts={ponta} k={p} cor={cor} semente={i * 19} />}
+              <Traco pts={pts} k={k} cor={cor} semente={i * 17} largura={larg} />
+              {p > 0 && <Traco pts={ponta} k={p} cor={cor} semente={i * 19} largura={larg} />}
             </g>
           );
         })}
@@ -96,8 +130,9 @@ export const Anotacoes: React.FC<{ itens: Anotacao[] }> = ({ itens }) => {
           const largura = a.largura ?? a.texto.length * tam * 0.5;
           const k = Math.min(1, (q * VEL * 0.5) / largura); // letra à mão é mais lenta que traço
           return (
-            <div key={i} style={{ position: "absolute", left: a.x, top: a.y, width: largura + 40, fontFamily: MAO, fontWeight: 700, fontSize: tam, lineHeight: 1.08, color: cor, transform: `rotate(${a.giro ?? -4}deg)`, clipPath: `inset(-20% ${100 - k * 100}% -20% -5%)` }}>
-              {a.texto}
+            <div key={i} style={{ position: "absolute", left: a.x, top: a.y, width: largura + 40, fontFamily: FONTES[a.estilo?.fonte ?? "ink"], fontWeight: 700, fontSize: tam, lineHeight: 1.08, color: cor, transform: `rotate(${a.giro ?? -4}deg)`, clipPath: `inset(-20% ${100 - k * 100}% -20% -5%)` }}>
+              {a.estilo?.marca && <span style={{ position: "absolute", left: -12, right: 30, top: "18%", bottom: "8%", background: c.destaque, opacity: 0.5, transform: "skewX(-6deg)" }} />}
+              <span style={{ position: "relative" }}>{a.texto}</span>
             </div>
           );
         }

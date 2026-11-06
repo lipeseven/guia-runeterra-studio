@@ -26,10 +26,10 @@ CFG = CANAL.get("horizontal", {})
 MODELO = CFG.get("modelo", "sonnet")
 TIPOS = {"estudio", "pista", "pessoa", "capitulo", "solta"}
 MODOS = {"claro", "cheio", "escuro", "tecnico"}
-CAM_ESTUDIO = {"orbita", "aproximar", "deslizar", "chegada", "frente", "traseira", "passagem"}
+CAM_ESTUDIO = {"orbita", "aproximar", "deslizar", "chegada", "frente", "traseira", "perfil", "cima", "baixo", "detalhe", "passagem"}
 CAM_PISTA = {"helicoptero", "drone", "lado", "passagem", "pov"}
 ENTRADAS = {"corte", "empurrar", "glitch", "cortina", "cor"}
-ANOTACOES = {"seta", "circulo", "sublinhado", "riscado", "chave", "nota", "corrigido"}
+ANOTACOES = {"seta", "circulo", "sublinhado", "riscado", "chave", "nota", "corrigido", "caixa", "x", "check", "marca"}
 ATRASO_PALAVRA = 0.25  # a palavra gigante entra logo depois de falada (0–1 s nas referências)
 PALAVRAS_POR_BLOCO = 220
 
@@ -169,6 +169,81 @@ def resolver(brutos: list[dict], palavras: list[dict], inicio: int = 0, fim: int
     return planos, avisos
 
 
+# ------------------------------------------------------------------------------------------------ editor de variedade
+# O diretor tende a repetir (mesma câmera 3/4, mesma entrada de palavra, nota no mesmo canto): aqui a variedade é imposta,
+# como o Variador do Runeterra. Sorteio pelo id da cena (mexer numa cena não muda as outras); escolha explícita do
+# diretor fica, a não ser que repita as cenas anteriores.
+CAM_POOL = ["orbita", "aproximar", "deslizar", "frente", "traseira", "perfil", "cima", "baixo", "detalhe"]
+ANGULOS = [-145, -60, -38, -18, 18, 38, 60, 145, 200]
+DETALHES = ["asa_dianteira", "roda_dianteira", "cockpit", "asa_traseira", "roda_traseira"]
+ENTRADAS_PALAVRA = {"decodificar": 3, "subir": 2, "impacto": 2, "deslizar": 2, "letras": 1, "digitar": 1, "seco": 1}
+# cantos livres para a nota, conforme o lado em que o carro está na tela
+ZONAS = {"centro": [(1330, 200), (120, 830), (1330, 830), (120, 210)],
+         "esquerda": [(1280, 330), (1300, 780), (1330, 200)],
+         "direita": [(120, 330), (120, 780), (120, 200)]}
+FONTES = ["ink", "print", "script"]
+
+
+def _sorteio_pesado(r, opcoes: dict[str, int], fora: set[str]) -> str:
+    itens = [(k, v) for k, v in opcoes.items() if k not in fora] or list(opcoes.items())
+    return r.choices([k for k, _ in itens], [v for _, v in itens])[0]
+
+
+def variar(planos: list[dict]) -> list[dict]:
+    import random
+
+    cams: list[tuple[str, float]] = []
+    entradas: list[str] = []
+    zona_ant, nota_ant = None, -9
+    for n, p in enumerate(planos):
+        r = random.Random(p["id"])
+        if p["tipo"] == "estudio":
+            cam = p["camera"]
+            if cam["tipo"] not in ("chegada", "passagem"):
+                recentes = {t for t, _ in cams[-2:]}
+                if cam["tipo"] in recentes or (cam["tipo"] == "orbita" and r.random() < 0.5):
+                    cam["tipo"] = r.choice([t for t in CAM_POOL if t not in recentes])
+                perto = lambda a: any(abs(a - b) < 25 for _, b in cams[-2:])  # noqa: E731
+                if "de" not in cam or perto(_num(cam["de"], 39, -360, 360)):
+                    cam["de"] = r.choice([a for a in ANGULOS if not perto(a)] or ANGULOS)
+                cam.setdefault("sentido", r.choice([1, -1]))
+                cam.setdefault("enquadre", r.choices(["centro", "esquerda", "direita"], [2, 1, 1])[0])
+                if cam["tipo"] == "detalhe" and cam.get("alvo") not in DETALHES:
+                    cam["alvo"] = r.choice(DETALHES)
+            cams.append((cam["tipo"], _num(cam.get("de"), 39, -360, 360)))
+        w = p.get("palavra")
+        if w:
+            fora = set(entradas[-1:])
+            if entradas[-3:].count("decodificar") >= 1:  # a assinatura aparece, mas não em sequência
+                fora.add("decodificar")
+            if w.get("entrada") not in ENTRADAS_PALAVRA or w["entrada"] in fora:
+                w["entrada"] = _sorteio_pesado(r, ENTRADAS_PALAVRA, fora)
+            w.setdefault("contorno", r.random() < 0.15)
+            entradas.append(w["entrada"])
+        notas = [a for a in p.get("anotacoes") or [] if a["tipo"] in ("nota", "corrigido")]
+        if notas and n - nota_ant < 2 and r.random() < 0.6:  # nota em cenas seguidas cansa: uma sai
+            p["anotacoes"] = [a for a in p["anotacoes"] if a not in notas]
+            notas = []
+        if notas:
+            enq = (p.get("camera") or {}).get("enquadre", "centro")
+            opcoes = [z for z in ZONAS.get(enq, ZONAS["centro"]) if z != zona_ant] or ZONAS["centro"]
+            zona = r.choice(opcoes)
+            estilo = {"fonte": r.choice(FONTES), "traco": r.choice([5, 7, 9]), "marca": r.random() < 0.2}
+            for k, a in enumerate(notas):
+                a["x"], a["y"] = zona[0] + r.randint(-50, 50), zona[1] + r.randint(-40, 40) + k * 90
+                a["giro"] = round(r.uniform(-8, 5), 1)
+                a["tam"] = r.choice([46, 54, 62])
+                a["estilo"] = estilo
+            for a in p["anotacoes"]:
+                if a["tipo"] == "seta":  # a seta sai da nota
+                    a["de"] = [notas[0]["x"] + (60 if zona[0] < 960 else -10), notas[0]["y"] + 70]
+                    a.setdefault("estilo", estilo)
+            zona_ant, nota_ant = zona, n
+        if not p.get("anotacoes"):
+            p.pop("anotacoes", None)
+    return planos
+
+
 # ------------------------------------------------------------------------------------------------ direção
 FORMATO = ("Responda SOMENTE com JSON {\"cenas\": [{\"em\": \"trecho exato onde a cena começa\", \"tipo\", \"entrada\"?, "
            "parâmetros do tipo, \"palavra\"?, \"anotacoes\"?, \"contador\"?, \"rotulos\"?, \"som\"?}]}.")
@@ -218,6 +293,7 @@ def dirigir(roteiro: str, palavras: list[dict], briefing: str = "", trabalho: Pa
     if not planos:
         raise RuntimeError("o diretor não devolveu nenhuma cena válida")
     planos[0]["i"] = 0
+    variar(planos)
     return {"formato": "horizontal", "planos": planos, "avisos": avisos, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
 
 
@@ -272,6 +348,7 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
         brutos.append({**c, "id": p["id"], "em": c.get("em") or p["em"], "tipo": c.get("tipo") or p["tipo"]} if c else para_o_claude(p))
         brutos += depois.get(p["id"], [])
     novos_planos, avisos = resolver(brutos, palavras, primeiro=True)
+    variar(novos_planos)
     blocos_antes = {p["id"]: p.get("bloco", 0) for p in planos}
     b = 0
     for p in novos_planos:

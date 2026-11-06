@@ -31,25 +31,55 @@ export function decodificar(texto: string, q: number, semente = 1, sair?: number
     .join("");
 }
 
-export type PalavraP = { texto: string; em?: number; ate?: number; tam?: number; topo?: number; cor?: string; giro?: number; x?: number };
+export type EntradaPalavra = "decodificar" | "subir" | "digitar" | "impacto" | "deslizar" | "letras" | "seco";
+export type PalavraP = { texto: string; em?: number; ate?: number; tam?: number; topo?: number; cor?: string; giro?: number; x?: number; entrada?: EntradaPalavra; contorno?: boolean };
 
-/** Palavra gigante: 1–3 palavras-chave, condensada ultra-bold, 25–60% da altura. Vai ANTES do canvas 3D (atrás do carro). */
-export const Palavra: React.FC<PalavraP> = ({ texto, em = 0, ate, tam = 440, topo = 120, cor, giro = 0, x = 0 }) => {
+/** Palavra gigante: 1–3 palavras-chave, condensada ultra-bold, 25–60% da altura. Vai ANTES do canvas 3D (atrás do carro).
+ *  Entradas (o editor de variedade reparte; decodificar é a assinatura, mas não em todas):
+ *  decodificar (letras embaralhadas assentando), subir (sai de trás de uma borda), digitar, impacto (bate grande e assenta),
+ *  deslizar (entra de lado com rastro), letras (caem uma a uma), seco (aparece no corte). `contorno` = só o traço da letra. */
+export const Palavra: React.FC<PalavraP> = ({ texto, em = 0, ate, tam = 440, topo = 120, cor, giro = 0, x = 0, entrada = "decodificar", contorno = false }) => {
   const c = useCores();
   const { t, fps } = useTempo();
   const q = (t - em) * fps;
   const sair = ate === undefined ? undefined : (t - ate) * fps;
+  if (q < 0) return null;
+  const T = texto.toUpperCase();
   // cabe na largura (letra condensada ~0,5 do corpo): palavra longa diminui em vez de sair da tela
-  const corpo = Math.min(tam, 1800 / (Math.max(...texto.split("\n").map((l) => l.length)) * 0.5));
+  const corpo = Math.min(tam, 1800 / (Math.max(...T.split("\n").map((l) => l.length)) * 0.5));
+  const tinta = cor ?? c.destaque;
+  const saindo = sair === undefined ? 0 : Math.min(1, Math.max(0, sair) / 8);
+  let conteudo: React.ReactNode = T;
+  const extra: React.CSSProperties = {};
+  if (entrada === "decodificar") conteudo = decodificar(T, q, T.length, sair);
+  else if (entrada === "digitar") conteudo = T.slice(0, Math.ceil(q * 0.8));
+  else if (entrada === "letras")
+    conteudo = T.split("").map((ch, i) => {
+      const k = entra((q - i * 1.3) / 7);
+      return <span key={i} style={{ display: "inline-block", opacity: k, transform: `translateY(${(1 - k) * -60}px)` }}>{ch === " " ? "\u00a0" : ch}</span>;
+    });
+  else if (entrada === "impacto") {
+    const k = entra(q / 6);
+    extra.transform = `scale(${1.35 - 0.35 * k})`;
+    extra.opacity = Math.min(1, q / 2);
+  } else if (entrada === "deslizar") {
+    const k = entra(q / 10);
+    extra.transform = `translateX(${(1 - k) * -420}px) scaleX(${1 + (1 - k) * 0.25})`;
+    extra.filter = `blur(${(1 - k) * 10}px)`;
+  }
+  const corpoTexto = (
+    <div style={{ ...extra, ...(contorno ? { color: "transparent", WebkitTextStroke: `${Math.max(3, corpo * 0.012)}px ${tinta}` } : {}) }}>{conteudo}</div>
+  );
   return (
     <div
       style={{
         position: "absolute", left: x, right: -x, top: topo, textAlign: "center", fontFamily: FONTE, fontStretch: "condensed",
-        fontWeight: 700, fontSize: corpo, letterSpacing: -corpo * 0.012, lineHeight: 1, color: cor ?? c.destaque, whiteSpace: "pre",
-        transform: `rotate(${giro}deg)`,
+        fontWeight: 700, fontSize: corpo, letterSpacing: -corpo * 0.012, lineHeight: 1, color: tinta, whiteSpace: "pre",
+        transform: `rotate(${giro}deg)`, opacity: entrada === "decodificar" ? 1 : 1 - saindo,
+        overflow: entrada === "subir" ? "hidden" : undefined,
       }}
     >
-      {decodificar(texto.toUpperCase(), q, texto.length, sair)}
+      {entrada === "subir" ? <div style={{ transform: `translateY(${(1 - entra(q / 12)) * 105}%)` }}>{corpoTexto}</div> : corpoTexto}
     </div>
   );
 };

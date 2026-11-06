@@ -4,6 +4,9 @@ A tela tem 1920×1080 e as coordenadas são em pixels. Cada cena começa no trec
 palavras do roteiro, e vai até a próxima cena. Todo sub-item com `em` entra naquela palavra. A palavra gigante aparece
 ~0,25 s depois de falada e as anotações ~0,4 s depois.
 
+A montagem impõe variedade: câmera, ângulo, lado do carro, entrada da palavra e posição da nota não repetem as cenas
+anteriores. Varie você também: só a sua escolha de câmera que não repete é mantida.
+
 ## Duração das cenas
 - `estudio` dura 3–8 s. Dentro dele, a tela muda por anotação, rótulo ou contador a cada 2–3 s, e não por corte.
 - Quem tem cortes curtos (1–2 s) é a rajada, no máximo 3 seguidas e só em lista ou impacto.
@@ -28,13 +31,18 @@ Carro oficial 3D no estúdio, com a palavra gigante ATRÁS dele.
   - `cheio`: fundo na cor de destaque e palavra branca, para a virada de argumento.
   - `escuro`: respiro dramático.
   - `tecnico`: carro em planta (só as arestas) sobre grade escura, para dados e mecânica.
-- `camera`: `{ "tipo", "de"?: graus de onde a câmera começa (0 = de lado, 30–60 = três-quartos), "vel"?: rad/s da
-  órbita (padrão 0,066) }`.
+- `camera`: `{ "tipo", "de"?: graus de onde a câmera começa, "vel"?: rad/s da órbita (padrão 0,066), "sentido"?: 1 | -1,
+  "enquadre"?: "esquerda" | "centro" | "direita" (lado da tela onde fica o carro), "alvo"? (só no `detalhe`) }`.
+  - `de`: positivo = frente do carro para a esquerda da tela; negativo = para a direita; ~145–200 = de trás.
   - `orbita`: gira devagar.
   - `aproximar`: push-in.
   - `deslizar`: o carro anda de lado na tela.
   - `chegada`: o carro entra rodando e para (abertura de bloco).
   - `frente` / `traseira`: mais perto, de frente ou de trás.
+  - `perfil`: de lado puro.
+  - `cima`: vista de cima.
+  - `baixo`: câmera rente ao chão, carro "herói".
+  - `detalhe`: close de uma peça. `alvo`: `asa_dianteira` | `roda_dianteira` | `cockpit` | `asa_traseira` | `roda_traseira`.
   - `passagem`: o carro cruza a tela com rastro, em 1–2 s.
 - Onde fica o carro na tela:
   - `orbita` / `chegada` / `deslizar`: x 240–1560, y 380–760.
@@ -67,14 +75,20 @@ Respiro em Interlagos (pista real, carros apoiados no asfalto).
 ## Sobreposições (em estudio e pista)
 - `palavra`: `{ "texto": 1–3 palavras-chave, "em": "trecho", "ate"?: "trecho", "tam"?: 300–520, "topo"?: px }`.
   - A palavra sai do roteiro e nunca é a frase inteira.
+  - `entrada`?: `decodificar` (letras embaralhadas assentando) | `subir` | `impacto` | `deslizar` | `letras` | `digitar` |
+    `seco`. `contorno`?: só o traço da letra.
   - Na pista, use `topo` 60 e `tam` 300.
-- `anotacoes`: até 3 por cena, à mão. Elas comentam a fala sem repeti-la. Tipos:
+- `anotacoes`: até 3 por cena, à mão, e não em toda cena (uma a cada 2–3 cenas). Elas comentam a fala sem repeti-la.
+  A posição e o jeito da letra de `nota` e `corrigido` são decididos na montagem, conforme o lado do carro. Tipos:
   - `{ "tipo": "nota", "texto": "Por quê?", "x", "y", "tam"?: 54, "giro"?: -4, "largura"?, "em" }`
   - `{ "tipo": "seta", "de": [x, y], "para": [x, y], "curva"?: -0,3–0,3, "em" }`: aponta da nota para o assunto.
   - `{ "tipo": "circulo", "centro": [x, y], "rx", "ry", "em" }`
   - `{ "tipo": "sublinhado" | "riscado", "de": [x, y], "para": [x, y], "em" }`
   - `{ "tipo": "chave", "de": [x, y], "para": [x, y], "em" }`: chave vertical.
   - `{ "tipo": "corrigido", "antes": "+0.15s", "depois": "+0.015s", "x", "y", "em" }`: número corrigido à mão.
+  - `{ "tipo": "caixa", "centro": [x, y], "w", "h", "em" }`: retângulo à mão em volta de algo.
+  - `{ "tipo": "x" | "check", "centro": [x, y], "tam"?, "em" }`
+  - `{ "tipo": "marca", "de": [x, y], "para": [x, y], "altura"?, "em" }`: marca-texto passado por cima.
   - Todo tipo aceita `cor`?.
 - `contador`: `{ "valor", "unidade"?, "rotulo"?, "de"?, "casas"?, "x"?, "y"?, "em" }`. O número sobe até o valor falado.
   O padrão é o canto de cima à esquerda.
