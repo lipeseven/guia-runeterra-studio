@@ -102,7 +102,7 @@ def criar_video(con: sqlite3.Connection, titulo: str, coluna: str = "ideia", cap
     vid = con.execute(
         "INSERT INTO videos (titulo, slug, coluna, ordem, capa, criado_em, atualizado_em, formato) VALUES (?,?,?,?,?,?,?,?)",
         (titulo, slug, coluna, ordem, capa, agora(), agora(), "vertical" if formato == "vertical" else "horizontal")).lastrowid
-    em_breve = EM_BREVE_VERTICAL if formato == "vertical" else EM_BREVE
+    em_breve = EM_BREVE_VERTICAL if formato == "vertical" or CANAL.get("horizontal") else EM_BREVE
     for e in etapas_do_formato(formato):
         con.execute("INSERT INTO etapas (video_id, chave, status, atualizado_em) VALUES (?,?,?,?)",
                     (vid, e["chave"], "em_breve" if e["chave"] in em_breve else "pendente", agora()))
