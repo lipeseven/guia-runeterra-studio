@@ -731,6 +731,20 @@ def pedidos_animacao(dirc: Path) -> list[dict]:
     return json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else []
 
 
+def guardar_pedidos_vertical(dirc: Path, pedidos: list[dict], direcao: dict) -> None:
+    """Pedidos aplicados vão para o histórico do vídeo (direcao/historico_pedidos_vertical.json), com o trecho da fala
+    do plano pedido: na publicação, o aprendizado transforma o histórico em regras propostas."""
+    if not pedidos:
+        return
+    arq = dirc / "historico_pedidos_vertical.json"
+    hist = json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else []
+    falas = {p["id"]: p.get("em", "") for p in direcao.get("planos", [])}
+    rodada = max((h.get("rodada", 0) for h in hist), default=0) + 1
+    hist += [{"rodada": rodada, "texto": p["texto"], "plano": p.get("plano"), "fala": falas.get(p.get("plano"), ""),
+              "quando": p.get("quando") or agora(), "via": "painel"} for p in pedidos]
+    arq.write_text(json.dumps(hist, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
 def tarefa_animacao(vid: int, revisar: bool = False) -> None:
     """Vertical: o diretor escreve as cenas deste vídeo (Claude), confere o código e um quadro de cada cena, e o projeto
     Remotion do canal renderiza com a voz pronta.
@@ -775,6 +789,7 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
         versoes.mkdir(exist_ok=True)
         arq.replace(versoes / f"vertical_{time.strftime('%Y%m%d-%H%M%S')}.json")
     arq.write_text(json.dumps(direcao, ensure_ascii=False, indent=1), encoding="utf-8")
+    guardar_pedidos_vertical(dirc, pedidos, direcao)  # o aprendizado lê o histórico na publicação
     (dirc / "pedidos_vertical.json").unlink(missing_ok=True)
     etapa("direcao", "concluido", f"{len(direcao['planos'])} planos", "; ".join(direcao["avisos"])[:200] or "todos os trechos encontrados")
     with conectar() as con:

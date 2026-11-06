@@ -154,6 +154,9 @@ Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como
   `coletar()` guarda os pares de legenda "diretor → Felipe" (vão no prompt do diretor: `planejar.sistema_do_diretor`)
   e a retrospectiva dos ajustes; tarefa global "retrospectiva" (Sonnet) propõe regras novas, que só entram em
   regras_de_direcao.md do canal se o Felipe aprovar (botão "Aprendizado" no quadro). Arquivos em <dados do canal>/aprendizado/.
+  Vertical (2026-11-05): cada "Refazer com os pedidos" guarda os pedidos em `direcao/historico_pedidos_vertical.json`
+  (`motor.guardar_pedidos_vertical`, com a fala do plano); na publicação `aprendizado.coletar_vertical` faz a retrospectiva.
+  Pedido feito pelo chat (animação escrita pela sessão) entra no mesmo arquivo com `"via": "chat"`.
   NÃO aprender "gosto de imagem" por pontuação (o Felipe recusou: as mesmas imagens passariam na frente).
 - **Pesquisa antes do roteiro ✅ (2026-10-29)**: `app/servidor/pesquisa.py` roda dentro da tarefa "roteiro" (gerar): Sonnet lista
   assuntos → wiki/Universe locais (cache) → dossiê de fatos com fonte e selo canon (atual/antigo/jogo) + crivo do roteiro

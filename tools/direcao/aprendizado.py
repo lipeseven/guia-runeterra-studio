@@ -1,6 +1,7 @@
 """Aprendizado entre vídeos, por canal (os canais não se conhecem: cada um tem a sua pasta).
 
-1. coletar(): ao PUBLICAR (antes do arquivamento), lê o storyboard do vídeo e guarda
+1. coletar(): ao PUBLICAR (antes do arquivamento), lê o storyboard do vídeo (vertical: o histórico de pedidos à
+   animação, `coletar_vertical`) e guarda
    - os pares de legenda "o diretor escreveu → o Felipe corrigiu" (exemplos reais para o diretor pegar o tom);
    - a retrospectiva dos ajustes (tipos trocados, momento do texto, imagens trocadas, pedidos ao diretor…).
 2. propor(): uma chamada pequena ao Sonnet transforma a retrospectiva em REGRAS NOVAS propostas — nada entra nas
@@ -38,7 +39,7 @@ def coletar(pasta_video: Path, slug: str, titulo: str) -> dict | None:
     """Lê plano + ajustes do vídeo e guarda exemplos e retrospectiva. Devolve a retrospectiva (None = nada a aprender)."""
     dirc = pasta_video / "direcao"
     if not (dirc / "plano.json").exists() or not (dirc / "ajustes.json").exists():
-        return None
+        return coletar_vertical(pasta_video, slug, titulo)
     plano = json.loads((dirc / "plano.json").read_text(encoding="utf-8"))
     ajustes = json.loads((dirc / "ajustes.json").read_text(encoding="utf-8"))
     cenas = {c.get("id"): c for c in plano.get("cenas", [])}
@@ -75,17 +76,44 @@ def coletar(pasta_video: Path, slug: str, titulo: str) -> dict | None:
     return retro
 
 
+def coletar_vertical(pasta_video: Path, slug: str, titulo: str) -> dict | None:
+    """Vertical: os pedidos que o Felipe fez à animação (direcao/historico_pedidos_vertical.json, guardado a cada
+    "Refazer com os pedidos") viram a retrospectiva. Sem histórico = nada a aprender."""
+    dirc = pasta_video / "direcao"
+    hist = _ler(dirc / "historico_pedidos_vertical.json", [])
+    if not hist:
+        return None
+    planos = _ler(dirc / "vertical.json", {}).get("planos", [])
+    retro = {
+        "video": titulo, "slug": slug, "quando": datetime.now().isoformat(timespec="seconds"), "formato": "vertical",
+        "cenas_no_plano": len(planos), "cenas_ajustadas": len(hist),
+        "rodadas_de_pedidos": max((h.get("rodada", 1) for h in hist), default=1),
+        "pedidos_ao_diretor": [(f"[fala: \"{h['fala']}\"] " if h.get("fala") else "") + h["texto"][:300] for h in hist][:40],
+    }
+    _gravar(PASTA / f"retrospectiva_{slug}.json", retro)
+    return retro
+
+
 def propor(slug: str, regras_atuais: str, chamar_json) -> list[dict]:
     """Retrospectiva → até 5 regras novas propostas (pendentes de aprovação)."""
     retro = _ler(PASTA / f"retrospectiva_{slug}.json", None)
     if not retro or retro["cenas_ajustadas"] == 0:
         return []
+    if retro.get("formato") == "vertical":  # animação: pedidos em texto, não números do storyboard
+        o_que = ("Abaixo: os pedidos que o Felipe fez para corrigir a ANIMAÇÃO do último vídeo vertical (cada rodada = "
+                 "um \"refazer\"), e as REGRAS ATUAIS do diretor.\n")
+        criterio = ("Só proponha o que é regra geral para os próximos vídeos (o que vale além deste tema), não o conserto "
+                    "de uma cena. NÃO repita nem reformule o que já está nas regras atuais. Cada regra com a evidência "
+                    "(o pedido que a motivou).\n\n")
+    else:
+        o_que = "Abaixo: o que o Felipe precisou corrigir à mão no storyboard do último vídeo, e as REGRAS ATUAIS do diretor.\n"
+        criterio = ("Só proponha o que os números mostram com clareza (padrão repetido, não caso isolado). NÃO repita nem reformule "
+                    "o que já está nas regras atuais. Cada regra com a evidência (números do vídeo).\n\n")
     r = chamar_json(
         f"Você melhora o diretor visual automático do canal \"{CANAL['nome']}\" ({CANAL['assunto']}).\n"
-        "Abaixo: o que o Felipe precisou corrigir à mão no storyboard do último vídeo, e as REGRAS ATUAIS do diretor.\n"
+        + o_que +
         "Proponha de 0 a 5 regras NOVAS, curtas e acionáveis, que fariam o diretor acertar de primeira no próximo vídeo. "
-        "Só proponha o que os números mostram com clareza (padrão repetido, não caso isolado). NÃO repita nem reformule "
-        "o que já está nas regras atuais. Cada regra com a evidência (números do vídeo).\n\n"
+        + criterio +
         f"CORREÇÕES DO VÍDEO \"{retro['video']}\":\n{json.dumps(retro, ensure_ascii=False)}\n\n"
         f"REGRAS ATUAIS:\n{regras_atuais[-12000:]}\n\n"
         'JSON: {"regras": [{"regra": "texto da regra (1 a 2 frases)", "evidencia": "números que justificam"}]}',
