@@ -13,7 +13,9 @@ const H = 1080;
 const FPS = 30;
 const ASFALTO = new Set(["mesh2_7", "mesh2_11"]);
 const ESCAPE = new Set(["mesh2_4"]);
-const MANTER = new Set(["mesh2_6", "mesh2_15", "mesh2_19", "mesh2_12"]); // zebras e faixas pintadas: textura original
+// textura original: zebras verde/amarela/branca de Interlagos (mesh2_8, mesh2_9), linhas brancas, amarelas e vermelhas,
+// faixas pintadas e grelhas
+const MANTER = new Set(["mesh2_8", "mesh2_9", "mesh2_6", "mesh2_17", "mesh2_15", "mesh2_19", "mesh2_12", "mesh2_14", "mesh2_3"]);
 
 type Carro = { g: THREE.Group; rodas: { pivo: THREE.Group; frente: boolean }[]; raio: number; frenteZ: number };
 type Mundo = { r: THREE.WebGLRenderer; cena: THREE.Scene; cam: THREE.PerspectiveCamera; luz: THREE.DirectionalLight; linha: THREE.CatmullRomCurve3; comp: number; a: Carro; b: Carro; rastro: THREE.Mesh };
@@ -34,13 +36,13 @@ export const TesteCorrida: React.FC<{ pista: string; carro: string; fundo: strin
     const r = new THREE.WebGLRenderer({ canvas: tela.current!, antialias: true, preserveDrawingBuffer: true });
     r.setSize(W, H, false);
     r.toneMapping = THREE.ACESFilmicToneMapping;
-    r.toneMappingExposure = 1.2;
+    r.toneMappingExposure = 1.0;
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.shadowMap.enabled = true;
     r.shadowMap.type = THREE.PCFSoftShadowMap;
     const cena = new THREE.Scene();
     cena.background = new THREE.Color(fundo);
-    cena.fog = new THREE.Fog(fundo, 160, 650); // o que está longe some no fundo
+    cena.fog = new THREE.Fog(fundo, 220, 800); // o que está longe some no fundo
     cena.environment = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture;
     cena.add(new THREE.HemisphereLight(0xffffff, 0x888888, 0.6));
     const luz = new THREE.DirectionalLight(0xffffff, 2.4);
@@ -59,8 +61,8 @@ export const TesteCorrida: React.FC<{ pista: string; carro: string; fundo: strin
     ]).then(([al, gp, ga, gb]) => {
       const sup = gp.scene.getObjectByName("surface_2")!;
       const corFundo = new THREE.MeshStandardMaterial({ color: fundo, roughness: 1 });
-      const asfalto = new THREE.MeshStandardMaterial({ color: "#2a2b2f", roughness: 0.92 });
-      const escape = new THREE.MeshStandardMaterial({ color: "#3b3c41", roughness: 0.95 });
+      const asfalto = new THREE.MeshStandardMaterial({ color: "#1b1c1f", roughness: 0.9 });
+      const escape = new THREE.MeshStandardMaterial({ color: "#2c2d31", roughness: 0.95 });
       sup.traverse((o) => {
         const m = o as THREE.Mesh;
         if (!m.isMesh) return;
