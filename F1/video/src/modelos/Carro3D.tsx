@@ -4,6 +4,7 @@ import { AbsoluteFill, Easing, continueRender, delayRender, interpolate, useCurr
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { peca } from "./desmonte";
+import { CORES_PIRELLI, aplicarComposto, pneuPirelli } from "./pneus/pneu";
 
 export type Pintura = { base: string; clara: string; escura: string; faixa: string; acento: string };
 export const C = (h: string) => new THREE.Color(h);
@@ -92,101 +93,22 @@ const lamina = (y: number, z: number, prof: number, cor: string, meia = 1.02, vo
   return m;
 };
 
-/** Cores das faixas da Pirelli (2026): macio vermelho, médio amarelo, duro branco, intermediário verde, chuva azul. */
-export const COMPOSTOS: Record<string, string> = { macio: "#da291c", medio: "#ffd12e", duro: "#f2f2f2", intermediario: "#43b02a", chuva: "#0067ad" };
+/** Cores das marcações da Pirelli (2026): macio vermelho, médio amarelo, duro branco, intermediário verde, chuva azul. */
+export const COMPOSTOS = CORES_PIRELLI;
 
-let texAro: THREE.CanvasTexture | null = null;
-/** Aro preto de raios finos com cubo prateado (como as rodas BBS de 18" da F1). */
-function texturaAro() {
-  if (texAro) return texAro;
-  const c = document.createElement("canvas");
-  c.width = c.height = 256;
-  const x = c.getContext("2d")!;
-  x.fillStyle = "#0b0c0e";
-  x.fillRect(0, 0, 256, 256);
-  x.strokeStyle = "#2a2c31";
-  x.lineWidth = 7;
-  for (let k = 0; k < 14; k++) {
-    const a = (k / 14) * Math.PI * 2;
-    x.beginPath();
-    x.moveTo(128 + Math.cos(a) * 28, 128 + Math.sin(a) * 28);
-    x.lineTo(128 + Math.cos(a + 0.22) * 118, 128 + Math.sin(a + 0.22) * 118);
-    x.stroke();
-  }
-  x.lineWidth = 6;
-  x.beginPath();
-  x.arc(128, 128, 121, 0, Math.PI * 2);
-  x.stroke();
-  x.fillStyle = "#7b8088";
-  x.beginPath();
-  x.arc(128, 128, 30, 0, Math.PI * 2);
-  x.fill();
-  x.fillStyle = "#18191c";
-  x.beginPath();
-  x.arc(128, 128, 15, 0, Math.PI * 2);
-  x.fill();
-  texAro = new THREE.CanvasTexture(c);
-  texAro.colorSpace = THREE.SRGBColorSpace;
-  return texAro;
-}
-
-/** Roda com pneu de perfil baixo: a faixa do composto é pintada no flanco (dois arcos, rente à borracha), não uma peça à parte. */
-export function roda(x: number, z: number, r: number, l: number, friso = COMPOSTOS.medio) {
+/** Roda com o pneu Pirelli das fotos oficiais (modelos/pneus/pneu.ts); friso = composto ou cor. */
+export function roda(x: number, z: number, r: number, l: number, friso = "medio") {
   const g = new THREE.Group();
-  const p = new THREE.Group();
+  const p = pneuPirelli(r, l, friso);
   p.rotation.z = Math.PI / 2; // o torno gira em torno de y; o eixo da roda fica em x
   g.add(p);
-  const h = l / 2;
-  const q = Math.min(0.06, h * 0.4); // ombro arredondado
-  const ri = r * 0.64; // aro de 18"
-  // flanco: do aro até o ombro, levemente estufado
-  const flanco = (s: number, t: number, fora = 0) => new THREE.Vector2(ri + (r - q - ri) * t, s * (h * (0.84 + 0.16 * Math.sin((t * Math.PI) / 2)) + fora));
-  const perfil: THREE.Vector2[] = [];
-  for (let k = 0; k <= 10; k++) perfil.push(flanco(-1, k / 10));
-  for (let k = 1; k <= 6; k++) {
-    const a = (k / 6) * (Math.PI / 2);
-    perfil.push(new THREE.Vector2(r - q + q * Math.sin(a), -h + q - q * Math.cos(a)));
-  }
-  for (let k = 6; k >= 1; k--) {
-    const a = (k / 6) * (Math.PI / 2);
-    perfil.push(new THREE.Vector2(r - q + q * Math.sin(a), h - q + q * Math.cos(a)));
-  }
-  for (let k = 10; k >= 0; k--) perfil.push(flanco(1, k / 10));
-  const pneu = new THREE.Mesh(new THREE.LatheGeometry(perfil, 64), new THREE.MeshStandardMaterial({ color: "#141518", roughness: 0.72, side: THREE.DoubleSide }));
-  pneu.castShadow = true;
-  pneu.receiveShadow = true;
-  p.add(pneu);
-  // faixa do composto: mesma curva do flanco, 1 mm por fora, em dois arcos (o vão é onde fica o nome)
-  const mFaixa = new THREE.MeshStandardMaterial({ color: friso, roughness: 0.6, side: THREE.DoubleSide });
-  const mAro = new THREE.MeshStandardMaterial({ map: texturaAro(), metalness: 0.45, roughness: 0.45 });
-  for (const s of [-1, 1]) {
-    const trecho = Array.from({ length: 6 }, (_, k) => flanco(s, 0.44 + k * 0.05, 0.001));
-    for (const ini of [0.16, 1.16]) {
-      const f = new THREE.Mesh(new THREE.LatheGeometry(trecho, 24, ini * Math.PI, 0.64 * Math.PI), mFaixa);
-      f.name = "faixa_pneu";
-      p.add(f);
-    }
-    const aro = new THREE.Mesh(new THREE.CircleGeometry(ri, 40), mAro);
-    aro.rotation.x = s > 0 ? -Math.PI / 2 : Math.PI / 2;
-    aro.position.y = s * h * 0.76;
-    p.add(aro);
-  }
   g.position.set(x, r, z);
   return g;
 }
 
-/** Troca o composto dos pneus de um carro (só dele: o material é copiado na primeira troca). */
+/** Troca o composto dos pneus de um carro (nome ou cor). */
 export function trocarComposto(car: THREE.Object3D, composto: string) {
-  const cor = COMPOSTOS[composto] ?? composto;
-  car.traverse((o) => {
-    if (o.name !== "faixa_pneu") return;
-    const m = o as THREE.Mesh;
-    if (!m.userData.propria) {
-      m.material = (m.material as THREE.Material).clone();
-      m.userData.propria = true;
-    }
-    (m.material as THREE.MeshStandardMaterial).color.set(cor);
-  });
+  aplicarComposto(car, composto);
 }
 
 export function carro(p: Pintura): THREE.Group {

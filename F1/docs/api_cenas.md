@@ -72,7 +72,7 @@ Metros. y = altura. Carros andam para -z (câmera em +z atrás vê a traseira). 
 equipe e: 0 vermelho, 1 laranja, 2 verde-água, 3 azul, 4 roxo, 5 amarelo, 6 Mercedes (preto e prata, linha verde Petronas), 7 preto e
 verde-limão, 8 preto e dourado (Cadillac), 9 verde, 10 branco e azul. Carros 12 e 13 = Mercedes.
 `numeroNoCarro(w, k, "12")`: número no bico e nas laterais do carro k (fica nele).
-`pneus(w, k, "macio")`: composto dos pneus do carro k (faixa no flanco): macio (vermelho), medio (amarelo, o padrão),
+`pneus(w, k, "macio")`: composto dos pneus do carro k (pneu Pirelli das fotos oficiais: PIRELLI, P ZERO ou Cinturato e xadrez na cor do composto; intermediário e chuva com sulcos): macio (vermelho), medio (amarelo, o padrão),
 duro (branco), intermediario (verde), chuva (azul). Fica no carro até trocar de novo.
 `poeCinza(w, k, x, z)`: carro cinza (eliminado). `grade(w, n, dz)`: n carros no grid de largada (pole em z = Z_POLE = -100;
 `gridX(k)`, `gridZ(k)` = lugar k no grid). `halo(w, n, x, z, cor, opacidade)`: auréola de luz no chão (n = 0 a 21).
@@ -176,7 +176,7 @@ Exemplo: `explodir(w.carros[12], suave(c.t, c.m("pecas", 0.2), c.m("pecas", 0.2)
 ## Efeitos
 `confete(w, t, inicio, x, altura)`, `fumaca(w, t, x, z)`, `bandeira(w, n, x, z, giroY, t, escala)` (n: 0 verde,
 1 amarela, 2 azul, 3 vermelha, 4 preta, 5 quadriculada), `luzGantry(w, n, acesa)` (n = 0 a 4, pórtico em Z_PORTICO = -111,
-mostre `w.portico.visible = true`), `luzesDesfocadas(w, t)` (bokeh no estúdio), `poePneu(w, n, x, y, z, cor, giro, frenteY)`,
+mostre `w.portico.visible = true`), `luzesDesfocadas(w, t)` (bokeh no estúdio), `poePneu(w, n, x, y, z, cor, giro, frenteY)` (cor = nome do composto ou cor; giro 0 = PIRELLI no topo),
 `solta(w, n, (i) => ({ p: [x, y, z], e: escala, cor, o: opacidade }))` (partículas), `seed(i)`, `THREE`.
 
 ## Exemplos
