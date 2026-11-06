@@ -9,7 +9,7 @@ export const Root: React.FC = () => (
   <>
     <Composition id="Carro3D" component={Carro3D} durationInFrames={150} fps={30} width={1080} height={1920} />
     <Composition id="Modelos" component={Vitrine} durationInFrames={DURACAO_VITRINE} fps={30} width={1080} height={1920} />
-    <Composition id="TesteEstudio" component={TesteEstudio} durationInFrames={1} fps={30} width={1920} height={1080}
+    <Composition id="TesteEstudio" component={TesteEstudio} durationInFrames={240} fps={30} width={1920} height={1080}
       defaultProps={{ arquivo: "ferrari_sf26.glb", palavra: "FERRARI", cor: "#f2c230", nota: "mais branco que nos últimos anos" }} />
     <Composition
       id="Vertical"
