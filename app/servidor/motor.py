@@ -951,7 +951,8 @@ def marcar_publicado(con, vid: int, url: str | None) -> None:
     r = publicacao.arquivar(pasta)
     con.execute("UPDATE videos SET coluna='publicado', capa=?, url_youtube=COALESCE(?, url_youtube), atualizado_em=? WHERE id=?",
                 (r["capa"], url or None, agora(), vid))
-    con.execute("UPDATE etapas SET status='concluido', atualizado_em=? WHERE video_id=? AND chave='publicacao'", (agora(), vid))
+    # publicado = vídeo pronto: fecha todas as etapas (ex.: render aprovado pelo chat, sem o botão do painel)
+    con.execute("UPDATE etapas SET status='concluido', atualizado_em=? WHERE video_id=? AND status!='concluido'", (agora(), vid))
     con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND resolvida=0", (vid,))
     registrar(con, vid, f"Publicado{' — ' + url if url else ''}. {n} mídias registradas na memória de uso.", "ok")
     registrar(con, vid, f"Arquivado: tudo para a Lixeira menos a capa ({r['liberado'] / 1e9:.2f} GB liberados)", "ok")
