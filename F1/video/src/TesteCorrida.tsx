@@ -18,7 +18,54 @@ const ESCAPE = new Set(["mesh2_4"]);
 const MANTER = new Set(["mesh2_8", "mesh2_9", "mesh2_6", "mesh2_17", "mesh2_15", "mesh2_19", "mesh2_12", "mesh2_14", "mesh2_3"]);
 
 type Carro = { g: THREE.Group; rodas: { pivo: THREE.Group; frente: boolean }[]; raio: number; frenteZ: number };
-type Mundo = { r: THREE.WebGLRenderer; cena: THREE.Scene; cam: THREE.PerspectiveCamera; luz: THREE.DirectionalLight; linha: THREE.CatmullRomCurve3; comp: number; a: Carro; b: Carro; rastro: THREE.Mesh };
+type Mundo = { r: THREE.WebGLRenderer; cena: THREE.Scene; cam: THREE.PerspectiveCamera; luz: THREE.DirectionalLight; linha: THREE.CatmullRomCurve3; comp: number; a: Carro; b: Carro; rastro: THREE.Mesh; chao: Chao };
+
+// altura real do asfalto do .glb: triângulos do chão numa grade de células de 4 m (raycast no arquivo inteiro seria lento)
+type Chao = (x: number, z: number, perto: number) => number | null;
+const CELULA = 4;
+function criarChao(malhas: THREE.Mesh[]): Chao {
+  const grade = new Map<number, number[]>();
+  const tri: number[] = [];
+  const v = new THREE.Vector3();
+  for (const m of malhas) {
+    const p = m.geometry.attributes.position;
+    const ix = m.geometry.index;
+    const n = ix ? ix.count : p.count;
+    for (let i = 0; i < n; i += 3) {
+      const t = tri.length / 9;
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+      for (let k = 0; k < 3; k++) {
+        v.fromBufferAttribute(p, ix ? ix.getX(i + k) : i + k).applyMatrix4(m.matrixWorld);
+        tri.push(v.x, v.y, v.z);
+        x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); z0 = Math.min(z0, v.z); z1 = Math.max(z1, v.z);
+      }
+      for (let cx = Math.floor(x0 / CELULA); cx <= Math.floor(x1 / CELULA); cx++)
+        for (let cz = Math.floor(z0 / CELULA); cz <= Math.floor(z1 / CELULA); cz++) {
+          const c = cx * 100000 + cz;
+          (grade.get(c) ?? grade.set(c, []).get(c)!).push(t);
+        }
+    }
+  }
+  // altura no ponto (x, z); com mais de um chão (ex.: ponte), o mais perto da altura esperada
+  return (x, z, perto) => {
+    let melhor: number | null = null;
+    for (const t of grade.get(Math.floor(x / CELULA) * 100000 + Math.floor(z / CELULA)) ?? []) {
+      const o = t * 9;
+      const ax = tri[o], ay = tri[o + 1], az = tri[o + 2];
+      const bx = tri[o + 3] - ax, by = tri[o + 4] - ay, bz = tri[o + 5] - az;
+      const cx = tri[o + 6] - ax, cy = tri[o + 7] - ay, cz = tri[o + 8] - az;
+      const px = x - ax, pz = z - az;
+      const d = bx * cz - cx * bz;
+      if (Math.abs(d) < 1e-9) continue;
+      const s = (px * cz - cx * pz) / d;
+      const r = (bx * pz - px * bz) / d;
+      if (s < -1e-4 || r < -1e-4 || s + r > 1 + 1e-4) continue;
+      const y = ay + s * by + r * cy;
+      if (melhor === null || Math.abs(y - perto) < Math.abs(melhor - perto)) melhor = y;
+    }
+    return melhor;
+  };
+}
 
 const suave = (t: number, a: number, b: number) => {
   const x = Math.max(0, Math.min(1, (t - a) / (b - a)));
@@ -63,10 +110,12 @@ export const TesteCorrida: React.FC<{ pista: string; carro: string; fundo: strin
       const corFundo = new THREE.MeshStandardMaterial({ color: fundo, roughness: 1 });
       const asfalto = new THREE.MeshStandardMaterial({ color: "#1b1c1f", roughness: 0.9 });
       const escape = new THREE.MeshStandardMaterial({ color: "#2c2d31", roughness: 0.95 });
+      const piso: THREE.Mesh[] = [];
       sup.traverse((o) => {
         const m = o as THREE.Mesh;
         if (!m.isMesh) return;
         const nome = (m.material as THREE.Material).name;
+        if (ASFALTO.has(nome) || nome === "mesh2_8" || nome === "mesh2_9") piso.push(m);
         if (nome === "mesh2_0") m.visible = false;
         else if (ASFALTO.has(nome)) m.material = asfalto;
         else if (ESCAPE.has(nome)) m.material = escape;
@@ -74,6 +123,8 @@ export const TesteCorrida: React.FC<{ pista: string; carro: string; fundo: strin
         m.receiveShadow = true;
       });
       cena.add(sup);
+      cena.updateMatrixWorld(true);
+      const chao = criarChao(piso);
       const pts = (al.linha as number[][]).map(([x, y, z]) => new THREE.Vector3(x, y, z));
       const linha = new THREE.CatmullRomCurve3(pts, true, "centripetal");
       const prep = (g: { scene: THREE.Group }): Carro => {
@@ -84,7 +135,7 @@ export const TesteCorrida: React.FC<{ pista: string; carro: string; fundo: strin
       const rastro = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: destaque, transparent: true, opacity: 0.95, polygonOffset: true, polygonOffsetFactor: -4 }));
       rastro.renderOrder = 5;
       cena.add(rastro);
-      mundo.current = { r, cena, cam, luz, linha, comp: linha.getLength(), a: prep(ga), b: prep(gb), rastro };
+      mundo.current = { r, cena, cam, luz, linha, comp: linha.getLength(), a: prep(ga), b: prep(gb), rastro, chao };
       setPronto(true);
       continueRender(espera);
     });
@@ -110,10 +161,28 @@ export const TesteCorrida: React.FC<{ pista: string; carro: string; fundo: strin
     const uA = 0.034 + vel(262) * t;
     const ladoA = -3.2 * suave(t, 2.2, 4.6);
     const ladoB = 0.4;
+    // ponto no asfalto real (a linha do alinhamento só dá a altura do centro, a cada ~3,6 m)
+    const noChao = (q: THREE.Vector3) => {
+      const y = m.chao(q.x, q.z, q.y);
+      if (y !== null) q.y = y;
+      return q;
+    };
+    // apoia o carro nas 4 rodas: altura e inclinação (subida, descida e lado) seguem a superfície
+    const EIXO = 1.8;
+    const BITOLA = 0.8;
     const poe = (c: Carro, u: number, lado: number, prev: number) => {
       const { p, tg } = naVolta(u, lado);
-      c.g.position.copy(p);
-      c.g.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, c.frenteZ), tg);
+      const fr = tg.clone().setY(0).normalize();
+      const di = new THREE.Vector3().crossVectors(fr, up).normalize();
+      const roda = (a: number, b: number) => noChao(p.clone().addScaledVector(fr, a).addScaledVector(di, b));
+      const fe = roda(EIXO, -BITOLA), fd = roda(EIXO, BITOLA), te = roda(-EIXO, -BITOLA), td = roda(-EIXO, BITOLA);
+      const frente = new THREE.Vector3().addVectors(fe, fd).sub(te).sub(td).normalize();
+      const direita = new THREE.Vector3().addVectors(fd, td).sub(fe).sub(te).normalize();
+      const cima = new THREE.Vector3().crossVectors(direita, frente).normalize();
+      const z = frente.clone().multiplyScalar(c.frenteZ);
+      const x = new THREE.Vector3().crossVectors(cima, z).normalize();
+      c.g.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, new THREE.Vector3().crossVectors(z, x), z));
+      c.g.position.copy(fe).add(fd).add(te).add(td).multiplyScalar(0.25);
       const andou = (u - prev) * m.comp;
       const t2 = naVolta(u + 8 / m.comp, lado).tg;
       const curva = new THREE.Vector3().crossVectors(tg, t2).y; // >0 = curva à esquerda
@@ -135,7 +204,9 @@ export const TesteCorrida: React.FC<{ pista: string; carro: string; fundo: strin
         const tt = (u - 0.034) / vel(262);
         const { p, tg } = naVolta(u, -3.2 * suave(tt, 2.2, 4.6));
         const dir = new THREE.Vector3().crossVectors(tg, up).normalize().multiplyScalar(0.28);
-        pos.push(p.x - dir.x, p.y + 0.06, p.z - dir.z, p.x + dir.x, p.y + 0.06, p.z + dir.z);
+        const e = noChao(p.clone().sub(dir));
+        const d = noChao(p.clone().add(dir));
+        pos.push(e.x, e.y + 0.06, e.z, d.x, d.y + 0.06, d.z);
       }
     }
     const idx: number[] = [];
