@@ -135,6 +135,8 @@ def resolver(brutos: list[dict], palavras: list[dict], inicio: int = 0, fim: int
             preso(p["palavra"])
             if p["palavra"].get("ate"):
                 preso(p["palavra"], "ate")
+                if p["palavra"]["ate_i"] <= p["palavra"]["em_i"] + 2:  # sair logo depois de entrar não dá tempo de ler
+                    p["palavra"].pop("ate"), p["palavra"].pop("ate_i")
         else:
             p.pop("palavra", None)
         p["anotacoes"] = [a for a in p.get("anotacoes") or [] if isinstance(a, dict) and a.get("tipo") in ANOTACOES][:4]
@@ -145,7 +147,7 @@ def resolver(brutos: list[dict], palavras: list[dict], inicio: int = 0, fim: int
                     a[c] = _ponto(a[c], [960, 540])
         if not p["anotacoes"]:
             p.pop("anotacoes")
-        if isinstance(p.get("contador"), dict) and "valor" in p["contador"]:
+        if isinstance(p.get("contador"), dict) and _num(p["contador"].get("valor"), 0, -1e9, 1e9) > 0:
             preso(p["contador"])
         else:
             p.pop("contador", None)
@@ -176,6 +178,9 @@ def resolver(brutos: list[dict], palavras: list[dict], inicio: int = 0, fim: int
 CAM_POOL = ["orbita", "aproximar", "deslizar", "frente", "traseira", "perfil", "cima", "baixo", "detalhe"]
 ANGULOS = [-145, -60, -38, -18, 18, 38, 60, 145, 200]
 DETALHES = ["asa_dianteira", "roda_dianteira", "cockpit", "asa_traseira", "roda_traseira"]
+# de onde a câmera olha cada peça (graus; o sinal escolhe o lado): fora disso outra peça fica na frente
+ANGULO_DETALHE = {"asa_dianteira": (12, 45), "roda_dianteira": (55, 85), "cockpit": (60, 100), "asa_traseira": (140, 165),
+                  "roda_traseira": (100, 130)}
 ENTRADAS_PALAVRA = {"decodificar": 3, "subir": 2, "impacto": 2, "deslizar": 2, "letras": 1, "digitar": 1, "seco": 1}
 # cantos livres para a nota, conforme o lado em que o carro está na tela
 ZONAS = {"centro": [(1330, 200), (120, 830), (1330, 830), (120, 210)],
@@ -192,25 +197,33 @@ def _sorteio_pesado(r, opcoes: dict[str, int], fora: set[str]) -> str:
 def variar(planos: list[dict]) -> list[dict]:
     import random
 
-    cams: list[tuple[str, float]] = []
+    cams: list[tuple[str, float]] = []  # (tipo e peça, ângulo)
     entradas: list[str] = []
     zona_ant, nota_ant = None, -9
     for n, p in enumerate(planos):
         r = random.Random(p["id"])
         if p["tipo"] == "estudio":
             cam = p["camera"]
+            chave = lambda cm: cm["tipo"] + (":" + cm.get("alvo", "") if cm["tipo"] == "detalhe" else "")  # noqa: E731
             if cam["tipo"] not in ("chegada", "passagem"):
                 recentes = {t for t, _ in cams[-2:]}
-                if cam["tipo"] in recentes or (cam["tipo"] == "orbita" and r.random() < 0.5):
-                    cam["tipo"] = r.choice([t for t in CAM_POOL if t not in recentes])
+                # close de outra peça não é repetição; câmera escolhida pelo diretor só troca se repetir
+                if chave(cam) in recentes or (cam["tipo"] == "orbita" and r.random() < 0.5):
+                    cam["tipo"] = r.choice([t for t in CAM_POOL if t not in recentes and t != "detalhe"])
                 perto = lambda a: any(abs(a - b) < 25 for _, b in cams[-2:])  # noqa: E731
                 if "de" not in cam or perto(_num(cam["de"], 39, -360, 360)):
                     cam["de"] = r.choice([a for a in ANGULOS if not perto(a)] or ANGULOS)
                 cam.setdefault("sentido", r.choice([1, -1]))
                 cam.setdefault("enquadre", r.choices(["centro", "esquerda", "direita"], [2, 1, 1])[0])
-                if cam["tipo"] == "detalhe" and cam.get("alvo") not in DETALHES:
-                    cam["alvo"] = r.choice(DETALHES)
-            cams.append((cam["tipo"], _num(cam.get("de"), 39, -360, 360)))
+                if cam["tipo"] == "detalhe":
+                    if cam.get("alvo") not in DETALHES:
+                        cam["alvo"] = r.choice(DETALHES)
+                    lo, hi = ANGULO_DETALHE[cam["alvo"]]
+                    if not lo <= abs(_num(cam.get("de"), 0, -360, 360)) <= hi:
+                        cam["de"] = r.choice([1, -1]) * r.randint(lo, hi)
+                else:
+                    cam.pop("alvo", None)
+            cams.append((chave(cam), _num(cam.get("de"), 39, -360, 360)))
         w = p.get("palavra")
         if w:
             fora = set(entradas[-1:])
@@ -390,7 +403,7 @@ def props(direcao: dict, palavras: list[dict]) -> dict:
             w = {k: v for k, v in p["palavra"].items() if not k.endswith("_i") and k not in ("em", "ate")}
             # a palavra precisa de tempo na tela: entra até ~35% da cena (decodifica em ~0,5 s) mesmo se dita depois
             w["em"] = min(rel(p["palavra"]["em_i"], ATRASO_PALAVRA), round(max(0.1, c["dur"] * 0.35), 3))
-            if "ate_i" in p["palavra"]:
+            if "ate_i" in p["palavra"] and rel(p["palavra"]["ate_i"]) - w["em"] >= 1.5:
                 w["ate"] = rel(p["palavra"]["ate_i"])
             c["palavra"] = w
         if p.get("anotacoes"):
@@ -398,7 +411,7 @@ def props(direcao: dict, palavras: list[dict]) -> dict:
         if p.get("contador"):
             c["contador"] = {**{k: v for k, v in p["contador"].items() if k != "em_i"}, "em": rel(p["contador"]["em_i"])}
             c["contador"].setdefault("x", 140)
-            c["contador"].setdefault("y", 120)
+            c["contador"].setdefault("y", 760 if p.get("palavra") else 120)  # com palavra gigante, o número vai para baixo
         if p.get("rotulos"):
             c["rotulos"] = [{**{k: v for k, v in r.items() if k != "em_i"}, "em": rel(r["em_i"], 0.2)} for r in p["rotulos"]]
         if p["tipo"] == "pessoa":

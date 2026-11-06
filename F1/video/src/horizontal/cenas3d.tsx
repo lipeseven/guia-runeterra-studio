@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { staticFile } from "remotion";
-import { carregar, Cena, Cores, Fundo, suave, useCores, useTres, type Tres } from "./base";
+import { carregar, Cena, Cores, entra, Fundo, suave, useCores, useTres, type Tres } from "./base";
 import { preparar, type Roda } from "./carro";
 import { criarChao, type Chao } from "./chao";
 import { Palavra, type PalavraP } from "./textos";
@@ -71,6 +71,7 @@ export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { 
   const c = useCores();
   const escuro = modo === "escuro" || modo === "tecnico";
   const passagem = camera.tipo === "passagem";
+  const perto = camera.tipo === "detalhe" || camera.tipo === "baixo";
   const tela = useTres(
     async (x) => {
       luzes(x, escuro ? 0.5 : modo === "cheio" ? 0.3 : 0.22);
@@ -106,7 +107,7 @@ export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { 
           const pontos = { asa_dianteira: [0, 0.2, 2.45], roda_dianteira: [0.72, 0.36, 1.8], cockpit: [0, 0.85, 0.1], asa_traseira: [0, 0.9, -2.45], roda_traseira: [0.72, 0.36, -1.75] };
           const [px, py, pz] = pontos[camera.alvo ?? "asa_dianteira"];
           alvo.set(px * Math.sign(Math.sin(a0) || 1), py, pz * fz);
-          d = 2.8 - 0.15 * t; h = py + 0.45; a = a0 + 0.06 * s * t;
+          d = 3.8 - 0.15 * t; h = py + 0.5; a = a0 + 0.05 * s * t;
           break;
         }
         case "chegada": {
@@ -116,11 +117,11 @@ export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { 
           break;
         }
         case "passagem": {
-          // o carro cruza a tela a ~250 km/h diante da câmera parada (22–24 quadros, rastro forte)
-          const z = -30 + 70 * t;
+          // o carro entra a ~250 km/h (rastro forte) e freia até parar no meio da tela: serve para cena de qualquer duração
+          const z = -40 * (1 - entra(t / 0.9));
           p.g.position.z = fz * z;
-          andou = z + 30;
-          d = 7; h = 0.6; a = Math.PI / 2; alvo.y = 0.4;
+          andou = z + 40;
+          d = 10.5; h = 0.7; a = Math.PI / 2 * (a0 < 0 ? -1 : 1); alvo.y = 0.45;
           break;
         }
       }
@@ -140,8 +141,10 @@ export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { 
   );
   return (
     <Cena fundo={<Fundo modo={modo} />}>
-      {palavra && <Palavra {...palavra} cor={palavra.cor ?? (modo === "cheio" ? "#ffffff" : undefined)} />}
+      {palavra && !perto && <Palavra {...palavra} cor={palavra.cor ?? (modo === "cheio" ? "#ffffff" : undefined)} />}
       {tela}
+      {/* close: o carro enche a tela e taparia a palavra; ela vem por cima, menor, no alto */}
+      {palavra && perto && <Palavra {...palavra} tam={Math.min(palavra.tam ?? 300, 300)} topo={60} cor={palavra.cor ?? (modo === "cheio" ? "#ffffff" : undefined)} />}
       {/* no fundo escuro, anotação e rótulo são claros */}
       <Cores.Provider value={escuro ? { ...c, tinta: "#f1efe9" } : c}>
         {extra}
