@@ -1,7 +1,7 @@
 // Cartões 2D do horizontal: pessoa (foto P&B em papel, nome em marca-texto, citação palavra a palavra), capítulo
 // (identidade própria do canal: traçado do circuito desenhado + número + título), palavra solta em tela escura.
 import { Img, staticFile } from "remotion";
-import { Cena, FONTE, Fundo, MAO, entra, suave, useCores, useTempo } from "./base";
+import { Cena, FONTE, Fundo, MAO, corSobre, entra, suave, useCores, useTempo } from "./base";
 import { decodificar } from "./textos";
 import circuitos from "../modelos/geo/circuitos.json";
 
@@ -101,7 +101,7 @@ export const Capitulo: React.FC<CapituloP> = ({ n, titulo, circuito = "interlago
 export const Solta: React.FC<{ texto: string; modo?: "escuro" | "cheio"; em?: number; sub?: string }> = ({ texto, modo = "escuro", em = 0.15, sub }) => {
   const c = useCores();
   const { t, fps } = useTempo();
-  const cor = modo === "cheio" ? "#ffffff" : c.destaque;
+  const cor = modo === "cheio" ? corSobre(c.destaque, "#ffffff") : corSobre(c.escuro, c.destaque);
   return (
     <Cena fundo={<Fundo modo={modo} />}>
       <div style={{ position: "absolute", left: 0, right: 0, top: 330, textAlign: "center", fontFamily: FONTE, fontStretch: "condensed", fontWeight: 700, fontSize: 340, lineHeight: 1, color: cor, transform: `scale(${1 + t * 0.012})` }}>
