@@ -3,7 +3,7 @@
 import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { staticFile } from "remotion";
-import { carregar, Cena, Cores, entra, Fundo, suave, useCores, useTres, type Tres } from "./base";
+import { carregar, Cena, Cores, corSobre, entra, Fundo, sai, suave, useCores, useTres, type Tres } from "./base";
 import { preparar, type Roda } from "./carro";
 import { criarChao, type Chao } from "./chao";
 import { Palavra, type PalavraP } from "./textos";
@@ -49,7 +49,7 @@ function emPlanta(carro: THREE.Group, cor: string) {
 }
 
 export type CameraEstudio = {
-  tipo: "orbita" | "aproximar" | "deslizar" | "chegada" | "frente" | "traseira" | "perfil" | "cima" | "baixo" | "detalhe" | "passagem";
+  tipo: "orbita" | "aproximar" | "deslizar" | "chegada" | "frente" | "traseira" | "perfil" | "cima" | "baixo" | "detalhe" | "passagem" | "atravessar";
   de?: number; // graus de onde a câmera começa (positivo: frente para a esquerda; negativo: para a direita; ~180: de trás)
   vel?: number;
   sentido?: 1 | -1; // para que lado a câmera gira
@@ -57,8 +57,62 @@ export type CameraEstudio = {
   alvo?: "asa_dianteira" | "roda_dianteira" | "cockpit" | "asa_traseira" | "roda_traseira"; // detalhe
 };
 
+/** Câmera do estúdio no instante t, em coordenadas em volta do carro (ângulo, distância, altura, alvo). Função pura:
+ *  serve também para saber onde a cena ANTERIOR terminou e continuar dali (a câmera gira de uma peça para outra). */
+type Pose = { a: number; d: number; h: number; alvo: THREE.Vector3; pan: number; carroZ: number; andou: number };
+function poseEstudio(camera: CameraEstudio, t: number, fz: number): Pose {
+  const s = camera.sentido ?? 1;
+  const a0 = ((camera.de ?? 39) * Math.PI) / 180;
+  let d = 10.2, h = 1.5, a = a0 + (camera.vel ?? 0.066) * s * t, pan = 0, carroZ = 0, andou = 0; // parado = rodas paradas
+  const alvo = new THREE.Vector3(0, 0.5, 0);
+  switch (camera.tipo) {
+    case "aproximar": d = 12.5 - 4 * suave(t, 0, 4); a = a0 + 0.03 * s * t; break;
+    case "deslizar": a = a0; pan = (-0.6 + 0.3 * t) * s; break;
+    case "frente": d = 7.6; h = 0.85; a = a0 + 0.05 * s * t; alvo.y = 0.35; break;
+    case "traseira": d = 7.8; h = 1.0; a = Math.PI + a0 * 0.4 + 0.05 * s * t; alvo.y = 0.55; break;
+    case "perfil": d = 11; h = 0.9; a = (a0 < 0 ? -1 : 1) * Math.PI / 2 + 0.02 * s * t; alvo.y = 0.55; break;
+    case "cima": d = 2.6; h = 13 - 0.35 * t; a = a0 + 0.04 * s * t; alvo.y = 0; break;
+    case "baixo": d = 8.4 - 0.3 * t; h = 0.22; alvo.y = 0.75; a = a0 + 0.03 * s * t; break;
+    case "detalhe": {
+      const pontos = { asa_dianteira: [0, 0.2, 2.45], roda_dianteira: [0.72, 0.36, 1.8], cockpit: [0, 0.85, 0.1], asa_traseira: [0, 0.9, -2.45], roda_traseira: [0.72, 0.36, -1.75] };
+      const [px, py, pz] = pontos[camera.alvo ?? "asa_dianteira"];
+      alvo.set(px * Math.sign(Math.sin(a0) || 1), py, pz * fz);
+      d = 3.8 - 0.15 * t; h = py + 0.5; a = a0 + 0.05 * s * t;
+      break;
+    }
+    case "chegada": {
+      const falta = (1 - suave(t, 0, 1.8)) * 9;
+      carroZ = -fz * falta;
+      andou = 9 - falta;
+      break;
+    }
+    case "passagem": {
+      // o carro entra a ~250 km/h (rastro forte) e freia até parar no meio da tela: serve para cena de qualquer duração
+      const z = -40 * (1 - entra(t / 0.9));
+      carroZ = fz * z;
+      andou = z + 40;
+      d = 10.5; h = 0.7; a = Math.PI / 2 * (a0 < 0 ? -1 : 1); alvo.y = 0.45;
+      break;
+    }
+    case "atravessar":
+      // a câmera passa direto: o carro sai por um lado da tela e entra pelo outro (com rastro), e fica
+      a = a0 + 0.03 * s * t;
+      pan = (t < 0.35 ? 6.6 * sai(t / 0.35) : t < 0.7 ? -6.6 * (1 - entra((t - 0.35) / 0.35)) : 0) * s;
+      break;
+  }
+  return { a, d, h, alvo, pan, carroZ, andou };
+}
+
+const misturaAngulo = (a: number, b: number, k: number) => {
+  let d = (b - a) % (2 * Math.PI);
+  if (d > Math.PI) d -= 2 * Math.PI;
+  if (d < -Math.PI) d += 2 * Math.PI;
+  return a + d * k;
+};
+
 export type EstudioP = {
   carro: string;
+  continua?: { camera: CameraEstudio; dur: number }; // a cena anterior (mesmo estúdio): a câmera sai de onde ela parou
   modo?: "claro" | "cheio" | "escuro" | "tecnico";
   camera?: CameraEstudio;
   palavra?: PalavraP;
@@ -67,11 +121,13 @@ export type EstudioP = {
 };
 
 /** Estúdio: fundo → palavra gigante → carro 3D → anotações. */
-export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { tipo: "orbita" }, palavra, anotacoes, extra }) => {
+export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { tipo: "orbita" }, palavra, anotacoes, extra, continua }) => {
   const c = useCores();
   const escuro = modo === "escuro" || modo === "tecnico";
   const passagem = camera.tipo === "passagem";
   const perto = camera.tipo === "detalhe" || camera.tipo === "baixo";
+  const fundoCor = modo === "claro" ? c.claro : modo === "cheio" ? c.destaque : c.escuro;
+  const corPalavra = corSobre(fundoCor, palavra?.cor ?? (modo === "cheio" ? "#ffffff" : c.destaque));
   const tela = useTres(
     async (x) => {
       luzes(x, escuro ? 0.5 : modo === "cheio" ? 0.3 : 0.22);
@@ -88,47 +144,27 @@ export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { 
       return p;
     },
     (p, t, x) => {
-      const s = camera.sentido ?? 1;
-      const a0 = ((camera.de ?? 39) * Math.PI) / 180;
       const fz = p.frenteZ;
-      let d = 10.2, h = 1.5, a = a0 + (camera.vel ?? 0.066) * s * t, pan = 0;
-      const alvo = new THREE.Vector3(0, 0.5, 0);
-      let andou = 0; // carro parado = rodas paradas
-      p.g.position.set(0, 0, 0);
-      switch (camera.tipo) {
-        case "aproximar": d = 12.5 - 4 * suave(t, 0, 4); a = a0 + 0.03 * s * t; break;
-        case "deslizar": a = a0; pan = (-0.6 + 0.3 * t) * s; break;
-        case "frente": d = 7.6; h = 0.85; a = a0 + 0.05 * s * t; alvo.y = 0.35; break;
-        case "traseira": d = 7.8; h = 1.0; a = Math.PI + a0 * 0.4 + 0.05 * s * t; alvo.y = 0.55; break;
-        case "perfil": d = 11; h = 0.9; a = (a0 < 0 ? -1 : 1) * Math.PI / 2 + 0.02 * s * t; alvo.y = 0.55; break;
-        case "cima": d = 2.6; h = 13 - 0.35 * t; a = a0 + 0.04 * s * t; alvo.y = 0; break;
-        case "baixo": d = 8.4 - 0.3 * t; h = 0.22; alvo.y = 0.75; a = a0 + 0.03 * s * t; break;
-        case "detalhe": {
-          const pontos = { asa_dianteira: [0, 0.2, 2.45], roda_dianteira: [0.72, 0.36, 1.8], cockpit: [0, 0.85, 0.1], asa_traseira: [0, 0.9, -2.45], roda_traseira: [0.72, 0.36, -1.75] };
-          const [px, py, pz] = pontos[camera.alvo ?? "asa_dianteira"];
-          alvo.set(px * Math.sign(Math.sin(a0) || 1), py, pz * fz);
-          d = 3.8 - 0.15 * t; h = py + 0.5; a = a0 + 0.05 * s * t;
-          break;
-        }
-        case "chegada": {
-          const falta = (1 - suave(t, 0, 1.8)) * 9;
-          p.g.position.z = -fz * falta;
-          andou = 9 - falta;
-          break;
-        }
-        case "passagem": {
-          // o carro entra a ~250 km/h (rastro forte) e freia até parar no meio da tela: serve para cena de qualquer duração
-          const z = -40 * (1 - entra(t / 0.9));
-          p.g.position.z = fz * z;
-          andou = z + 40;
-          d = 10.5; h = 0.7; a = Math.PI / 2 * (a0 < 0 ? -1 : 1); alvo.y = 0.45;
-          break;
-        }
+      const atual = poseEstudio(camera, t, fz);
+      let { a, d, h, pan } = atual;
+      const alvo = atual.alvo.clone();
+      if (continua) {
+        // gira de onde a cena anterior parou até o novo ângulo/peça em ~1,1 s (o carro não sai do lugar)
+        const antes = poseEstudio(continua.camera, continua.dur, fz);
+        const k = entra(t / 1.1);
+        a = misturaAngulo(antes.a, atual.a, k);
+        d = antes.d + (atual.d - antes.d) * k;
+        h = antes.h + (atual.h - antes.h) * k;
+        pan = antes.pan + (atual.pan - antes.pan) * k;
+        alvo.lerpVectors(antes.alvo, atual.alvo, k);
       }
+      const andou = atual.andou;
+      p.g.position.set(0, 0, atual.carroZ);
       for (const rd of p.rodas) rd.pivo.children[0].rotation.x = (andou / p.raio) * fz;
       const pos = new THREE.Vector3(alvo.x + Math.sin(a) * d, h, alvo.z + Math.cos(a) * d * fz);
       // enquadre: anda a câmera para o lado (o carro vai para o lado oposto da tela)
-      const k = (camera.enquadre === "esquerda" ? 1 : camera.enquadre === "direita" ? -1 : 0) + pan;
+      const enq = (cm: CameraEstudio) => (cm.tipo === "detalhe" ? 0 : cm.enquadre === "esquerda" ? 1 : cm.enquadre === "direita" ? -1 : 0); // close fica centrado
+      const k = (continua ? enq(continua.camera) + (enq(camera) - enq(continua.camera)) * entra(t / 1.1) : enq(camera)) + pan;
       if (k) {
         const lado = new THREE.Vector3().subVectors(alvo, pos).cross(new THREE.Vector3(0, 1, 0)).normalize().multiplyScalar(k * d * 0.1);
         pos.add(lado);
@@ -137,16 +173,16 @@ export const Estudio: React.FC<EstudioP> = ({ carro, modo = "claro", camera = { 
       x.cam.position.copy(pos);
       x.cam.lookAt(alvo);
     },
-    passagem ? { borrao: 1, amostras: 8 } : {},
+    passagem ? { borrao: 1, amostras: 8 } : camera.tipo === "atravessar" ? { borrao: 0.8, amostras: 5 } : {},
   );
   return (
     <Cena fundo={<Fundo modo={modo} />}>
-      {palavra && !perto && <Palavra {...palavra} cor={palavra.cor ?? (modo === "cheio" ? "#ffffff" : undefined)} />}
+      {palavra && !perto && <Palavra {...palavra} cor={corPalavra} />}
       {tela}
       {/* close: o carro enche a tela e taparia a palavra; ela vem por cima, menor, no alto */}
-      {palavra && perto && <Palavra {...palavra} tam={Math.min(palavra.tam ?? 300, 300)} topo={60} cor={palavra.cor ?? (modo === "cheio" ? "#ffffff" : undefined)} />}
+      {palavra && perto && <Palavra {...palavra} tam={Math.min(palavra.tam ?? 300, 300)} topo={60} cor={corPalavra} />}
       {/* no fundo escuro, anotação e rótulo são claros */}
-      <Cores.Provider value={escuro ? { ...c, tinta: "#f1efe9" } : c}>
+      <Cores.Provider value={{ ...c, tinta: corSobre(fundoCor, escuro ? "#f1efe9" : c.tinta, 4.5), destaque: corSobre(fundoCor, modo === "cheio" ? c.tinta : c.destaque) }}>
         {extra}
         {anotacoes && <Anotacoes itens={anotacoes} />}
       </Cores.Provider>
@@ -286,7 +322,7 @@ export const Pista: React.FC<PistaP> = ({ pista = "interlagos_sao_paulo.glb", al
   return (
     <Cena fundo={<div style={{ position: "absolute", inset: 0, background: c.claro }} />}>
       {tela}
-      {palavra && <Palavra {...palavra} />}
+      {palavra && <Palavra {...palavra} cor={corSobre(c.claro, palavra.cor ?? c.destaque)} />}
       {extra}
       {anotacoes && <Anotacoes itens={anotacoes} />}
     </Cena>

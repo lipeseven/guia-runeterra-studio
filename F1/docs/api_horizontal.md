@@ -43,7 +43,11 @@ Carro oficial 3D no estúdio, com a palavra gigante ATRÁS dele.
   - `cima`: vista de cima.
   - `baixo`: câmera rente ao chão, carro "herói".
   - `detalhe`: close de uma peça. `alvo`: `asa_dianteira` | `roda_dianteira` | `cockpit` | `asa_traseira` | `roda_traseira`.
-  - `passagem`: o carro cruza a tela com rastro, em 1–2 s.
+  - `passagem`: o carro entra rápido com rastro e freia até parar no meio da tela.
+  - `atravessar`: a câmera passa direto: o carro sai por um lado da tela e volta pelo outro.
+  - `chegada` (o carro entra andando) só para abrir um bloco, raramente.
+  - Fala sobre uma parte e depois sobre outra (frente → traseira): use `detalhe`/`frente`/`traseira` seguidos, no mesmo
+    `modo`; a montagem não corta, a câmera gira de uma parte para a outra.
 - Onde fica o carro na tela:
   - `orbita` / `chegada` / `deslizar`: x 240–1560, y 380–760.
   - `frente`: x 0–1650, y 260–760.

@@ -25,6 +25,29 @@ export const sorteio = (i: number) => {
 export type Paleta = { destaque: string; claro: string; escuro: string; tinta: string };
 export const PALETA: Paleta = { destaque: "#f2c230", claro: "#e9e7e2", escuro: "#101113", tinta: "#1d1d1d" };
 export const Cores = createContext<Paleta>(PALETA);
+
+const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.replace("#", "").padEnd(6, "0").slice(i - 1, i + 1), 16) / 255);
+const luz = (h: string) => {
+  const [r, g, b] = rgb(h).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+export const contraste = (a: string, b: string) => {
+  const [x, y] = [luz(a), luz(b)].sort((m, n) => n - m);
+  return (x + 0.05) / (y + 0.05);
+};
+/** Cor que se destaca no fundo: a preferida, ou ela mesma mais escura (fundo claro) / mais clara (fundo escuro), no
+ *  mesmo tom, até o contraste chegar a `minimo` (texto grande: 3). */
+export function corSobre(fundo: string, cor: string, minimo = 3): string {
+  if (contraste(cor, fundo) >= minimo) return cor;
+  const alvo = luz(fundo) > 0.4 ? [0, 0, 0] : [1, 1, 1];
+  const base = rgb(cor);
+  for (let k = 0.1; k <= 1; k += 0.05) {
+    const m = base.map((x, i) => x + (alvo[i] - x) * k);
+    const h = "#" + m.map((x) => Math.round(x * 255).toString(16).padStart(2, "0")).join("");
+    if (contraste(h, fundo) >= minimo) return h;
+  }
+  return luz(fundo) > 0.4 ? "#111111" : "#ffffff";
+}
 export const useCores = () => useContext(Cores);
 
 /** Movimento que a linha do tempo aplica à cena (transições): no todo (máscara) e só no conteúdo (o fundo fica parado). */

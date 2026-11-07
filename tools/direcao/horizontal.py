@@ -26,7 +26,8 @@ CFG = CANAL.get("horizontal", {})
 MODELO = CFG.get("modelo", "sonnet")
 TIPOS = {"estudio", "pista", "pessoa", "capitulo", "solta"}
 MODOS = {"claro", "cheio", "escuro", "tecnico"}
-CAM_ESTUDIO = {"orbita", "aproximar", "deslizar", "chegada", "frente", "traseira", "perfil", "cima", "baixo", "detalhe", "passagem"}
+CAM_ESTUDIO = {"orbita", "aproximar", "deslizar", "chegada", "frente", "traseira", "perfil", "cima", "baixo", "detalhe", "passagem",
+               "atravessar"}
 CAM_PISTA = {"helicoptero", "drone", "lado", "passagem", "pov"}
 ENTRADAS = {"corte", "empurrar", "glitch", "cortina", "cor"}
 ANOTACOES = {"seta", "circulo", "sublinhado", "riscado", "chave", "nota", "corrigido", "caixa", "x", "check", "marca"}
@@ -175,7 +176,8 @@ def resolver(brutos: list[dict], palavras: list[dict], inicio: int = 0, fim: int
 # O diretor tende a repetir (mesma câmera 3/4, mesma entrada de palavra, nota no mesmo canto): aqui a variedade é imposta,
 # como o Variador do Runeterra. Sorteio pelo id da cena (mexer numa cena não muda as outras); escolha explícita do
 # diretor fica, a não ser que repita as cenas anteriores.
-CAM_POOL = ["orbita", "aproximar", "deslizar", "frente", "traseira", "perfil", "cima", "baixo", "detalhe"]
+CAM_POOL = ["orbita", "aproximar", "deslizar", "frente", "traseira", "perfil", "cima", "baixo", "detalhe", "atravessar"]
+PECA_CAM = {"detalhe", "frente", "traseira", "perfil"}  # câmeras que mostram uma parte do carro
 ANGULOS = [-145, -60, -38, -18, 18, 38, 60, 145, 200]
 DETALHES = ["asa_dianteira", "roda_dianteira", "cockpit", "asa_traseira", "roda_traseira"]
 # de onde a câmera olha cada peça (graus; o sinal escolhe o lado): fora disso outra peça fica na frente
@@ -199,11 +201,18 @@ def variar(planos: list[dict]) -> list[dict]:
 
     cams: list[tuple[str, float]] = []  # (tipo e peça, ângulo)
     entradas: list[str] = []
-    zona_ant, nota_ant = None, -9
+    zona_ant, nota_ant, chegada_ant = None, -9, -99
     for n, p in enumerate(planos):
         r = random.Random(p["id"])
         if p["tipo"] == "estudio":
             cam = p["camera"]
+            # o carro entrando andando cansa: no máximo uma a cada ~8 cenas, e só abrindo bloco
+            if cam["tipo"] == "chegada":
+                abre = n == 0 or planos[n - 1].get("bloco") != p.get("bloco")
+                if not abre or n - chegada_ant < 8:
+                    cam["tipo"] = r.choice([t for t in CAM_POOL if t not in {x for x, _ in cams[-2:]} and t != "detalhe"])
+                else:
+                    chegada_ant = n
             chave = lambda cm: cm["tipo"] + (":" + cm.get("alvo", "") if cm["tipo"] == "detalhe" else "")  # noqa: E731
             if cam["tipo"] not in ("chegada", "passagem"):
                 recentes = {t for t, _ in cams[-2:]}
@@ -224,6 +233,14 @@ def variar(planos: list[dict]) -> list[dict]:
                 else:
                     cam.pop("alvo", None)
             cams.append((chave(cam), _num(cam.get("de"), 39, -360, 360)))
+            # falando de uma parte e depois de outra: o carro não troca de plano, a câmera gira até a parte citada
+            ant = planos[n - 1] if n else None
+            if (ant and ant["tipo"] == "estudio" and ant.get("modo") == p.get("modo") and cam["tipo"] in PECA_CAM
+                    and ant["camera"]["tipo"] in PECA_CAM | {"orbita", "aproximar"}):
+                p["continuar"] = True
+                p["entrada"] = {"tipo": "corte"}
+            else:
+                p.pop("continuar", None)
         w = p.get("palavra")
         if w:
             fora = set(entradas[-1:])

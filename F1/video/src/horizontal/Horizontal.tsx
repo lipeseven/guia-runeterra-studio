@@ -15,7 +15,7 @@ type Sobre = {
   rotulos?: React.ComponentProps<typeof Rotulo>[];
 };
 export type CenaH = { dur: number; entrada?: Entrada } & (
-  | ({ tipo: "estudio"; modo?: "claro" | "cheio" | "escuro" | "tecnico"; camera?: CameraEstudio; carro?: string } & Sobre)
+  | ({ tipo: "estudio"; modo?: "claro" | "cheio" | "escuro" | "tecnico"; camera?: CameraEstudio; carro?: string; continuar?: boolean } & Sobre)
   | ({ tipo: "pista"; carros: CarroNaPista[]; camera: CameraPista; carro?: string } & Sobre)
   | ({ tipo: "pessoa" } & PessoaP)
   | { tipo: "capitulo"; n: number; titulo: string; circuito?: string }
@@ -30,10 +30,10 @@ const extras = (s: Sobre) => (
   </>
 );
 
-function cena(c: CenaH, carro: string) {
+function cena(c: CenaH, carro: string, antes?: CenaH) {
   switch (c.tipo) {
     case "estudio":
-      return <Estudio carro={c.carro ?? carro} modo={c.modo} camera={c.camera} palavra={c.palavra} anotacoes={c.anotacoes} extra={extras(c)} />;
+      return <Estudio continua={c.continuar && antes?.tipo === "estudio" && antes.camera ? { camera: antes.camera, dur: antes.dur } : undefined} carro={c.carro ?? carro} modo={c.modo} camera={c.camera} palavra={c.palavra} anotacoes={c.anotacoes} extra={extras(c)} />;
     case "pista":
       return <Pista carro={c.carro ?? carro} carros={c.carros} camera={c.camera} palavra={c.palavra} anotacoes={c.anotacoes} extra={extras(c)} />;
     case "pessoa":
@@ -46,7 +46,7 @@ function cena(c: CenaH, carro: string) {
 }
 
 export const Horizontal: React.FC<PropsHorizontal> = ({ paleta, carro, cenas }) => {
-  const itens: Item[] = cenas.map((c) => ({ dur: c.dur, entrada: c.entrada, cena: cena(c, carro) }));
+  const itens: Item[] = cenas.map((c, i) => ({ dur: c.dur, entrada: c.entrada, cena: cena(c, carro, cenas[i - 1]) }));
   return (
     <Cores.Provider value={{ ...PALETA, ...paleta }}>
       <AbsoluteFill>

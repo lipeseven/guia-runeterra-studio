@@ -1,5 +1,5 @@
-// Anotação à mão por cima da cena: comenta a fala, não repete ("Por quê?", "Dominou"). Traço de pincel (borda
-// irregular), preto ou na cor de destaque, desenhado a ~0,055 da largura por quadro (medida das referências).
+// Anotação à mão por cima da cena: comenta a fala, não repete ("Por quê?", "Dominou"). Traço liso de
+// caneta, preto ou na cor de destaque, desenhado a ~0,055 da largura por quadro (medida das referências).
 import { MAO, sorteio, useCores, useTempo } from "./base";
 
 type P = [number, number];
@@ -21,8 +21,25 @@ export type Anotacao = ({ estilo?: Estilo }) & (
 const VEL = 105; // px por quadro
 
 // caminho em pontos com tremor leve de mão
-const tremido = (pts: P[], semente: number, forca = 3): string =>
-  pts.map(([x, y], i) => `${i ? "L" : "M"} ${(x + (sorteio(i + semente) - 0.5) * forca).toFixed(1)} ${(y + (sorteio(i * 3 + semente) - 0.5) * forca).toFixed(1)}`).join(" ");
+// traço liso de mão: o caminho ganha uma ondulação lenta (não ruído ponto a ponto) e vira curva suave (Catmull-Rom → Bézier)
+const tremido = (pts: P[], semente: number, forca = 3): string => {
+  const n = pts.length;
+  const fase = sorteio(semente) * 6.28;
+  const q: P[] = pts.map(([x, y], i) => {
+    const s = i / Math.max(1, n - 1);
+    const o = Math.sin(s * 5.5 + fase) * forca * 0.6 + Math.sin(s * 13 + fase * 2) * forca * 0.25;
+    return [x + o, y - o * 0.7];
+  });
+  if (q.length < 3) return q.map(([x, y], i) => `${i ? "L" : "M"} ${x.toFixed(2)} ${y.toFixed(2)}`).join(" ");
+  let d = `M ${q[0][0].toFixed(2)} ${q[0][1].toFixed(2)}`;
+  for (let i = 0; i < q.length - 1; i++) {
+    const p0 = q[Math.max(0, i - 1)], p1 = q[i], p2 = q[i + 1], p3 = q[Math.min(q.length - 1, i + 2)];
+    const c1: P = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2: P = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C ${c1[0].toFixed(2)} ${c1[1].toFixed(2)}, ${c2[0].toFixed(2)} ${c2[1].toFixed(2)}, ${p2[0].toFixed(2)} ${p2[1].toFixed(2)}`;
+  }
+  return d;
+};
 
 const comprimento = (pts: P[]) => pts.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - pts[i][0], p[1] - pts[i][1]), 0);
 
@@ -69,7 +86,7 @@ function caminho(a: Anotacao): P[] {
 }
 
 const Traco: React.FC<{ pts: P[]; k: number; cor: string; largura?: number; semente: number }> = ({ pts, k, cor, largura = 7, semente }) => (
-  <path d={tremido(pts, semente)} stroke={cor} strokeWidth={largura} fill="none" strokeLinecap="round" strokeLinejoin="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - k} filter="url(#pincel)" />
+  <path d={tremido(pts, semente)} stroke={cor} strokeWidth={largura} fill="none" strokeLinecap="round" strokeLinejoin="round" pathLength={1} strokeDasharray={1} strokeDashoffset={1 - k} />
 );
 
 /** Todas as anotações da cena (cada uma com o seu `em`, em segundos da cena). */
@@ -79,10 +96,6 @@ export const Anotacoes: React.FC<{ itens: Anotacao[] }> = ({ itens }) => {
   return (
     <>
       <svg width={1920} height={1080} style={{ position: "absolute", inset: 0, overflow: "visible" }}>
-        <filter id="pincel">
-          <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves={2} seed={4} />
-          <feDisplacementMap in="SourceGraphic" scale={4} />
-        </filter>
         {itens.map((a, i) => {
           if (a.tipo === "nota" || a.tipo === "corrigido" || t < a.em) return null;
           const pts = a.tipo === "marca" ? [a.de, a.para] : caminho(a);
