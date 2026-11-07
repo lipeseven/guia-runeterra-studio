@@ -928,6 +928,43 @@ def mudar_musica(vid: int, corpo: Musica):
     return {"ok": True}
 
 
+@app.get("/api/videos/{vid}/fotos")
+def ver_fotos(vid: int):
+    """Fotos de pessoas reais (Commons, licença livre) candidatas para os cartões; só a aprovada entra no vídeo."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    import fotos
+
+    return fotos.ler(_dirc(vid).parent)
+
+
+class EscolhaFoto(BaseModel):
+    nome: str
+    escolhida: int | None = None  # índice da candidata; None = sem foto (silhueta)
+    aprovada: bool = True
+
+
+@app.post("/api/videos/{vid}/fotos")
+def escolher_foto(vid: int, corpo: EscolhaFoto):
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    import fotos
+
+    projeto = _dirc(vid).parent
+    dados = fotos.ler(projeto)
+    if corpo.nome not in dados:
+        raise HTTPException(404, "pessoa sem fotos buscadas")
+    d = dados[corpo.nome]
+    if corpo.escolhida is not None and not 0 <= corpo.escolhida < len(d["candidatas"]):
+        raise HTTPException(400, "foto inválida")
+    d.update({"escolhida": corpo.escolhida, "aprovada": corpo.aprovada})
+    fotos.gravar(projeto, dados)
+    if all(x.get("aprovada") or not x.get("candidatas") for x in dados.values()):
+        with conectar() as con:
+            motor.fechar_pendencia(con, vid, "aprovar_fotos")
+            registrar(con, vid, "Fotos das pessoas aprovadas", "ok")
+            con.commit()
+    return dados
+
+
 class RefazerAnimacao(BaseModel):
     do_zero: bool = False
     so_render: bool = False  # sem Claude: renderiza de novo a direção atual (ex.: um modelo 3D mudou)

@@ -830,6 +830,11 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
     with conectar() as con:
         for a in direcao["avisos"]:
             registrar(con, vid, f"Diretor: {a}", "alerta")
+        if direcao.get("fotos_pendentes"):  # foto de pessoa real só entra depois da aprovação do Felipe
+            abrir_pendencia(con, vid, "aprovar_fotos", "direcao", "Aprove as fotos das pessoas",
+                            "Fotos livres (Wikimedia Commons) de " + ", ".join(direcao["fotos_pendentes"])
+                            + ". Escolha no bloco “Fotos das pessoas” do painel Animação e clique em “Só renderizar de "
+                            "novo”. Sem aprovação, o cartão sai com a silhueta.")
         con.commit()
 
     versao = proxima_versao(saida, "final")
