@@ -21,7 +21,7 @@ from pathlib import Path
 import bmesh
 import bpy
 import mathutils
-import mathutils.kdtree
+import mathutils.bvhtree
 
 CATALOGO = Path(__file__).with_name("catalogo_pecas.json")
 PASSO = (0.04, 0.1, 0.08)  # tamanho da célula do mapa em (u, v, w)
@@ -200,6 +200,85 @@ def _rodas_por_material(colecao) -> tuple[list[mathutils.Vector], float]:
     return centros, sum(diam) / 4
 
 
+PESO_CORRECAO = 6  # um exemplo corrigido pelo Felipe vale por vários do professor
+
+
+def corrigir(colecao, para: str) -> dict:
+    """Modo correção: no Edit Mode, o Felipe clica numa face de cada pedaço errado (pode ser em várias peças ao mesmo
+    tempo). Cada pedaço é expandido para a parte solta inteira, sai da peça onde estava e vai para `para`
+    ("carroceria" = volta para o corpo). A correção entra no catálogo como exemplo: o próximo carro já erra menos."""
+    editados = list(bpy.context.objects_in_mode) or []
+    if not editados:
+        raise RuntimeError("entre no Edit Mode e clique numa face de cada pedaço errado")
+    escolhas: dict[str, set[int]] = {}
+    for o in editados:
+        bm = bmesh.from_edit_mesh(o.data)
+        sel = [f for f in bm.faces if f.select]
+        if not sel:
+            continue
+        # expande pela ligação: um clique = a parte solta inteira
+        faces, pilha = set(sel), list(sel)
+        while pilha:
+            f = pilha.pop()
+            for v in f.verts:
+                for g in v.link_faces:
+                    if g not in faces:
+                        faces.add(g)
+                        pilha.append(g)
+        escolhas[o.name] = {f.index for f in faces}
+    bpy.ops.object.mode_set(mode="OBJECT")
+    if not escolhas:
+        raise RuntimeError("nenhuma face selecionada")
+    rodas, diam = _rodas_por_material(colecao)
+    ref = Referencial(rodas, diam, [p for o in _malhas(colecao) for p in _pontos(o, 600)])
+    cat = json.loads(CATALOGO.read_text(encoding="utf-8"))
+    exemplos = 0
+    pedacos = []
+    for nome, ids in escolhas.items():
+        o = bpy.data.objects[nome]
+        mw = o.matrix_world
+        for i in ids:
+            for k in o.data.polygons[i].vertices[:: max(1, len(o.data.polygons[i].vertices) // 2)]:
+                cel = cat["mapa"].setdefault(_celula(*ref.uvw(mw @ o.data.vertices[k].co)), {})
+                cel[para] = cel.get(para, 0) + PESO_CORRECAO
+                exemplos += 1
+        copia = o.copy()
+        copia.data = o.data.copy()
+        colecao.objects.link(copia)
+        for alvo, manter in ((copia, ids), (o, None)):
+            bm = bmesh.new()
+            bm.from_mesh(alvo.data)
+            bm.faces.ensure_lookup_table()
+            fora = [f for f in bm.faces if (f.index not in manter if manter is not None else f.index in ids)]
+            bmesh.ops.delete(bm, geom=fora, context="FACES")
+            bm.to_mesh(alvo.data)
+            bm.free()
+        pedacos.append(copia)
+    destino = next((o for o in colecao.all_objects if o.type == "MESH" and o.get("peca") == para and o.name == para), None)
+    if destino is None and para == "carroceria":
+        destino = next((o for o in colecao.all_objects if o.type == "MESH" and o.get("peca") == "carroceria"), None)
+    bpy.ops.object.select_all(action="DESELECT")
+    for p in pedacos:
+        p.select_set(True)
+    if destino is not None:
+        destino.select_set(True)
+        bpy.context.view_layer.objects.active = destino
+    else:
+        bpy.context.view_layer.objects.active = pedacos[0]
+    if len(pedacos) + (destino is not None) > 1:
+        bpy.ops.object.join()
+    alvo = bpy.context.view_layer.objects.active
+    if destino is None:
+        alvo.name = alvo.data.name = para
+    alvo["peca"] = para
+    alvo.color = (*CORES.get(para.split("_")[0] if para.split("_")[0] in CORES else para, (1, 0, 1)), 1)
+    cat.setdefault("correcoes", 0)
+    cat["correcoes"] += 1
+    CATALOGO.write_text(json.dumps(cat, ensure_ascii=False), encoding="utf-8")
+    bpy.ops.object.select_all(action="DESELECT")
+    return {"pedacos": sum(len(i) for i in escolhas.values()), "objetos": list(escolhas), "para": para, "exemplos": exemplos}
+
+
 def marcar(colecao, minimo_votos: int = 2) -> dict:
     """Carro sem nomes → um objeto por peça, pelo catálogo. Parte solta sem voto suficiente fica como carroceria."""
     cat = json.loads(CATALOGO.read_text(encoding="utf-8"))
@@ -254,29 +333,44 @@ def marcar(colecao, minimo_votos: int = 2) -> dict:
                 continue
             for v in ilha:
                 faces_por[peca][o.name].update(v.link_faces)
-    # 2ª passada: adesivo fica com a peça mais próxima (até 3 cm); longe de tudo = carroceria
-    arvore_pts = []
-    for peca, por_obj in faces_por.items():
-        for nome_obj, fs in por_obj.items():
-            mw = bpy.data.objects[nome_obj].matrix_world
-            vs = {v for f in fs for v in f.verts}
-            arvore_pts += [(mw @ v.co, peca) for v in list(vs)[::3]]
-    if arvore_pts and adesivos:
-        arvore = mathutils.kdtree.KDTree(len(arvore_pts))
-        for k, (pt, _) in enumerate(arvore_pts):
-            arvore.insert(pt, k)
-        arvore.balance()
+    # 2ª passada: adesivo fica com a SUPERFÍCIE em que está deitado (distância até as faces de cada peça, carroceria
+    # inclusive). Vértice mais próximo não serve: a carroceria tem poucos vértices e o halo muitos, e o adesivo da
+    # carroceria ao lado do halo ia para o halo.
+    if adesivos:
+        de_adesivo = {(o.name, f.index) for o, ilha in adesivos for v in ilha for f in v.link_faces}
+        com_peca = {(nome_obj, f.index) for por_obj in faces_por.values() for nome_obj, fs in por_obj.items() for f in fs}
+        superficies: dict[str, tuple[list, list]] = defaultdict(lambda: ([], []))
+        for o in originais:
+            mw = o.matrix_world
+            bm = bms[o.name]
+            bm.faces.ensure_lookup_table()
+            dono = {}
+            for peca, por_obj in faces_por.items():
+                for f in por_obj.get(o.name, ()):
+                    dono[f.index] = peca
+            for f in bm.faces:
+                if (o.name, f.index) in de_adesivo:
+                    continue
+                peca = dono.get(f.index, "carroceria")
+                vs, ps = superficies[peca]
+                base = len(vs)
+                vs += [mw @ v.co for v in f.verts]
+                ps.append(list(range(base, base + len(f.verts))))
+        arvores = {peca: mathutils.bvhtree.BVHTree.FromPolygons(vs, ps) for peca, (vs, ps) in superficies.items() if ps}
         for o, ilha in adesivos:
             mw = o.matrix_world
-            perto = Counter()
-            for v in ilha[::max(1, len(ilha) // 12)]:
-                _, k, dist = arvore.find(mw @ v.co)
-                if dist is not None and dist < 0.03:
-                    perto[arvore_pts[k][1]] += 1
-            if perto:
-                peca = perto.most_common(1)[0][0]
-                for v in ilha:
-                    faces_por[peca][o.name].update(v.link_faces)
+            amostra = [mw @ v.co for v in ilha[::max(1, len(ilha) // 10)]]
+            dist = {}
+            for peca, arv in arvores.items():
+                ds = [arv.find_nearest(pt, 0.05)[3] for pt in amostra]
+                ds = [d for d in ds if d is not None]
+                if len(ds) >= len(amostra) * 0.6:
+                    dist[peca] = sum(ds) / len(ds)
+            if dist:
+                peca = min(dist, key=dist.get)
+                if peca != "carroceria":
+                    for v in ilha:
+                        faces_por[peca][o.name].update(v.link_faces)
     # cada peça vira um objeto (as faces saem do original, com material e UV)
     criados = Counter()
     for peca, por_obj in faces_por.items():
