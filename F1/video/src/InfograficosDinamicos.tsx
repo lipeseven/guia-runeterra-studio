@@ -42,14 +42,14 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
   if (g.tipo === "frase") {
     // a pergunta escrita na tela, palavra por palavra; "Brasil" em verde e amarelo, com um traço que corre embaixo
     return centro(
-      <div style={{ width: 960, display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "baseline", gap: "6px 30px", fontFamily: FONTE }}>
+      <div style={{ width: 960, display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "baseline", textAlign: "center", gap: "6px 30px", fontFamily: FONTE }}>
         {(g.palavras ?? []).map((w, s) => {
           const em = w.i !== undefined ? tempo(w.i) : a + s * 0.25;
           const ew = entra(t, em, 0.2);
           const traco = suave(t, em + 0.1, em + 0.55);
           const brasil: CSSProperties = { backgroundImage: "linear-gradient(100deg, #19c15c 0%, #19c15c 38%, #ffdf00 72%, #ffdf00 100%)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", filter: "drop-shadow(0 4px 18px rgba(25,193,92,.45))" };
           return (
-            <span key={s} style={{ position: "relative", opacity: t >= em ? ew : 0, transform: `translateY(${(1 - ew) * 26}px)`, fontWeight: 900, fontSize: w.brasil ? 190 : 124, lineHeight: 1.08, color: COR.texto, ...(w.brasil ? brasil : { textShadow: "0 4px 22px rgba(0,0,0,.65)" }) }}>
+            <span key={s} style={{ position: "relative", opacity: t >= em ? ew : 0, transform: `translateY(${(1 - ew) * 26}px)`, fontWeight: 900, fontSize: w.brasil ? 190 : 124, lineHeight: 1.08, textAlign: "center", color: COR.texto, ...(w.brasil ? brasil : { textShadow: "0 4px 22px rgba(0,0,0,.65)" }) }}>
               {w.t}
               {w.brasil && <span style={{ position: "absolute", left: 4, bottom: -8, height: 12, borderRadius: 6, width: `${traco * 97}%`, background: "linear-gradient(90deg, #19c15c, #ffdf00)", boxShadow: "0 0 22px rgba(255,223,0,.55)" }} />}
             </span>
