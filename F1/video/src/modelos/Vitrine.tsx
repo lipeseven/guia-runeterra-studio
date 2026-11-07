@@ -152,6 +152,20 @@ VITRINE.push((w, s) => {
     camera(w, [q.x + 30, 22, q.z + 30], [q.x, 0, q.z], 40);
   }
 });
+// traçados antigos (Mônaco 1976-1985, Donington 1993) vistos do alto e um carro na pista
+VITRINE.push((w, s) => {
+  const f = Math.min(3, Math.floor(s * 4));
+  preparar(w, "tarde", "real");
+  const nome = f < 2 ? "monaco_1984" : "donington_1993";
+  const c = obj(w, `circ:${nome}`, () => criarCircuito(nome));
+  c.position.set(0, 0, 0);
+  if (f % 2 === 0) enquadrar(w, c, [0, 1, 0], 1.05, 40);
+  else {
+    const q = noCircuito(c, 0.02);
+    poe(w, 6, q.x, q.z, q.giro);
+    camera(w, [q.x + 30, 22, q.z + 30], [q.x, 0, q.z], 40);
+  }
+});
 export const DURACAO_VITRINE = VITRINE.length * 30;
 
 export const Vitrine: React.FC = () => {

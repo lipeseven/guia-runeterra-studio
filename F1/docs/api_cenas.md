@@ -116,6 +116,9 @@ empunhadura_esquerda, empunhadura_direita, paddle_marcha_esquerda, paddle_marcha
 embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 
 ## Geografia real (set "real": nenhum cenário fixo, névoa longe)
+- Circuitos na biblioteca: `"interlagos"` (atual, com cenário), `"monaco_1984"` (Mônaco 1976-1985, 3,312 km) e `"donington_1993"`
+  (GP da Europa 1993, 4,023 km). Os antigos só têm o traçado (sem cenário nem curvas numeradas); f 0 = linha de chegada.
+  Nunca desenhar traçado à mão: circuito que não está aqui precisa ser criado na biblioteca.
 - `obj(w, "circ:interlagos", () => criarCircuito("interlagos", { rotulos }))`: o circuito com o TRAÇADO REAL, em metros
   (4,309 km; asfalto, área de escape, zebras, linha de chegada). Vídeo sobre um circuito usa SEMPRE o traçado real, nunca a
   reta genérica. f = fração da volta no sentido da corrida (0 = linha de chegada). Interlagos (numeração oficial): S do

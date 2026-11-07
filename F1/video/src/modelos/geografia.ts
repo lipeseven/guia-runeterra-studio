@@ -251,6 +251,7 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   }
   const info: InfoCircuito = { pontos, comprimento: comp, curvatura, pista, escape, total: (pista.geometry.index?.count ?? 0), faixas };
   g.userData.circuito = info;
+  g.userData.curvas = (dados as { curvas?: { n: number; f: number }[] }).curvas ?? []; // numerarCurvas: as curvas DESTE circuito
   if (o.cenario) vestirCircuito(g, pontos, comp, CENARIOS[nome] ?? { arquibancadas: [] }, bordas);
   aoRestaurar(() => {
     for (const m of faixas) m.geometry.setDrawRange(0, m.geometry.index?.count ?? 0);
