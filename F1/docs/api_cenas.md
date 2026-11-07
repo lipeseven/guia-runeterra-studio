@@ -78,6 +78,9 @@ duro (branco), intermediario (verde), chuva (azul). Fica no carro até trocar de
 `gridX(k)`, `gridZ(k)` = lugar k no grid). `halo(w, n, x, z, cor, opacidade)`: auréola de luz no chão (n = 0 a 21).
 Outro carro com pintura própria: `obj(w, "carro:ferrari", () => carro({ base, clara, escura, faixa, acento }))` (cores
 hex; devolve o objeto: posicione com `.position.set(x, 0, z)`).
+Pinturas de época CONFERIDAS (tiradas das referências do Felipe em `F1/dados/modelos3d/`; use exatamente estas, sem
+"aproximar"): McLaren MP4/8 1993 (Senna; base BRANCA, vermelho Marlboro nas faixas e asas, sem logos):
+`carro({ base: "#f4f4f2", clara: "#ffffff", escura: "#2d2928", faixa: "#f32217", acento: "#f32217" })`.
 
 ## Modelos (criados uma vez por chave; a aparência é fixa na chave)
 `obj(w, chave, () => criarX(...))` cria na primeira vez e mostra o objeto neste quadro; devolve o objeto THREE (posicione
