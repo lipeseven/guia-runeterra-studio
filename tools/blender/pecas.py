@@ -21,14 +21,15 @@ from pathlib import Path
 import bmesh
 import bpy
 import mathutils
+import mathutils.kdtree
 
 CATALOGO = Path(__file__).with_name("catalogo_pecas.json")
 PASSO = (0.04, 0.1, 0.08)  # tamanho da célula do mapa em (u, v, w)
 
 # nome da peça no carro professor (sem o sufixo de número do arquivo) → peça do catálogo; canto pelo sufixo LF/RF/LR/RR
 REGRAS = [
-    (r"^(FRONT_WING|FWING|FRONT_WING_RED|FRONT)$", "asa_dianteira"),
-    (r"^NOSE", "bico"),
+    (r"^(FRONT_WING|FWING|FRONT_WING_RED)$", "asa_dianteira"),
+    (r"^FRONT$", "bico"),  # no professor, "FRONT" é o bico; "NOSE2" é um grupo com a carroceria inteira
     (r"^(DRS\d|DRS3_SUB0|rearwingmoving_top|rearwing_decal)$", "asa_traseira"),
     (r"^HALO", "halo"),
     (r"^EXHAUST", "escapamento"),
@@ -210,6 +211,7 @@ def marcar(colecao, minimo_votos: int = 2) -> dict:
     faces_por: dict[str, dict[str, set]] = defaultdict(lambda: defaultdict(set))
     originais = _malhas(colecao)
     bms = {}
+    adesivos = []  # (objeto, ilha): ganham o nome da peça em que estão colados, na 2ª passada
     for o in originais:
         mw = o.matrix_world
         bm = bmesh.new()
@@ -241,6 +243,7 @@ def marcar(colecao, minimo_votos: int = 2) -> dict:
             mats = {o.material_slots[f.material_index].material.name.lower() for f in ilha[0].link_faces
                     if f.material_index < len(o.material_slots) and o.material_slots[f.material_index].material}
             if any("decal" in m for m in mats):
+                adesivos.append((o, ilha))
                 continue
             # regra de forma: alto e atrás do eixo traseiro é asa traseira (no professor as placas laterais vinham na carroceria)
             if peca in (None, "carroceria") and min(u for u, _, _ in us) > 1.03 and min(w for _, _, w in us) > 0.9:
@@ -251,6 +254,29 @@ def marcar(colecao, minimo_votos: int = 2) -> dict:
                 continue
             for v in ilha:
                 faces_por[peca][o.name].update(v.link_faces)
+    # 2ª passada: adesivo fica com a peça mais próxima (até 3 cm); longe de tudo = carroceria
+    arvore_pts = []
+    for peca, por_obj in faces_por.items():
+        for nome_obj, fs in por_obj.items():
+            mw = bpy.data.objects[nome_obj].matrix_world
+            vs = {v for f in fs for v in f.verts}
+            arvore_pts += [(mw @ v.co, peca) for v in list(vs)[::3]]
+    if arvore_pts and adesivos:
+        arvore = mathutils.kdtree.KDTree(len(arvore_pts))
+        for k, (pt, _) in enumerate(arvore_pts):
+            arvore.insert(pt, k)
+        arvore.balance()
+        for o, ilha in adesivos:
+            mw = o.matrix_world
+            perto = Counter()
+            for v in ilha[::max(1, len(ilha) // 12)]:
+                _, k, dist = arvore.find(mw @ v.co)
+                if dist is not None and dist < 0.03:
+                    perto[arvore_pts[k][1]] += 1
+            if perto:
+                peca = perto.most_common(1)[0][0]
+                for v in ilha:
+                    faces_por[peca][o.name].update(v.link_faces)
     # cada peça vira um objeto (as faces saem do original, com material e UV)
     criados = Counter()
     for peca, por_obj in faces_por.items():
