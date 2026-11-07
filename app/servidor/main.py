@@ -17,6 +17,7 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
 import asyncio
 import json
+import re
 import shutil
 import sys
 from contextlib import asynccontextmanager
@@ -813,7 +814,51 @@ def animacao(vid: int):
         planos.append({"id": p["id"], "n": n + 1, "tipo": p.get("tipo") or f"cena própria ({p.get('set', 'pista')})", "clima": p.get("clima"), "inicio": 0 if n == 0 else pal[p["i"]]["i"],
                        "trecho": " ".join(w["t"] for w in pal[p["i"]:fim]),
                        "extras": [k for k in p if k not in fora]})
-    return {"planos": planos, "pedidos": motor.pedidos_animacao(dirc), "avisos": d.get("avisos", [])}
+    return {"planos": planos, "pedidos": motor.pedidos_animacao(dirc), "avisos": [_aviso(a, d["planos"]) for a in d.get("avisos", [])]}
+
+
+def _aviso(texto: str, planos: list[dict]) -> dict:
+    """Aviso do diretor com a cena a que se refere ("pedido não feito (cena N)": responder vira pedido daquela cena)."""
+    m = re.match(r"pedido não feito \((?:cena (\d+)|pedido geral)\)", texto)
+    n = int(m[1]) if m and m[1] else 0
+    return {"texto": texto, "resposta": bool(m), "plano": planos[n - 1]["id"] if 0 < n <= len(planos) else None}
+
+
+def _tirar_aviso(dirc: Path, k: int) -> str:
+    arq = dirc / "vertical.json"
+    d = json.loads(arq.read_text(encoding="utf-8"))
+    avisos = d.get("avisos", [])
+    if not 0 <= k < len(avisos):
+        raise HTTPException(404, "aviso não existe mais (a animação mudou): recarregue")
+    texto = avisos.pop(k)
+    arq.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+    return texto
+
+
+class RespostaAviso(BaseModel):
+    texto: str
+
+
+@app.post("/api/videos/{vid}/animacao/aviso/{k}/responder")
+def responder_aviso(vid: int, k: int, corpo: RespostaAviso):
+    """A resposta do Felipe a um "pedido não feito" vira pedido da mesma cena, com o aviso junto (contexto do diretor)."""
+    dirc = _dirc(vid)
+    if not corpo.texto.strip():
+        raise HTTPException(400, "escreva a resposta")
+    planos = json.loads((dirc / "vertical.json").read_text(encoding="utf-8"))["planos"]
+    texto = _tirar_aviso(dirc, k)
+    aviso = _aviso(texto, planos)
+    pedidos = motor.pedidos_animacao(dirc) + [{"plano": aviso["plano"], "quando": agora(),
+                                               "texto": f"{corpo.texto.strip()} (resposta ao seu aviso: \"{texto}\")"}]
+    (dirc / "pedidos_vertical.json").write_text(json.dumps(pedidos, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"ok": True}
+
+
+@app.delete("/api/videos/{vid}/animacao/aviso/{k}")
+def aceitar_aviso(vid: int, k: int):
+    """"Está bom assim": o aviso sai da lista."""
+    _tirar_aviso(_dirc(vid), k)
+    return {"ok": True}
 
 
 class PedidoAnimacao(BaseModel):

@@ -4,7 +4,8 @@ import { api, useAoVivo, type Etapa } from '../api'
 
 type Plano = { id: string; n: number; tipo: string; clima: string | null; inicio: number; trecho: string; extras: string[] }
 type Pedido = { plano: string | null; texto: string; quando: string }
-type Dados = { planos: Plano[]; pedidos: Pedido[]; avisos: string[] }
+type Aviso = { texto: string; resposta: boolean; plano: string | null }
+type Dados = { planos: Plano[]; pedidos: Pedido[]; avisos: Aviso[] }
 
 /** Toca a Prévia a partir do segundo do plano (o player fica ao lado, na página do vídeo). */
 const tocar = (s: number) => {
@@ -112,6 +113,29 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
     setAberto(null)
     setTexto('')
   }
+  const [respondendo, setRespondendo] = useState<number | null>(null)
+  const [resposta, setResposta] = useState('')
+  const responderAviso = async (k: number) => {
+    if (!resposta.trim()) return
+    setErro(null)
+    try {
+      await api(`/videos/${videoId}/animacao/aviso/${k}/responder`, { method: 'POST', body: JSON.stringify({ texto: resposta }) })
+    } catch (e) {
+      return setErro(limpar(e))
+    }
+    setResposta('')
+    setRespondendo(null)
+    recarregar()
+  }
+  const aceitarAviso = async (k: number) => {
+    setErro(null)
+    try {
+      await api(`/videos/${videoId}/animacao/aviso/${k}`, { method: 'DELETE' })
+    } catch (e) {
+      return setErro(limpar(e))
+    }
+    recarregar()
+  }
   const tirar = async (n: number) => {
     await api(`/videos/${videoId}/animacao/pedido/${n}`, { method: 'DELETE' })
     recarregar()
@@ -143,7 +167,38 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
 
       {dados?.avisos?.length ? (
         <ul className="mb-3 list-disc pl-5 text-xs text-atencao">
-          {dados.avisos.map((a) => <li key={a}>{a}</li>)}
+          {dados.avisos.map((a, k) => (
+            <li key={a.texto} className="mb-1.5">
+              <span>{a.texto}</span>
+              {!trabalhando && (
+                <span className="ml-2 inline-flex gap-2 whitespace-nowrap">
+                  {a.resposta && (
+                    <button onClick={() => { setRespondendo(respondendo === k ? null : k); setResposta('') }} className="text-ouro hover:underline">
+                      Responder
+                    </button>
+                  )}
+                  <button onClick={() => aceitarAviso(k)} title="Tira o aviso da lista" className="text-apagado hover:text-texto hover:underline">
+                    Está bom assim
+                  </button>
+                </span>
+              )}
+              {respondendo === k && (
+                <div className="mt-1.5 flex gap-2">
+                  <textarea
+                    value={resposta}
+                    onChange={(e) => setResposta(e.target.value)}
+                    rows={2}
+                    autoFocus
+                    placeholder={a.plano ? 'Sua resposta vira pedido desta cena' : 'Sua resposta vira pedido geral'}
+                    className="min-w-0 flex-1 rounded-md border border-borda bg-painel-2 px-2 py-1.5 text-xs text-texto outline-none focus:border-suave"
+                  />
+                  <button onClick={() => responderAviso(k)} disabled={!resposta.trim()} className="self-end rounded-md border border-ouro/60 px-3 py-1.5 text-xs text-ouro hover:bg-ouro/10 disabled:opacity-40">
+                    Enviar
+                  </button>
+                </div>
+              )}
+            </li>
+          ))}
         </ul>
       ) : null}
 
