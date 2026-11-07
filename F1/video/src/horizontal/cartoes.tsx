@@ -8,7 +8,8 @@ import circuitos from "../modelos/geo/circuitos.json";
 export type PessoaP = {
   nome: string;
   cargo?: string;
-  foto?: string; // arquivo no public dir (foto livre/licenciada); sem foto = silhueta
+  foto?: string; // arquivo no public dir; sem foto = silhueta
+  foco?: [number, number]; // centro do rosto na foto (fração): o cartão enquadra nele
   citacao?: string;
   palavras?: number[]; // segundo (da cena) em que cada palavra da citação aparece; sem isso, uma a cada 0,28 s
   em?: number;
@@ -24,7 +25,7 @@ const Silhueta: React.FC = () => (
 );
 
 /** Pessoa na primeira menção: cartão de papel inclinado com sombra; a citação acompanha a fala, palavra a palavra. */
-export const Pessoa: React.FC<PessoaP> = ({ nome, cargo, foto, citacao, palavras, em = 0, lado = "esq" }) => {
+export const Pessoa: React.FC<PessoaP> = ({ nome, cargo, foto, foco, citacao, palavras, em = 0, lado = "esq" }) => {
   const c = useCores();
   const { t, fps } = useTempo();
   const k = entra(((t - em) * fps) / 14);
@@ -36,7 +37,7 @@ export const Pessoa: React.FC<PessoaP> = ({ nome, cargo, foto, citacao, palavras
     <Cena fundo={<Fundo modo="claro" />}>
       <div style={{ position: "absolute", left: x, top: 150, width: 560, height: 700, transform: `translateY(${(1 - k) * 80}px) rotate(${-4 + (1 - k) * 6}deg)`, opacity: k, background: "#fbfaf6", boxShadow: "0 30px 60px #0000003a, 0 6px 14px #00000026", padding: 26 }}>
         <div style={{ width: "100%", height: 520, overflow: "hidden", filter: "grayscale(1) contrast(1.15)" }}>
-          {foto ? <Img src={staticFile(foto)} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Silhueta />}
+          {foto ? <Img src={staticFile(foto)} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: foco ? `${foco[0] * 100}% ${foco[1] * 100}%` : "50% 22%" }} /> : <Silhueta />}
         </div>
         <div style={{ position: "relative", marginTop: 22, display: "inline-block", fontFamily: FONTE, fontStretch: "condensed", fontWeight: 700, fontSize: 64, color: c.tinta, lineHeight: 1 }}>
           <div style={{ position: "absolute", left: -10, right: -10, top: 12, bottom: -4, background: c.destaque, opacity: 0.85, transform: `skewX(-8deg) scaleX(${marca})`, transformOrigin: "left", zIndex: 0 }} />
