@@ -119,6 +119,24 @@ Padrão de título que funciona no canal: "{CANAL['exemplo_titulo']}"
 Responda SOMENTE com JSON."""
 
 
+def _creditos_animacao(pasta: Path) -> list[str]:
+    """Vídeo animado: fotos de pessoas aprovadas (Commons) e o modelo 3D do carro (CC BY pede crédito)."""
+    if not (pasta / "direcao" / "vertical.json").exists():
+        return []
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    import fotos
+
+    linhas = fotos.creditos(pasta)
+    from canal import CANAL
+
+    cfg = CANAL.get("horizontal") or {}
+    if cfg.get("carro") and json.loads((pasta / "direcao" / "vertical.json").read_text(encoding="utf-8")).get("formato") == "horizontal":
+        modelo = fotos.credito_modelo(RAIZ / cfg.get("modelos", "") / cfg["carro"])
+        if modelo:
+            linhas.append(modelo)
+    return linhas
+
+
 def gerar_textos(pasta: Path, titulo_card: str, duracao: float) -> dict:
     from claude_cli import chamar_json
 
@@ -142,6 +160,9 @@ def gerar_textos(pasta: Path, titulo_card: str, duracao: float) -> dict:
     cred_sons = creditos_sons(sons_usados(pasta))
     if cred_sons:
         partes.append("Efeitos sonoros (freesound.org):\n" + "\n".join(f"• {c}" for c in cred_sons))
+    extras = _creditos_animacao(pasta)
+    if extras:
+        partes.append("Créditos:\n" + "\n".join(f"• {c}" for c in extras))
     if AVISO_LEGAL:
         partes.append(AVISO_LEGAL)
     return {"titulos": r["titulos"], "titulo": r["titulos"][0], "descricao": "\n\n".join(partes),

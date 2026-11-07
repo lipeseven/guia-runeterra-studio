@@ -87,6 +87,48 @@ function MusicaDeFundo({ videoId, trabalhando, aoMudar }: { videoId: number; tra
 }
 
 /** Vídeo vertical: a direção da animação, plano a plano. Pedidos ficam na fila até "Refazer com os pedidos". */
+type Candidata = { titulo: string; pagina: string; miniatura: string; ano: number | null; licenca: string; autor: string }
+type Pessoa = { candidatas: Candidata[]; escolhida: number | null; aprovada: boolean }
+
+/** Fotos de pessoas reais (Wikimedia Commons, só licença livre): só a foto aprovada aqui entra no vídeo. */
+function FotosPessoas({ videoId }: { videoId: number }) {
+  const { dados, recarregar } = useAoVivo<Record<string, Pessoa>>(`/videos/${videoId}/fotos`, 15000)
+  const pessoas = Object.entries(dados ?? {}).filter(([, p]) => p.candidatas.length)
+  if (!pessoas.length) return null
+  const escolher = async (nome: string, escolhida: number | null) => {
+    await api(`/videos/${videoId}/fotos`, { method: 'POST', body: JSON.stringify({ nome, escolhida, aprovada: true }) })
+    recarregar()
+  }
+  return (
+    <div className="mt-4 rounded-lg border border-borda p-3">
+      <h3 className="text-xs font-semibold">Fotos das pessoas</h3>
+      <p className="mt-0.5 text-[11px] text-apagado">Fotos livres do Wikimedia Commons (crédito vai na descrição). Clique na foto que vale; depois “Só renderizar de novo”.</p>
+      {pessoas.map(([nome, p]) => (
+        <div key={nome} className="mt-3">
+          <p className="text-xs">
+            {nome}{' '}
+            <span className={p.aprovada ? 'text-ok' : 'text-atencao'}>
+              {p.aprovada ? (p.escolhida === null ? '· sem foto (silhueta)' : '· aprovada') : '· aguardando você'}
+            </span>
+          </p>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {p.candidatas.map((c, i) => (
+              <button key={c.pagina} onClick={() => escolher(nome, i)} title={`${c.autor} · ${c.licenca}${c.ano ? ` · ${c.ano}` : ''}`}
+                className={`h-28 w-24 overflow-hidden rounded border-2 ${p.escolhida === i ? (p.aprovada ? 'border-ok' : 'border-ouro') : 'border-transparent opacity-80 hover:opacity-100'}`}>
+                <img src={c.miniatura} alt={c.titulo} className="h-full w-full object-cover" loading="lazy" />
+              </button>
+            ))}
+            <button onClick={() => escolher(nome, null)}
+              className={`h-28 w-24 rounded border-2 text-[11px] text-suave ${p.aprovada && p.escolhida === null ? 'border-ok' : 'border-borda'}`}>
+              sem foto
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId: number; direcao: Etapa; render: Etapa; aoMudar: () => void }) {
   const { dados, recarregar } = useAoVivo<Dados>(`/videos/${videoId}/animacao`, 5000)
   const [aberto, setAberto] = useState<string | null>(null)
@@ -316,6 +358,7 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
         </div>
       )}
       {planos.length > 0 && <MusicaDeFundo videoId={videoId} trabalhando={trabalhando} aoMudar={aoMudar} />}
+      {planos.length > 0 && <FotosPessoas videoId={videoId} />}
       {erro && <p className="mt-2 text-xs text-atencao">{erro}</p>}
     </section>
   )

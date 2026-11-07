@@ -324,7 +324,18 @@ def dirigir(roteiro: str, palavras: list[dict], briefing: str = "", trabalho: Pa
         raise RuntimeError("o diretor não devolveu nenhuma cena válida")
     planos[0]["i"] = 0
     variar(planos)
-    return {"formato": "horizontal", "planos": planos, "avisos": avisos, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    pendentes = _fotos(planos, trabalho, roteiro)
+    return {"formato": "horizontal", "planos": planos, "fotos_pendentes": pendentes, "avisos": avisos, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
+
+
+def _fotos(planos: list[dict], trabalho: Path | None, contexto: str) -> list[str]:
+    """Pessoas dos cartões: candidatas de foto livre (Commons) para o Felipe aprovar; sem aprovação = silhueta."""
+    if trabalho is None:
+        return []
+    import fotos
+
+    nomes = [p["nome"] for p in planos if p["tipo"] == "pessoa" and p.get("nome") and not p.get("foto")]
+    return fotos.preparar(trabalho.parent, nomes, f"{CANAL['nome']} {contexto[:400]}") if nomes else []
 
 
 def para_o_claude(p: dict) -> dict:
@@ -379,6 +390,7 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
         brutos += depois.get(p["id"], [])
     novos_planos, avisos = resolver(brutos, palavras, primeiro=True)
     variar(novos_planos)
+    direcao = {**direcao, "fotos_pendentes": _fotos(novos_planos, trabalho, "")}
     blocos_antes = {p["id"]: p.get("bloco", 0) for p in planos}
     b = 0
     for p in novos_planos:
@@ -455,9 +467,16 @@ def _modelos_na_pasta(trabalho: Path) -> None:
 
 
 def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, progresso=None) -> float:
+    import fotos
+
     _modelos_na_pasta(trabalho)
+    aprovadas = fotos.na_pasta(trabalho.parent, trabalho)  # só foto aprovada pelo Felipe entra no vídeo
+    # a foto vai no plano (e não só nas props): assim ela entra na impressão e o bloco do cartão é refeito
+    direcao = {**direcao, "planos": [{**p, "foto": aprovadas[p["nome"]]} if p["tipo"] == "pessoa" and not p.get("foto")
+                                     and p.get("nome") in aprovadas else p for p in direcao["planos"]]}
+    pr = props(direcao, palavras)
     return vertical.renderizar(trabalho, direcao, palavras, saida, progresso, composicao=CFG.get("composicao", "Horizontal"),
-                               props=props(direcao, palavras), cache_nome="blocos_horizontal", concorrencia=2)
+                               props=pr, cache_nome="blocos_horizontal", concorrencia=2)
 
 
 gerar_musica = vertical.gerar_musica
