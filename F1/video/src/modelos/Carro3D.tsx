@@ -6,7 +6,9 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { peca } from "./desmonte";
 import { CORES_PIRELLI, aplicarComposto, pneuPirelli } from "./pneus/pneu";
 
-export type Pintura = { base: string; clara: string; escura: string; faixa: string; acento: string };
+/** `desenho`: onde a cor da faixa entra. Sem desenho = faixa fina no meio; "marlboro" = flechas da McLaren MP4/8 (1993):
+ *  ponta de flecha no bico à frente do cockpit e flecha que desce pelos sidepods e pela tampa até a traseira. */
+export type Pintura = { base: string; clara: string; escura: string; faixa: string; acento: string; desenho?: "marlboro" };
 export const C = (h: string) => new THREE.Color(h);
 
 type Secao = [z: number, largura: number, topo: number, base: number];
@@ -117,13 +119,17 @@ export function carro(p: Pintura): THREE.Group {
   const clara = C(p.clara);
   const escura = C(p.escura);
   const faixa = C(p.faixa);
+  const marlboro = p.desenho === "marlboro";
   const corpo = (x: number, y: number, z: number) => {
-    if (Math.abs(x) < 0.055 + Math.max(0, -z) * 0.004 && y > 0.3) return faixa;
+    if (marlboro && y > 0.3 && z > -1.45 && z < -0.45 && Math.abs(x) <= (z + 1.45) * 0.35 + 0.02) return faixa; // flecha do bico
+    if (marlboro && y > 0.3 && z > 1.25 && Math.abs(x) > 0.04) return faixa; // fim da flecha na tampa do motor
+    if (!marlboro && Math.abs(x) < 0.055 + Math.max(0, -z) * 0.004 && y > 0.3) return faixa;
     if (y < 0.2) return escura;
     return base.clone().lerp(clara, Math.max(0, Math.min(0.6, (y - 0.42) * 0.9)));
   };
-  const lateral = (_x: number, y: number) => {
+  const lateral = (_x: number, y: number, z: number) => {
     if (y < 0.22) return escura;
+    if (marlboro && z > 0.45 + (0.55 - y) * 1.4) return faixa; // flecha inclinada no fim do sidepod
     return base.clone().lerp(clara, Math.max(0, Math.min(0.55, (y - 0.3) * 0.9)));
   };
   const preto = "#0c0d11";

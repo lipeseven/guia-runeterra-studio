@@ -80,7 +80,8 @@ Outro carro com pintura própria: `obj(w, "carro:ferrari", () => carro({ base, c
 hex; devolve o objeto: posicione com `.position.set(x, 0, z)`).
 Pinturas de época CONFERIDAS (tiradas das referências do Felipe em `F1/dados/modelos3d/`; use exatamente estas, sem
 "aproximar"): McLaren MP4/8 1993 (Senna; base BRANCA, vermelho Marlboro nas faixas e asas, sem logos):
-`carro({ base: "#f4f4f2", clara: "#ffffff", escura: "#2d2928", faixa: "#f32217", acento: "#f32217" })`.
+`carro({ base: "#f4f4f2", clara: "#ffffff", escura: "#2d2928", faixa: "#f32217", acento: "#f32217", desenho: "marlboro" })`
+(`desenho: "marlboro"` põe o vermelho nas mesmas posições da foto: flecha no bico e flecha nos sidepods/traseira).
 
 ## Modelos (criados uma vez por chave; a aparência é fixa na chave)
 `obj(w, chave, () => criarX(...))` cria na primeira vez e mostra o objeto neste quadro; devolve o objeto THREE (posicione
