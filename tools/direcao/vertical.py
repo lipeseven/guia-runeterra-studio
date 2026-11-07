@@ -13,11 +13,13 @@ import json
 import math
 import re
 import subprocess
+import tempfile
 import time
 import unicodedata
 from pathlib import Path
 
 from canal import CANAL, RAIZ, caminho
+import anexos
 from claude_cli import chamar_json
 
 CFG = CANAL.get("vertical", {})
@@ -400,6 +402,11 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
     numero = {pid: n + 1 for n, pid in enumerate(ids)}
     alvo = {p["plano"] for p in pedidos if p.get("plano") in numero}
     geral = any(not p.get("plano") or p["plano"] not in numero for p in pedidos)
+    # links e "pesquise" nos pedidos: a ponte baixa as imagens e pesquisa antes (o diretor roda sem internet)
+    falas = {p["id"]: p.get("fala") or p.get("em", "") for p in direcao["planos"]}
+    pedidos_orig = pedidos
+    pedidos, imagens, notas = anexos.preparar(pedidos, falas, (trabalho.parent / "direcao") if trabalho else Path(tempfile.gettempdir()),
+                                              briefing, aviso)
     linhas = [f"- plano {numero[p['plano']]} (id {p['plano']}): {p['texto']}" if p.get("plano") in numero else f"- geral: {p['texto']}"
               for p in pedidos]
     claude = para_o_claude(direcao["planos"])
@@ -408,14 +415,20 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
     prompt = (_docs() + f"ROTEIRO:\n{frases(palavras)}\n\n{_briefing(briefing)}DIREÇÃO ATUAL (na ordem; "
               + ("todos os planos completos" if geral else "os planos pedidos vêm completos, os outros resumidos")
               + f"):\n{json.dumps(atuais, ensure_ascii=False)}\n\nPEDIDOS DO FELIPE:\n{chr(10).join(linhas)}\n\n"
-              "Aplique os pedidos. Devolva SÓ os planos que mudam, completos, com o mesmo id (plano sem mudança NÃO volta). "
+              + (f"IMAGENS ANEXAS: as {len(imagens)} imagem(ns) enviada(s) junto são as que o Felipe linkou, na ordem "
+                 "([imagem anexa 1], [imagem anexa 2]...). São a referência fiel: siga a forma delas, não a memória.\n\n"
+                 if imagens else "")
+              + "Aplique os pedidos. Devolva SÓ os planos que mudam, completos, com o mesmo id (plano sem mudança NÃO volta). "
               "Plano novo (dividir uma cena) vem sem id, com \"depois_de\": id do plano que vem antes dele. Plano que sai: "
               "id em \"remover\". Responda SOMENTE JSON {\"planos\": [{\"id\", \"em\", \"set\", \"clima\", \"codigo\" (ou "
               "\"tipo\" + parâmetros), \"marcas\"?, \"som\"?, sobreposições?}], \"remover\": [ids]}. O código é JavaScript puro dentro "
               "de uma string JSON. Pedido que não se resolve com cena (música de fundo, voz, texto falado) não muda plano: "
-              "explique em \"nao_da\": [\"motivo curto\"].")
+              "explique em \"nao_da\": [\"motivo curto\"]. NUNCA ignore um pedido em silêncio: cada pedido que você não "
+              "fizer por inteiro (falta modelo na API, falta informação, conflito com o briefing) vai em \"nao_feitos\": "
+              "[{\"id\": id do plano ou \"geral\", \"motivo\": \"curto: o que faltou\"}]. Fato marcado PESQUISADO NA "
+              "INTERNET vale como confirmado.")
     aviso("o diretor aplica os seus pedidos")
-    r = chamar_json(prompt, sistema(), modelo="opus", etiqueta="vertical-revisao")
+    r = chamar_json(prompt, sistema(), modelo="opus", etiqueta="vertical-revisao", imagens=imagens)
     novos = [n for n in (r.get("planos") if isinstance(r, dict) else r) or [] if isinstance(n, dict)]
     remover = set(r.get("remover") or []) if isinstance(r, dict) else set()
     por_id = {n["id"]: n for n in novos if n.get("id") in numero}
@@ -436,6 +449,11 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
             brutos.append(n or q)
         brutos += depois.get(q["id"], [])
     planos, avisos = resolver(brutos, palavras)
+    for nf in (r.get("nao_feitos") or []) if isinstance(r, dict) else []:
+        if isinstance(nf, dict) and nf.get("motivo"):
+            onde = f"cena {numero[nf['id']]}" if nf.get("id") in numero else "pedido geral"
+            avisos.append(f"pedido não feito ({onde}): {nf['motivo']}")
+    avisos += notas
     nova = {**direcao, "planos": planos, "avisos": avisos, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
     antes = {p["id"]: json.dumps(p, sort_keys=True, ensure_ascii=False) for p in direcao["planos"]}
     mudou = {p["id"] for p in nova["planos"] if antes.get(p["id"]) != json.dumps(p, sort_keys=True, ensure_ascii=False)}
@@ -444,9 +462,10 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
         pasta = trabalho.parent / "direcao" / "revisoes"
         pasta.mkdir(parents=True, exist_ok=True)
         (pasta / f"{time.strftime('%Y%m%d-%H%M%S')}.json").write_text(
-            json.dumps({"pedidos": pedidos, "resposta": r, "mudou": sorted(mudou)}, ensure_ascii=False, indent=1), encoding="utf-8")
+            json.dumps({"pedidos": pedidos_orig, "enviados": pedidos, "resposta": r, "mudou": sorted(mudou)}, ensure_ascii=False, indent=1), encoding="utf-8")
     if not mudou:
-        motivo = "; ".join(str(x) for x in (r.get("nao_da") or []) if x) if isinstance(r, dict) else ""
+        nao_da = [str(x) for x in (r.get("nao_da") or []) if x] if isinstance(r, dict) else []
+        motivo = "; ".join(nao_da + [a for a in avisos if a.startswith("pedido não feito")] + notas)
         return {**direcao, "sem_mudanca": motivo or "o diretor não mudou nenhum plano"}
     aviso(f"o diretor mudou {len(mudou)} cena(s)")
     return conferir(nova, palavras, briefing, trabalho if mudou else None, aviso, mudou)

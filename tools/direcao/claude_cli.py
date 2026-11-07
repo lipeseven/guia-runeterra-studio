@@ -38,13 +38,14 @@ def extrair_json(texto: str):
 
 
 def chamar(prompt: str, sistema: str, modelo: str = "opus", imagens: list[Path] | None = None,
-           etiqueta: str = "", tentativas: int = 2, timeout: int = 900) -> str:
+           etiqueta: str = "", tentativas: int = 2, timeout: int = 900, ferramentas: str = "") -> str:
+    """`ferramentas` (ex.: "WebSearch,WebFetch"): só para quem precisa, já liberadas (sem pergunta); o padrão é nenhuma."""
     if not EXE.exists():
         raise ErroClaude(f"Claude Code não encontrado em {EXE}")
     conteudo = [_bloco_imagem(p) for p in (imagens or [])] + [{"type": "text", "text": prompt}]
     mensagem = json.dumps({"type": "user", "message": {"role": "user", "content": conteudo}}, ensure_ascii=False)
     cmd = [str(EXE), "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-           "--tools", "", "--system-prompt", sistema, "--strict-mcp-config", "--setting-sources", "",
+           "--tools", ferramentas, *(["--allowedTools", ferramentas] if ferramentas else []), "--system-prompt", sistema, "--strict-mcp-config", "--setting-sources", "",
            "--model", modelo, "--no-session-persistence"]
     ultimo_erro = ""
     for tentativa in range(tentativas):
