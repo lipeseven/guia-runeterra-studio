@@ -472,7 +472,7 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
     _modelos_na_pasta(trabalho)
     aprovadas = fotos.na_pasta(trabalho.parent, trabalho)  # só foto aprovada pelo Felipe entra no vídeo
     # a foto vai no plano (e não só nas props): assim ela entra na impressão e o bloco do cartão é refeito
-    direcao = {**direcao, "planos": [{**p, "foto": aprovadas[p["nome"]]} if p["tipo"] == "pessoa" and not p.get("foto")
+    direcao = {**direcao, "planos": [{**p, **aprovadas[p["nome"]]} if p["tipo"] == "pessoa" and not p.get("foto")
                                      and p.get("nome") in aprovadas else p for p in direcao["planos"]]}
     pr = props(direcao, palavras)
     return vertical.renderizar(trabalho, direcao, palavras, saida, progresso, composicao=CFG.get("composicao", "Horizontal"),

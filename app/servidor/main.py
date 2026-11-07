@@ -955,7 +955,7 @@ def escolher_foto(vid: int, corpo: EscolhaFoto):
     d = dados[corpo.nome]
     if corpo.escolhida is not None and not 0 <= corpo.escolhida < len(d["candidatas"]):
         raise HTTPException(400, "foto inválida")
-    d.update({"escolhida": corpo.escolhida, "aprovada": corpo.aprovada})
+    d.update({"escolhida": corpo.escolhida, "aprovada": corpo.aprovada, "manual": True, "foco": None})
     fotos.gravar(projeto, dados)
     if all(x.get("aprovada") or not x.get("candidatas") for x in dados.values()):
         with conectar() as con:
