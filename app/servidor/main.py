@@ -671,7 +671,8 @@ def refazer_rascunho(vid: int):
         status = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='direcao'", (vid,)).fetchone()["status"]
         if status == "andamento":
             raise HTTPException(409, "a direção já está trabalhando")
-        if status != "concluido":  # ex.: o roteiro mudou e a direção ainda não foi refeita
+        # "atencao" = o último rascunho falhou (ex.: render): tentar de novo é permitido
+        if status not in ("concluido", "atencao"):  # ex.: o roteiro mudou e a direção ainda não foi refeita
             raise HTTPException(409, "a direção ainda não foi feita para este roteiro")
         atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "novo rascunho")
         if motor.gravacao_aprovada(vid, con):  # depois da gravação: o storyboard gera um vídeo final novo (voz real)
