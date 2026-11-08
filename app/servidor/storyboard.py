@@ -541,6 +541,8 @@ def ajustar(pasta: Path, cid: str, acao: dict) -> dict:
     elif tipo == "tipo":
         if acao["tipo"] not in TIPOS:
             raise ValueError("tipo inválido")
+        if aj.get("juntar") and acao["tipo"] not in ("dividida", "mosaico", "lista"):
+            raise ValueError("esta cena está juntada com a próxima: use \"Desfazer ajustes\" antes de mudar o tipo")
         aj["tipo"] = acao["tipo"]
         cena = next(c for k, c in enumerate(d["plano"]["cenas"]) if _id(c, k) == cid)
         if acao["tipo"] in ("mosaico", "dividida", "lista") and not _pecas(cena, aj):
@@ -728,6 +730,9 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
                           for j, pc in enumerate(c.get("pecas") or c.get("mosaico") or [])]
         if "tipo" in aj:
             c["tipo"] = aj["tipo"]
+        if aj.get("juntar") and c["tipo"] not in ("dividida", "mosaico", "lista"):
+            # cena juntada com a próxima: o tipo dela não pode voltar a ser de uma imagem só (a outra cena já saiu)
+            c["tipo"] = "dividida"
         if "candidato" in aj:
             escolhas[k] = {**(escolhas.get(k) or {}), "escolha": aj["candidato"] + 1, "fixa": True,
                            **({"midia": aj["midia"]} if aj.get("midia") else {})}
