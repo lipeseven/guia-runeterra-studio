@@ -38,139 +38,15 @@ Node 24, FFmpeg 9 (NVENC; filtros longos via `-/filter_complex arquivo.txt`; `dr
 O caminho do scratchpad excede MAX_PATH para Python — passar scripts por stdin.
 Repositório privado: github.com/lipeseven/guia-runeterra-studio (gh logado como lipeseven).
 
-## Estado atual
-- Fase 0 (base: análise, guia de estilo, acervo catalogado) ✅
-- Fase 1 (protótipo Remotion: capa, cartão, recorte, tela cheia, diálogo, citação, mosaico, clipe; efeitos variados) ✅
-- Fase 2 (áudio) ✅ — `tools/audio/`: `voz_guia.py` (Fish s2.1-pro-free → reserva local Piper; Edge TTS caiu),
-  `limpar_gravacao.py` (fala cortada por volume e transcrita trecho a trecho — o Whisper com o áudio inteiro "corrige"
-  falsos começos; regravações, falas fora do roteiro, pausas, -14 LUFS; ruído de fundo do Felipe é ~-80 dB, não aplicar
-  denoise), `alinhar.py` (tempos por palavra DO ROTEIRO → a direção usa índices do roteiro; trocar áudio = trocar tabela).
-- Fase 3 (diretor) ✅ — `tools/direcao/`: `claude_cli.py` (Claude Code headless enxuto: `--tools "" --setting-sources ""
-  --strict-mcp-config`, ~800 tokens de base; imagens via stream-json; log em dados/comum/uso_claude.jsonl), `planejar.py`
-  (1ª passada, texto), `candidatos.py` (busca local CLIP+etiquetas, folhas), `escolher.py` (2ª passada, imagens),
-  `montar.py` (direção final + render da composição "Video" com --props), `revisar.py` (refaz só cenas com pedido).
-- Painel (Fase 5 adiantada) ✅ — `app/servidor/` (FastAPI+SQLite Runeterra/dados/studio.db; `motor.py` = fila/orquestrador;
-  `storyboard.py`), `app/painel/` (React/Vite). Fluxo pelo painel: Ideia → mover p/ Roteiro → .txt → aprovar → voz guia
-  → capa → aprovar → Direção automática (retoma de onde parou) → rascunho → storyboard (ajustes/pedidos) → novo rascunho.
-- 2026-10-13: sistema zerado para o Felipe testar "como se estivesse pronto" e anotar bugs (banco, projetos e testes
-  foram para a Lixeira; acervo catalogado mantido).
-- Card Gravação ✅ — mover p/ Gravação aceita o rascunho e pede o arquivo (upload com progresso ou pasta entrada/ +
-  "Já coloquei na pasta"); motor: limpar → alinhar → montar com a voz real → saida/final_vN.mp4 → card vai p/ Revisão.
-  Rascunhos e finais: cada versão em arquivo próprio (nunca renomear arquivo que pode estar aberto no player).
-  Gravação tem ponto de controle: limpeza PARA em "Confira a gravação limpa"; só a aprovação dispara ressinc + render.
-- Card Publicação ✅ — "Vídeo aprovado" → `app/servidor/publicacao.py` (5 títulos, descrição com capítulos reais
-  [≥3 seções] + créditos de autores + aviso Legal Jibber Jabber, tags, comentário fixado; Claude sonnet) + thumbnail
-  1280×720 da capa. "Marcar como publicado" (ou arrastar p/ Publicado) registra mídias em `uso_midia` (acervo.db; histórico —
-  repetir imagem ENTRE vídeos não tem problema; dentro do vídeo, imagem já escolhida desce na busca: `Acervo.usadas_no_video`) e ARQUIVA (pede confirmação): tudo vai para a Lixeira, só fica
-  `Runeterra/dados/projetos/<slug>/capa.*` para o card. Publicado é definitivo: não sai da coluna, página vira resumo (capa, link, histórico).
-- Referências 100% analisadas (2026-10-14): som (`separar_sons.py` Demucs + `analisar_sons.py` CLAP — padrão é voz
-  pura, efeito é raro) e leitura visual dos 11 vídeos → guia de estilo v1.0 (seção 10: modos por vídeo e recursos
-  que ainda faltam no Remotion). Stable Audio Open (diffusers, ~30 s/efeito, 5,9 GB VRAM) e Freesound prontos.
-- Novos recursos visuais ✅ (2026-10-14): `hub` (transição de seção: grade/esteira), `dividida`, `lista`, `meio`,
-  `texto`, `citacao` (agora ligada ao diretor), nome sobre arte (telacheia rotulo/subrotulo), clarão, crédito de fan
-  art na cena (midias.autor). **Fundo branco é a assinatura do canal**: o vídeo é sempre "claro" (o tema escuro de
-`app/video/src/tema.ts` existe mas não é usado); escuro só em telas cheias e no `texto` com fundo escuro, raro. Peças de
-  mosaico/dividida/lista ficam em `pecas` (planos antigos: `mosaico`, lido por `planejar.pecas_da_cena`).
-- Efeitos sonoros ✅ (2026-10-14): `tools/audio/sfx.py` (catálogo em acervo.db `sons`/`uso_som`, arquivos em
-  dados/comum/sfx/; 117 sons do Freesound só CC0/CC BY + Stable Audio Open para completar; busca CLAP texto→áudio com
-  reforço da categoria, `tools/audio/clap.py`). Diretor pede `som` por cena; `montar.efeitos_sonoros` impõe as
-  regras (≤1 a cada 30 s, ≥18 s entre eles, ~15 dB abaixo da voz); créditos CC BY entram na descrição.
-- Roteirista no painel ✅ (2026-10-14): `app/servidor/roteirista.py` + tarefa "roteiro" no motor. Gera (do zero ou a
-  partir de roteiro BASE gringo — inspiração, nunca tradução) e ajusta por pedido (Claude devolve só os parágrafos
-  alterados → barato, preserva edições à mão). Edição à mão, versões (roteiro_vN.txt) com "voltar", conversa em
-  direcao/conversa_roteiro.json. Jeito do canal: `Runeterra/docs/estilo_roteiro.md` (formato que o diretor exige + voz do Felipe).
-- Direção por blocos com reaproveitamento ✅ (2026-10-15): `planejar.planejar()` divide o roteiro em blocos
-  (introdução + seções; fronteiras reaproveitadas do plano anterior ou pedidas ao Sonnet) e planeja cada bloco à parte
-  com cache por conteúdo em `direcao/plano_secoes/<hash>.json`. Bloco igual = 0 cota; mudança pequena (mesmas frases,
-  palavras trocadas) = reaproveita e marca "conferir"; bloco reescrito/novo = só ele vai ao Opus. Cada cena tem `id`
-  estável (`<bloco>-<hex>`): candidatos, escolhas e ajustes do storyboard são por id (`candidatos.preparar` só manda
-  ao Claude as cenas sem escolha). Roteiro novo (`motor.invalidar_depois_do_roteiro`) arquiva só a montagem
-  (direcao.json, tempos) e volta as etapas; plano/escolhas/ajustes ficam para o reaproveitamento.
-- Render por blocos ✅ (2026-10-15): `montar.renderizar()` agrupa as cenas por bloco (campo `bloco` = seção do
-  plano), usa o quadro inicial `q` calculado na montagem e renderiza cada bloco sem áudio via
-  `app/video/render_blocos.mjs` (bundle + navegador uma vez só), com cache em `trabalho/blocos/<impressão>.mp4`
-  (impressão = cenas + intervalo + tempos + código do Remotion que desenha o bloco + capa); só blocos alterados são refeitos; áudio
-  inteiro à parte (.wav) e junção com FFmpeg concat sem recomprimir. Cenas HERDAM os efeitos da versão anterior
-  (mesmo id e tipo; `montar._herdar`), semente e folga de corte são por id → mexer numa cena não muda as outras.
-- Escolha de imagens em lotes ✅ (`escolher.py`: 6 folhas por chamada + reenvio do que o Claude "não viu");
-  busca com prioridade para personagem/lugar (`candidatos.Acervo`: vocabulário das etiquetas, tolera grafia,
-  ≥2 candidatos do personagem; ignora arquivos que sumiram da pasta); `busca.arquivo` = arquivo pedido pelo nome
-  (escolha fixa, sem Claude). Revisão ("Pedir ao diretor") vê o trecho inteiro e pode DIVIDIR a cena em várias.
-- Barra de progresso ✅: `motor.definir_progresso` (estado em `/api/motor` → `progresso`); render lê `PROG <bloco>
-  <quadros>` do render_blocos.mjs e estima o tempo restante; direção mostra o passo. Painel: `componentes/Progresso.tsx`
-  (página do vídeo, storyboard e cards do quadro). Avisos da versão anterior somem ao pedir versão nova
-  (`motor.limpar_avisos`). Busca do storyboard: nome exato → começa com → contém → etiquetas → CLIP, sem acento,
-  inclui categoria "canal". Revisão usa o trecho do RASCUNHO (cenas sem imagem dentro dele saem do plano).
-- **Blocos desacoplados** ✅ (2026-10-16): mexer num capítulo só refaz o bloco dele. Em `montar.montar()` a regra
-  de não repetir imagem e o sorteio de efeitos (Variador) recomeçam a cada bloco; cena automática MANTÉM a imagem da
-  versão anterior (`trecho["fontes"]`, sem condição); escolha manual ("fixa") vale sempre ("poder de Deus"). A
-  impressão do bloco não inclui o `k` (posição no plano). Áudio (voz + efeitos) mixado no FFmpeg (`_mixar_audio`), sem
-  Remotion. Cena sem imagem entra como texto (`sem_imagem`) no tempo dela para o Felipe escolher no storyboard.
-  Storyboard: número fixo por cena (`direcao/numeros.json`; dividida → 40.1, 40.2), contadores "ajustadas no total" e
-  "pendentes" (`direcao/ajustes_pendentes.json`, limpo quando o motor lê os ajustes), escolher o momento do clipe no
-  vídeo original (`clipe_inicio` → `Midias.tomada(id, inicio)`; rota `/api/acervo/video/{id}`), CLIP pré-carregado.
-  "Juntar com a próxima": a cena vira tela dividida (`ajustes[cid].juntar`; item 2 entra onde a próxima começava, peça com `frase`/`palavra`) e a próxima sai (`juntada_em`; "Desfazer" volta as duas).
-  Meio a meio: lado da imagem (`lado_felipe`) e outra metade texto OU imagem (`metade2` → nec `<cid>m2`; sai como dividida de 2).
-  Pendentes = ajustes diferentes da foto `direcao/ajustes_no_rascunho.json` (tirada quando o motor lê os ajustes).
-  Itens de lista/dividida/mosaico: imagem por item no storyboard (`ajustes[cid].pecas[j].candidato` → escolha fixa de `<cid>p<j>`).
-  Entrada por item (lista/dividida/mosaico): `ajustes[cid].pecas[j].entrada` (nenhuma/fade/deslizar/revelar/pop; sem escolha = a do
-  diretor) → peça `entrada` → `app/video/src/componentes/EntradaManual.ts` (ligado por linhas `impressao:ignorar`).
-- Excluir card = DEFINITIVO, sem Lixeira (2026-10-31, `main.excluir`): pasta do projeto, fila, memória de uso e aprendizado do vídeo. Ficam: .txt de `roteiros/`, mídias do acervo, cache de voz e wiki (compartilhados), regras já aprovadas. Arquivo aberto = 409, nada é apagado.
-- Atualizar acervo ✅ (2026-10-17): `tools/acervo/atualizar.py` (inventário → CLIP → tomadas → etiquetas pelo nome do
-  arquivo; incremental, sem cota). Tarefa global "acervo" (vid 0) na fila do motor: botão "Atualizar acervo" no topo
-  do painel e automática a cada card NOVO (o acervo muda pouco). Resultado em `/api/acervo/situacao`.
-- Pacote pós-1º vídeo ✅ (2026-10-19): **estilo visual por vídeo** (`direcao/estilo_visual.json`; o 1º vídeo ficou
-  na versão 1, vídeos novos = 2): transições de entrada empurrar/sobrepor (`app/video/src/cenas/Estilo2.tsx`,
-  ~1 em 7 cenas, nunca na 1ª do bloco; storyboard "entrada"), cartão sem recorte, texto entra junto com a imagem
-  (retrospectiva: Runeterra/docs/regras_de_direcao.md §5). Linhas que ligam o Estilo2 são `impressao:ignorar` → cache dos
-  vídeos antigos intacto. Roteiro mudou: só o trecho alterado volta ao Claude (`planejar.remendar_bloco`) e ajustes
-  presos a palavras seguem a palavra (`storyboard.remapear_ajustes`); capítulo intocado não reenvia recusadas.
-  Storyboard: "a cena começa em" (mover corte), juntar até 4 cenas, movimento "nenhum", lista "sem imagem".
-  Cópia de segurança automática (`motor.copia_de_seguranca`, direcao/seguranca/, últimas 15) antes de roteiro
-  novo/direção/pedido ao diretor; cache guarda os blocos da versão anterior também. Card "Vídeo já publicado".
-- Conferência do roteiro ✅ (2026-10-19, `app/servidor/conferencia.py`, tarefa "conferencia" a cada roteiro novo):
-  semelhança com o roteiro base (`direcao/roteiro_base.txt`; embeddings multilíngues locais, sentence-transformers)
-  + fatos de lore (Sonnet extrai afirmações → wiki do LoL/Universe buscados localmente, cache em Runeterra/dados/pesquisa_cache
-  → Sonnet dá confere/diverge/sem fonte; cache por parágrafo). Painel: bloco "Conferência do roteiro" no Roteiro.
-  Fontes (2026-10-30): wiki.leagueoflegends.com namespace Universe (3006; o fandom parou em 2023) + biografia E conto
-  oficial do Universe (meeps `story-preview`); 2 trechos da wiki + 2 da Riot por afirmação; veredito traz `fontes` (quantas
-  sustentam) e `fontes_divergem` (Riot oficial prevalece). Afirmações atômicas (1 fato cada), página `Universe:<personagem>`
-  sempre incluída (`_pagina_do_personagem`), 3 trechos wiki + 2 Riot, veredito `parcial` ("confere em parte", diz o pedaço).
-  Cache por parágrafo inclui `conferencia.REGRAS` (subir a versão ao mudar regra = tudo reconferido no próximo ↻);
-  "conferir tudo" no painel (`/roteiro/conferir?tudo=true`) apaga o cache. Botão "Corrigir" em cada item diverge/parcial (individual: o Felipe lê cada um) põe na fila; "Mandar correções" = uma chamada só a `/roteiro/ajustar`, versão nova. "Manter minha versão" tira o item da lista (localStorage, por afirmação; parágrafo editado volta a avaliar). "O que mudou nesta versão" (`MudancasRoteiro.tsx`, `roteirista.mudancas`; difflib local, palavra por palavra): "desfazer" por alteração (`/roteiro/desfazer`) vira versão nova e mantém a mesma base da comparação (`direcao/comparar_com.json`). Regras 4 (2026-10-31): vale o ponto mais recente da história, não a biografia da Riot (`conferencia.REGRA_DAS_FONTES`, também no dossiê e no crivo); busca inclui eventos, LoR e Riftbound (`ns_extra`); `<Canal>/dados/fatos_do_canal.txt` (painel: "fatos do canal") = anotações do Felipe, vale acima de todas. Conferência por TRECHOS (2026-10-31, `conferencia._cortar`: ~60-90 palavras, corte definido pela própria frase; cache `REGRAS:hash` guarda também versões anteriores): só trecho com texto alterado volta ao Claude, em lotes de 8; `conferencia.json` traz `rodada` (novas/resolvidas); cache antigo por parágrafo é repartido (`_migrar`) sem gastar cota. Fontes por trecho do roteiro: página achada para uma afirmação serve às outras do mesmo trecho; a busca leva o nome do personagem; `trecho` -1 = item sem link (nunca fonte só de assunto parecido). Reddit: API bloqueia sem chave (403) — exigiria app Reddit do Felipe.
-- Mídias da internet ✅ (2026-10-19): acervo baixado fica em `Runeterra/dados/acervo_internet/` (fora da pasta do Felipe;
-  caminho ABSOLUTO no acervo.db, `inventariar.PASTAS_EXTRA`). `tools/acervo/importar_riot.py` (splash de todas as
-  skins via CommunityDragon + splash base 1920 e artes dos contos do Universe; categoria splash/skin/arte, descarta o
-  que o Felipe já tem; tarefa "importar_riot"). Storyboard: "buscar na internet" (`app/servidor/internet.py`:
-  DuckDuckGo `ddgs` + Wikimedia Commons; baixa e cataloga na hora) e "colar link" de vídeo (yt-dlp → tomadas, tarefa
-  "clipes"; início/fim opcionais = baixa só o trecho, `--download-sections`). Gravação por capítulos: vários arquivos em entrada/ são juntados na ordem dos nomes.
-- **Perfil de canal ✅ (2026-10-19)**: os canais NÃO se conhecem — cada um roda o MESMO código num servidor próprio
-  com `GRS_CANAL=<chave>` (`<Canal>/canal.toml`: nome, porta, assunto, pastas de acervo/banco/projetos/docs,
-  fontes de fatos, aviso legal). `tools/canal.py` (CANAL, caminho) alimenta `comum.py`, `banco.py`, `motor.py`,
-  prompts (planejar/escolher/revisar/roteirista/publicacao/conferencia). Sem GRS_CANAL = runeterra, caminhos de
-  sempre (`Runeterra/Iniciar Runeterra.bat`, porta 8765). Hoje só existe o Runeterra (o perfil Pokémon saiu em 2026-11-01; volta pelo histórico do Git).
-  Trava `dados/comum/motor.lock` = uma tarefa por vez na máquina entre os canais. Seletor de canal no título do quadro.
-- **Aprendizado entre vídeos ✅ (2026-10-20)**: `tools/direcao/aprendizado.py`. Ao publicar (antes de arquivar),
-  `coletar()` guarda os pares de legenda "diretor → Felipe" (vão no prompt do diretor: `planejar.sistema_do_diretor`)
-  e a retrospectiva dos ajustes; tarefa global "retrospectiva" (Sonnet) propõe regras novas, que só entram em
-  regras_de_direcao.md do canal se o Felipe aprovar (botão "Aprendizado" no quadro). Arquivos em <dados do canal>/aprendizado/.
-  Vertical (2026-11-05): cada "Refazer com os pedidos" guarda os pedidos em `direcao/historico_pedidos_vertical.json`
-  (`motor.guardar_pedidos_vertical`, com a fala do plano); na publicação `aprendizado.coletar_vertical` faz a retrospectiva.
-  Pedido feito pelo chat (animação escrita pela sessão) entra no mesmo arquivo com `"via": "chat"`.
-  NÃO aprender "gosto de imagem" por pontuação (o Felipe recusou: as mesmas imagens passariam na frente).
-- **Pesquisa antes do roteiro ✅ (2026-10-29)**: `app/servidor/pesquisa.py` roda dentro da tarefa "roteiro" (gerar): Sonnet lista
-  assuntos → wiki/Universe locais (cache) → dossiê de fatos com fonte e selo canon (atual/antigo/jogo) + crivo do roteiro
-  base (confirmada/corrigida/desatualizada/sem_fonte) em `direcao/dossie.json`. O roteirista (gerar e ajustar) só afirma
-  fatos do dossiê; o base vira só estrutura. Painel: bloco "Pesquisa" na Conferência. Zoom da capa nos hubs (`Capa.tsx`, 2026-10-31): círculo a 8 px do topo e nome a 8 px da base (`montar._folga_do_nome` mede a altura do nome na capa), mesmo zoom em todos os capítulos.
-  Roteiro base colado (transcrição do YT) passa por `conferencia.limpar_base` (tira tempos/[Música], junta linhas);
-  `frases()` corta texto sem pontuação em trechos de ~20 palavras.
-  Encerramento fixo: ao aprovar o vídeo, `publicacao.com_encerramento` junta o último final + `<dados do canal>/encerramento/encerramento.mp4`
-  (Runeterra: Runeterra/dados/encerramento/) → `saida/final_vN_publicar.mp4` (só o encerramento é recodificado; final intacto).
-  Depois da gravação aprovada, "novo rascunho" no storyboard gera um VÍDEO FINAL novo (voz real), não rascunho com voz guia.
-- GIF animado ✅: `app/video/src/componentes/Figura.tsx` (`@remotion/gif`); montagem mantém .gif animado.
-- Card no quadro mostra "Aguardando você: <pendência aberta mais recente>" (`/api/quadro` → `aguardando`), exceto enquanto o motor trabalha nele ou ele está na fila (aí mostra "Na fila (Nº): <tarefa>", `/api/motor` → `fila`).
-- Celular pelo Wi-Fi (2026-11-01): servidores em `--host 0.0.0.0` (os .bat); acesso em `http://<IP do PC>:8765`. O painel não tem senha: quem estiver na mesma rede pode mexer nele.
-- **Explicando F1 (2026-11-01, em construção)**: `F1/` (porta 8766, `F1/Iniciar F1.bat`, fatos na Wikipedia em inglês, acervo em `Downloads\canais\catálogo F1`). Card nasce com `videos.formato` (seletor no quadro quando `canal.toml` tem `formatos`). Horizontal = fluxo do Runeterra. Vertical (`etapas.ETAPAS_VERTICAL`): roteiro → voz pronta (`/voz`, `motor.tarefa_voz_ia` padroniza e mede tempos) → animação → render → publicação; sem gravação nem capa. Animação ✅ (2026-11-02, refeita no mesmo dia: "cada vídeo é um projeto novo"): com roteiro aprovado + voz pronta, `motor.tarefa_animacao` chama `tools/direcao/vertical.py`: o Opus ESCREVE o código JavaScript de cada cena para aquele texto (API em `<docs>/api_cenas.md` = modelos da biblioteca + câmera + efeitos; cena pronta do `catalogo_vertical.md` só quando mostra exatamente a fala), citando TRECHOS → índices de palavra; o código passa pelo `tsc` (`F1/video/tsconfig.cenas.json`, arquivo temporário `src/_conferir_cenas.ts`; erros voltam ao Sonnet, 2 rodadas, o que não compila vira cena pronta) e por 1 rodada em que o Opus vê um quadro de cada cena (`F1/video/quadros.mjs`, folhas numeradas em `trabalho/conferencia_cenas/`) e refaz o que não mostra a fala. O código roda no `Vertical.tsx` via `new Function` com os nomes do bloco `// API:inicio … // API:fim`; cena que quebra cai numa cena pronta. Nada do código de um vídeo fica no projeto Remotion: só no `direcao/vertical.json` dele (versões em `vertical_versoes/`) e renderiza a composição do canal (`canal.toml [vertical]`: projeto, composição, catálogo; `--public-dir trabalho/` com voz.wav) → `saida/final_vN.mp4`, pendência `ver_final`. Painel “Animação” (`PainelAnimacao.tsx`): pedido por plano ou geral (`direcao/pedidos_vertical.json`) → “Refazer com os pedidos” (tarefa `rascunho` → `vertical.revisar`: só os planos pedidos vão completos ao Opus, os outros resumidos sem código, e só os alterados voltam; pedido geral manda todos completos), “Refazer do zero” ou “Só renderizar de novo” (sem Claude). Ponte com a internet nos pedidos (2026-11-07, `tools/direcao/anexos.py`, roda antes do diretor, que segue sem ferramentas): link de imagem no pedido é baixado (sem cota; SVG da Wikimedia pela miniatura PNG) e vai ao Opus como imagem anexa (máx. 4); "pesquise" ou link de página = 1 chamada Sonnet com WebSearch/WebFetch (`claude_cli.chamar(ferramentas=...)`), fatos com fonte entram no pedido como confirmados (cache em `direcao/pesquisas_pedidos.json`). O diretor devolve `nao_feitos` e cada pedido não feito vira aviso no painel (nunca ignorar em silêncio). Render por blocos com cache (2026-11-03, `vertical.blocos`/`renderizar` + `F1/video/render_blocos.mjs`): ~3 planos por bloco, corte decidido pelo id do plano; impressão = planos do bloco + quadros + palavras + código de `F1/video/src`; cache em `<projeto>/blocos_vertical/` (versão atual + anterior); voz entra no FFmpeg concat sem recomprimir. `enquadrar()` na API = câmera que mostra o objeto inteiro (regra na folha de estilos, aprovada v3). Briefing (2026-11-02, `tools/direcao/briefing.py`, vale para os dois canais): .txt com seções entre linhas de "=" — só a seção ROTEIRO é narrada; o resto vai para `direcao/briefing.json` (fica até chegar outro briefing; editar o roteiro não apaga). O diretor vertical recebe o briefing menos fontes e "pontos para decidir"; a conferência usa as linhas de FATOS e EVITAR como "fato do briefing" (acima da wiki; briefing com fatos novos apaga o cache da conferência). Painel: bloco "Briefing do vídeo" no Roteiro. Formato de exemplo: `Downloads\roteiro com briefing.txt` (Antonelli). F1: `F1/video/src/Vertical.tsx` = cenas do piloto com parâmetros (`TIPOS`) + sobreposições (placas, contador, chips, selo, riscado, medidor, gota, chuva); placa nova na mesma posição substitui a anterior. Modelos reaproveitáveis em `F1/video/src/modelos/` (`Carro3D`, `Vantage` = Safety Car, `mundo.tsx` = cenários 3D e ajudantes de câmera/cena, saídos do piloto publicado; `extras.ts` = piloto sem rosto com capacete/boné e tom de pele, kart, pódio, escada de categorias, mapa real de país pelo ISO com alfinete de cidade [Natural Earth 1:50m, `paises.json`], número no carro; `desmonte.ts` = explodir/isolar/raioX/cortar com peças marcadas por `peca()`, técnicas do skill Teardown [MIT] reescritas, `restaurar()` a cada quadro; `pneus/` = pneu Pirelli 2026 [`pneu.ts`: marcações da lateral extraídas das fotos oficiais em `F1/dados/modelos3d/<composto>*.jpg` para `lateral.ts`, sulcos do intermediário/chuva, roda de liga leve vazada de 10 raios em Y; usado nas rodas do carro e no pneu do estúdio]; `volante.ts` = volante genérico de 2026 sem equipe, comandos principais como peças [apertar/girar/puxar/luzesDeTroca/telaDoVolante], resto da face só aparência, nome do canal no topo da borda; `geografia.ts` = mapa do Brasil com estados/cidade [IBGE] e circuito com traçado real em metros [bacinger/f1-circuits, MIT; traçados antigos `monaco_1984` e `donington_1993` tirados das imagens da Wikimedia em `F1/dados/modelos3d/`; dados em `modelos/geo/`; altitude SRTM 30 m em `alt`], set "real", `cenario.ts` = cidade, muros, arquibancadas e boxes com `criarCircuito(nome, {cenario: true})`, `filmar` = câmera que transita em volta do carro; gráficos que interagem com a cena em `src/InfograficosDinamicos.tsx`; trilha ligada por padrão no vertical, efeitos swoosh/pop/alerta, sem som de carro; composição "Modelos" = vitrine); o código de cada vídeo não fica guardado, só os modelos. Estilo em definição: `F1/docs/folha_de_estilos.md` (a revisar pelo Felipe) e `F1/docs/analise_reels.md`, lidos com as ferramentas gratuitas do Hypit (projeto em `F1/dados/estilo`, programas em `C:\\Users\\Felipe\\hypit`, porque o `AppData` deste app estoura o limite de caminho). Cada vídeo tem um mundo próprio: nunca uma peça segurando o vídeo inteiro. Motor de produção do Hypit não usado; a montagem é com as nossas ferramentas. **O F1 tem projeto Remotion próprio em `F1/video` (package.json, Root e dependências dele: render com `npx remotion render src/index.ts <Composição> ...`, GL `angle`). Nunca importar código de canal em `app/video`, nem o contrário: os canais só compartilham o motor.**
-- **Horizontal do F1 (2026-11-06, padrão v1)**: `F1/docs/folha_horizontal.md` (Formula Addict + Documentsui, regras próprias) e `F1/video/src/horizontal/` (composição `Horizontal`, plano JSON em segundos: cenas estudio [claro/cheio/escuro/tecnico, palavra gigante atrás do carro com decodificação, anotações à mão], pista [Interlagos .glb, carro apoiado no asfalto: helicoptero/drone/lado/passagem com rastro/pov], pessoa, capitulo "PARTE 0N", solta; transições corte/empurrar/glitch/cortina/cor em `linha.tsx`; demo `DEMO_HORIZONTAL`). Diretor ✅ (`tools/direcao/horizontal.py`, `F1/docs/api_horizontal.md`, `[horizontal]` no canal.toml, modelo sonnet): roteiro em blocos de ~220 palavras com cache por conteúdo (`direcao/horizontal_blocos/`), trechos → palavras → segundos; render por blocos (`vertical.renderizar` com `composicao`/`props`, cache `blocos_horizontal/`, .glb por link na pasta pública). Card horizontal NOVO do F1 = fluxo animado (`etapas.ETAPAS_HORIZONTAL_ANIMADO`: roteiro → narração [gravação do Felipe, `limpar_gravacao` + tempos] → direção → render → publicação); motor reconhece o fluxo animado pela etapa `voz_ia` (`motor._animado`, `_diretor`); direção fica em `direcao/vertical.json` como no vertical (painel Animação serve aos dois). Card horizontal antigo continua no fluxo do Runeterra.
-- **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
-  exportação para Premiere/DaVinci (XML) e After Effects (script).
+## Estado e detalhes por área
+O histórico detalhado de cada recurso fica no arquivo da área. **Antes de mexer numa área, leia o arquivo dela**
+(só o da área: não precisa ler todos). Ao terminar um recurso, registre lá, não aqui.
+- Painel, fluxo dos cards (gravação, publicação, excluir, progresso), áudio, perfil de canal, celular → [docs/estado/sistema.md](docs/estado/sistema.md)
+- Diretor do Runeterra, storyboard, render por blocos, efeitos visuais e sonoros, aprendizado entre vídeos → [docs/estado/direcao.md](docs/estado/direcao.md)
+- Roteirista, pesquisa antes do roteiro, conferência de fatos → [docs/estado/roteiro.md](docs/estado/roteiro.md)
+- Acervo (atualizar, CLIP, etiquetas), referências analisadas, mídias da internet → [docs/estado/acervo.md](docs/estado/acervo.md)
+- **Explicando F1** (vertical, horizontal, modelos 3D, briefing, fotos de pessoas) → [F1/docs/estado_f1.md](F1/docs/estado_f1.md)
+
+Resumo: Runeterra com fluxo completo de ponta a ponta ✅ (Fases 0–3 e painel). F1 em construção: vertical ✅, horizontal
+no padrão v1 (biblioteca + diretor) e em teste de método com HyperFrames (`C:\Users\Felipe\hyperframes-teste`, isolado).
+Próximos (Runeterra): falas PT-BR de site de fã, detector de semelhança, exportação para Premiere/DaVinci (XML) e After Effects.
