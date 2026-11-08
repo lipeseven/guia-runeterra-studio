@@ -122,7 +122,9 @@ class Midias:
             ini, fim = float(inicio), float(duracao or fim)
             destino = self.pasta / f"t{tomada_id}_s{round(ini * 10)}.mp4"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", str(ini), "-to", str(fim), "-i", str(origem), "-an",
-                        "-vf", "scale=1920:-2", "-c:v", "h264_nvenc", "-cq", "20", str(destino)], check=True)
+                        "-vf", "scale=1920:-2", "-c:v", "h264_nvenc", "-cq", "20",
+                        # sem B-frames: com eles o OffthreadVideo do Remotion falha ("No frame found at position")
+                        "-bf", "0", str(destino)], check=True)
         return f"{self.slug}/{destino.name}", round(fim - ini, 3)
 
 
