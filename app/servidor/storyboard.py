@@ -616,9 +616,11 @@ def _juntar_com_a_proxima(pasta: Path, d: dict, cid: str, aj: dict) -> None:
     def imagem(x: str) -> dict:
         n, a, e = necs.get(x), d["ajustes"].get(x, {}), d["escolhas"].get(x) or {}
         idx = a.get("candidato", (e.get("escolha") or 0) - 1)
-        if not n or idx < 0 or idx >= len(n["candidatos"]) or n["candidatos"][idx]["tipo"] != "midia":
-            raise ValueError("as duas cenas precisam ter uma imagem escolhida (escolha a imagem antes de juntar)")
-        return n["candidatos"][idx]
+        if not n or idx < 0 or idx >= len(n["candidatos"]) or n["candidatos"][idx]["tipo"] not in ("midia", "tomada"):
+            raise ValueError("as duas cenas precisam ter uma imagem ou um clipe escolhido (escolha antes de juntar)")
+        cand = n["candidatos"][idx]
+        # clipe entra na tela dividida como imagem parada, no momento escolhido no storyboard (ou no meio da tomada)
+        return {**cand, "quadro_em": a.get("clipe_inicio")} if cand["tipo"] == "tomada" else cand
 
     nid = ids[prox]
     c, pc = cenas_plano[i], cenas_plano[prox]
