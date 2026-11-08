@@ -380,7 +380,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
             if peca.get("removida"):  # item tirado pelo Felipe no storyboard
                 continue
             ep = escolhido(f"{cid}p{j}")
-            if not (ep and ep["tipo"] == "midia"):
+            if not (ep and ep["tipo"] in ("midia", "tomada")):
                 continue
             # item que veio de OUTRA frase (cena juntada pelo Felipe): entra onde aquela cena começava
             pf = frases[peca["frase"]] if isinstance(peca.get("frase"), int) and peca["frase"] < len(frases) else None
@@ -389,7 +389,8 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 pi = de if peca["indice"] < 0 else max(de, int(peca["indice"]))
             if pi is None and pf is not None:
                 pi = pf["de"]
-            saida.append({"de": pi if pi is not None else de, "midia": m.imagem(ep["id"]), "foco": ep["foco"],
+            midia = m.imagem(ep["id"]) if ep["tipo"] == "midia" else m.quadro_da_tomada(ep["id"], ep.get("quadro_em"))  # clipe juntado: quadro parado
+            saida.append({"de": pi if pi is not None else de, "midia": midia, "foco": ep.get("foco"),
                           "rotulo": peca.get("rotulo") or "",
                           **({"entrada": peca["entrada"]} if peca.get("entrada") else {})})  # entrada escolhida à mão
         saida.sort(key=lambda p: p["de"])
