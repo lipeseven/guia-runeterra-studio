@@ -35,26 +35,41 @@ const comum = {
   hardwareAcceleration: "if-possible",
   overwrite: true,
   logLevel: "error",
+  // clipes (OffthreadVideo): com o paralelismo padrão e cache pequeno o Remotion às vezes falha ao achar um quadro
+  // ("No frame found at position"), cada vez num clipe diferente
+  concurrency: 4,
+  offthreadVideoCacheSizeInBytes: 2 * 1024 ** 3,
 };
 try {
   console.log("PRONTO bundle");
   for (const [i, b] of pedido.blocos.entries()) {
     const t0 = Date.now();
     let ultimo = -1;
-    await renderMedia({
-      ...comum,
-      codec: "h264",
-      muted: true,
-      frameRange: [b.inicio, b.fim],
-      outputLocation: b.saida,
-      // progresso para a barra do painel (o Python soma os quadros de todos os blocos)
-      onProgress: ({ renderedFrames }) => {
-        if (renderedFrames - ultimo >= 30 || renderedFrames === b.fim - b.inicio + 1) {
-          ultimo = renderedFrames;
-          console.log(`PROG ${i} ${renderedFrames}`);
-        }
-      },
-    });
+    // erro intermitente do Remotion ao ler clipe: refaz só este bloco, com menos paralelismo
+    for (const [tentativa, concurrency] of [4, 2, 1].entries()) {
+      try {
+        await renderMedia({
+          ...comum,
+          concurrency,
+          codec: "h264",
+          muted: true,
+          frameRange: [b.inicio, b.fim],
+          outputLocation: b.saida,
+          // progresso para a barra do painel (o Python soma os quadros de todos os blocos)
+          onProgress: ({ renderedFrames }) => {
+            if (renderedFrames - ultimo >= 30 || renderedFrames === b.fim - b.inicio + 1) {
+              ultimo = renderedFrames;
+              console.log(`PROG ${i} ${renderedFrames}`);
+            }
+          },
+        });
+        break;
+      } catch (e) {
+        if (tentativa === 2 || !String(e).includes("No frame found")) throw e;
+        console.error(`bloco ${i + 1}: Remotion não achou um quadro de clipe, refazendo com ${[4, 2, 1][tentativa + 1]} em paralelo`);
+        ultimo = -1;
+      }
+    }
     console.log(`BLOCO ${i + 1}/${pedido.blocos.length} ${b.fim - b.inicio + 1} quadros em ${((Date.now() - t0) / 1000).toFixed(0)}s`);
   }
   if (pedido.audio) {
