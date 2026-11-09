@@ -55,6 +55,15 @@ def blocos(texto: str) -> list[str]:
     return saida
 
 
+def sem_parenteses(texto: str) -> str:
+    """O Fish lê "(...)" como instrução de emoção e PULA o trecho: os parênteses viram vírgulas (o texto é narrado)."""
+    texto = re.sub(r"\s*\(\s*", ", ", texto)
+    texto = re.sub(r"\s*\)\s*", ", ", texto)
+    texto = re.sub(r",\s*([.!?;:])", r"\1", texto)  # "dela.)" → "dela."
+    texto = re.sub(r"([.!?;:])\s*,\s*", r"\1 ", texto)  # ". (A lança" → ". A lança"
+    return re.sub(r"(,\s*)+", ", ", texto).strip(" ,")
+
+
 def fish(texto: str, destino: Path) -> None:
     chave = os.environ.get("FISH_API_KEY")
     if not chave:
@@ -101,10 +110,11 @@ def gerar(roteiro: str, saida: Path, motor: str = "fish", ppm_alvo: float = PPM_
     for b in blocos(roteiro):
         tentativas = [motor] + [m for m in ("fish", "piper") if m != motor]
         for m in tentativas:
-            arq = CACHE / f"{m}_{hashlib.sha1(b.encode()).hexdigest()[:16]}.wav"
+            tb = sem_parenteses(b) if m == "fish" else b  # texto que vai ao motor (e a chave do cache)
+            arq = CACHE / f"{m}_{hashlib.sha1(tb.encode()).hexdigest()[:16]}.wav"
             try:
                 if not arq.exists():
-                    (fish if m == "fish" else piper)(b, arq)
+                    (fish if m == "fish" else piper)(tb, arq)
                 partes.append(arq)
                 usados.add(m)
                 break
