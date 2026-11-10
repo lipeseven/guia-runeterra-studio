@@ -266,6 +266,22 @@ const R_TYRE = 0.36;
 const WHALF: Record<number, number> = { 1: 0.15, [-1]: 0.19 };
 const FJ_P = V(3.39, 0, 0.38), RJ_P = V(-2.98, 0, 0.46);
 const carX = (t: number) => (t < 0 ? -6 * t * t : t > T_GO ? 4 * (t - T_GO) ** 2 : 0);
+/** Giro das rodas no vídeo (30 q/s): acima de ~V_RODA m/s a roda passa de ~25° por quadro e o desenho do pneu (PIRELLI,
+ *  P ZERO, xadrez) "serrilha": o olho lê o giro ao contrário, como marcha à ré. O sentido já é o certo (conferido em
+ *  câmera lenta); o que muda é a velocidade VISTA, que fica limitada a V_RODA. */
+const V_RODA = 4.5;
+/** Distância "rodada" pelas rodas no segundo `t` do pit stop (mesmo sinal de `carX`), com a velocidade limitada a V_RODA. */
+function rolagem(t: number) {
+  if (t < 0) {
+    const t1 = V_RODA / 12, a = -t; // chegada: v = 12·|t|
+    return -(a <= t1 ? 6 * a * a : 6 * t1 * t1 + V_RODA * (a - t1));
+  }
+  if (t > T_GO) {
+    const t2 = V_RODA / 8, u = t - T_GO; // saída: v = 8·u
+    return u <= t2 ? 4 * u * u : 4 * t2 * t2 + V_RODA * (u - t2);
+  }
+  return 0;
+}
 const jackFrente = (t: number) => (t < 0.14 ? lerp(0.6, 0.41, ss(t, 0.02, 0.14)) : t < 1.9 ? lerp(0.41, 0.2, ss(t, 0.15, 0.32)) : lerp(0.2, 0.6, ss(t, 1.9, 2.02)));
 const jackTras = (t: number) => (t < 0.28 ? lerp(0.6, 0.41, ss(t, 0.2, 0.28)) : t < 1.9 ? lerp(0.41, 0.2, ss(t, 0.28, 0.42)) : lerp(0.2, 0.6, ss(t, 1.9, 2.02)));
 function carro(t: number) {
@@ -401,7 +417,7 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
   car.position.copy(rig.position).add(O(V(C.x, 0, C.z0)));
   girarPeca(car, C.pitch, 0, 0);
   const carInv = new THREE.Matrix4().compose(O(V(C.x, 0, C.z0)), new THREE.Quaternion().setFromEuler(new THREE.Euler(C.pitch, 0, 0)), V(1, 1, 1)).invert();
-  if (C.x < 0) rolarRodas(car, C.x); // chegando: as rodas rolam com a distância e param junto com o carro
+  if (C.x < 0) rolarRodas(car, rolagem(t)); // chegando: as rodas rolam com a distância e param junto com o carro
   const wp = op.asa ?? null;
   const pontos = d.pontos;
   for (const sx of [1, -1])
@@ -427,7 +443,7 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
       if (tc >= 1.2) {
         newp = H;
         nova.visible = true;
-        nova.rotation.x = -Math.max(0, C.x) / R_TYRE;
+        nova.rotation.x = -Math.max(0, rolagem(t)) / R_TYRE;
       } else {
         const n0 = V(AX[sx] + 0.8, sy * 1.4, 0.4);
         newp = path(tc, [[0.82, n0], [1.0, V(AX[sx] + 0.3, sy * 1.12, H.z)], [1.14, H.clone().addScaledVector(o, 0.06)], [1.2, H]]);
@@ -601,10 +617,12 @@ export function noPit(rig: PitStop, nome: string): V3 {
 }
 
 /** Rodas de um carro da biblioteca rolando: `metros` = distância andada para a frente desde a parada (ex.: pista do
- *  carro que passa). Proporcional à distância: carro parado = rodas paradas. Chame a cada quadro. */
-export function rolarRodas(car: THREE.Object3D, metros: number) {
+ *  carro que passa). Proporcional à distância: carro parado = rodas paradas. Chame a cada quadro. `velocidade` (m/s, opcional):
+ *  com ela o giro visto fica limitado a V_RODA, para não "serrilhar" e parecer marcha à ré num carro rápido. */
+export function rolarRodas(car: THREE.Object3D, metros: number, velocidade = 0) {
+  const k = velocidade > V_RODA ? V_RODA / velocidade : 1;
   for (const nome of Object.values(RODAS)) {
     const r = achar(car, nome)?.children[0];
-    if (r) girarPeca(r, -metros / R_TYRE, 0, 0);
+    if (r) girarPeca(r, (-metros * k) / R_TYRE, 0, 0);
   }
 }
