@@ -93,6 +93,22 @@ export const PAPEIS: Record<string, string> = {
   asa: "#ff3d8b", liberacao: "#e53935", seguranca: "#ff8a80", apoio: "#9aa1ab",
 };
 const CINZA = new THREE.Color("#8d929a");
+type Modo = "normal" | "fantasma" | "some" | "cinza";
+// Fantasma: um material só (mesma cor e opacidade) para todos os translúcidos, sem escrever profundidade e sem sombra:
+// a mistura dá o mesmo resultado em qualquer ordem de desenho, então não pisca quando a ordem muda entre quadros.
+const FANTASMA = new THREE.MeshStandardMaterial({ color: "#e4e8ee", roughness: 0.6, transparent: true, opacity: 0.1, depthWrite: false });
+const ORIG = new WeakMap<THREE.Mesh, { mat: THREE.Material | THREE.Material[]; sombra: boolean }>();
+function fantasma(malhas: THREE.Object3D[], sim: boolean) {
+  for (const raiz of malhas)
+    raiz.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      if (!ORIG.has(m)) ORIG.set(m, { mat: m.material, sombra: m.castShadow });
+      const og = ORIG.get(m)!;
+      m.material = sim ? FANTASMA : og.mat;
+      m.castShadow = sim ? false : og.sombra;
+    });
+}
 const UNI = mat("#2b3038", 0.6), LUVA = mat("#141518", 0.6), VISOR = mat("#0d0f12", 0.08, 0.3);
 
 type Pose = { h?: number; lean?: number; maos?: [V3 | null, V3 | null]; olha?: V3 | null; anda?: [V3, number] | null; anel?: number };
@@ -109,11 +125,14 @@ class Mecanico {
   maos: THREE.Mesh[] = [];
   botas: THREE.Mesh[] = [];
   topo = V(0, 0, 0);
+  corpo: THREE.Mesh[] = [];
   constructor(public papel: string) {
     const cor = PAPEIS[papel];
     this.cor = mat(cor, 0.35);
     this.tronco = new THREE.Group();
-    this.tronco.add(caixa(-0.12, 0.12, -0.2, 0.2, 0, 0.5, UNI), caixa(-0.13, 0.13, -0.225, 0.225, 0.38, 0.5, this.cor));
+    // o tronco escuro termina DENTRO da faixa colorida do ombro: faces de cima no mesmo plano brigavam na profundidade e
+    // na sombra (a cor da faixa "piscava" de um quadro para o outro)
+    this.tronco.add(caixa(-0.12, 0.12, -0.2, 0.2, 0, 0.45, UNI), caixa(-0.13, 0.13, -0.225, 0.225, 0.38, 0.5, this.cor));
     this.pelve = caixa(-0.11, 0.11, -0.17, 0.17, -0.14, 0.05, UNI);
     this.cabeca = new THREE.Group();
     const capacete = new THREE.Mesh(ESF, this.cor);
@@ -138,6 +157,15 @@ class Mecanico {
     }
     this.g.add(this.tronco, this.pelve, this.cabeca, this.anel, ...this.membros, ...this.juntas, ...this.maos, ...this.botas);
     for (const o of [...this.tronco.children, this.pelve, ...this.membros, ...this.juntas, ...this.botas]) o.castShadow = true;
+    this.corpo = [...this.tronco.children, this.pelve, ...this.cabeca.children, ...this.membros, ...this.juntas, ...this.maos, ...this.botas] as THREE.Mesh[];
+  }
+
+  /** normal | fantasma (translúcido) | some (fora da cena) | cinza (cor da função apagada) */
+  modo(m: Modo) {
+    this.cor.color.set(m === "cinza" ? CINZA : PAPEIS[this.papel]);
+    this.g.visible = m !== "some";
+    fantasma(this.corpo, m === "fantasma");
+    if (m === "fantasma") this.anel.visible = false;
   }
 
   pose(raiz: V3, yaw: number, p: Pose = {}) {
@@ -255,7 +283,7 @@ const cubo = (M: THREE.Matrix4, sx: number, sy: number) => noCarro(M, AX[sx], sy
 export type PitStop = THREE.Group & { userData: { pontos: Record<string, V3> } };
 
 /** Equipe, macacos, pistolas, painel de luzes e os 4 pneus novos (composto). Ponha com `obj(w, "pit:...", ...)`. */
-export function criarPitStop(o: { composto?: string } = {}): PitStop {
+export function criarPitStop(o: { composto?: string; parede?: number } = {}): PitStop {
   const g = new THREE.Group() as PitStop;
   const M: Record<string, Mecanico> = {};
   const add = (nome: string, papel: string) => {
@@ -286,10 +314,29 @@ export function criarPitStop(o: { composto?: string } = {}): PitStop {
   const chaves: Record<number, THREE.Mesh> = { 1: new THREE.Mesh(CIL, METAL), [-1]: new THREE.Mesh(CIL, METAL) };
   const controle = caixa(-0.06, 0.06, -0.1, 0.1, -0.03, 0.03, ESCURO);
   g.add(chaves[1], chaves[-1], controle);
-  // painel de luzes do box, em frente ao bico, virado para o piloto
+  // painel de luzes do box: pendurado em cima, à frente do bico e virado para o piloto, num braço preso à parede do box
+  // (set `pit`: fachada das garagens em x = 12,45 m, a da garagem em frente ao carro vai de z = -1,5 a 13,5). Nada no chão:
+  // o carro sai por baixo. O braço não conta no `enquadrar` (foraDoEnquadro).
   const painel = new THREE.Group();
-  const poste = new THREE.Mesh(CIL, ESCURO);
-  segmento(poste, V(4.3, 0.1, 0), V(4.3, 0.1, 3.05), 0.05);
+  const suporte = new THREE.Group();
+  const viga = (a: THREE.Vector3, b: THREE.Vector3, r: number) => {
+    const m = new THREE.Mesh(CIL, ESCURO);
+    const d = b.clone().sub(a);
+    m.position.copy(a);
+    m.quaternion.setFromUnitVectors(cima, d.clone().normalize());
+    m.scale.set(r, d.length(), r);
+    m.userData.foraDoEnquadro = true;
+    suporte.add(m);
+  };
+  const ALTO = 4.3, PAREDE = o.parede ?? 12.45, XL = 0.1, ZL = bz(4.27), ZB = -0.9;
+  viga(V(XL, 3.04, ZL), V(XL, ALTO, ZL), 0.03); // haste que segura a caixa das luzes
+  viga(V(XL, ALTO, ZL - 0.05), V(XL, ALTO, ZB), 0.06); // braço para trás, até a viga principal
+  viga(V(XL - 0.06, ALTO, ZB), V(PAREDE, ALTO, ZB), 0.07); // viga principal, saindo da parede do box
+  viga(V(PAREDE, ALTO - 1.6, ZB), V(PAREDE - 2.4, ALTO, ZB), 0.045); // mão-francesa
+  const chapa = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.1, 0.5), ESCURO);
+  chapa.position.set(PAREDE - 0.03, ALTO - 0.75, ZB);
+  chapa.userData.foraDoEnquadro = true;
+  suporte.add(chapa);
   const placa = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.62, 0.04), ESCURO);
   placa.position.copy(O(V(4.27, 0.1, 2.75)));
   const luz = (r: number, p: V3) => {
@@ -302,10 +349,10 @@ export function criarPitStop(o: { composto?: string } = {}): PitStop {
   const luzRoda: Record<string, THREE.Mesh> = {};
   const pos: Record<string, [number, number]> = { "1,1": [0.18, 2.9], "1,-1": [0.02, 2.9], "-1,1": [0.18, 2.77], "-1,-1": [0.02, 2.77] };
   for (const [k, [py, pz]] of Object.entries(pos)) luzRoda[k] = luz(0.04, V(4.245, py, pz));
-  painel.add(poste, placa);
-  g.add(painel);
+  painel.add(placa);
+  g.add(painel, suporte);
   g.userData = { pontos: {} };
-  Object.assign(g.userData, { M, novas, pistolas, jf, jt, chaves, controle, luzMain, luzRoda });
+  Object.assign(g.userData, { M, novas, pistolas, jf, jt, chaves, controle, luzMain, luzRoda, painel, suporte });
   return g;
 }
 
@@ -314,7 +361,8 @@ const NOMES_EIXO: Record<number, string> = { 1: "d", [-1]: "t" };
 const NOMES_LADO: Record<number, string> = { 1: "dir", [-1]: "esq" };
 
 export type OpcoesPit = {
-  foco?: string[]; // funções em destaque: as outras ficam cinza (closes por função)
+  foco?: string[]; // funções em destaque: as outras ficam translúcidas (ou como `outros` mandar)
+  outros?: "translucido" | "some" | "cinza"; // o que acontece com quem não está no foco (padrão: translúcido)
   aneis?: number | Record<string, number>; // anel no chão por função (0 a 1; número = todas)
   asa?: number | null; // ajuste opcional da asa dianteira (0 a 1 ao longo do ajuste); sem = não ajusta
 };
@@ -325,11 +373,24 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
   const d = rig.userData as unknown as {
     M: Record<string, Mecanico>; novas: Record<string, THREE.Group>; pistolas: Record<string, THREE.Group>; jf: Macaco; jt: Macaco;
     chaves: Record<number, THREE.Mesh>; controle: THREE.Mesh; luzMain: THREE.Mesh; luzRoda: Record<string, THREE.Mesh>; pontos: Record<string, V3>;
+    painel: THREE.Group; suporte: THREE.Group;
   };
   const M = d.M;
   const anelDe = (papel: string) => (typeof op.aneis === "number" ? op.aneis : op.aneis?.[papel] ?? 0);
   const foco = op.foco && op.foco.length ? new Set(op.foco) : null;
-  for (const m of Object.values(M)) m.cor.color.set(foco && !foco.has(m.papel) ? CINZA : PAPEIS[m.papel]);
+  const fora: Modo = op.outros === "some" ? "some" : op.outros === "cinza" ? "cinza" : "fantasma";
+  const modoDe = (papel: string): Modo => (foco && !foco.has(papel) ? fora : "normal");
+  for (const m of Object.values(M)) m.modo(modoDe(m.papel));
+  // ferramentas na mão de quem saiu do foco seguem o dono (macacos e pneus ficam: seguram o carro e as rodas)
+  const ferramenta = (objs: THREE.Object3D[], papel: string) => {
+    const md = modoDe(papel);
+    fantasma(objs, md === "fantasma");
+    for (const x of objs) x.visible = md !== "some";
+  };
+  ferramenta(Object.values(d.pistolas), "pistola");
+  ferramenta([d.controle], "liberacao");
+  // painel de luzes: só no set do box (preso à parede das garagens); no estúdio não há parede
+  d.painel.visible = d.suporte.visible = w.sets.pit.visible;
   // carro
   const C = carro(t);
   const Mc = C.M;
@@ -340,6 +401,7 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
   car.position.copy(rig.position).add(O(V(C.x, 0, C.z0)));
   girarPeca(car, C.pitch, 0, 0);
   const carInv = new THREE.Matrix4().compose(O(V(C.x, 0, C.z0)), new THREE.Quaternion().setFromEuler(new THREE.Euler(C.pitch, 0, 0)), V(1, 1, 1)).invert();
+  if (C.x < 0) rolarRodas(car, C.x); // chegando: as rodas rolam com a distância e param junto com o carro
   const wp = op.asa ?? null;
   const pontos = d.pontos;
   for (const sx of [1, -1])
@@ -356,7 +418,8 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
       if (tc >= 0.6) {
         oldp = path(tc, [[0.6, H], [0.75, H.clone().addScaledVector(o, 0.3)], [1.05, V(AX[sx] - 0.75, sy * 1.45, 0.38)], [1.5, V(AX[sx] - 1.05, sy * 1.78, R_TYRE)]]);
         const hubLocal = V(sy * HUBY[sx], R_TYRE, bz(AX[sx]));
-        if (velha) deslocar(velha, O(oldp).applyMatrix4(carInv).sub(hubLocal));
+        // quem tira saiu da cena (outros: "some"): a roda velha some do cubo em vez de flutuar sozinha
+        if (velha) deslocar(velha, O(oldp).applyMatrix4(carInv).sub(hubLocal), modoDe("tira") === "some" ? 1e-4 : 1);
       }
       // roda nova
       let newp: V3;
@@ -369,6 +432,7 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
         const n0 = V(AX[sx] + 0.8, sy * 1.4, 0.4);
         newp = path(tc, [[0.82, n0], [1.0, V(AX[sx] + 0.3, sy * 1.12, H.z)], [1.14, H.clone().addScaledVector(o, 0.06)], [1.2, H]]);
         nova.rotation.x = 0;
+        nova.visible = modoDe("poe") !== "some"; // sem quem põe, a roda nova só aparece já montada
       }
       nova.position.copy(O(newp));
       // pistola
@@ -498,7 +562,8 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
       const th = vl(rr.clone().add(V(-0.2, -sy * 0.2, 0.75)), top, ss(wp, 0.15, 0.4));
       const outra = vl(rr.clone().add(V(-0.2, sy * 0.2, 0.75)), noCarro(Mc, 2.95, sy * 0.99, 0.32), ss(wp, 0.15, 0.4));
       mw.pose(rr, Math.PI, { h: lerp(0.92, 0.55, kk), lean: lerp(0.08, 0.45, kk), maos: sy < 0 ? [th, outra] : [outra, th], olha: adj, anel: anelDe("asa") });
-      ch.visible = true;
+      ch.visible = modoDe("asa") !== "some";
+      fantasma([ch], modoDe("asa") === "fantasma");
       segmento(ch, th, th.clone().add(V(0, 0, -0.16)), 0.012);
     }
     pontos[`asa_${NOMES_LADO[sy]}`] = O(mw.topo);
@@ -515,6 +580,7 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
   pontos.liberacao = O(M.liberacao.topo);
   pontos.seguranca = O(M.seguranca.topo);
   pontos.painel = O(V(4.245, 0.1, 2.75));
+  pontos.luz = O(V(4.245, 0.1, 2.58)).add(V(0, 0, 0.03));
   pontos.carro = O(V(C.x, 0, C.z0 + 0.5));
   // painel: cada roda acende verde depois do aperto; a luz grande fica verde depois das 4
   let todas = true;
@@ -532,4 +598,13 @@ export function pitStop(w: Mundo, rig: PitStop, k: number, t: number, op: Opcoes
 export function noPit(rig: PitStop, nome: string): V3 {
   const p = rig.userData.pontos[nome] ?? rig.userData.pontos.carro ?? V(0, 0.5, 0);
   return p.clone().add(rig.position);
+}
+
+/** Rodas de um carro da biblioteca rolando: `metros` = distância andada para a frente desde a parada (ex.: pista do
+ *  carro que passa). Proporcional à distância: carro parado = rodas paradas. Chame a cada quadro. */
+export function rolarRodas(car: THREE.Object3D, metros: number) {
+  for (const nome of Object.values(RODAS)) {
+    const r = achar(car, nome)?.children[0];
+    if (r) girarPeca(r, -metros / R_TYRE, 0, 0);
+  }
 }

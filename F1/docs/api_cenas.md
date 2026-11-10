@@ -109,15 +109,19 @@ Use sempre que a fala mostrar um pit stop ou a função de um mecânico: nunca d
 `const ps = obj(c.w, "pit:1", () => criarPitStop({ composto: "macio" }))` cria a equipe de 22 (cada função com a cor
 dela em `PAPEIS`: pistola laranja, tira azul-claro, poe roxo, macaco amarelo, estabilizador verde-água, asa rosa
 [tracejado = opcional], liberacao vermelho, seguranca salmão, apoio cinza), os 2 macacos, as 4 pistolas, o painel de
-luzes em frente ao bico e os 4 pneus novos do composto. `ps.position.set(x, 0, z)` = onde o carro para (set `pit`: 0, 0).
+luzes (pendurado em cima, à frente do bico, num braço preso à parede do box do set `pit`; no estúdio ele some; nunca
+desenhe outra luz ou poste) e os 4 pneus novos do composto. `ps.position.set(x, 0, z)` = onde o carro para (set `pit`: 0, 0).
 `pitStop(c.w, ps, k, t, { foco, aneis, asa })`: põe o carro k e anima TUDO no segundo `t` do pit stop: t < 0 chegando
 (de trás, +z), 0 parado, 0,1–0,4 macacos levantam, 0,2–0,55 pistolas soltam, 0,6–1,05 pneus velhos saem, 0,82–1,2 novos
 entram, 1,28–1,5 aperto (cada luz da roda fica verde), 1,85 luz grande verde, 2,05 o carro sai. Tempo real:
-`t = c.s - 1`; câmera lenta: `t = 0.3 + c.s * 0.25`; congelado: `t` fixo. `foco: ["pistola"]` = as outras funções ficam
-cinza (close por função); `aneis: 1` (todas) ou `{ macaco: 1 }` = anel no chão na cor da função; `asa: c.k` = ajuste
+`t = c.s - 1`; câmera lenta: `t = 0.3 + c.s * 0.25`; congelado: `t` fixo. As rodas do carro rolam na chegada e na saída (parado = paradas). `foco: ["pistola"]` = as outras
+funções ficam translúcidas (close por função; quem segura a roda continua visível como fantasma); `outros: "some"` tira
+os outros da cena (a roda que eles carregariam some do cubo e a nova só aparece montada: use quando nenhuma roda se
+mexe no plano ou o close é de quem não mexe em roda); `outros: "cinza"` = o antigo cinza; `aneis: 1` (todas) ou `{ macaco: 1 }` = anel no chão na cor da função; `asa: c.k` = ajuste
 opcional da asa dianteira (sem = não ajusta). `noPit(ps, nome)` = ponto para mirar a câmera (depois de `pitStop`):
 "pistola_d_esq", "tira_t_dir", "poe_d_dir", "roda_t_esq" (d/t = dianteira/traseira, esq/dir), "macaco_d", "macaco_t",
-"estabilizador_esq", "asa_dir", "liberacao", "seguranca", "painel", "carro". Visão geral: `camera(c.w, [6, 7, 7], [0, 0.5, 0], 40)`
+"estabilizador_esq", "asa_dir", "liberacao", "seguranca", "painel", "luz" (a luz grande, para `brilho`), "carro".
+`rolarRodas(carro, metros)`: rodas de um carro que anda (ex.: `poe` no pit lane), proporcional à distância. Visão geral: `camera(c.w, [6, 7, 7], [0, 0.5, 0], 40)`
 ou de cima (`topo`); close: câmera a ~2,5 m do ponto, por FORA da equipe (x além de ±3), nunca no meio dos mecânicos.
 
 ## Volante (genérico de 2026, sem equipe)
