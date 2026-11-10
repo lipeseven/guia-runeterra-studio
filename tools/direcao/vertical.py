@@ -566,17 +566,21 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     """Efeitos pedidos pelo diretor (`som` do plano) → arquivos do catálogo do canal (busca CLAP pela descrição).
     As regras valem aqui mesmo que o diretor exagere: intervalo mínimo, teto pela duração, sem repetir o mesmo som.
     A escolha fica guardada (mesmos pedidos = mesmos sons, sem carregar o CLAP de novo)."""
-    pedidos = sorted(((palavras[min(s["i"], len(palavras) - 1)]["i"], s["o_que"]) for p in direcao["planos"]
+    pedidos = sorted(((palavras[min(s["i"], len(palavras) - 1)]["i"], s["o_que"], bool(s.get("obrigatorio"))) for p in direcao["planos"]
                       for s in ([p["som"]] if isinstance(p.get("som"), dict) else []) + (p.get("sons") or [])
                       if "i" in s and s.get("o_que")), key=lambda x: x[0])
     teto = max(1, int(palavras[-1]["f"] / SOM_POR_SEGUNDOS))
+    # "obrigatorio": pedido explícito do Felipe (a palavra dele vale mais que a regra): passa por fora do intervalo e do teto,
+    # que continuam valendo para os outros efeitos do vídeo
+    fixos = [(round(t, 3), o) for t, o, ob in pedidos if ob]
     aceitos, ultimo = [], -1e9
-    for t, o_que in pedidos:
-        if t - ultimo >= SOM_INTERVALO:
+    for t, o_que, ob in pedidos:
+        if not ob and t - ultimo >= SOM_INTERVALO:
             aceitos.append((round(t, 3), o_que))
             ultimo = t
     if len(aceitos) > teto:  # corta por igual ao longo do vídeo: cortar só o excesso do fim deixaria o final sem efeito
         aceitos = [aceitos[round(k * (len(aceitos) - 1) / max(1, teto - 1))] for k in range(teto)]
+    aceitos = sorted(aceitos + fixos)
     if not aceitos:
         return []
     guardado = trabalho / "sons_vertical.json"

@@ -16,7 +16,8 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
   um efeito no plano. Só com sentido na fala: whoosh em troca forte ("fast cinematic whoosh"), pop quando algo aparece ("short
   soft bubble pop"), alerta quando algo dá errado ("short clean two tone alert beep"), clique de botão ou seletor ("single
   button click", "rotary knob clicks"), bipe de rádio ("radio beep static"). Barulho de carro: nunca. Só em momento-chave, em
-  que algo muda na tela naquela palavra; a maioria dos planos fica sem efeito. O efeito bate na palavra citada e dura pouco (pop 0,3 s). Teto de 1 a cada 12 s no vídeo (o motor corta o excesso por igual). A trilha não é daqui: é ligada no painel.
+  que algo muda na tela naquela palavra; a maioria dos planos fica sem efeito. O efeito bate na palavra citada e dura pouco (pop 0,3 s). Teto de 1 a cada 12 s no vídeo (o motor corta o excesso por igual). Efeito pedido pelo Felipe: `"obrigatorio": true` no
+  som (passa por fora do teto e do intervalo; os outros continuam no teto); mantenha a marca nas revisões. A trilha não é daqui: é ligada no painel.
 - `sem_legenda`: true tira a legenda do plano (quando a frase já está em letra grande com o gráfico `frase`).
 - Gráficos informativos (campos do plano, 2D por cima da cena; UM por plano, só quando reforçam a fala):
   - `titulo`: {"texto": "RÁDIO — COMUNICAÇÃO", "sub": "COM A EQUIPE", "em": "trecho"}: só na troca de assunto.
@@ -121,7 +122,10 @@ mexe no plano ou o close é de quem não mexe em roda); `outros: "cinza"` = o an
 opcional da asa dianteira (sem = não ajusta). `noPit(ps, nome)` = ponto para mirar a câmera (depois de `pitStop`):
 "pistola_d_esq", "tira_t_dir", "poe_d_dir", "roda_t_esq" (d/t = dianteira/traseira, esq/dir), "macaco_d", "macaco_t",
 "estabilizador_esq", "asa_dir", "liberacao", "seguranca", "painel", "luz" (a luz grande, para `brilho`), "carro".
-`rolarRodas(carro, metros)`: rodas de um carro que anda (ex.: `poe` no pit lane), proporcional à distância. Visão geral: `camera(c.w, [6, 7, 7], [0, 0.5, 0], 40)`
+`rolarRodas(carro, metros, velocidade?)`: rodas de um carro que anda (ex.: `poe` no pit lane), proporcional à distância
+para a FRENTE (positivo; nunca inverta o sinal à mão: o sentido já é o certo). Carro rápido: passe a `velocidade` (m/s) para
+o giro visto ficar limitado (~4,5 m/s; acima disso o pneu "serrilha" a 30 q/s e parece marcha à ré); `pitStop` já faz isso
+na chegada e na saída. Ex.: `poe(w, 6, 7.5, 40 - 12 * c.s); rolarRodas(w.carros[6], 12 * c.s, 12)`. Visão geral: `camera(c.w, [6, 7, 7], [0, 0.5, 0], 40)`
 ou de cima (`topo`); close: câmera a ~2,5 m do ponto, por FORA da equipe (x além de ±3), nunca no meio dos mecânicos.
 
 ## Volante (genérico de 2026, sem equipe)
