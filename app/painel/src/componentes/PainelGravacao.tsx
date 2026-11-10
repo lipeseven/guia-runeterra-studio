@@ -150,20 +150,6 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
         </>
       ) : (
         <div className="flex flex-col gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {typeof etapa.dados.original === 'string' && (
-              <div>
-                <p className="mb-1 text-xs text-suave">Original</p>
-                <audio src={arquivo(etapa.dados.original)} controls className="w-full" />
-              </div>
-            )}
-            {typeof etapa.dados.audio === 'string' && (
-              <div>
-                <p className="mb-1 text-xs text-suave">Limpa (vai para o vídeo)</p>
-                <audio src={`${arquivo(etapa.dados.audio)}&v=${encodeURIComponent(etapa.atualizado_em ?? '')}`} controls className="w-full" />
-              </div>
-            )}
-          </div>
           {!!etapa.dados.arquivos_removidos && (
             <p className="text-xs text-apagado">Os áudios desta gravação foram para a Lixeira na limpeza.</p>
           )}
@@ -179,6 +165,20 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
               </ul>
             </div>
           )}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {typeof etapa.dados.original === 'string' && (
+              <div>
+                <p className="mb-1 text-xs text-suave">Original</p>
+                <audio src={arquivo(etapa.dados.original)} controls className="w-full" />
+              </div>
+            )}
+            {typeof etapa.dados.audio === 'string' && (
+              <div>
+                <p className="mb-1 text-xs text-suave">Limpa (vai para o vídeo)</p>
+                <audio src={`${arquivo(etapa.dados.audio)}&v=${encodeURIComponent(etapa.atualizado_em ?? '')}`} controls className="w-full" />
+              </div>
+            )}
+          </div>
           {typeof etapa.dados.original === 'string' && (
             <LinhaDoTempo videoId={videoId} original={etapa.dados.original} trabalhando={etapa.status === 'andamento'} aoRefazer={aoMudar} />
           )}
