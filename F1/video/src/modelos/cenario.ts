@@ -4,6 +4,7 @@
 // Nada aqui muda por quadro: tudo é fixo na criação.
 import * as THREE from "three";
 import { seed } from "./mundo";
+import { texturaLogo } from "./logo_canal";
 
 const mat = (cor: string, o: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color: cor, roughness: 0.9, flatShading: true, ...o });
 const fora = <T extends THREE.Object3D>(o: T) => {
@@ -67,7 +68,7 @@ function relevo(pts: THREE.Vector3[], altura: (x: number, z: number) => number, 
       cz += z / 3;
     }
     const n = Math.floor(seed(i + 17) * 3);
-    const c = ehCidade(cx, cz) ? rua[n] : grama[n];
+    const c = ehCidade(cx, cz) ? rua[Math.floor(seed(i + 17) * rua.length)] : grama[n];
     for (let j = 0; j < 3; j++) cores.push(c.r, c.g, c.b);
   }
   geo.setAttribute("color", new THREE.Float32BufferAttribute(cores, 3));
@@ -94,6 +95,7 @@ function janelas() {
   texJanelas = new THREE.CanvasTexture(c);
   texJanelas.wrapS = texJanelas.wrapT = THREE.RepeatWrapping;
   texJanelas.colorSpace = THREE.SRGBColorSpace;
+  texJanelas.anisotropy = 16; // janelas de longe com a câmera girando cintilavam (2026-11-12)
   return texJanelas;
 }
 
@@ -344,6 +346,7 @@ function janelasNoite() {
   texJanelasNoite = new THREE.CanvasTexture(c);
   texJanelasNoite.wrapS = texJanelasNoite.wrapT = THREE.RepeatWrapping;
   texJanelasNoite.colorSpace = THREE.SRGBColorSpace;
+  texJanelasNoite.anisotropy = 16;
   return texJanelasNoite;
 }
 
@@ -420,6 +423,84 @@ function pitLane(pts: number[][]) {
   return new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: "#5a5f69", roughness: 0.9, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
 }
 
+/** Vida de Las Vegas ao longo da pista (pedido do Felipe, 2026-11-12: "é Las Vegas!"): postes de luz dos dois lados,
+ *  palmeiras e letreiros de neon (painéis coloridos sem marca nem texto) em postes, fora dos prédios reais. De dia o
+ *  neon e as lâmpadas brilham pouco; à noite, forte. Instanciado (poucas chamadas de desenho). */
+function vidaDeVegas(pts: THREE.Vector3[], noite: boolean, ocupado: (x: number, z: number) => boolean) {
+  const g = new THREE.Group();
+  const N = pts.length;
+  const lugares = (passo: number, dist: number, fase = 0) => {
+    const r: { x: number; z: number; giro: number }[] = [];
+    for (let f = fase; f < 1; f += passo / 6201) {
+      const p = aoLado(pts, f, dist);
+      if (ocupado(p.x, p.z)) continue;
+      const i = Math.floor(f * N), a = pts[i], b = pts[(i + 4) % N];
+      r.push({ ...p, giro: Math.atan2(b.x - a.x, b.z - a.z) });
+    }
+    return r;
+  };
+  const inst = (geo: THREE.BufferGeometry, m: THREE.Material, lista: { x: number; y: number; z: number; giro?: number; e?: number; cor?: string }[]) => {
+    const im = new THREE.InstancedMesh(geo, m, Math.max(1, lista.length));
+    const o = new THREE.Object3D();
+    const c = new THREE.Color();
+    lista.forEach((q, k) => {
+      o.position.set(q.x, q.y, q.z);
+      o.rotation.set(0, q.giro ?? 0, 0);
+      o.scale.setScalar(q.e ?? 1);
+      o.updateMatrix();
+      im.setMatrixAt(k, o.matrix);
+      if (q.cor) im.setColorAt(k, c.set(q.cor));
+    });
+    im.count = lista.length;
+    im.castShadow = true;
+    return im;
+  };
+  // postes: dos dois lados, a cada ~45 m, a 11 m do eixo
+  const postes = [...lugares(45, 11), ...lugares(45, -11, 0.003)];
+  g.add(inst(new THREE.CylinderGeometry(0.18, 0.25, 11, 6), mat("#5d636e", { flatShading: false, metalness: 0.5, roughness: 0.4 }), postes.map((p) => ({ ...p, y: 5.5 }))));
+  g.add(inst(new THREE.BoxGeometry(0.9, 0.35, 2.6), new THREE.MeshStandardMaterial({ color: "#fff4d6", emissive: "#ffe2a8", emissiveIntensity: noite ? 3 : 0.9 }), postes.map((p) => ({ ...p, y: 11.1 }))));
+  // palmeiras: tronco e copa (folhas em estrela), a ~16 m do eixo
+  const palmas = [...lugares(70, 16, 0.006), ...lugares(70, -16, 0.012)];
+  g.add(inst(new THREE.CylinderGeometry(0.35, 0.55, 12, 6), mat("#8a6a45"), palmas.map((p) => ({ ...p, y: 6 }))));
+  const copa = new THREE.ConeGeometry(4.2, 2.2, 7);
+  copa.translate(0, -0.4, 0);
+  g.add(inst(copa, mat(noite ? "#2f5f3a" : "#3f9a4a"), palmas.map((p) => ({ ...p, y: 12.4 }))));
+  // letreiros de neon: painéis coloridos em dois postes, a cada ~130 m, alternando os lados
+  const neon = ["#ff2bd6", "#22e5ff", "#ffd400", "#ff5a2b", "#8a5bff", "#2bff88"];
+  const placas = [...lugares(260, 22, 0.02), ...lugares(260, -22, 0.041)].map((p, k) => ({ ...p, cor: neon[k % neon.length] }));
+  // painel sem luz própria do sol (MeshBasic): a cor da instância aparece pura, como LED/neon, de dia e de noite
+  // painel aceso visto dos dois lados; a moldura são 4 barras EM VOLTA dele (antes era uma caixa atrás/dentro do painel e
+  // as faces paralelas brigavam na profundidade: o painel piscava entre a cor e o preto, 2026-11-12)
+  g.add(inst(new THREE.BoxGeometry(14, 5, 0.3), new THREE.MeshBasicMaterial({ color: "#ffffff" }), placas.map((p) => ({ ...p, y: 15 }))));
+  const moldura = mat("#15161b");
+  for (const s of [-1, 1]) {
+    g.add(inst(new THREE.BoxGeometry(14.8, 0.4, 0.4).translate(0, s * 2.7, 0), moldura, placas.map((p) => ({ ...p, y: 15 }))));
+    g.add(inst(new THREE.BoxGeometry(0.4, 5, 0.4).translate(s * 7.2, 0, 0), moldura, placas.map((p) => ({ ...p, y: 15 }))));
+  }
+  const pes = placas.flatMap((p) => [-5, 5].map((d) => ({ x: p.x + Math.cos(p.giro) * d, y: 6.3, z: p.z - Math.sin(p.giro) * d })));
+  g.add(inst(new THREE.CylinderGeometry(0.3, 0.3, 12.6, 6), mat("#3a3f48", { flatShading: false, metalness: 0.5 }), pes));
+  return g;
+}
+
+/** Logo do canal (redondo) nas quatro faces da Sphere: calota com projeção plana, sem distorcer de frente. */
+function logoNaEsfera(r: number, cap = 0.66) {
+  const g = new THREE.Group();
+  const tex = texturaLogo();
+  // disco com fundo transparente: só o círculo do logo aparece sobre a esfera (nada dos cantos do JPEG)
+  const m = new THREE.MeshStandardMaterial({ map: tex, emissive: "#ffffff", emissiveMap: tex, emissiveIntensity: 0.85, roughness: 0.45, transparent: true, alphaTest: 0.04, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+  const geo = new THREE.SphereGeometry(r + 0.4, 64, 48, Math.PI / 2 - cap, cap * 2, Math.PI / 2 - cap, cap * 2);
+  const pos = geo.getAttribute("position"), uv = geo.getAttribute("uv");
+  const meia = (r + 0.4) * Math.sin(cap);
+  for (let i = 0; i < pos.count; i++) uv.setXY(i, 0.5 + pos.getX(i) / (2 * meia), 0.5 + pos.getY(i) / (2 * meia));
+  uv.needsUpdate = true;
+  for (let k = 0; k < 4; k++) {
+    const c = new THREE.Mesh(geo, m);
+    c.rotation.y = (k * Math.PI) / 2;
+    g.add(c);
+  }
+  return g;
+}
+
 /** Marcos de Las Vegas em volume simples, nas posições reais (OSM): a Sphere (esfera de 157 m de diâmetro e 112 m de
  *  altura), a roda-gigante High Roller (167 m) e a réplica da Torre Eiffel do Paris (165 m). Sem marcas nem telões. */
 function marcosVegas(m: CidadeReal["marcos"], noite: boolean) {
@@ -428,10 +509,14 @@ function marcosVegas(m: CidadeReal["marcos"], noite: boolean) {
   if (m.sphere) {
     const [x, n] = m.sphere.xn;
     const r = 78.5;
-    const esfera = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), mat(noite ? "#3a5fa8" : "#cfd8e6", { flatShading: false, roughness: 0.35, metalness: 0.15, ...em("#3f7fe0", 0.85) }));
+    // tela de LED escura com o logo do canal (redondo como ela) nas quatro faces (pedido do Felipe, 2026-11-12)
+    const esfera = new THREE.Mesh(new THREE.SphereGeometry(r, 48, 32), mat("#101218", { flatShading: false, roughness: 0.4, metalness: 0.2, emissive: "#0b1530", emissiveIntensity: noite ? 0.8 : 0.3 }));
     esfera.position.set(x, 112 - r, -n);
     esfera.castShadow = true;
     g.add(esfera);
+    const logo = logoNaEsfera(r);
+    logo.position.copy(esfera.position);
+    g.add(logo);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(52, 58, 8, 40), mat("#8e939c"));
     base.position.set(x, 4, -n);
     g.add(base);
@@ -557,7 +642,8 @@ export function vestirCircuito(g: THREE.Group, pts: THREE.Vector3[], comprimento
 function vestirRua(tudo: THREE.Group, pts: THREE.Vector3[], comprimento: number, o: Cenario, bordas: { fora: (i: number) => number; dentro: (i: number) => number },
   dist: (x: number, z: number) => number, dentro: (x: number, z: number) => boolean, meio: THREE.Vector3, altura: (x: number, z: number) => number) {
   const noite = o.noite ?? false;
-  const solo = noite ? ["#23262e", "#272a33", "#20232a"] : ["#d9d3c6", "#d2ccbf", "#dcd7cb"];
+  // dia: chão de cidade em asfalto, terreno e estacionamentos (o bege claro de antes parecia "deserto de neve", Felipe 2026-11-12)
+  const solo = noite ? ["#23262e", "#272a33", "#20232a"] : ["#6e6a64", "#7b746a", "#625f5b", "#86796a", "#716d68"];
   tudo.add(relevo(pts, altura, () => true, solo));
   // contornos dos prédios reais: para não pôr arquibancada dentro de um prédio
   const caixas: { b: THREE.Box2; p: number[] }[] = (o.real?.predios ?? []).map(([, p]) => {
@@ -588,6 +674,7 @@ function vestirRua(tudo: THREE.Group, pts: THREE.Vector3[], comprimento: number,
     if (o.real.agua.length) tudo.add(aguaReal(o.real.agua, noite));
     if (o.real.pit) tudo.add(pitLane(o.real.pit));
     tudo.add(marcosVegas(o.real.marcos, noite));
+    tudo.add(vidaDeVegas(pts, noite, (x, z) => emPredio(x, z, 4)));
   }
   // horizonte: grade genérica só fora da área com prédios reais
   const area = new THREE.Box2();

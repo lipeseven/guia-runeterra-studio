@@ -60,7 +60,7 @@ export const Placa: React.FC<{ texto: string; unidade?: string; inicio: number; 
   const e = entra(t, inicio, 0.25) * (1 - entra(t, ate, 0.2));
   if (e <= 0) return null;
   return (
-    <div style={{ position: "absolute", left: x, top: y, zIndex: 40, transform: `translate(-50%,-50%) scale(${0.9 + e * 0.1})`, opacity: e, filter: `blur(${(1 - e) * 6}px)`, background: "rgba(14,17,24,.84)", boxShadow: "0 10px 34px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.08)", borderRadius: 24, padding: "8px 30px 12px", fontFamily: FONTE, whiteSpace: "nowrap" }}>
+    <div style={{ position: "absolute", left: x, top: y, zIndex: 40, transform: `translate(-50%,-50%) scale(${0.9 + e * 0.1})`, opacity: e, filter: `blur(${(1 - e) * 6}px)`, background: "rgba(14,17,24,.84)", boxShadow: "0 10px 34px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.08)", borderRadius: 24, padding: "8px 30px 12px", fontFamily: FONTE, whiteSpace: "nowrap", width: "max-content", textAlign: "center" }}>
       <span style={{ color: cor, fontSize: tam, fontWeight: 800, letterSpacing: -1, textShadow: `0 0 22px ${cor}66` }}>{texto}</span>
       {unidade && <span style={{ color: cor, fontSize: tam * 0.42, fontWeight: 700, marginLeft: 10 }}>{unidade}</span>}
     </div>

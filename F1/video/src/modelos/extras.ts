@@ -108,8 +108,20 @@ export function criarPiloto(o: OpcoesPiloto = {}): THREE.Group {
   const mBota = mat("#121315", 0.6);
   const mMao = capacete ? mat("#1c1e22", 0.85) : pele;
   const g = new THREE.Group();
+  const raiz = new THREE.Group();
+  g.add(raiz);
+  // articulações (2026-11-12, boneco.ts): coluna gira no quadril (tudo do tronco para cima vai junto), pescoço leva a
+  // cabeça, pulso leva a mão, tornozelo leva a bota. Em repouso fica igual ao piloto de antes.
+  const coluna = new THREE.Group();
+  coluna.position.y = 0.92;
   const corpo = new THREE.Group();
-  g.add(corpo);
+  corpo.position.y = -0.92;
+  coluna.add(corpo);
+  raiz.add(coluna);
+  const pescoco = new THREE.Group();
+  pescoco.position.y = 1.53;
+  corpo.add(pescoco);
+  const juntas: Record<string, THREE.Object3D> = { raiz, coluna, pescoco };
 
   // tronco (perfil humano: quadril, cintura, peito, ombros), zíper, cinto, emblemas
   const perfil = [[0, 0.88], [0.15, 0.89], [0.163, 0.96], [0.148, 1.05], [0.152, 1.14], [0.18, 1.27], [0.186, 1.35], [0.16, 1.43], [0.09, 1.48], [0.062, 1.5], [0, 1.5]];
@@ -144,14 +156,21 @@ export function criarPiloto(o: OpcoesPiloto = {}): THREE.Group {
     joelho.position.y = -0.43;
     joelho.add(malha(new THREE.CapsuleGeometry(0.064, 0.34, 6, 14), mTerno, 0, -0.2, 0));
     joelho.add(malha(new THREE.BoxGeometry(0.012, 0.3, 0.045), mFaixa, lado * 0.062, -0.18, 0));
-    joelho.add(malha(new THREE.BoxGeometry(0.1, 0.09, 0.24), mBota, 0, -0.43, -0.045));
-    joelho.add(malha(new THREE.BoxGeometry(0.104, 0.02, 0.25), mat("#e7e7e7", 0.7), 0, -0.47, -0.045));
+    const tornozelo = new THREE.Group();
+    tornozelo.position.y = -0.4;
+    tornozelo.add(malha(new THREE.BoxGeometry(0.1, 0.09, 0.24), mBota, 0, -0.03, -0.045));
+    tornozelo.add(malha(new THREE.BoxGeometry(0.104, 0.02, 0.25), mat("#e7e7e7", 0.7), 0, -0.07, -0.045));
+    joelho.add(tornozelo);
     quadril.add(joelho);
     if (o.sentado) {
       quadril.rotation.x = Math.PI / 2 - 0.1;
       joelho.rotation.x = -0.25;
     }
-    corpo.add(quadril);
+    raiz.add(quadril);
+    const l = lado < 0 ? "E" : "D";
+    juntas[`quadril${l}`] = quadril;
+    juntas[`joelho${l}`] = joelho;
+    juntas[`tornozelo${l}`] = tornozelo;
   }
 
   // braços: ombro → cotovelo → mão (luva no carro, mão de fora)
@@ -167,20 +186,27 @@ export function criarPiloto(o: OpcoesPiloto = {}): THREE.Group {
     cotovelo.position.y = -0.29;
     cotovelo.add(malha(new THREE.CapsuleGeometry(0.049, 0.2, 6, 12), mTerno, 0, -0.12, 0));
     cotovelo.add(malha(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 14), mFaixa, 0, -0.235, 0));
-    const mao = malha(new THREE.SphereGeometry(0.048, 14, 10), mMao, 0, -0.3, 0);
+    const pulso = new THREE.Group();
+    pulso.position.y = -0.25;
+    const mao = malha(new THREE.SphereGeometry(0.048, 14, 10), mMao, 0, -0.05, 0);
     mao.scale.set(0.8, 1.25, 0.62);
-    cotovelo.add(mao);
+    pulso.add(mao);
+    cotovelo.add(pulso);
     ombro.add(cotovelo);
     ombro.rotation.z = lado * 0.1;
     corpo.add(ombro);
     bracos.push(ombro);
     cotovelos.push(cotovelo);
+    const l = lado < 0 ? "E" : "D";
+    juntas[`ombro${l}`] = ombro;
+    juntas[`cotovelo${l}`] = cotovelo;
+    juntas[`pulso${l}`] = pulso;
   }
 
   // pescoço e cabeça: crânio, queixo, nariz, orelhas, cabelo
-  corpo.add(malha(new THREE.CylinderGeometry(0.047, 0.052, 0.1, 14), pele, 0, 1.56, 0));
+  pescoco.add(malha(new THREE.CylinderGeometry(0.047, 0.052, 0.1, 14), pele, 0, 0.03, 0));
   const cabeca = new THREE.Group();
-  cabeca.position.set(0, 1.68, 0);
+  cabeca.position.set(0, 0.15, 0);
   const cranio = malha(new THREE.SphereGeometry(0.104, 28, 20), pele);
   cranio.scale.set(0.88, 1.14, 0.98);
   cabeca.add(cranio);
@@ -231,9 +257,9 @@ export function criarPiloto(o: OpcoesPiloto = {}): THREE.Group {
     viseira.scale.copy(casco.scale);
     cabeca.add(viseira);
   }
-  corpo.add(cabeca);
-  corpo.rotation.y = Math.PI; // modelado olhando para -z; de pé, fica de frente para +z
-  g.userData = { bracos, cotovelos, corpo };
+  pescoco.add(cabeca);
+  raiz.rotation.y = Math.PI; // modelado olhando para -z; de pé, fica de frente para +z
+  g.userData = { bracos, cotovelos, corpo: raiz, juntas }; // corpo = raiz girada (o kart a vira para -z)
   if (o.crianca) g.scale.setScalar(0.72);
   return g;
 }
@@ -410,6 +436,48 @@ export function criarMapa(iso: string, o: { tamanho?: number; cor?: string; vizi
   mar.rotation.x = -Math.PI / 2;
   g.add(mar);
   g.userData = { ponto: (lat: number, lon: number) => { const p = proj(lon, lat); return new THREE.Vector3(p.x, 0.45, -p.y); } };
+  return g;
+}
+
+const CORES_PAISES = ["#f4c95d", "#7fc97f", "#f29e74", "#c39bd3", "#86c5da", "#f7a8b8", "#b8d977", "#e8b07a", "#9ad0c2", "#f5d491", "#a8b8e8", "#d9a3c9"];
+
+/** Mapa de uma REGIÃO (Natural Earth 1:50m, domínio público): cada país com a própria cor e a fronteira desenhada,
+ *  oceano azul (pedido do Felipe, 2026-11-12: "continente como mancha cinza única não serve"). `centro` = [lat, lon],
+ *  `largura` = graus de longitude que cabem em `tamanho` metros. `cores` = cor por ISO (destaque); os outros países
+ *  pegam uma cor da paleta (fixa por país). Deitado no chão, norte para -z; `pontoNoMapa` funciona nele. */
+export function criarMapaRegiao(o: { centro: [number, number]; largura: number; tamanho?: number; cores?: Record<string, string>; mar?: string; borda?: string }): Mapa {
+  const [lat0, lon0] = o.centro;
+  const kx = Math.cos((lat0 * Math.PI) / 180);
+  const S = (o.tamanho ?? 20) / (o.largura * kx);
+  const L = o.largura * 1.25;
+  const proj = (lon: number, lat: number) => new THREE.Vector2((lon - lon0) * kx * S, (lat - lat0) * S);
+  const g = new THREE.Group() as Mapa;
+  const plano = new THREE.Group();
+  plano.rotation.x = -Math.PI / 2;
+  g.add(plano);
+  const mBorda = new THREE.LineBasicMaterial({ color: o.borda ?? "#33475e" });
+  const cores = Object.fromEntries(Object.entries(o.cores ?? {}).map(([k, v]) => [k.toUpperCase(), v]));
+  const geos: Record<string, THREE.Shape[]> = {};
+  for (const [cod, p] of Object.entries(BASE)) {
+    for (const a of p.aneis) {
+      let x0 = 999, x1 = -999, y0 = 999, y1 = -999;
+      for (const [x, y] of a) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      if (x1 - x0 > 180 || x1 < lon0 - L || x0 > lon0 + L || y1 < lat0 - L || y0 > lat0 + L) continue;
+      (geos[cod] ??= []).push(new THREE.Shape(a.map(([x, y]) => proj(x, y))));
+      const pts = a.map(([x, y]) => { const q = proj(x, y); return new THREE.Vector3(q.x, q.y, cores[cod] ? 0.205 : 0.125); });
+      plano.add(new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), mBorda));
+    }
+  }
+  for (const [cod, formas] of Object.entries(geos)) {
+    const h = [...cod].reduce((s, ch) => s * 31 + ch.charCodeAt(0), 7);
+    const cor = cores[cod] ?? CORES_PAISES[Math.abs(h) % CORES_PAISES.length];
+    plano.add(new THREE.Mesh(new THREE.ExtrudeGeometry(formas, { depth: cores[cod] ? 0.2 : 0.12, bevelEnabled: false }), mat(cor, 0.75)));
+  }
+  const mar = malha(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshStandardMaterial({ color: o.mar ?? "#2f86c9", roughness: 0.35, metalness: 0.05, emissive: o.mar ?? "#2f86c9", emissiveIntensity: 0.25 }), 0, -0.02, 0);
+  mar.rotation.x = -Math.PI / 2;
+  mar.userData.foraDoEnquadro = true;
+  g.add(mar);
+  g.userData = { ponto: (lat: number, lon: number) => { const q = proj(lon, lat); return new THREE.Vector3(q.x, 0.22, -q.y); } };
   return g;
 }
 
