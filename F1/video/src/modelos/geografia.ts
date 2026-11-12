@@ -3,13 +3,14 @@
 import * as THREE from "three";
 import BRASIL from "./geo/brasil.json";
 import CIRCUITOS from "./geo/circuitos.json";
+import LASVEGAS from "./geo/lasvegas.json";
 import PAISES from "./paises.json";
 import { carro, type Pintura } from "./Carro3D";
-import { vestirCircuito, type Cenario } from "./cenario";
+import { vestirCircuito, type Cenario, type CidadeReal } from "./cenario";
 import { aoRestaurar } from "./desmonte";
 import { obj, rotulo } from "./extras";
-import { estercar } from "./efeitos3d";
-import { camera, poe, type Mundo } from "./mundo";
+import { estercar, rolarRodas } from "./efeitos3d";
+import { afastarNevoa, camera, poe, type Mundo } from "./mundo";
 
 type Anel = [number, number][];
 const mat = (cor: string, rough = 0.6, extra: THREE.MeshStandardMaterialParameters = {}) =>
@@ -116,20 +117,54 @@ const CENARIOS: Record<string, Cenario> = {
     boxes: { f0: 0.983, f1: 1.045, dist: -42 },
     lagos: [{ f: 0.33, dist: 900, r: 420 }, { f: 0.6, dist: -1100, r: 480 }],
   },
+  // Las Vegas, anti-horário: esquerda = por dentro (boxes e Grand Prix Plaza à esquerda da reta, pit lane do OSM).
+  // Arquibancadas aproximadas (sem planta oficial): reta dos boxes por fora, em volta da Sphere e na Harmon.
+  lasvegas: {
+    rua: true,
+    arquibancadas: [
+      { f0: 0.945, f1: 1.02, coberta: true, dist: 44 }, { f0: 0.255, f1: 0.29, dist: -40 }, { f0: 0.3, f1: 0.33, dist: 42 },
+      { f0: 0.86, f1: 0.9, dist: 40 }, { f0: 0.53, f1: 0.56, dist: -38 },
+    ],
+    real: LASVEGAS as unknown as CidadeReal,
+  },
 };
+
+/** Circuitos de rua: muro colado na pista (sem caixa de brita), escape estreito. */
+const DE_RUA = new Set(["lasvegas"]);
 
 /** Nomes reais dos trechos de Interlagos (f = meio do trecho), pela numeração oficial: 1-2 S do Senna, 3 Curva do Sol,
  *  4-5 Descida do Lago, 6-7 Ferradura, 8 Laranjinha, 9 Pinheirinho, 10 Bico de Pato, 11 Mergulho, 12 Junção. */
-export const TRECHOS_INTERLAGOS = [
+export const TRECHOS_INTERLAGOS: { texto: string; f: number }[] = [
   { texto: "S DO SENNA", f: 0.09 }, { texto: "CURVA DO SOL", f: 0.146 }, { texto: "RETA OPOSTA", f: 0.24 }, { texto: "DESCIDA DO LAGO", f: 0.34 },
   { texto: "FERRADURA", f: 0.476 }, { texto: "LARANJINHA", f: 0.53 }, { texto: "PINHEIRINHO", f: 0.559 }, { texto: "BICO DE PATO", f: 0.627 },
   { texto: "MERGULHO", f: 0.675 }, { texto: "JUNÇÃO", f: 0.743 }, { texto: "SUBIDA DOS BOXES", f: 0.86 },
 ];
 
+/** Trechos reais de Las Vegas (f = meio do trecho; ruas conferidas no OpenStreetMap ao longo do traçado): reta dos boxes
+ *  (17→1), grampo da 1, Koval Lane (4→5), a volta da Sphere (5-9), Sands Avenue (9→12, curvas 10-11 rápidas), a Strip =
+ *  Las Vegas Boulevard (12→14, curva 13 de pé embaixo), 14-16 no Planet Hollywood, Harmon Avenue (16→17). */
+export const TRECHOS_LASVEGAS: { texto: string; f: number }[] = [
+  { texto: "RETA DOS BOXES", f: 0.005 }, { texto: "CURVA 1", f: 0.044 }, { texto: "KOVAL LANE", f: 0.18 }, { texto: "SPHERE", f: 0.305 },
+  { texto: "SANDS AVENUE", f: 0.44 }, { texto: "LAS VEGAS STRIP", f: 0.68 }, { texto: "PLANET HOLLYWOOD", f: 0.843 }, { texto: "HARMON AVENUE", f: 0.91 },
+];
+
+export const TRECHOS: Record<string, { texto: string; f: number }[]> = { interlagos: TRECHOS_INTERLAGOS, lasvegas: TRECHOS_LASVEGAS };
+
+/** Marcos reais de Las Vegas (centro do contorno no OpenStreetMap) para câmera e rótulos: sphere, high_roller, eiffel,
+ *  plaza (Grand Prix Plaza = prédio dos boxes), fontes (Bellagio), campanile, bellagio, venetian, palazzo, caesars, wynn,
+ *  cosmopolitan, planet_hollywood, flamingo, paris, fashion_show, treasure_island, harrahs, linq. */
+export function marcoNoCircuito(circ: THREE.Object3D, chave: string, altura = 0) {
+  const real = (CENARIOS[circ.userData.nome as string] ?? {}).real;
+  const m = real?.marcos[chave];
+  if (!m) throw new Error(`marco desconhecido: ${chave}`);
+  circ.updateMatrixWorld(true);
+  return circ.localToWorld(new THREE.Vector3(m.xn[0], altura, -m.xn[1]));
+}
+
 /** Circuito com o traçado real, em metros (Interlagos: 4,309 km), sentido da corrida = sentido dos pontos (f 0 = linha
  *  de chegada, f 1 = volta completa). Asfalto, linhas brancas, zebras nas curvas fortes, linha de chegada quadriculada,
  *  grama em volta. `rotulos`: [{texto, f}] marcando trechos (ex.: S do Senna). */
-export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulos?: { texto: string; f: number }[]; cenario?: boolean } = {}) {
+export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulos?: { texto: string; f: number }[]; cenario?: boolean; noite?: boolean } = {}) {
   const dados = (CIRCUITOS as unknown as Record<string, { pontos: [number, number][]; comprimento: number }>)[nome];
   if (!dados) throw new Error(`circuito desconhecido: ${nome}`);
   const lon0 = dados.pontos.reduce((s, p) => s + p[0], 0) / dados.pontos.length;
@@ -197,10 +232,14 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   });
   const asfalto = new THREE.Color("#4a4f59");
   // área de escape clara em volta do asfalto: deixa o traçado legível visto do alto (a pista sozinha some a 1 km)
+  const rua = DE_RUA.has(nome);
   let bordas = { fora: (_: number) => larg, dentro: (_: number) => larg };
-  const fatorEscape = o.cenario ? 0.95 : 1.6;
-  const escape = faixa(-larg * fatorEscape, larg * fatorEscape, 0.012, () => new THREE.Color(o.cenario ? "#9aa0a6" : "#c9ccd2"), 1);
-  if (o.cenario) {
+  const fatorEscape = rua && o.cenario ? 0.62 : o.cenario ? 0.95 : 1.6;
+  const escape = faixa(-larg * fatorEscape, larg * fatorEscape, 0.012, () => new THREE.Color(rua && o.cenario ? (o.noite ? "#3b3f48" : "#b3b6bb") : o.cenario ? "#9aa0a6" : "#c9ccd2"), 1);
+  if (o.cenario && rua) {
+    // rua: muro de concreto logo depois do escape estreito (o muro fica a bordas + 3 m do centro)
+    bordas = { fora: () => larg * fatorEscape - 3 + 0.6, dentro: () => larg * fatorEscape - 3 + 0.6 };
+  } else if (o.cenario) {
     // areia e terra por fora das curvas: a largura segue a curvatura suavizada, como nas fotos aéreas
     const K = 36;
     const suavizada = curvatura.map((_, i) => {
@@ -219,6 +258,12 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
     g.add(faixa(larg * 0.9, fora, 0.006, () => areia, 0.5), faixa((i) => -dentro(i), -larg * 0.9, 0.006, () => areia, 0.5));
     g.add(faixa(larg * 0.9, (i) => fora(i) * 0.72, 0.009, (i) => (fora(i) > larg * 2 ? terra : null), 0.7),
       faixa((i) => -dentro(i) * 0.72, -larg * 0.9, 0.009, (i) => (dentro(i) > larg * 2 ? terra : null), 0.7));
+  }
+  if (rua && o.cenario && o.noite) {
+    // à noite a rua iluminada desenha o traçado: a faixa junto ao muro acende como a luz dos postes
+    const m = escape.material as THREE.MeshStandardMaterial;
+    m.emissive.set("#ffcf8a");
+    m.emissiveIntensity = 0.75;
   }
   g.add(escape);
   const pista = faixa(-larg / 2, larg / 2, 0.02, () => asfalto, 2);
@@ -251,8 +296,9 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   }
   const info: InfoCircuito = { pontos, comprimento: comp, curvatura, pista, escape, total: (pista.geometry.index?.count ?? 0), faixas };
   g.userData.circuito = info;
+  g.userData.nome = nome;
   g.userData.curvas = (dados as { curvas?: { n: number; f: number }[] }).curvas ?? []; // numerarCurvas: as curvas DESTE circuito
-  if (o.cenario) vestirCircuito(g, pontos, comp, CENARIOS[nome] ?? { arquibancadas: [] }, bordas);
+  if (o.cenario) vestirCircuito(g, pontos, comp, { ...(CENARIOS[nome] ?? { arquibancadas: [] }), noite: o.noite }, bordas);
   aoRestaurar(() => {
     for (const m of faixas) m.geometry.setDrawRange(0, m.geometry.index?.count ?? 0);
   });
@@ -264,39 +310,52 @@ const infoDe = (c: THREE.Object3D) => c.userData.circuito as InfoCircuito;
 /** Posição e giro do carro na volta (f 0 a 1) e o esterço das rodas: poe(w, k, q.x, q.z, q.giro); estercar(carro, q.esterco).
  *  `lado` desloca do centro da pista (metros; positivo = à esquerda). */
 export function noCircuito(circ: THREE.Object3D, f: number, lado = 0) {
-  const { pontos, curvatura } = infoDe(circ);
+  const info = infoDe(circ);
+  const { pontos, curvatura } = info;
   const N = pontos.length;
   const u = (((f % 1) + 1) % 1) * N;
   const i = Math.floor(u), a = pontos[i], b = pontos[(i + 1) % N];
   const p = a.clone().lerp(b, u - i);
-  // direção e esterço em janela de ~20 m: sem isso o carro treme nos pontos do traçado
+  // direção em janela de ~30 m: sem isso o carro treme nos pontos do traçado
   const t = pontos[(i + 4) % N].clone().sub(pontos[(i - 4 + N) % N]).normalize();
+  // esterço: curvatura média em ~28 m, um pouco À FRENTE do carro (as rodas viram antes de a traseira entrar na curva);
+  // Ackermann (entre-eixos 3,4 m) e curva de visibilidade: curva lenta ~20-25°, rápida 5-10°, reta 0 (sem tremer)
+  const passo = info.comprimento / N;
+  const W = Math.max(2, Math.round(14 / passo)), A = Math.round(4 / passo);
   let cv = 0;
-  for (let d = -6; d <= 6; d++) cv += curvatura[(i + d + N) % N] / 13;
+  for (let d = -W; d <= W; d++) cv += curvatura[(i + A + d + N) % N] / (2 * W + 1);
+  const ack = Math.atan(3.4 * cv);
+  const esterco = Math.sign(ack) * 0.45 * (1 - Math.exp(-Math.max(0, Math.abs(ack) - 0.0025) / 0.05));
   p.x += -t.z * lado;
   p.z += t.x * lado;
   circ.updateMatrixWorld(true);
   const w = circ.localToWorld(p);
-  return { x: w.x, z: w.z, giro: Math.atan2(-t.x, -t.z), esterco: Math.max(-0.5, Math.min(0.5, Math.atan(3.4 * cv))) };
+  return { x: w.x, z: w.z, giro: Math.atan2(-t.x, -t.z), esterco };
 }
 
-/** Carro na volta do circuito, com esterço. `escala` > 1 só para vista de longe (senão o carro some). */
-export function poeNoCircuito(w: Mundo, k: number, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number } = {}) {
+/** Distância (m) que a fração f da volta representa: para `rolarRodas` de um carro na volta. */
+const metrosNaVolta = (circ: THREE.Object3D, f: number) => f * infoDe(circ).comprimento;
+
+/** Carro na volta do circuito: esterço das dianteiras E as 4 rodas rolando com a distância (f a f). `v` = velocidade real
+ *  em m/s (só para limitar o giro visto; padrão 80). `escala` > 1 só para vista de longe (senão o carro some). */
+export function poeNoCircuito(w: Mundo, k: number, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number } = {}) {
   const q = noCircuito(circ, f, o.lado ?? 0);
   poe(w, k, q.x, q.z, q.giro);
   w.carros[k].scale.setScalar(o.escala ?? 1);
   estercar(w.carros[k], q.esterco);
+  rolarRodas(w.carros[k], metrosNaVolta(circ, f), o.v ?? 80);
   return q;
 }
 
 /** Carro com pintura própria na volta (ex.: as cores de um carro antigo). A chave guarda o modelo. */
-export function poePinturaNoCircuito(w: Mundo, chave: string, pintura: Pintura, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number } = {}) {
+export function poePinturaNoCircuito(w: Mundo, chave: string, pintura: Pintura, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number } = {}) {
   const c = obj(w, `carro:${chave}`, () => carro(pintura));
   const q = noCircuito(circ, f, o.lado ?? 0);
   c.position.set(q.x, 0, q.z);
   c.rotation.y = q.giro;
   c.scale.setScalar(o.escala ?? 1);
   estercar(c, q.esterco);
+  rolarRodas(c, metrosNaVolta(circ, f), o.v ?? 80);
   return q;
 }
 
@@ -364,7 +423,8 @@ export function filmar(w: Mundo, circ: THREE.Object3D, f: number, u: number, lis
 
 /** Vários carros andando na volta. `v` em frações de volta por segundo. */
 export function transito(w: Mundo, circ: THREE.Object3D, t: number, ks: number[], o: { v?: number; escala?: number; ini?: number } = {}) {
-  ks.forEach((k, i) => poeNoCircuito(w, k, circ, (o.ini ?? 0) + i / ks.length + t * (o.v ?? 0.014), { escala: o.escala ?? 3, lado: i % 2 ? 2 : -2 }));
+  const vm = (o.v ?? 0.014) * infoDe(circ).comprimento;
+  ks.forEach((k, i) => poeNoCircuito(w, k, circ, (o.ini ?? 0) + i / ks.length + t * (o.v ?? 0.014), { escala: o.escala ?? 3, lado: i % 2 ? 2 : -2, v: vm }));
 }
 
 /** Câmera panorâmica: a pista inteira em diagonal, como de um helicóptero. `az` = azimute em radianos, `alto` = 0 (rasante) a 1 (de cima). */
@@ -374,12 +434,14 @@ export function panorama(w: Mundo, circ: THREE.Object3D, az = 0.3, alto = 0.55, 
   const d = (caixa.getSize(new THREE.Vector3()).length() * 0.5 * folga) / Math.tan((lente * Math.PI) / 360) / (1080 / 1920);
   const h = Math.sin((alto * Math.PI) / 2), l = Math.cos((alto * Math.PI) / 2);
   camera(w, [c.x + Math.sin(az) * l * d, h * d, c.z + Math.cos(az) * l * d], [c.x, 0, c.z], lente);
+  afastarNevoa(w, d);
 }
 
 /** Nomes dos trechos reais em cima do circuito, entrando um a um com k (vista de longe). */
 export function nomearTrechos(w: Mundo, circ: THREE.Object3D, k = 1, o: { tam?: number; altura?: number } = {}) {
-  TRECHOS_INTERLAGOS.forEach((n, i) => {
-    if (k * TRECHOS_INTERLAGOS.length <= i) return;
+  const lista = TRECHOS[circ.userData.nome as string] ?? TRECHOS_INTERLAGOS;
+  lista.forEach((n, i) => {
+    if (k * lista.length <= i) return;
     const s = obj(w, `nome:${circ.uuid}:${n.texto}`, () => rotulo(n.texto, { altura: o.tam ?? 44 }));
     s.position.copy(pontoNoCircuito(circ, n.f, o.altura ?? 45));
   });

@@ -13,7 +13,7 @@ import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
 import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "./modelos/desmonte";
 import { ligar } from "./modelos/ligacoes";
 import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "./modelos/pitstop";
-import { filmar, nomearTrechos, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "./modelos/geografia";
+import { filmar, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "./modelos/geografia";
 import { aura, brilho, criarCurva, destacar, estercar, naCurva } from "./modelos/efeitos3d";
 import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
 import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
@@ -398,7 +398,7 @@ export const API = {
   THREE, camera, enquadrar, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
   luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
-  explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, estercar, embaralhar, criarMapaBrasil, areaNoMapa, criarCircuito, noCircuito, pontoNoCircuito, revelarCircuito, poeNoCircuito, poePinturaNoCircuito, perseguir, filmar, panorama, transito, nomearTrechos, destacarTrecho, numerarCurvas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
+  explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, estercar, embaralhar, criarMapaBrasil, areaNoMapa, criarCircuito, noCircuito, pontoNoCircuito, revelarCircuito, poeNoCircuito, poePinturaNoCircuito, perseguir, filmar, panorama, transito, nomearTrechos, marcoNoCircuito, destacarTrecho, numerarCurvas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
   criarPitStop, pitStop, noPit, PAPEIS, rolarRodas,
 };
 // API:fim

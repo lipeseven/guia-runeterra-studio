@@ -8,12 +8,14 @@ import CIRCUITOS from "./modelos/geo/circuitos.json";
 const COR = { fundo: "rgba(9,19,38,.86)", borda: "rgba(46,196,182,.55)", destaque: "#2ec4b6", texto: "#ffffff", suave: "#8fa4bf", alerta: "#ff5a4e", ouro: "#ffc93a", subiu: "#2ee59d" };
 const PAINEL: CSSProperties = { borderRadius: 30, background: COR.fundo, border: `2px solid ${COR.borda}`, fontFamily: FONTE, boxShadow: "0 18px 60px rgba(0,0,0,.45)" };
 
-const interlagos = (CIRCUITOS as unknown as Record<string, { pontos: [number, number][]; alt?: number[] }>).interlagos;
+const TODOS = CIRCUITOS as unknown as Record<string, { pontos: [number, number][]; alt?: number[] }>;
+const interlagos = TODOS.interlagos;
 
-/** Traçado num quadrado de `lado` px, norte para cima. */
-function tracado2D(lado: number) {
-  const pts = interlagos.pontos.slice(0, -1);
-  const kx = Math.cos((-23.7 * Math.PI) / 180);
+/** Traçado num quadrado de `lado` px, norte para cima. `nome` = chave do circuito (padrão: Interlagos). */
+function tracado2D(lado: number, nome = "interlagos") {
+  const pts = (TODOS[nome] ?? interlagos).pontos.slice(0, -1);
+  const lat = pts.reduce((s, p) => s + p[1], 0) / pts.length;
+  const kx = Math.cos((lat * Math.PI) / 180);
   const xs = pts.map((p) => p[0] * kx), ys = pts.map((p) => -p[1]);
   const x0 = Math.min(...xs), y0 = Math.min(...ys);
   const e = (lado - 28) / Math.max(Math.max(...xs) - x0, Math.max(...ys) - y0);
@@ -116,7 +118,7 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
   if (g.tipo === "minimapa") {
     // o traçado real com o trecho aceso e o ponto do carro; de/ate = fração da volta do início ao fim do plano, a mesma da cena
     const L = 230;
-    const pts = tracado2D(L);
+    const pts = tracado2D(L, g.circuito);
     const [x, y] = naVolta(pts, (g.de ?? 0) + ((g.ate ?? 0) - (g.de ?? 0)) * noPlano);
     const [ta, tb] = g.trecho ?? [g.de ?? 0, g.ate ?? 0];
     const m = Math.max(2, Math.ceil((tb - ta) * pts.length) * 2);

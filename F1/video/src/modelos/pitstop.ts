@@ -6,6 +6,7 @@
 import * as THREE from "three";
 import { roda } from "./Carro3D";
 import { achar, deslocar, girarPeca } from "./desmonte";
+import { rolarRodas, V_RODA } from "./efeitos3d";
 import type { Mundo } from "./mundo";
 
 type V3 = THREE.Vector3;
@@ -266,10 +267,7 @@ const R_TYRE = 0.36;
 const WHALF: Record<number, number> = { 1: 0.15, [-1]: 0.19 };
 const FJ_P = V(3.39, 0, 0.38), RJ_P = V(-2.98, 0, 0.46);
 const carX = (t: number) => (t < 0 ? -6 * t * t : t > T_GO ? 4 * (t - T_GO) ** 2 : 0);
-/** Giro das rodas no vídeo (30 q/s): acima de ~V_RODA m/s a roda passa de ~25° por quadro e o desenho do pneu (PIRELLI,
- *  P ZERO, xadrez) "serrilha": o olho lê o giro ao contrário, como marcha à ré. O sentido já é o certo (conferido em
- *  câmera lenta); o que muda é a velocidade VISTA, que fica limitada a V_RODA. */
-const V_RODA = 4.5;
+// Giro das rodas: V_RODA (velocidade VISTA máxima, contra o serrilhado dos raios e do PIRELLI) mora em efeitos3d.ts.
 /** Distância "rodada" pelas rodas no segundo `t` do pit stop (mesmo sinal de `carX`), com a velocidade limitada a V_RODA. */
 function rolagem(t: number) {
   if (t < 0) {
@@ -616,13 +614,5 @@ export function noPit(rig: PitStop, nome: string): V3 {
   return p.clone().add(rig.position);
 }
 
-/** Rodas de um carro da biblioteca rolando: `metros` = distância andada para a frente desde a parada (ex.: pista do
- *  carro que passa). Proporcional à distância: carro parado = rodas paradas. Chame a cada quadro. `velocidade` (m/s, opcional):
- *  com ela o giro visto fica limitado a V_RODA, para não "serrilhar" e parecer marcha à ré num carro rápido. */
-export function rolarRodas(car: THREE.Object3D, metros: number, velocidade = 0) {
-  const k = velocidade > V_RODA ? V_RODA / velocidade : 1;
-  for (const nome of Object.values(RODAS)) {
-    const r = achar(car, nome)?.children[0];
-    if (r) girarPeca(r, (-metros * k) / R_TYRE, 0, 0);
-  }
-}
+/** Rodas rolando: a função mora em efeitos3d.ts (vale para todo carro, inclusive poeNoCircuito); fica exportada aqui também. */
+export { rolarRodas };
