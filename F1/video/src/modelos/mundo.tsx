@@ -435,7 +435,16 @@ export const enquadrar = (w: Mundo, alvo: THREE.Object3D | THREE.Object3D[], de:
   }
   const pos = centro.clone().addScaledVector(dir, d);
   camera(w, [pos.x, pos.y, pos.z], [centro.x, centro.y, centro.z], lente, 0, Math.abs(dir.y) > 0.97);
+  if ((Array.isArray(alvo) ? alvo : [alvo]).some((o) => o.userData.circuito)) afastarNevoa(w, d);
   return d;
+};
+/** Circuito grande visto de longe (Las Vegas: 2 km de ponta a ponta, câmera a mais de 3 km): a névoa recua com a câmera
+ *  para o traçado não sumir no branco. Até 3,2 km nada muda (Interlagos fica como estava). */
+export const afastarNevoa = (w: Mundo, d: number) => {
+  if (d <= 3200) return;
+  const nv = w.cena.fog as THREE.Fog;
+  nv.near = Math.max(nv.near, d * 1.05);
+  nv.far = Math.max(nv.far, d * 2.4);
 };
 export const poe = (w: Mundo, k: number, x: number, z: number, giro = 0) => {
   const c = w.carros[k];

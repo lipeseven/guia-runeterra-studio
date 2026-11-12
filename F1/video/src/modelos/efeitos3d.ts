@@ -2,7 +2,7 @@
 // de frenagem andando de um eixo ao outro), aura elétrica em volta do carro (Boost) e a curva de pista para o carro
 // fazer de verdade (entrada, meio e saída). Tudo é refeito a cada quadro.
 import * as THREE from "three";
-import { achar, deslocar, girarPeca } from "./desmonte";
+import { achar, deslocar, girarPeca, girarPecaEixo } from "./desmonte";
 import { obj, rotulo } from "./extras";
 import type { Mundo } from "./mundo";
 
@@ -108,10 +108,30 @@ export function naCurva(curva: THREE.Object3D, f: number) {
   return { x: p.x, z: p.z, giro: Math.atan2(-dir.x, -dir.z), esterco: Math.atan(3.4 / raio) };
 }
 
-/** Vira as rodas dianteiras do carro (radianos; positivo = para a esquerda), só neste quadro: na curva use naCurva(...).esterco. */
+/** Vira as rodas dianteiras do carro (radianos; positivo = para a esquerda), só neste quadro: na curva use naCurva(...).esterco.
+ *  Mexe só no eixo do esterço: a rolagem (rolarRodas) continua, em qualquer ordem de chamada. */
 export function estercar(carro: THREE.Object3D, angulo: number) {
   for (const nome of ["roda_dianteira_esquerda", "roda_dianteira_direita"]) {
     const roda = achar(carro, nome)?.children[0];
-    if (roda) girarPeca(roda, 0, Math.max(-0.6, Math.min(0.6, angulo)), 0);
+    if (roda) girarPecaEixo(roda, "y", Math.max(-0.6, Math.min(0.6, angulo)));
+  }
+}
+
+/** Giro das rodas no vídeo (30 q/s): a roda de liga tem 10 raios (um a cada 36°). Acima de ~V_RODA m/s a roda passa de
+ *  ~13° por quadro e o desenho (raios, PIRELLI, xadrez) "serrilha": os raios parecem parados ou girando para trás enquanto
+ *  a borracha anda (calota "solta" do pneu), ou tudo lê como marcha à ré. O sentido já é o certo; o que muda é a velocidade
+ *  VISTA, limitada a V_RODA (13,3° por quadro = 37% do passo dos raios: pneu, aro e calota giram juntos, para a frente). */
+export const V_RODA = 2.5;
+const R_RODA = 0.36;
+const NOMES_RODAS = ["roda_dianteira_esquerda", "roda_dianteira_direita", "roda_traseira_esquerda", "roda_traseira_direita"];
+
+/** As 4 rodas de um carro da biblioteca rolando (pneu, aro e calota como uma peça só): `metros` = distância andada para a
+ *  frente (proporcional: carro parado = rodas paradas). `velocidade` (m/s, opcional): com ela o giro visto fica limitado a
+ *  V_RODA. Mexe só no eixo da rolagem: o esterço das dianteiras continua. Chame a cada quadro. */
+export function rolarRodas(car: THREE.Object3D, metros: number, velocidade = 0) {
+  const k = velocidade > V_RODA ? V_RODA / velocidade : 1;
+  for (const nome of NOMES_RODAS) {
+    const r = achar(car, nome)?.children[0];
+    if (r) girarPecaEixo(r, "x", (-metros * k) / R_RODA);
   }
 }

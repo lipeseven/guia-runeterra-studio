@@ -48,6 +48,14 @@ export function girarPeca(o: THREE.Object3D, x: number, y: number, z: number) {
   mexidos.add(o);
 }
 
+/** Gira a peça num eixo só neste quadro, mantendo o que outro comando já pôs nos outros eixos (a roda dianteira rola
+ *  em x e esterça em y: `rolarRodas` e `estercar` em qualquer ordem, sem um apagar o outro). */
+export function girarPecaEixo(o: THREE.Object3D, eixo: "x" | "y" | "z", ang: number) {
+  if (!rot0.has(o)) rot0.set(o, o.rotation.clone());
+  o.rotation[eixo] = rot0.get(o)![eixo] + ang;
+  mexidos.add(o);
+}
+
 /** A peça com esse nome (ou null). */
 export const achar = (modelo: THREE.Object3D, nome: string) => {
   let r: THREE.Object3D | null = null;

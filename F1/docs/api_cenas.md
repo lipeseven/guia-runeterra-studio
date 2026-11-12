@@ -34,7 +34,7 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
     `palavra` {texto: "HISTÓRIA", em}: palavra grande no corte rápido de uma lista falada (um plano por item).
     `ano` {de: 2026, valor: 1973, texto, em, ate_em}: o ano rola até o valor falado.
     `linhatempo` {marcos: [{rotulo: "1974", nome: "EMERSON FITTIPALDI", cor, em}, ...]}: linha que avança, marco atual em destaque.
-    `minimapa` {de, ate, trecho: [a, b], texto}: traçado real de Interlagos no canto, trecho aceso e ponto do carro. `de`/`ate` = as MESMAS frações da volta que o carro percorre no plano (`f = de + (ate - de) * c.k`).
+    `minimapa` {de, ate, trecho: [a, b], texto, circuito}: traçado real no canto (norte para cima), trecho aceso e ponto do carro. `circuito`: "interlagos" (padrão) ou "lasvegas". `de`/`ate` = as MESMAS frações da volta que o carro percorre no plano (`f = de + (ate - de) * c.k`).
     `perfil` {de, ate, texto}: altitude real da volta de Interlagos, com o ponto andando.
     `torre` {n: 6, de: 1, ate: 4, texto, em}: torre de posições sem nomes; a linha acesa cai (vermelha) ou sobe (verde) e troca de lugar com as outras.
     `relogio` {texto: "SEXTA", horas: [{h: 12, m: 30, texto: "TREINO LIVRE 1", em}, ...]}: ponteiros giram até cada hora falada.
@@ -122,10 +122,11 @@ mexe no plano ou o close é de quem não mexe em roda); `outros: "cinza"` = o an
 opcional da asa dianteira (sem = não ajusta). `noPit(ps, nome)` = ponto para mirar a câmera (depois de `pitStop`):
 "pistola_d_esq", "tira_t_dir", "poe_d_dir", "roda_t_esq" (d/t = dianteira/traseira, esq/dir), "macaco_d", "macaco_t",
 "estabilizador_esq", "asa_dir", "liberacao", "seguranca", "painel", "luz" (a luz grande, para `brilho`), "carro".
-`rolarRodas(carro, metros, velocidade?)`: rodas de um carro que anda (ex.: `poe` no pit lane), proporcional à distância
-para a FRENTE (positivo; nunca inverta o sinal à mão: o sentido já é o certo). Carro rápido: passe a `velocidade` (m/s) para
-o giro visto ficar limitado (~4,5 m/s; acima disso o pneu "serrilha" a 30 q/s e parece marcha à ré); `pitStop` já faz isso
-na chegada e na saída. Ex.: `poe(w, 6, 7.5, 40 - 12 * c.s); rolarRodas(w.carros[6], 12 * c.s, 12)`. Visão geral: `camera(c.w, [6, 7, 7], [0, 0.5, 0], 40)`
+`rolarRodas(carro, metros, velocidade?)`: as 4 rodas de um carro que anda (ex.: `poe` no pit lane), proporcional à distância
+para a FRENTE (positivo; nunca inverta o sinal à mão: o sentido já é o certo). Pneu, aro e calota giram como uma peça só.
+Carro rápido: passe a `velocidade` REAL (m/s) para o giro visto ficar limitado (~2,5 m/s; acima disso os 10 raios e o
+PIRELLI "serrilham" a 30 q/s: calota parada ou girando para trás, ou tudo em marcha à ré); `pitStop` já faz isso na chegada
+e na saída. Combina com `estercar` em qualquer ordem (um não apaga o outro). Carro de `poeNoCircuito` já rola sozinho. Ex.: `poe(w, 6, 7.5, 40 - 12 * c.s); rolarRodas(w.carros[6], 12 * c.s, 12)`. Visão geral: `camera(c.w, [6, 7, 7], [0, 0.5, 0], 40)`
 ou de cima (`topo`); close: câmera a ~2,5 m do ponto, por FORA da equipe (x além de ±3), nunca no meio dos mecânicos.
 
 ## Volante (genérico de 2026, sem equipe)
@@ -144,8 +145,9 @@ empunhadura_esquerda, empunhadura_direita, paddle_marcha_esquerda, paddle_marcha
 embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 
 ## Geografia real (set "real": nenhum cenário fixo, névoa longe)
-- Circuitos na biblioteca: `"interlagos"` (atual, com cenário), `"monaco_1984"` (Mônaco 1976-1985, 3,312 km) e `"donington_1993"`
-  (GP da Europa 1993, 4,023 km). Os antigos só têm o traçado (sem cenário nem curvas numeradas); f 0 = linha de chegada.
+- Circuitos na biblioteca: `"interlagos"` (atual, com cenário), `"lasvegas"` (Las Vegas Strip Circuit, com cenário, ver abaixo),
+  `"monaco_1984"` (Mônaco 1976-1985, 3,312 km) e `"donington_1993"` (GP da Europa 1993, 4,023 km). Os antigos só têm o
+  traçado (sem cenário nem curvas numeradas); f 0 = linha de chegada.
   Nunca desenhar traçado à mão: circuito que não está aqui precisa ser criado na biblioteca.
 - `obj(w, "circ:interlagos", () => criarCircuito("interlagos", { rotulos }))`: o circuito com o TRAÇADO REAL, em metros
   (4,309 km; asfalto, área de escape, zebras, linha de chegada). Vídeo sobre um circuito usa SEMPRE o traçado real, nunca a
@@ -155,8 +157,11 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
   Subida dos Boxes 0,77–0,99 (13-15).
 - **Sempre `criarCircuito("interlagos", { cenario: true })`** (chave `"circ:cen"`, é o mesmo objeto em todos os planos): relevo,
   cidade, muros, arquibancadas, boxes e poucas árvores em volta do traçado real. Lado positivo = direita do sentido da corrida = por fora.
-- `poeNoCircuito(w, k, circ, f, { lado, escala })`: carro na volta, já com esterço; `escala` só em vista de longe (4 a 7).
-- `poePinturaNoCircuito(w, "chave", { base, clara, escura, faixa, acento }, circ, f, { escala })`: carro com pintura própria (só cores conferidas).
+- `poeNoCircuito(w, k, circ, f, { lado, escala, v })`: carro na volta, já com esterço das dianteiras (curvatura real um pouco à
+  frente do carro, visível: curva lenta ~20-25°, rápida 5-10°, reta 0) E as 4 rodas rolando com a distância de f; `v` = velocidade
+  real em m/s (f por segundo × 6201 em Las Vegas; padrão 80), só para limitar o giro visto. Não chame `rolarRodas`/`estercar`
+  de novo por cima; `escala` só em vista de longe (4 a 7).
+- `poePinturaNoCircuito(w, "chave", { base, clara, escura, faixa, acento }, circ, f, { escala, v })`: carro com pintura própria (só cores conferidas), com esterço e rodas rolando.
 - **`filmar(w, circ, f, c.k, ["curva", "lado", "atras"], { lado })`: câmera padrão de carro na volta.** Transita pelas posições ao longo do plano, sem tranco: atras, curva, rasante, lado, ladoesq, frente, alto, heli, roda. Use 2 ou 3 posições; com dois carros: alto, atras, frente ou heli (lado corta o outro).
 - `perseguir(w, circ, f, { atras, alto, frente, lente })`: câmera atrás do carro olhando a pista à frente; a curva aparece antes de ele virar. Curva: atras 17, alto 6,5, frente 30, lente 50. Reta rápida: atras 11, alto 2,3, frente 30, lente 62. Velocidade real: ~0,016 da volta por segundo.
 - `panorama(w, circ, azimute, alto, folga)`: a pista inteira em diagonal (alto 0 rasante, 1 de cima; folga 0,86 cabe na tela).
@@ -169,6 +174,24 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 - `numerarCurvas(w, circ, k, { destaque, tam })`: as curvas numeradas (posição real de cada uma), número num círculo ligado
   por uma linha à curva; entram uma a uma com k. Use na vista do alto quando a fala citar as curvas ("15 curvas").
 - Câmera do alto: `enquadrar(w, circ, [0.1, 1, 0.25], 1.08, 40)`. Perseguição: atrás do carro a ~12 m, olhando à frente.
+- **Las Vegas** (GP de Las Vegas, circuito de rua, 6,201 km, ANTI-HORÁRIO, 17 curvas): `obj(w, "circ:lv", () =>
+  criarCircuito("lasvegas", { cenario: true }))` de dia; à noite `obj(w, "circ:lvn", () => criarCircuito("lasvegas", {
+  cenario: true, noite: true }))` com `clima: "noite"` (janelas acesas, rua iluminada desenhando o traçado, Sphere e roda-gigante
+  com brilho). Escolha UMA das duas chaves por trecho do vídeo (é o mesmo objeto em todos os planos). f 0 = linha de chegada,
+  na reta dos boxes (Grand Prix Plaza, boxes à esquerda = por dentro); a largada fica ~92 m antes dela (F1.com). Curvas (f):
+  1 0,044 (grampo); 2 0,060; 3 0,091; 4 0,111; Koval Lane 0,111–0,249 (reta para o norte); 5 0,249 (direita 90°); volta da Sphere
+  6 0,294, 7 0,330, 8 0,340, 9 0,362; Sands Avenue 0,362–0,52 (10 0,441 e 11 0,484 rápidas); 12 0,521 (esquerda lenta para a
+  Strip); Las Vegas Strip 0,52–0,832 (13 0,643, de pé embaixo; Bellagio, Caesars, Paris, Cosmopolitan ao lado); 14 0,832,
+  15 0,843, 16 0,853 (sequência lenta no Planet Hollywood); Harmon Avenue 0,853–0,974; 17 0,974 (esquerda rápida para a reta
+  dos boxes). `nomearTrechos` e `numerarCurvas` já usam os de Las Vegas. Anti-horário: a esquerda do carro é o lado de dentro.
+  Cenário: prédios reais (contorno e altura do OpenStreetMap), lago do Bellagio, pit lane, Sphere, roda-gigante High Roller,
+  réplica da Torre Eiffel do Paris, muro de concreto com placas e alambrado colado na pista, poucas arquibancadas (posição
+  aproximada). Sem marcas nem telões. `marcoNoCircuito(circ, chave, altura)` → ponto real de um marco para câmera e rótulo:
+  sphere, high_roller, eiffel, plaza (prédio dos boxes), fontes (Bellagio), campanile, bellagio, venetian, palazzo, caesars,
+  wynn, cosmopolitan, planet_hollywood, flamingo, paris, fashion_show, treasure_island, harrahs, linq.
+  Câmera do alto (o traçado é comprido de norte a sul): `enquadrar(w, circ, [0, 1, 0.3], 1.05, 40)` (~3,4 km; a névoa recua sozinha).
+  Sphere de perto: `const s = marcoNoCircuito(circ, "sphere"); camera(w, [s.x + 380, 190, s.z + 520], [s.x, 50, s.z], 44)`.
+  O gráfico `perfil` (altitude) só existe para Interlagos.
 - `obj(w, "mapa:brasil", () => criarMapaBrasil({ estado: "35", cidade: "3550308" }))`: Brasil com os estados (IBGE),
   São Paulo destacado e a cidade de São Paulo em amarelo por cima. `areaNoMapa(mapa, "pais" | "estado" | "cidade")` →
   {centro, tamanho}: para a câmera ir do país ao estado e à cidade. `pontoNoMapa(mapa, lat, lon)` funciona nele
@@ -184,6 +207,7 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 - `criarCurva({ raio, largura, angulo, rotulos })` (dentro de `obj`) + `naCurva(curva, f)` → {x, z, giro}: o carro faz a
   curva de verdade (`poe(w, k, q.x, q.z, q.giro); estercar(w.carros[k], q.esterco)`; f 0 entrada, 0,5 meio, 1 saída).
 - `estercar(carro, angulo)`: vira as rodas dianteiras (positivo = esquerda). Carro em curva sempre com as rodas viradas.
+  Carro andando com `naCurva`/`poe`: chame também `rolarRodas` (todas as 4 rodas giram em carro em movimento).
 - `embaralhar(volante, k, semente)`: os botões trocam de lugar (só no quadro; "cada equipe tem seu layout").
 - A abertura (primeiros ~15 s) nunca fica parada: troca de plano, comando sendo usado, tela mudando, peça saltando.
 

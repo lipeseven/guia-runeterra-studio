@@ -104,6 +104,9 @@ export function roda(x: number, z: number, r: number, l: number, friso = "medio"
   const p = pneuPirelli(r, l, friso);
   p.rotation.z = Math.PI / 2; // o torno gira em torno de y; o eixo da roda fica em x
   g.add(p);
+  // a roda inteira (pneu, aro e cubo) é UMA peça: rola em x (eixo da roda) DEPOIS de esterçar em y (ordem YXZ = esterço
+  // no carro, rolagem no eixo já virado). rolarRodas e estercar mexem cada um no seu eixo.
+  g.rotation.order = "YXZ";
   g.position.set(x, r, z);
   return g;
 }

@@ -14,6 +14,7 @@ export type GraficoV = {
   palavras?: { t: string; i?: number; brasil?: boolean }[]; // frase: cada palavra entra na sua hora
   marcos?: { rotulo: string; nome?: string; cor?: string; i?: number }[]; // linha do tempo
   trecho?: [number, number]; // minimapa: trecho aceso (fração da volta)
+  circuito?: string; // minimapa: chave do circuito ("interlagos" padrão, "lasvegas")
   n?: number; // torre: quantos carros
   horas?: { h: number; m?: number; texto?: string; i?: number }[]; // relógio
   i?: number; i1?: number; // palavra em que entra / em que o movimento termina

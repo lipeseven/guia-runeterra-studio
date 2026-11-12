@@ -29,6 +29,12 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
   carros a ~19 m um do outro e spray curto (~12 m) para não cobrir o de trás. Câmera baixa/grudada atrás do carro foi
   reprovada: "levantar um pouco e ficar panorâmica, acompanhando de longe". Mundo tem só 140 partículas (`w.parts`):
   `solta` acima disso quebra a cena e cai na cena de reserva.
+- **Circuito do PRÓXIMO GP (pedido do Felipe, 2026-11-10; vale mais que as regras pré-setadas).** Cena de pista que não
+  depende de um circuito específico (tema geral: aerodinâmica, pneus, curvas, freios...) usa o circuito do próximo GP, agora
+  **Las Vegas (GP 2026)**: `criarCircuito("lasvegas", { cenario: true })`, chave `"circ:lv"` (dia, padrão) ou `"circ:lvn"`
+  (noite, só quando a fala/o clima pedir). Nunca o do GP que já passou (Interlagos). Interlagos só quando a fala for sobre ele
+  ou o tema exigir. Escolha a curva real que mostra a fala (curva rápida, grampo, Strip para reta). Rua estreita com muro:
+  `filmar` com "lado"/"ladoesq" pode bater no muro; prefira "rasante", "curva", "alto", "heli", "atras" e confira o quadro.
 
 ## Aprendizados aprovados pelo Felipe (retrospectivas automáticas)
 - Lista de nomes de lugares (curvas, trechos) na abertura vira tipografia grande sobre o mapa da pista, com o lugar citado aceso na palavra; nunca carro de perto, que não mostra onde o lugar fica. _(vídeo: História das Curvas no Autódromo de Interlagos)_
@@ -51,3 +57,4 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
 - Quando a fala citar uma função ou pessoa específica dentre várias (ex.: um mecânico), destacar só ela: os demais ficam translúcidos ou saem da cena. Em cenas com poucos personagens para o que a fala descreve (ex.: 'segurança'), completar o elenco da equipe. _(vídeo: Como uma equipe troca quatro pneus em dois segundos?)_
 - Cena de ação (troca de pneus, pitstop, trabalho em equipe) nunca fica com personagens parados: a ação descrita deve acontecer em todas as cenas, desde o primeiro quadro. Pitstop completo = carro chega, é atendido e sai; ao repetir uma ação, variar o ângulo. _(vídeo: Como uma equipe troca quatro pneus em dois segundos?)_
 - Sentido de giro das rodas deve corresponder ao sentido de movimento do carro, na chegada e na saída (rotação para frente, sem parecer marcha à ré). Verificar o sinal da rotação na biblioteca, não com inversão manual por plano. _(vídeo: Como uma equipe troca quatro pneus em dois segundos?)_
+- Todas as 4 rodas giram e as dianteiras esterçam em carro em movimento; roda inteira (pneu, aro, calota) gira como uma peça só. _(vídeo: Como um carro de F1 consegue fazer curvas tão rápido?)_
