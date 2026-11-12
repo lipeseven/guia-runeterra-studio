@@ -19,8 +19,10 @@ import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
 import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
 import {
   bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, degrau, esconderExtras, numeroNoCarro, obj, pontoNoMapa, rotulo,
-  topoDoPodio,
+  topoDoPodio, criarMapaRegiao,
 } from "./modelos/extras";
+import "./modelos/logo_canal"; // carrega o logo (segura o render até decodificar)
+import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar } from "./modelos/boneco";
 
 type PlacaV = { texto: string; unidade?: string; i?: number; cor?: string; pos?: string };
 export type PlanoV = {
@@ -400,6 +402,7 @@ export const API = {
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
   explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, estercar, embaralhar, criarMapaBrasil, areaNoMapa, criarCircuito, noCircuito, pontoNoCircuito, revelarCircuito, poeNoCircuito, poePinturaNoCircuito, perseguir, filmar, panorama, transito, nomearTrechos, marcoNoCircuito, destacarTrecho, numerarCurvas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
   criarPitStop, pitStop, noPit, PAPEIS, rolarRodas,
+  criarMapaRegiao, neutro, andar, faseDoPasso, carregar, agachar, abaixar, apontar, acenar, empurrar, maos, olhar,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
@@ -457,12 +460,12 @@ function Sobre({ c, tempo }: { c: CV; tempo: (i?: number) => number }): ReactNod
   }
   if (p.selo && (p.selo.i === undefined || t >= tempo(p.selo.i))) {
     const e = entra(t, p.selo.i !== undefined ? tempo(p.selo.i) : ini, 0.25);
-    extra.push(<div key="selo" style={{ ...SELO, position: "absolute", left: "50%", top: 1500, transform: `translateX(-50%) scale(${0.7 + e * 0.3})`, opacity: e }}>{p.selo.texto}</div>);
+    extra.push(<div key="selo" style={{ ...SELO, position: "absolute", left: "50%", top: 1500, transform: `translateX(-50%) scale(${0.7 + e * 0.3})`, opacity: e, whiteSpace: "nowrap", width: "max-content", textAlign: "center" }}>{p.selo.texto}</div>);
   }
   if (p.riscado) {
     const r = entra(t, tempo(p.riscado.i), 0.35);
     extra.push(
-      <div key="risc" style={{ position: "absolute", left: "50%", top: 1500, transform: "translateX(-50%)", zIndex: 40, fontFamily: FONTE, padding: "6px 44px", borderRadius: 24, background: "rgba(14,17,24,.84)", color: r > 0.5 ? "#9299a6" : "#fff", fontSize: 110, fontWeight: 800 }}>
+      <div key="risc" style={{ position: "absolute", left: "50%", top: 1500, transform: "translateX(-50%)", zIndex: 40, fontFamily: FONTE, padding: "6px 44px", borderRadius: 24, background: "rgba(14,17,24,.84)", color: r > 0.5 ? "#9299a6" : "#fff", fontSize: p.riscado.texto.length > 8 ? 84 : 110, fontWeight: 800, whiteSpace: "nowrap", textAlign: "center", width: "max-content" }}>
         {p.riscado.texto}
         <div style={{ position: "absolute", left: "6%", top: "50%", width: `${r * 88}%`, height: 11, borderRadius: 6, background: "#ff3b30", transform: "rotate(-12deg)" }} />
       </div>,
@@ -527,6 +530,7 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
     return c;
   };
   const [alca] = useState(() => delayRender("desenhando o quadro 3D"));
+  // o logo do canal (Sphere de Las Vegas) é uma imagem: logo_canal.ts segura o render (delayRender) até ela decodificar
   useLayoutEffect(() => {
     const w = mundo.current ?? (mundo.current = montar(ref.current!));
     esconderExtras(w);
@@ -549,7 +553,8 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
     }
     w.r.render(w.cena, w.cam);
     continueRender(alca);
-  });  const c = ctx(mundo.current ?? ({} as Mundo));
+  });
+  const c = ctx(mundo.current ?? ({} as Mundo));
   const falaFim = palavras[palavras.length - 1].f;
   const claro = clima === "claro";
   return (

@@ -296,6 +296,10 @@ export function degradeRadial(cor: string): THREE.CanvasTexture {
 }
 
 export const plano = (l: number, c: number, x: number, z: number, mat: THREE.Material, y = 0.013) => {
+  // marcação de chão: puxada para a frente na profundidade (não briga com o piso de longe; 2026-11-12, "faixas piscando")
+  mat.polygonOffset = true;
+  mat.polygonOffsetFactor = -2;
+  mat.polygonOffsetUnits = -2;
   const m = new THREE.Mesh(new THREE.PlaneGeometry(l, c), mat);
   m.rotation.x = -Math.PI / 2;
   m.position.set(x, y, z);

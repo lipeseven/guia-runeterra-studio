@@ -93,6 +93,17 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
   briefing ou a folha de estilos confirmem. pele: "clara" | "media" | "morena" | "negra"; cabelo: "castanho" | "preto" |
   "loiro" | "ruivo" | "grisalho"; traje: "capacete" (no carro, correndo) | "bone" (pódio, entrevista, box, fora do carro);
   crianca: true (72%). `bracos(piloto, esq, dir)`: 0 abaixado, 1 erguido (comemoração = 1, 1).
+- **Boneco articulado (2026-11-12, `modelos/boneco.ts`; pedido do Felipe: nada de boneco "pau" deslizando).** Todo
+  `criarPiloto` tem cadeia de verdade: coluna (dobra no quadril), pescoço, ombro > cotovelo > pulso, quadril > joelho >
+  tornozelo. Chame UMA pose por quadro, depois de posicionar o boneco (`.position`, `.rotation.y`; ele olha para +z):
+  `andar(p, faseDoPasso(metrosAndados), ampl = 1, modo)` (pernas alternadas, braços balançando; modo "carregar" = caixa
+  à frente com as duas mãos, "empurrar" = braços esticados e tronco inclinado); `faseDoPasso(m)` sincroniza o passo com a
+  distância (pé não escorrega: mova o boneco em velocidade constante); `carregar(p, k)` parado segurando;
+  `agachar(p, k)` (de cócoras, mexendo em roda/chão); `abaixar(p, k, comCaixa)` (curva o tronco para pegar no chão);
+  `apontar(p, "esq" | "dir", k, altura)`; `acenar(p, c.t, "esq" | "dir", k)`; `empurrar(p, k)` parado; `neutro(p)` de pé;
+  `olhar(p, giro, inclinacao)` por cima de qualquer pose; `maos(p)` = ponto no mundo entre as mãos (ponha ali a caixa:
+  `cx.position.copy(maos(p)); cx.position.y -= metadeDaAltura; cx.rotation.y = p.rotation.y`). Gente em cena sempre faz
+  alguma coisa (anda, carrega, agacha, aponta); nunca desliza parada. `bracos()` continua valendo.
 - `criarKart({ cor, faixa, numero, piloto: {cor, faixa, pele} | false })`: kart com piloto criança sentado (frente -z).
 - `criarPodio({ cor })`: pódio 2-1-3; `topoDoPodio(podio, 1|2|3)` = ponto em cima do degrau (para pôr o piloto).
 - `criarEscada(["F4", "REGIONAL", "F3", "F2", "F1"], { pulados: [2], passo: 2.6 })`: escada subindo para +x, rótulo
@@ -101,6 +112,11 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
   GBR, DEU, ESP, FRA, MCO, NLD, AUS, JPN, USA, ARE, SAU…), deitado no chão (norte para -z), maior lado = tamanho, centro
   na origem. `pontoNoMapa(mapa, lat, lon)` = posição da cidade em cima do mapa. Use `set: "livre"` e câmera de cima
   (`camera(w, [0, 30, 9], [0, 0, 0], 40)` enquadra um mapa de 20 m). Chame `mapa.updateMatrixWorld()` depois de mover.
+- `criarMapaRegiao({ centro: [lat, lon], largura: graus, tamanho: 20, cores: { BRA: "#2bb673" }, mar, borda })`: mapa de
+  uma REGIÃO com cada país na própria cor e a fronteira desenhada, oceano azul (2026-11-12: "continente como mancha cinza
+  não serve"). `cores` = destaque por ISO (fica mais alto); os outros pegam uma cor fixa da paleta. Ex.: mundo atlântico
+  `{ centro: [18, -52], largura: 150, tamanho: 40 }`, Europa `{ centro: [47, 8], largura: 34, tamanho: 30 }`.
+  `pontoNoMapa` funciona nele; rotas e alfinetes por cima. Ícones (avião, navio, caminhão) grandes o bastante para ler.
 - `criarAlfinete("BOLONHA", cor)`: alfinete com rótulo; `.position.copy(pontoNoMapa(mapa, 44.49, 11.34))`.
 - `rotulo("TEXTO", { altura, cor, fundo })`: placa 3D que olha para a câmera (dentro de `obj`).
 - Também prontos no mundo: `w.trofeu` (troféu dourado: `.visible = true` e posição), `w.sc` (Safety Car).
@@ -186,7 +202,14 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
   dos boxes). `nomearTrechos` e `numerarCurvas` já usam os de Las Vegas. Anti-horário: a esquerda do carro é o lado de dentro.
   Cenário: prédios reais (contorno e altura do OpenStreetMap), lago do Bellagio, pit lane, Sphere, roda-gigante High Roller,
   réplica da Torre Eiffel do Paris, muro de concreto com placas e alambrado colado na pista, poucas arquibancadas (posição
-  aproximada). Sem marcas nem telões. `marcoNoCircuito(circ, chave, altura)` → ponto real de um marco para câmera e rótulo:
+  aproximada). Sem marcas nem telões. Desde 2026-11-12 (pedido do Felipe: "parecia deserto de neve... é Las Vegas!"): chão de
+  dia em tons de asfalto/terreno, postes de luz dos dois lados da pista, palmeiras e letreiros de neon coloridos (sem texto
+  nem marca) fora dos prédios; a Sphere é uma tela escura com o LOGO DO CANAL em disco (recorte circular, aro vermelho) nas
+  quatro faces (`modelos/logo_canal.ts`).
+- **Marcação de chão no código da cena** (faixas, linhas de pátio, sinalização): nunca rente ao piso nem fina demais. Use
+  material com `polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4`, ponha a faixa ~3 cm acima do chão e
+  com pelo menos 0,5 m de largura quando vista de longe (linha fina de longe "cintila"). Duas superfícies paralelas
+  (moldura e painel, porta e fuselagem): afaste pelo menos alguns centímetros. Felipe viu "faixas piscando" (2026-11-12). `marcoNoCircuito(circ, chave, altura)` → ponto real de um marco para câmera e rótulo:
   sphere, high_roller, eiffel, plaza (prédio dos boxes), fontes (Bellagio), campanile, bellagio, venetian, palazzo, caesars,
   wynn, cosmopolitan, planet_hollywood, flamingo, paris, fashion_show, treasure_island, harrahs, linq.
   Câmera do alto (o traçado é comprido de norte a sul): `enquadrar(w, circ, [0, 1, 0.3], 1.05, 40)` (~3,4 km; a névoa recua sozinha).
