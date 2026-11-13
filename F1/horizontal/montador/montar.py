@@ -23,6 +23,7 @@ AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI))
 sys.path.insert(1, str(AQUI.parent / "diretor"))
 
+import blocos as B       # noqa: E402
 import juncao as J       # noqa: E402
 import mixagem as M      # noqa: E402
 import quadros as Q      # noqa: E402
@@ -63,8 +64,9 @@ def _transicoes(cenas: list[dict]) -> list[dict | None]:
     return out
 
 
-def planejar(pasta: Path, exigir_estado: bool = True) -> dict:
-    """Lê SPEC, palavras e estado; monta as receitas de todas as cenas. NaoMonta com TUDO o que falta."""
+def planejar(pasta: Path, exigir_estado: bool = True, por_cena: bool = False) -> dict:
+    """Lê SPEC, palavras e estado; monta as receitas de todas as cenas. NaoMonta com TUDO o que falta.
+    `por_cena` (storyboard): o que falta numa cena não barra as outras; vai em `problemas_cena` {id: motivo}."""
     comum, etapas = _diretor()
     pasta = Path(pasta)
     spec = comum.ler_json(pasta / "spec.json")
@@ -92,22 +94,30 @@ def planejar(pasta: Path, exigir_estado: bool = True) -> dict:
         raise NaoMonta(str(e)) from None
     it = iter(est_t)
     est_por_cena = [next(it) if t else None for t in trans]
-    jobs = []
+    jobs, por_id = [], {}
     for k, c in enumerate(cenas):
         n_in = est_por_cena[k]["n"] if est_por_cena[k] else 0
         n_out = est_por_cena[k + 1]["n"] if k + 1 < len(cenas) and est_por_cena[k + 1] else 0
         L = int(round(c["t1"] * FPS)) - int(round(c["t0"] * FPS))
         if n_in - n_in // 2 + n_out // 2 > L:
+            por_id[c["id"]] = f"transições maiores que a cena ({L} quadros)"
             problemas.append(f"cena {c['id']} (“{c['em']}”): transições maiores que a cena ({L} quadros)")
             continue
         try:
             jobs.append(R.receita(c, palavras, n_in // 2, n_out - n_out // 2))
         except (R.FaltaAtivo, R.SemReceita) as e:
+            por_id[c["id"]] = f"{'falta ' if isinstance(e, R.FaltaAtivo) else ''}{e}"
             problemas.append(f"cena {c['id']} (“{c['em']}”, {c['motor']}): {'falta ' if isinstance(e, R.FaltaAtivo) else ''}{e}")
     try:
         M.pasta_banco()
     except FileNotFoundError as e:
-        problemas.append(str(e))
+        if por_cena:
+            avisos.append(str(e))
+        else:
+            problemas.append(str(e))
+    if por_cena:   # storyboard: só o que é da cena; estado/banco de SFX não barram a prévia
+        return {"spec": spec, "palavras": palavras, "tempos": tempos, "jobs": jobs, "transicoes": est_por_cena,
+                "problemas_cena": por_id, "avisos": avisos + [p for p in problemas if not p.startswith("cena ")]}
     narr = narracao(pasta)
     if not narr:
         avisos.append("sem narração (narracao.wav ou trabalho/gravacao/limpa.wav): rascunho sem voz")
@@ -126,7 +136,8 @@ def _tmp(pasta: Path) -> Path:
 
 
 def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, exigir_estado: bool = True,
-           forcar: bool = False, log=print) -> dict:
+           forcar: bool = False, log=print, teto_bloco: float | None = None) -> dict:
+    teto_bloco = B.TETO_BLOCO_S if teto_bloco is None else teto_bloco
     pasta = Path(pasta)
     W, H = RESOLUCAO[modo]
     t_ini = time.time()
@@ -136,8 +147,10 @@ def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, 
     if cenas and len(alvo) != len(set(cenas)):
         raise NaoMonta(f"cena(s) não existem na SPEC: {sorted(set(cenas) - {j['cena'] for j in jobs})}")
     trechos = {}
+    # Remotion: as cenas que faltam vão em lotes (o motor abre uma vez por lote); HyperFrames: uma a uma
+    lote = S.renderizar_lote([j for j in alvo if j["motor"] == "remotion"], pasta, W, H, rascunho=modo == "rascunho", forcar=forcar)
     for j in alvo:
-        r = S.renderizar(j, pasta, W, H, rascunho=modo == "rascunho", forcar=forcar)
+        r = lote.get(j["cena"]) or S.renderizar(j, pasta, W, H, rascunho=modo == "rascunho", forcar=forcar)
         log(f"  cena {j['cena']} {j['motor']:11} {r['quadros']:5} q  {'cache' if r['do_cache'] else 'renderizada'}")
         trechos[j["cena"]] = r
     if cenas:
@@ -158,10 +171,21 @@ def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, 
     log(f"  mixagem: {len(evs)} SFX, narração {'sim' if plano['narracao'] else 'não'}, trilha {'sim' if plano['trilha'] else 'não'}")
     mix = M.mixar(evs, total / FPS, saida_dir / "audio", plano["narracao"], plano["trilha"])
     mp4 = saida_dir / f"{modo}.mp4"
-    cod = J.encodar_final(pcs, Path(mix["arquivos"]["master"]), mp4, W, H, modo == "rascunho", tmp)
+    # blocos de cenas inteiras (≤ teto), cada um codificado à parte e com cache; junção final sem recodificar o vídeo
+    cenas_s = spec["cenas"]
+    grupos, av_blocos = B.agrupar(cenas_s, [e["n"] if e else 0 for e in est], teto_bloco)
+    th = {c["id"]: {"hash": trechos[c["id"]]["hash"], "quadros": trechos[c["id"]]["quadros"]} for c in cenas_s}
+    tr_info = {c["id"]: {"hash_estado": _diretor()[0].hash_dados(est[k]["quadros"]), "a": th[cenas_s[k - 1]["id"]]["hash"],
+                         "b": th[c["id"]]["hash"]} for k, c in enumerate(cenas_s) if est[k]}
+    segs = B.codificar(B.segmentos(pcs, cenas_s, grupos), th, tr_info, pasta, modo, W, H, tmp, forcar=forcar, log=log)
+    B.concatenar(segs, Path(mix["arquivos"]["master"]), mp4, modo == "rascunho", tmp)
+    B.limpar(pasta, modo, segs, manter=len(segs))   # guarda uma versão anterior de cada bloco (desfazer barato)
+    cod = segs[0]["codec"]
     rel = {"versao": 1, "modo": modo, "arquivo": str(mp4), "largura": W, "altura": H, "fps": FPS, "quadros": total,
            "duracao": round(total / FPS, 4), "codificador": cod, "spec_hash": _diretor()[0].hash_dados(spec),
-           "tempos": plano["tempos"], "avisos": plano["avisos"] + mix["avisos"],
+           "tempos": plano["tempos"], "avisos": plano["avisos"] + mix["avisos"] + av_blocos,
+           "blocos": {"teto_s": teto_bloco, "segmentos": segs,
+                      "codificados": sum(1 for s in segs if not s["do_cache"]), "do_cache": sum(1 for s in segs if s["do_cache"])},
            "cenas": [{"id": c["id"], "em": c["em"], "motor": c["motor"], "kits": j["kits"], "Q0": int(round(c["t0"] * FPS)),
                       "Q1": int(round(c["t1"] * FPS)), "pre": j["pre"], "pos": j["pos"], "transicao": c["transicao"]["tipo"],
                       "n_entrada": est[k]["n"] if est[k] else 0, "hash": j["hash"], "trecho": trechos[c["id"]]["arquivo"],
@@ -178,7 +202,10 @@ def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, 
 def resumo(rel: dict) -> str:
     v = rel["verificacao"]
     nov = sum(1 for c in rel["cenas"] if not c["do_cache"])
-    return (f"{len(rel['cenas'])} cenas ({nov} renderizadas, {len(rel['cenas']) - nov} do cache), {rel['duracao']:.1f} s, "
+    b = rel.get("blocos") or {}
+    return (f"{len(rel['cenas'])} cenas ({nov} renderizadas, {len(rel['cenas']) - nov} do cache), "
+            + (f"{len(b['segmentos'])} bloco(s)/junção(ões) ({b['codificados']} codificado(s)), " if b else "")
+            + f"{rel['duracao']:.1f} s, "
             f"{rel['largura']}x{rel['altura']} 60 q/s, {rel['audio']['master']['lufs']:.1f} LUFS; verificação {v['status']}"
             + (f" ({len(v['erros'])} erro(s))" if v["erros"] else ""))
 
@@ -224,6 +251,8 @@ def _main(argv: list[str]) -> int:
         dados = {k: rel[k] for k in ("versao", "modo", "arquivo", "largura", "altura", "fps", "quadros", "duracao", "spec_hash", "tempos", "avisos")}
         dados["cenas"] = [{k: c[k] for k in ("id", "motor", "Q0", "Q1", "hash", "do_cache")} for c in rel["cenas"]]
         dados["loudness"] = rel["audio"]["master"]
+        dados["blocos"] = {k: rel["blocos"][k] for k in ("teto_s", "codificados", "do_cache")}
+        dados["blocos"]["segmentos"] = [{k: s[k] for k in ("tipo", "cenas", "quadros", "hash")} for s in rel["blocos"]["segmentos"]]
         dados["verificacao"] = {k: rel["verificacao"][k] for k in ("status", "erros", "avisos")}
         if rel["verificacao"]["erros"]:
             etapas.marcar(pasta, "rascunho", "falhou", f"verificação do vídeo reprovou: {rel['verificacao']['erros'][0][:200]}")

@@ -3,8 +3,11 @@
 // Relógio: tau = (quadro - pre) / 60; os `pre` quadros da transição de entrada seguram o quadro 0.
 // Render (feito por montador/segmentos.py):
 //   node <F1/video/node_modules>/@remotion/cli/remotion-cli.js render index.tsx CenaDoc <pasta> --sequence --props=<json>
+//   Lote (várias cenas numa invocação, segmentos.renderizar_lote): composição LoteDoc com props {cenas: Props[]}.
 import React, { useMemo } from "react";
-import { AbsoluteFill, Composition, Freeze, registerRoot, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Composition, Freeze, Sequence, registerRoot, useCurrentFrame } from "remotion";
+// @ts-ignore módulo JS puro, compartilhado com a cena HyperFrames (montador/hyperframes/gps.html)
+import { movimento, transformCss } from "../../montador/movimento.js";
 import { montar as montarGraficos, TEMAS, type Dados, type Larguras, type Spec } from "../../kit/graficos/graficos.ts";
 import { montar as montarAnotacao, type Cena as CenaAnotacao, type Fonte } from "../../kit/anotacao/anotacao.ts";
 import { CamadaGrafico } from "../graficos/CamadaGrafico";
@@ -14,7 +17,10 @@ type Linha = { texto: string; fonte: string; peso: number; tamanho: number; x: n
 type Camada =
   | { kit: "graficos"; specs: Spec[]; dados: Dados; larguras: Larguras }
   | { kit: "anotacao"; cena: CenaAnotacao; linhas: Linha[]; fonte: Fonte };
-type Props = { quadros: number; pre: number; largura: number; altura: number; camadas: Camada[] };
+type Movimento = { tipo: string; intensidade?: number; foco?: [number, number] };
+// movimento/L: câmera da cena inteira (ação direta do storyboard) ao longo dos L quadros puros da cena
+type Props = { quadros: number; pre: number; largura: number; altura: number; camadas: Camada[]; movimento?: Movimento | null; L?: number };
+type PropsLote = { largura: number; altura: number; cenas: Props[] };
 
 const TINTA = "#141414";
 const FUNDO = TEMAS.claro.fundo;   // fundo claro = assinatura do canal
@@ -40,19 +46,44 @@ const Anotacao: React.FC<{ c: Extract<Camada, { kit: "anotacao" }> }> = ({ c }) 
   );
 };
 
-const CenaDoc: React.FC<Props> = ({ pre, camadas }) => {
+const CenaDoc: React.FC<Props> = ({ quadros, pre, camadas, movimento: mov, L }) => {
   const frame = useCurrentFrame();
+  const tau = Math.max(0, frame - pre);
+  const conteudo = (
+    <Freeze frame={tau}>
+      {camadas.map((c, i) => (c.kit === "graficos" ? <Graficos key={i} c={c} /> : <Anotacao key={i} c={c} />))}
+    </Freeze>
+  );
+  return (
+    <AbsoluteFill style={{ background: FUNDO, overflow: "hidden" }}>
+      {mov && mov.tipo !== "parado"
+        ? <AbsoluteFill style={transformCss(movimento(mov, tau / Math.max(1, (L ?? quadros) - 1)))}>{conteudo}</AbsoluteFill>
+        : conteudo}
+    </AbsoluteFill>
+  );
+};
+
+const LoteDoc: React.FC<PropsLote> = ({ cenas }) => {
+  let ini = 0;
   return (
     <AbsoluteFill style={{ background: FUNDO }}>
-      <Freeze frame={Math.max(0, frame - pre)}>
-        {camadas.map((c, i) => (c.kit === "graficos" ? <Graficos key={i} c={c} /> : <Anotacao key={i} c={c} />))}
-      </Freeze>
+      {cenas.map((c, i) => {
+        const de = ini;
+        ini += c.quadros;
+        return <Sequence key={i} from={de} durationInFrames={c.quadros}><CenaDoc {...c} /></Sequence>;
+      })}
     </AbsoluteFill>
   );
 };
 
 registerRoot(() => (
-  <Composition id="CenaDoc" component={CenaDoc} fps={60} width={1920} height={1080} durationInFrames={60}
-    defaultProps={{ quadros: 60, pre: 0, largura: 1920, altura: 1080, camadas: [] } as Props}
-    calculateMetadata={({ props }) => ({ durationInFrames: props.quadros, width: props.largura, height: props.altura })} />
+  <>
+    <Composition id="CenaDoc" component={CenaDoc} fps={60} width={1920} height={1080} durationInFrames={60}
+      defaultProps={{ quadros: 60, pre: 0, largura: 1920, altura: 1080, camadas: [] } as Props}
+      calculateMetadata={({ props }) => ({ durationInFrames: props.quadros, width: props.largura, height: props.altura })} />
+    <Composition id="LoteDoc" component={LoteDoc} fps={60} width={1920} height={1080} durationInFrames={60}
+      defaultProps={{ largura: 1920, altura: 1080, cenas: [] } as PropsLote}
+      calculateMetadata={({ props }) => ({ durationInFrames: Math.max(1, props.cenas.reduce((s, c) => s + c.quadros, 0)),
+                                           width: props.largura, height: props.altura })} />
+  </>
 ));

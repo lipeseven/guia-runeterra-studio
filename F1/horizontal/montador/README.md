@@ -6,9 +6,12 @@ do `kit/sfx` por âncora de palavra), com loudness medida. Depois verifica o MP4
 **Nenhum vídeo completo foi montado** (decisão do Felipe): só o mini-spec de teste de 3 cenas.
 
 ```
-spec.json + palavras.json ─▶ receitas.py (cena → pedido de render, hash) ─▶ segmentos.py (motor → trecho MP4, cache)
-                                    transicoes.mjs (estados do kit) ─▶ juncao.py (quadros intermediários + 1 passada ffmpeg)
+spec.json + palavras.json ─▶ receitas.py (cena → pedido de render, hash) ─▶ segmentos.py (motor → trecho MP4, cache;
+                                                                              Remotion em lotes ≤ 45 s)
+                                    transicoes.mjs (estados do kit) ─▶ juncao.py (quadros intermediários)
+                                    blocos.py (blocos ≤ 45 s + junções, cache por hash) ─▶ concat SEM recodificar
                           mixagem.py (SFX + narração + trilha → master.wav medido) ─┘      quadros.py (verificação + folhas)
+storyboard.py (prévia por cena = trecho do cache + quadros dos momentos-chave; ★ por cena)
 ```
 
 ## Uso
@@ -30,9 +33,50 @@ spec.json + palavras.json ─▶ receitas.py (cena → pedido de render, hash) �
   existem de verdade (dá para misturar Remotion com HyperFrames). Nos `pre` quadros a cena segura o quadro 0.
 - Quadros intermediários compostos em numpy com o MESMO `estadoTransicao` que os motores aplicam em CSS (opacidade,
   escala no centro, desfoque gaussiano, recorte inset, barra do wipe). O resto é trim por quadro do próprio trecho; uma
-  passada do ffmpeg (filtro por arquivo, `-/filter_complex`), `setpts=N/(60·TB)`, CFR.
+  passada do ffmpeg POR BLOCO (blocos juntados sem recodificar, ver abaixo) (filtro por arquivo, `-/filter_complex`), `setpts=N/(60·TB)`, CFR.
 - Cache: hash = pedido de render (params resolvidos, tempos, pre/pos) + conteúdo dos dados (comparação, voltas, pista,
   modelos) + código (receita, adaptador, núcleo do kit). Mudou uma cena → só ela é renderizada de novo.
+
+## Blocos de render e de saída (fase 7b)
+Medido com `medir_motores.py` (mesma cena renderizada com 1, 3 e 6 s, sem transições; reta tempo = fixo + por_segundo ×
+duração; 1280×720, RTX 4060; 2026-11-13, mini-spec de Monza):
+
+| motor | cena | fixo (abrir o motor) | render por segundo de vídeo |
+|---|---|---|---|
+| Remotion | gráfico (`graficos`) | 4,4 s | 1,52 s/s |
+| Remotion | texto + oval (`anotacao`) | 5,6 s | 1,21 s/s |
+| HyperFrames | GPS (`gps`, 2 carros 3D + pista plana) | 13,7 s | 2,35 s/s |
+
+Lote do Remotion (`segmentos.renderizar_lote`, composição `LoteDoc` com as cenas em sequência): 2 cenas × 3 s = 13,7 s
+contra 17,5 s separadas (economiza ~1 fixo por cena a mais no lote).
+
+Decisões tiradas da medição:
+- **Teto = 45 s** de vídeo por lote do Remotion (`segmentos.TETO_LOTE_S`) e por bloco de saída (`blocos.TETO_BLOCO_S`).
+  Com fixo ≈ 5 s e ≈ 1,4 s/s, um lote de 45 s leva ~68 s e o fixo vira ~7 % (com 15 s seriam ~20 %). Num vídeo de
+  20 min com ~70 cenas, abrir o Remotion por cena custaria ~6 min só de fixo; em lotes de 45 s, ~2 min. O lote **não**
+  piora a edição: a cena mudada é renderizada sozinha (o cache continua por cena), só as que faltam vão juntas.
+- HyperFrames **não** vai em lote (cada cena GPS é uma página com os modelos 3D dela): paga ~14 s de fixo por cena.
+  Juntar várias cenas GPS numa página fica para quando houver muitas (não medido com mais de uma).
+- **Blocos de saída** (`blocos.py`): cenas inteiras vizinhas até 45 s, cada bloco codificado à parte (cache por hash em
+  `<pasta>/blocos/`), junção final com `ffmpeg -f concat -c:v copy` (nenhum quadro recodificado; o teste confere pacote a
+  pacote) + o áudio da mixagem ÚNICA (fora dos blocos). Fronteira só entre cenas que não continuam uma na outra (mesmo
+  gráfico/GPS = `blocos.continua`); prefere um corte; sem corte, a transição (wipe/zoom/fade) inteira vira um segmento de
+  junção que depende só das duas cenas vizinhas. Mudou uma cena → só o trecho dela, o bloco dela e as junções dela são
+  refeitos. Todos os segmentos com o mesmo codificador (NVENC, ou x264 se a máquina não tiver), sem quadros B.
+- Codificar um bloco/junção do mini-spec (1280×720, NVENC): ver os tempos `codificado em … s` no log da montagem
+  (`relatorio.json` → `blocos.segmentos[].segundos_codificar`).
+
+## Storyboard (fase 7b; `storyboard.py`)
+Prévia de uma cena = o PRÓPRIO trecho dela (mesmo cache por hash do rascunho, 1280×720) + quadros JPG (480 px) nos
+momentos-chave: início, âncoras dos kits (`ritmo`, anotação…), SFX e fim (`storyboard/<cena>_<hash>_q<N>.jpg`).
+`python storyboard.py <pasta> previa <id,id|todas>` roda em processo à parte (o painel dispara; `gerando.json` trava,
+`fila.json` junta pedidos que chegam durante o render, `falhas.json` guarda o motivo por cena). ★ da cena =
+`aprovacoes.json` {cena: hash}; mudou a cena → hash novo → "desatualizada". `montar.planejar(por_cena=True)` dá o plano
+mesmo com cenas sem receita (o motivo fica na cena).
+
+Movimento de câmera da cena (ação direta `movimento` na SPEC): `movimento.js`, o MESMO cálculo nos dois motores
+(Remotion: wrapper na `CenaDoc`; HyperFrames: transform no canvas do `gps.html`), suave (cosseno) ao longo dos quadros
+puros da cena; parado durante a transição de entrada (os `pre` quadros seguram o quadro 0).
 
 ## Receitas (o que já sabe renderizar)
 | motor | kit | cena |
@@ -71,6 +115,18 @@ impacto +5,6 ms / whoosh −1,3 e +12,5 ms / pop +7,0 ms, áudio × master 0 ms,
 2ª montagem toda do cache; texto da c3 mudado → só a c3 renderizada; cena por demanda; mensagens de falta; gancho do
 painel ponta a ponta (passo → processo à parte → `gerado` → ★). Folhas olhadas: `testes/montador/folha_*.jpg`.
 
+### Fase 7b (2026-11-13): 55/55
+O mesmo teste, agora com blocos de teto 4 s (cada cena um bloco, wipe e zoom como junções): 3 blocos + 2 junções; as 2
+cenas Remotion num lote só (1 invocação `LoteDoc`, 0 `CenaDoc`); vídeo final = pacotes dos segmentos (só os quadros-chave
+ganham SPS/PPS do concat, +49 bytes; quadros decodificados idênticos); 2ª montagem 0 blocos codificados; texto da c3
+mudou → só a junção c2→c3 e o bloco da c3 recodificados; teto padrão → 1 bloco. Codificar: bloco de ~2,7 s em 0,6–0,9 s,
+junção de 0,3–0,5 s em 0,4–0,5 s, bloco de 9 s em 1,7 s (NVENC 1280×720). Storyboard: prévia de cenas já montadas sai do
+cache (sem render), quadros 480×270 nos momentos-chave, ★ da cena (recusada sem prévia), movimento na c1 → só a c1
+afetada, SPEC segue aprovada e o rascunho fica desatualizado, movimento na c2 (HyperFrames) só a c2, entrada da c3 vira
+fade → c2 e c3, trocar SFX → nenhuma, ação fora da lista e corte inválido recusados, prévia nova da c1 renderiza só ela e
+o zoom aparece no quadro, montagem depois das ações aprovada na verificação por quadro (movimento nos 2 motores + fade),
+SFX trocado na mixagem, pedido por voz vira prompt só da c2.
+
 ## O que NÃO foi verificado
 - **Nenhum vídeo real** nem SPEC escrita pelo diretor/modelo; só o mini-spec à mão. Narração real (limpa.wav) e trilha real não usadas.
 - **Ninguém assistiu/ouviu** o MP4 com atenção de editor: conferi as folhas e alguns quadros soltos. A trilha
@@ -79,4 +135,7 @@ painel ponta a ponta (passo → processo à parte → `gerado` → ★). Folhas 
 - Desempenho em 20 min (≈ 70 cenas): não medido. A mixagem abre um arquivo por SFX no ffmpeg (OK para ~200).
 - No GPS de Monza os dois carros ficam quase sobrepostos na perseguição (o kit anda cada um no próprio GPS): visto, não mexido.
 - Receitas só para graficos/anotacao (Remotion) e gps (HyperFrames); o resto recusa.
-- A tela do painel (TSX) passou no `tsc`, mas o `app/painel/dist` NÃO foi recompilado e a tela não foi vista no navegador.
+- (fase 5) A tela do Rascunho não tinha sido vista no navegador; na 7b o storyboard foi visto na porta 8799 (dados fictícios).
+- 7b: blocos e lotes medidos só no mini-spec (3 cenas de 3 s); nenhum vídeo de 20 min. Lote do HyperFrames não existe.
+  Movimento de câmera: só conferido que muda os quadros e passa na verificação; ninguém julgou se 8 %/12 % fica bonito.
+  O microfone por cena não foi gravado de verdade (sem microfone no teste): é o mesmo ditado das Observações (34/34).

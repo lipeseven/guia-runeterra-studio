@@ -230,6 +230,53 @@ def principal() -> int:
     checa(r.status_code == 409 and "só se aprova o que foi gerado" in r.json()["detail"], "aprovar Rascunho sem rascunho gerado: recusado", r.text[:200])
     checa(cli.post(f"/api/videos/{vid}/doc/aprovar/ativos").status_code == 400, "Ativos não tem aprovação ★")
 
+    # ---- Storyboard do Rascunho (fase 7b): cenas, ações diretas na SPEC sem modelo, ★ por cena, pedido por cena (voz)
+    r = cli.get(f"/api/videos/{vid}/doc/storyboard")
+    sb = r.json()
+    checa(r.status_code == 200 and len(sb["cenas"]) == len(cenas), "storyboard lista as cenas da SPEC", r.text[:200])
+    checa(all(c["frases"] and c["momentos"] and c["estado"] in ("sem_previa", "sem_receita") for c in sb["cenas"]),
+          "cada cena com frases faladas, momentos-chave e estado", str([c["estado"] for c in sb["cenas"]]))
+    checa(any(c["estado"] == "sem_receita" and "sem receita" in (c["problema"] or "") for c in sb["cenas"]),
+          "cena sem receita no montador aparece com o motivo (não barra as outras)")
+    c0, c1 = sb["cenas"][0], sb["cenas"][1]
+    r = cli.post(f"/api/videos/{vid}/doc/cena/{c0['id']}/ajuste", json={"acao": {"acao": "movimento", "tipo": "pan_esq"}, "previa": False})
+    checa(r.status_code == 200 and r.json()["storyboard"]["cenas"][0]["movimento"] == {"tipo": "pan_esq"}, "ação direta: movimento entra na SPEC na hora", r.text[:300])
+    d = doc(vid)
+    checa(d["estado"]["etapas"]["spec"]["status"] == "aprovado" and d["spec"]["cenas"][0]["movimento"]["tipo"] == "pan_esq",
+          "SPEC continua aprovada depois da ação direta")
+    checa(any("ajuste direto" in h["evento"] for h in d["estado"]["historico"]), "histórico registra o ajuste direto")
+    checa(json.loads((pasta / "ajustes_diretos.json").read_text(encoding="utf-8"))[-1]["acao"]["tipo"] == "pan_esq",
+          "ajustes_diretos.json guarda a ação (aprendizado)")
+    r = cli.post(f"/api/videos/{vid}/doc/cena/{c0['id']}/ajuste", json={"acao": {"acao": "movimento", "tipo": "girar"}, "previa": False})
+    checa(r.status_code == 409 and "movimento inválido" in r.json()["detail"], "movimento inválido recusado com motivo", r.text[:200])
+    r = cli.post(f"/api/videos/{vid}/doc/cena/{c0['id']}/ajuste", json={"acao": {"acao": "trocar o gráfico"}, "previa": False})
+    checa(r.status_code == 409 and "orquestrador" in r.json()["detail"], "ação desconhecida: manda pedir ao orquestrador", r.text[:200])
+    novo_i0 = c1["i0"] + 1
+    r = cli.post(f"/api/videos/{vid}/doc/cena/{c1['id']}/ajuste", json={"acao": {"acao": "corte", "indice": novo_i0}, "previa": False})
+    sb2 = r.json().get("storyboard", {"cenas": [{}, {}]})
+    checa(r.status_code == 200 and sb2["cenas"][1]["i0"] == novo_i0 and sb2["cenas"][0]["i1"] == novo_i0
+          and sb2["cenas"][1]["t0"] > c1["t0"], "corte movido: a cena começa uma palavra depois e a anterior cresce", r.text[:300])
+    c1 = sb2["cenas"][1]
+    for c in sb2["cenas"]:   # ★ da cena: sem prévia (ou sem receita) é recusado com o motivo certo
+        r = cli.post(f"/api/videos/{vid}/doc/cena/{c['id']}/aprovar")
+        esperado = c["problema"] if c["estado"] == "sem_receita" else "prévia"
+        checa(r.status_code == 409 and esperado in r.json()["detail"], f"★ da cena {c['estado']}: recusado com o motivo", r.text[:200])
+    r = cli.post(f"/api/videos/{vid}/doc/previa", json={"cenas": ["naoexiste"]})
+    checa(r.status_code == 409, "prévia de cena inexistente recusada", r.text[:200])
+    r = cli.post(f"/api/videos/{vid}/doc/cena/{c1['id']}/pedido", json={"texto": "  ", "origem": "voz"})
+    checa(r.status_code == 409, "pedido vazio recusado")
+    r = cli.post(f"/api/videos/{vid}/doc/cena/{c1['id']}/pedido", json={"texto": "mostra o carro de frente", "origem": "voz"})
+    dd = r.json()
+    checa(r.status_code == 200 and dd["pedido"]["prompt"] and dd["pedido"]["prompt"][0].endswith(f"pedido_{c1['id']}.prompt.txt"),
+          "pedido por voz vira prompt só da cena", r.text[:300])
+    checa(any(t["etapa"] == "spec" and t["cena"] == c1["id"] for t in dd["orquestrador"]), "orquestrador recebe o pedido da cena")
+    checa(dd["estado"]["pedidos"][-1]["cena"] == c1["id"] and "ditado por voz" in dd["estado"]["pedidos"][-1]["texto"],
+          "pedido gravado na cena, marcado como ditado")
+    _, et, pend = card(vid)
+    checa("doc_orq_spec" in pend and et["spec"]["status"] == "andamento", "card: pendência do orquestrador para a cena")
+    checa(any("Pedido na cena" in a["texto"] and "(voz)" in a["texto"] for a in cli.get(f"/api/videos/{vid}").json()["atividade"]),
+          "atividade do card registra o pedido por voz")
+
     # ---- quadro e gancho do motor
     q = cli.get("/api/quadro").json()
     vq = next(x for x in q["videos"] if x["id"] == vid)

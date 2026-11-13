@@ -11,7 +11,8 @@ Fish Audio sem chave no worktree: com `--voz-windows`, a voz guia sai da voz pt-
 medida pelo Whisper real; `gravacao_exemplo.wav` (mais lenta, com uma frase repetida) fica na pasta do projeto para
 copiar em entrada/ e usar "Já coloquei na pasta". Opção: `--voz-windows`.
 
-    .venv\\Scripts\\python.exe F1\\horizontal\\testes\\painel\\servidor.py [--porta 8799] [--manter]
+    .venv\Scripts\python.exe F1\horizontal\testes\painel\servidor.py [--porta 8799] [--manter] [--voz-windows] [--storyboard]
+(--storyboard: mais um card no Rascunho com o mini-spec e os trechos do teste do montador, para ver o storyboard)
 (precisa de app/painel/dist compilado: npm run build em app/painel)
 """
 from __future__ import annotations
@@ -101,6 +102,48 @@ def semear() -> None:
     cli.get(f"/api/videos/{vid}/doc")
     semear_7a(cli)
     print(json.dumps({"video": vid, "pasta": str(pasta), "url": f"http://127.0.0.1:{PORTA}/#/video/{vid}"}, ensure_ascii=False))
+    if "--storyboard" in sys.argv:
+        semear_storyboard(cli)
+
+
+def semear_storyboard(cli) -> None:
+    """Card documental já no Rascunho, com o mini-spec do teste do montador (Monza 2025, 3 cenas, kits reais) e os
+    trechos/prévias que o `testes/montador/testar.py` deixou em `saida/` (rode-o antes): storyboard com quadros de verdade."""
+    import shutil
+
+    origem = ambiente.RAIZ / "F1" / "horizontal" / "testes" / "montador" / "saida" / "projeto" / "horizontal"
+    if not (origem / "spec.json").exists():
+        print("sem testes/montador/saida: rode testes/montador/testar.py antes de --storyboard")
+        return
+    vid = cli.post("/api/videos", json={"titulo": "Storyboard: Leclerc × Hamilton em Monza (mini)", "formato": "horizontal_doc"}).json()["id"]
+    slug = cli.get(f"/api/videos/{vid}").json()["slug"]
+    proj = motor.PASTA_PROJETOS / slug
+    pasta = proj / "horizontal"
+    shutil.copytree(origem, pasta, ignore=shutil.ignore_patterns("rascunho", "blocos", "prompts", "resposta_*", "_*"))
+    (proj / "direcao").mkdir(parents=True, exist_ok=True)
+    shutil.copy2(pasta / "roteiro.txt", proj / "direcao" / "roteiro.txt")
+    shutil.copy2(pasta / "palavras.json", proj / "direcao" / "tempos_voz.json")
+    sys.path.insert(0, str(ambiente.DIRETOR))
+    import etapas as E
+    from comum import gravar_json, hash_dados
+
+    est = E.novo(slug)
+    spec = json.loads((pasta / "spec.json").read_text(encoding="utf-8"))
+    for n, st in (("historia", "aprovado"), ("spec", "aprovado"), ("ativos", "gerado"), ("verificacao", "gerado"), ("rascunho", "desatualizado")):
+        est["etapas"][n]["status"] = st
+    est["etapas"]["spec"]["hash"] = hash_dados(spec)
+    est["pedidos"] = []
+    gravar_json(pasta / "historia.json", {"titulo": "Leclerc × Hamilton em Monza", "tese": "mini-spec do teste do montador",
+                                          "tempos": "medidos", "capitulos": [], "afirmacoes": []})
+    gravar_json(pasta / "verificacao" / "verificacao.json", {"status": "aprovado", "contagem": {"erros": 0, "pendencias": 0, "avisos": 0},
+                                                            "erros": [], "pendencias": [], "avisos": []})
+    E.gravar(pasta, est)
+    with conectar() as con:
+        con.execute("UPDATE etapas SET status='concluido', resumo='roteiro do teste do montador' WHERE video_id=? AND chave='roteiro'", (vid,))
+        con.execute("UPDATE videos SET coluna='montagem' WHERE id=?", (vid,))
+        con.commit()
+    cli.get(f"/api/videos/{vid}/doc")
+    print(json.dumps({"storyboard": vid, "url": f"http://127.0.0.1:{PORTA}/#/video/{vid}"}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

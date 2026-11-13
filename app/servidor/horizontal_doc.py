@@ -250,6 +250,75 @@ def pedir(vid: int, corpo: Pedido):
         return ler(con, vid)
 
 
+# ---------------------------------------------------------------- storyboard do Rascunho (fase 7b)
+def _storyboard(con, vid: int, slug: str) -> dict:
+    return chamar({"cmd": "storyboard", "raiz": str(RAIZ), **_base(slug)})["storyboard"]
+
+
+@rota.get("/api/videos/{vid}/doc/storyboard")
+def ver_storyboard(vid: int):
+    """Cenas com frases, momentos-chave, quadros de prévia (caminhos para /api/arquivo), motor, kits e estado."""
+    with conectar() as con:
+        v = _card(con, vid)
+        return _storyboard(con, vid, v["slug"])
+
+
+class Ajuste(BaseModel):
+    acao: dict
+    previa: bool = True
+
+
+@rota.post("/api/videos/{vid}/doc/cena/{cid}/ajuste")
+def ajustar_cena(vid: int, cid: str, corpo: Ajuste):
+    """Ação direta (movimento, transição, corte, SFX, parâmetro fechado de kit): entra na SPEC na hora, sem modelo;
+    só as cenas cujo trecho mudou ganham prévia nova (processo à parte)."""
+    with conectar() as con:
+        v = _card(con, vid)
+        r = chamar({"cmd": "ajustar", "cena": cid, "acao": corpo.acao, "previa": corpo.previa, **_base(v["slug"])}, tempo=180)["ajuste"]
+        registrar(con, vid, f"Storyboard, cena {cid}: {r['descricao']}"
+                  + (f" (prévia de {len(r['afetadas'])} cena(s))" if r["afetadas"] and corpo.previa else ""), "info")
+        ler(con, vid)
+        return {"ajuste": r, "storyboard": _storyboard(con, vid, v["slug"])}
+
+
+class Cenas(BaseModel):
+    cenas: list[str] | None = None
+
+
+@rota.post("/api/videos/{vid}/doc/previa")
+def gerar_previa(vid: int, corpo: Cenas):
+    """Prévia (trecho do montador + quadros dos momentos-chave) das cenas pedidas (None = todas), em processo à parte."""
+    with conectar() as con:
+        v = _card(con, vid)
+        r = chamar({"cmd": "previa", "cenas": corpo.cenas, **_base(v["slug"])})["previa"]
+        return {"previa": r, "storyboard": _storyboard(con, vid, v["slug"])}
+
+
+@rota.post("/api/videos/{vid}/doc/cena/{cid}/aprovar")
+def aprovar_cena(vid: int, cid: str):
+    with conectar() as con:
+        v = _card(con, vid)
+        chamar({"cmd": "aprovar_cena", "cena": cid, **_base(v["slug"])})
+        registrar(con, vid, f"Storyboard: cena {cid} aprovada ★", "ok")
+        return _storyboard(con, vid, v["slug"])
+
+
+class PedidoCena(BaseModel):
+    texto: str
+    origem: str = "texto"   # "voz" = ditado (transcrito pelo /observacoes/transcrever e corrigido pelo Felipe)
+
+
+@rota.post("/api/videos/{vid}/doc/cena/{cid}/pedido")
+def pedir_cena(vid: int, cid: str, corpo: PedidoCena):
+    """Pedido que não é ação direta: vira pedido da cena + prompt só dela para o orquestrador (pendência no card)."""
+    with conectar() as con:
+        v = _card(con, vid)
+        r = chamar({"cmd": "pedido_cena", "cena": cid, "texto": corpo.texto, "origem": corpo.origem, **_base(v["slug"])})["pedido"]
+        registrar(con, vid, f"Pedido na cena {cid}" + (" (voz)" if corpo.origem == "voz" else "") + f": {corpo.texto.strip()[:120]}", "info")
+        return {"pedido": {k: r.get(k) for k in ("prompt", "comandos", "aviso")}, **ler(con, vid),
+                "storyboard": _storyboard(con, vid, v["slug"])}
+
+
 @rota.delete("/api/videos/{vid}/doc/pedido/{pid}")
 def retirar(vid: int, pid: str):
     with conectar() as con:

@@ -5,7 +5,9 @@ num processo à parte, manda um pedido JSON pela entrada padrão e lê a respost
 `estado.json` passa por `etapas.py`. Nada aqui chama o modelo: as etapas que precisam dele (História, SPEC e pedido de
 cena) só montam o prompt e devolvem o que o orquestrador deve rodar; a resposta entra por `aplicar`.
 
-Pedido (stdin):  {"cmd": "resumo" | "passo" | "aprovar" | "pedir" | "retirar" | "aplicar", "pasta": "...", ...}
+Pedido (stdin):  {"cmd": "resumo" | "passo" | "aprovar" | "pedir" | "retirar" | "aplicar"
+                  | "storyboard" | "ajustar" | "previa" | "aprovar_cena" | "pedido_cena", "pasta": "...", ...}
+(storyboard do Rascunho, fase 7b: `ajustar` = ação direta na SPEC sem modelo, `pedido_cena` = pedido + prompt só da cena)
 Resposta (stdout): {"ok": true, ...} ou {"ok": false, "erro": "..."}
 
 Uso pelo orquestrador (a resposta do modelo é um arquivo JSON):
@@ -194,12 +196,10 @@ def passo(pasta: Path, slug: str, nome: str) -> dict:
             raise Recusa(f"{TITULO[nome]} já foi gerada: peça uma mudança para refazer")
         roteiro, palavras, _, briefing = entradas(pasta)
         if nome == "historia":
-            base = H.prompt(roteiro, palavras, briefing, observacoes(pasta))
             spec_atual = None
         else:
             _exige_aprovado(estado, "historia", "gerar a SPEC")
             spec_atual = ler_json(pasta / "spec.json")
-            base = S.prompt(roteiro, palavras, ler_json(pasta / "historia.json"), briefing, observacoes(pasta))
         # pedido só de cenas, com SPEC já existente: um prompt curto por cena (as outras ficam como estão)
         por_cena = nome == "spec" and spec_atual and abertos and all(p.get("cena") for p in abertos)
         if por_cena:
@@ -211,6 +211,10 @@ def passo(pasta: Path, slug: str, nome: str) -> dict:
             etapas.marcar(pasta, "spec", "prompt_pronto", f"pedido de mudança em {len(cenas)} cena(s)")
             return {"precisa_modelo": True, "prompts": arqs,
                     "comandos": [_cmd_aplicar(pasta, "spec", c) for c in cenas]}
+        if nome == "historia":
+            base = H.prompt(roteiro, palavras, briefing, observacoes(pasta))
+        else:
+            base = S.prompt(roteiro, palavras, ler_json(pasta / "historia.json"), briefing, observacoes(pasta))
         texto = base + _pedidos_no_prompt(abertos, spec_atual)
         arq = _gravar_prompt(pasta, f"{nome}.prompt.txt", texto)
         guardada = None if abertos else cache_resposta(pasta, nome, base)
@@ -333,6 +337,96 @@ def aplicar(pasta: Path, etapa: str, resposta, cena: str | None = None) -> dict:
     return etapas.ler(pasta)
 
 
+# ---------------------------------------------------------------- storyboard do Rascunho (fase 7b)
+def _sb():
+    mdir = str(HORIZONTAL / "montador")
+    if mdir not in sys.path:
+        sys.path.insert(0, mdir)
+    import storyboard as SB   # noqa: PLC0415 (só aqui: o storyboard planeja as cenas pelo montador)
+    return SB
+
+
+def _hashes(pasta: Path) -> dict:
+    try:
+        p = _calado(_sb()._plano, pasta)
+    except Exception:   # noqa: BLE001 — sem plano não há o que comparar
+        return {}
+    return {j["cena"]: j["hash"] for j in p["jobs"]}
+
+
+def disparar_previa(pasta: Path, cenas: list[str] | None) -> dict:
+    """Prévia (trecho + quadros) das cenas num processo à parte. Já gerando: as cenas entram na fila do mesmo processo."""
+    import time
+
+    SB = _sb()
+    sb = SB.pasta_sb(pasta)
+    sb.mkdir(parents=True, exist_ok=True)
+    spec = ler_json(pasta / "spec.json") or {"cenas": []}
+    ids = [c["id"] for c in spec["cenas"]] if not cenas else [c for c in cenas if c in {x["id"] for x in spec["cenas"]}]
+    if not ids:
+        raise Recusa("nenhuma cena para a prévia")
+    g = SB._gerando(pasta)
+    if g:
+        fila = ler_json(sb / "fila.json") or []
+        gravar_json(sb / "fila.json", sorted(set(fila) | set(ids)))
+        gravar_json(sb / "gerando.json", {**g, "cenas": sorted(set(g.get("cenas", [])) | set(ids))})
+        return {"na_fila": ids}
+    gravar_json(sb / "gerando.json", {"inicio": time.time(), "cenas": ids})
+    log = sb / "previa.log"
+    fh = open(log, "a", encoding="utf-8")   # noqa: SIM115 (fica com o processo filho)
+    flags = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if sys.platform == "win32" else 0
+    subprocess.Popen([sys.executable, str(HORIZONTAL / "montador" / "storyboard.py"), str(pasta), "previa", ",".join(ids)],
+                     stdout=fh, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, cwd=str(HORIZONTAL / "montador"),
+                     creationflags=flags, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    return {"gerando": ids, "log": str(log)}
+
+
+def ajustar_cena(pasta: Path, cena: str, acao: dict, previa: bool = True) -> dict:
+    """Ação direta do storyboard → spec.json na hora (sem modelo); Ativos e Verificação rodam de novo (offline) e só as
+    cenas cujo trecho mudou (hash da receita) ganham prévia nova."""
+    import ajustes
+
+    estado = etapas.ler(pasta)
+    spec_atual = ler_json(pasta / "spec.json")
+    if not spec_atual:
+        raise Recusa("sem SPEC ainda")
+    _, palavras, _, _ = entradas(pasta)
+    antes = _hashes(pasta)
+    try:
+        nova, desc, novo_id = ajustes.aplicar(spec_atual, cena, acao, palavras)
+        etapas.ajustar(pasta, "spec", nova, f"cena {cena}: {desc}")
+    except ValueError as e:
+        raise Recusa(str(e)) from None
+    hist = ler_json(pasta / "ajustes_diretos.json") or []
+    hist.append({"em": etapas.agora(), "cena": cena, "cena_depois": novo_id, "acao": acao, "descricao": desc})
+    gravar_json(pasta / "ajustes_diretos.json", hist[-500:])
+    avisos = []
+    for nome, mod in (("ativos", A), ("verificacao", V)):   # offline e rápidos: a SPEC nova sai já conferida
+        if estado["etapas"][nome]["status"] != "pendente":
+            try:
+                _calado(mod.aplicar, pasta)
+            except Exception as e:   # noqa: BLE001 — fica `desatualizado` (etapas.ajustar) e o motivo volta para a tela
+                avisos.append(f"{TITULO[nome]} não rodou de novo ({type(e).__name__}: {str(e)[:160]}): rode pelo botão")
+    depois = _hashes(pasta)
+    afetadas = [c for c, h in depois.items() if antes.get(c) != h]
+    disparo = disparar_previa(pasta, afetadas) if (previa and afetadas) else None
+    return {"descricao": desc, "cena": novo_id, "afetadas": afetadas, "previa": disparo, "avisos": avisos}
+
+
+def pedido_cena(pasta: Path, slug: str, cena: str, texto: str, origem: str = "texto") -> dict:
+    """Qualquer pedido que não é ação direta (texto ou voz): pedido da cena na SPEC + o prompt SÓ dessa cena para o
+    orquestrador (`spec.prompt_pedido`), na mesma chamada."""
+    t = texto.strip()
+    if origem == "voz":
+        t = f"{t} (ditado por voz)"
+    estado = pedir(pasta, "spec", t, cena)
+    try:
+        r = passo(pasta, slug, "spec")
+    except Recusa as e:   # ex.: história não aprovada; o pedido fica aberto e o motivo volta
+        return {"estado": estado, "prompt": None, "aviso": str(e)}
+    return {"estado": etapas.ler(pasta), "prompt": r.get("prompts"), "comandos": r.get("comandos")}
+
+
 # ---------------------------------------------------------------- entrada
 def executar(pedido: dict) -> dict:
     pasta = Path(pedido["pasta"])
@@ -354,6 +448,21 @@ def executar(pedido: dict) -> dict:
         r = {"estado": retirar(pasta, pedido["id"])}
     elif cmd == "aplicar":
         r = {"estado": aplicar(pasta, pedido["etapa"], pedido["resposta"], pedido.get("cena"))}
+    elif cmd == "storyboard":
+        r = {"storyboard": _calado(_sb().ler, pasta, pedido.get("raiz"))}
+    elif cmd == "ajustar":
+        r = {"ajuste": ajustar_cena(pasta, pedido["cena"], pedido["acao"], pedido.get("previa", True))}
+    elif cmd == "previa":
+        r = {"previa": disparar_previa(pasta, pedido.get("cenas"))}
+    elif cmd == "aprovar_cena":
+        try:
+            r = {"aprovacoes": _calado(_sb().aprovar, pasta, pedido["cena"])}
+        except ValueError as e:
+            raise Recusa(str(e)) from None
+    elif cmd == "pedido_cena":
+        if not str(pedido.get("texto", "")).strip():
+            raise Recusa("escreva (ou dite) o pedido")
+        r = {"pedido": pedido_cena(pasta, slug, pedido["cena"], pedido["texto"], pedido.get("origem", "texto"))}
     else:
         raise Recusa(f"comando desconhecido: {cmd}")
     return {"ok": True, "avisos_entrada": avisos, **r}

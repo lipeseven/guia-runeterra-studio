@@ -34,11 +34,46 @@ import medir           # noqa: E402
 import montar as MT    # noqa: E402
 from esquema import validar  # noqa: E402
 
+import segmentos as S  # noqa: E402
+
 SAIDA = AQUI / "saida"
 PASTA = SAIDA / "projeto" / "horizontal"
 SR = 48000
+TETO_TESTE = 4.0   # s: com cenas de 3 s, cada cena vira um bloco e as transições viram junções
 falhas: list[str] = []
 n_ok = 0
+
+# conta as invocações do Remotion (lote × cena avulsa) sem mudar o que o montador faz
+CHAMADAS = {"LoteDoc": 0, "CenaDoc": 0}
+_sh_original = S._sh
+
+
+def _sh_contando(cmd, cwd=None):
+    for nome in CHAMADAS:
+        if nome in [str(x) for x in cmd]:
+            CHAMADAS[nome] += 1
+    return _sh_original(cmd, cwd)
+
+
+S._sh = _sh_contando
+
+
+def pacotes(mp4: Path, decodificar: bool = False) -> list[str]:
+    """Hash de cada pacote de vídeo (sem decodificar) ou de cada quadro decodificado."""
+    cod = [] if decodificar else ["-c", "copy"]
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", str(mp4), "-map", "0:v", *cod, "-f", "framemd5", "-"],
+                       capture_output=True, text=True)
+    return [ln.rsplit(",", 1)[-1].strip() for ln in r.stdout.splitlines() if ln and not ln.startswith("#")]
+
+
+def sem_recodificar(final: Path, segs: list[dict]) -> tuple[bool, str]:
+    """Concat sem recodificar: todo quadro decodificado idêntico ao do segmento, e os pacotes idênticos byte a byte
+    salvo os quadros-chave (o concat repete SPS/PPS na frente deles: +49 bytes, mesmo conteúdo)."""
+    a, b = sum((pacotes(Path(s["arquivo"])) for s in segs), []), pacotes(final)
+    da, db = sum((pacotes(Path(s["arquivo"]), True) for s in segs), []), pacotes(final, True)
+    dif = sum(1 for x, y in zip(a, b) if x != y)
+    ok = len(a) == len(b) and da == db and dif <= len(segs) + len(a) // 120 + 1
+    return ok, f"({len(a)} × {len(b)} pacotes, {dif} diferentes (só quadros-chave), quadros decodificados iguais: {da == db})"
 
 
 def checa(cond, nome, detalhe=""):
@@ -130,7 +165,7 @@ def ffprobe(mp4: Path) -> dict:
 def main() -> int:
     if "--limpar" in sys.argv:
         shutil.rmtree(SAIDA, ignore_errors=True)
-    for d in ("trechos", "rascunho", "verificacao", "estado.json"):   # cada rodada começa sem cache (o teste do cache depende disso)
+    for d in ("trechos", "rascunho", "verificacao", "estado.json", "storyboard", "blocos", "prompts", "ajustes_diretos.json"):   # cada rodada começa sem cache (o teste do cache depende disso)
         p = PASTA / d
         shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
     PASTA.mkdir(parents=True, exist_ok=True)
@@ -146,8 +181,8 @@ def main() -> int:
     checa(not validar(sp, "spec"), "mini-spec válido no esquema do diretor", str(validar(sp, "spec"))[:300])
     checa([c["motor"] for c in sp["cenas"]] == ["remotion", "hyperframes", "remotion"], "1 cena HyperFrames + 2 Remotion")
 
-    print("2. montagem (rascunho 1280x720)")
-    rel = MT.montar(PASTA, "rascunho", exigir_estado=False)
+    print("2. montagem (rascunho 1280x720; blocos com teto de 4 s para exercitar junções e concat sem recodificar)")
+    rel = MT.montar(PASTA, "rascunho", exigir_estado=False, teto_bloco=TETO_TESTE)
     print("  ", MT.resumo(rel))
     v = rel["verificacao"]
     for e in v["erros"]:
@@ -175,16 +210,28 @@ def main() -> int:
     checa(abs(med.get("audio_alinhamento_ms", 99)) <= 1.0, "áudio do MP4 alinhado ao master (≤ 1 ms)", f"({med.get('audio_alinhamento_ms')})")
     lf = med.get("loudness_mp4", {})
     checa(abs(lf.get("lufs", 0) + 14) <= 0.7 and lf.get("pico_dbtp", 0) <= -1.0, "loudness do MP4 −14 LUFS, pico ≤ −1 dBTP", f"({lf})")
+    segs = rel["blocos"]["segmentos"]
+    checa([s["tipo"] for s in segs] == ["bloco", "juncao", "bloco", "juncao", "bloco"], "3 blocos + 2 junções (wipe e zoom inteiros)",
+          f"({[s['tipo'] for s in segs]})")
+    checa(CHAMADAS["LoteDoc"] == 1 and CHAMADAS["CenaDoc"] == 0, "as 2 cenas Remotion num lote só (o motor abre 1 vez)", f"({CHAMADAS})")
+    ok, det = sem_recodificar(Path(rel["arquivo"]), segs)
+    checa(ok, "vídeo final = pacotes dos blocos/junções (concat SEM recodificar)", det)
 
     print("3. cache e cena por demanda")
-    rel2 = MT.montar(PASTA, "rascunho", exigir_estado=False)
+    rel2 = MT.montar(PASTA, "rascunho", exigir_estado=False, teto_bloco=TETO_TESTE)
     checa(all(c["do_cache"] for c in rel2["cenas"]), "2ª montagem: nenhuma cena renderizada de novo")
+    checa(rel2["blocos"]["codificados"] == 0, "2ª montagem: nenhum bloco codificado de novo", f"({rel2['blocos']['codificados']})")
     sp2 = spec(pal, ["0,117 s", "Leclerc × Hamilton · Monza 2025"])
     (PASTA / "spec.json").write_text(json.dumps(sp2, ensure_ascii=False, indent=1), encoding="utf-8")
-    rel3 = MT.montar(PASTA, "rascunho", exigir_estado=False)
+    rel3 = MT.montar(PASTA, "rascunho", exigir_estado=False, teto_bloco=TETO_TESTE)
     checa([c["do_cache"] for c in rel3["cenas"]] == [True, True, False], "texto da c3 mudou: só a c3 re-renderizada",
           f"({[c['do_cache'] for c in rel3['cenas']]})")
+    checa([s["do_cache"] for s in rel3["blocos"]["segmentos"]] == [True, True, True, False, False],
+          "c3 mudou: só a junção c2→c3 e o bloco da c3 recodificados", f"({[s['do_cache'] for s in rel3['blocos']['segmentos']]})")
     checa(rel3["verificacao"]["status"] == "aprovado", "montagem com a c3 nova aprovada")
+    rel4 = MT.montar(PASTA, "rascunho", exigir_estado=False)   # teto padrão (45 s): o mini-spec inteiro cabe num bloco
+    checa(len(rel4["blocos"]["segmentos"]) == 1 and rel4["verificacao"]["status"] == "aprovado", "teto padrão: 1 bloco, aprovado",
+          f"({len(rel4['blocos']['segmentos'])}, {rel4['verificacao']['erros'][:2]})")
     so = MT.montar(PASTA, "rascunho", cenas=[sp2["cenas"][1]["id"]], exigir_estado=False)
     checa(list(so["cenas"]) == [sp2["cenas"][1]["id"]] and so["cenas"][sp2["cenas"][1]["id"]]["do_cache"], "cena por demanda (só c2, do cache)")
 
@@ -236,6 +283,81 @@ def main() -> int:
         checa(True, "rascunho aprovável ★")
     except ValueError as e:
         checa(False, "rascunho aprovável ★", str(e))
+
+    print("6. storyboard: prévia por cena, ★ da cena, ações diretas (só a cena afetada renderiza de novo)")
+    import storyboard as SB
+    from PIL import Image
+
+    def ponte(**ped):
+        r = subprocess.run([sys.executable, str(HORIZ / "diretor" / "painel.py")], capture_output=True,
+                           input=json.dumps({"pasta": str(PASTA), "slug": "projeto", **ped}).encode())
+        return json.loads(r.stdout.decode("utf-8"))
+
+    c1, c2, c3 = (c["id"] for c in sp2["cenas"])
+    sb = SB.ler(PASTA)
+    checa([c["estado"] for c in sb["cenas"]] == ["sem_previa"] * 3, "storyboard: 3 cenas sem prévia ainda",
+          f"({[c['estado'] for c in sb['cenas']]})")
+    checa(sb["cenas"][0]["frases"][0]["texto"].startswith("Em Monza") and sb["cenas"][2]["momentos"][1]["rotulo"].startswith("anotacao oval"),
+          "frases faladas e momentos-chave (anotação + SFX) por cena", str(sb["cenas"][2]["momentos"])[:200])
+    r = ponte(cmd="aprovar_cena", cena=c1)
+    checa(not r["ok"] and "prévia" in r["erro"], "★ da cena recusada sem prévia", str(r)[:200])
+    g = SB.gerar(PASTA, [c1, c3])
+    checa(set(g["feitas"]) == {c1, c3} and all(x["do_cache"] for x in g["feitas"].values()),
+          "prévia de cenas já montadas sai do cache do rascunho (sem render)", str(g)[:300])
+    sb = SB.ler(PASTA)
+    q1 = sb["cenas"][0]["quadros"]
+    checa(len(q1) == len(sb["cenas"][0]["momentos"]) and all(Path(q["arquivo"]).exists() for q in q1)
+          and Image.open(q1[0]["arquivo"]).size == (480, 270), "quadros da prévia (480×270) nos momentos-chave", str(q1)[:200])
+    checa(ponte(cmd="aprovar_cena", cena=c1)["ok"] and SB.ler(PASTA)["cenas"][0]["estado"] == "aprovada", "cena aprovada ★")
+    fim_antes = np.asarray(Image.open(q1[-1]["arquivo"]).convert("L"), float)
+
+    # ação direta: zoom na c1 (Remotion) → só a c1 muda; SPEC continua aprovada; rascunho desatualizado
+    r = ponte(cmd="ajustar", cena=c1, acao={"acao": "movimento", "tipo": "aproximar", "intensidade": 0.12}, previa=False)
+    checa(r["ok"] and r["ajuste"]["afetadas"] == [c1], "movimento na c1: só a c1 afetada", str(r)[:300])
+    est = E.ler(PASTA)
+    checa(est["etapas"]["spec"]["status"] == "aprovado" and est["etapas"]["rascunho"]["status"] == "desatualizado",
+          "SPEC segue aprovada (ação do Felipe) e o rascunho fica desatualizado", str({k: v["status"] for k, v in est["etapas"].items()}))
+    checa(json.loads((PASTA / "spec.json").read_text(encoding="utf-8"))["cenas"][0]["movimento"]["tipo"] == "aproximar"
+          and not validar(json.loads((PASTA / "spec.json").read_text(encoding="utf-8")), "spec"), "spec.json com o movimento e válido")
+    checa(SB.ler(PASTA)["cenas"][0]["estado"] == "desatualizada", "cena aprovada que mudou fica desatualizada")
+    r = ponte(cmd="ajustar", cena=c2, acao={"acao": "movimento", "tipo": "pan_dir"}, previa=False)
+    checa(r["ok"] and r["ajuste"]["afetadas"] == [c2], "movimento na c2 (HyperFrames): só a c2 afetada", str(r)[:300])
+    r = ponte(cmd="ajustar", cena=c3, acao={"acao": "transicao", "tipo": "fade"}, previa=False)
+    checa(r["ok"] and set(r["ajuste"]["afetadas"]) == {c2, c3}, "entrada da c3 vira fade: c2 (saída) e c3 afetadas", str(r)[:300])
+    r = ponte(cmd="ajustar", cena=c1, acao={"acao": "sfx", "j": 0, "categoria": "sino"}, previa=False)
+    checa(r["ok"] and r["ajuste"]["afetadas"] == [], "trocar o SFX: nenhuma cena renderiza (só o áudio muda)", str(r)[:300])
+    r = ponte(cmd="ajustar", cena=c1, acao={"acao": "kit", "kit": "graficos", "param": "tipo", "valor": "delta"}, previa=False)
+    checa(not r["ok"] and "não é ação direta" in r["erro"], "mudança fora das ações diretas recusada (vai ao orquestrador)", str(r)[:200])
+    r = ponte(cmd="ajustar", cena=c2, acao={"acao": "corte", "indice": 30}, previa=False)
+    checa(not r["ok"] and "corte precisa ficar" in r["erro"], "corte fora da cena anterior/atual recusado", str(r)[:200])
+
+    # prévia nova da c1 (render só dela) e a montagem com as ações (verificação por quadro dos 2 motores)
+    CHAMADAS.update(LoteDoc=0, CenaDoc=0)
+    g = SB.gerar(PASTA, [c1])
+    checa(g["feitas"].get(c1, {}).get("do_cache") is False and CHAMADAS["CenaDoc"] == 1, "prévia da c1: renderizada de novo, só ela",
+          f"({g}, {CHAMADAS})")
+    q1n = SB.ler(PASTA)["cenas"][0]["quadros"]
+    fim_depois = np.asarray(Image.open(q1n[-1]["arquivo"]).convert("L"), float)
+    dif = float(np.abs(fim_depois - fim_antes).mean())
+    checa(dif > 2.0, "zoom aparece na prévia (último quadro diferente do antes)", f"(diferença média {dif:.1f})")
+    CHAMADAS.update(LoteDoc=0, CenaDoc=0)
+    rel5 = MT.montar(PASTA, "rascunho", exigir_estado=False, teto_bloco=TETO_TESTE)
+    checa([c["do_cache"] for c in rel5["cenas"]] == [True, False, False], "montagem depois das ações: c1 do cache da prévia, c2 e c3 renderizadas",
+          f"({[c['do_cache'] for c in rel5['cenas']]})")
+    checa(rel5["verificacao"]["status"] == "aprovado", "montagem com movimento (2 motores) e fade aprovada na verificação",
+          str(rel5["verificacao"]["erros"][:3]))
+    sfx5 = rel5["verificacao"]["medidas"].get("sfx", [])
+    checa(any(s["categoria"] == "sino" for s in sfx5), "SFX trocado (sino) entrou na mixagem", f"({[s['categoria'] for s in sfx5]})")
+
+    # pedido que não é ação direta (voz): pedido da cena + prompt só dela para o orquestrador
+    r = ponte(cmd="pedido_cena", cena=c2, texto="quero os carros mais separados na tela", origem="voz")
+    checa(r["ok"] and r["pedido"]["prompt"] and Path(r["pedido"]["prompt"][0]).name == f"pedido_{c2}.prompt.txt",
+          "pedido por voz vira prompt só da c2", str(r)[:300])
+    est = E.ler(PASTA)
+    checa(est["etapas"]["spec"]["status"] == "prompt_pronto" and est["pedidos"][-1]["cena"] == c2
+          and "ditado por voz" in est["pedidos"][-1]["texto"], "SPEC aguardando o orquestrador com o pedido da c2")
+    checa("quero os carros mais separados" in (PASTA / "prompts" / f"pedido_{c2}.prompt.txt").read_text(encoding="utf-8"),
+          "prompt da cena traz o pedido")
 
     for f in sorted((PASTA / "rascunho" / "verificacao").glob("folha_*.jpg")):
         shutil.copy2(f, AQUI / f.name)

@@ -32,6 +32,17 @@
         "capitulo": {"type": "string", "pattern": "^c[0-9]+$"},
         "objetivo": {"type": "string", "minLength": 3, "description": "o que o espectador entende nesta cena"},
         "camera": {"type": "string"},
+        "movimento": {
+          "type": "object",
+          "required": ["tipo"],
+          "additionalProperties": false,
+          "description": "câmera da cena inteira (ação direta do storyboard; montador/movimento.js)",
+          "properties": {
+            "tipo": {"enum": ["parado", "aproximar", "afastar", "pan_esq", "pan_dir", "subir", "descer"]},
+            "intensidade": {"type": "number", "minimum": 0.01, "maximum": 0.3},
+            "foco": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "number", "minimum": 0, "maximum": 1}}
+          }
+        },
         "motor": {"enum": ["remotion", "hyperframes"]},
         "kits": {"type": "array", "items": {"$ref": "#/$defs/uso_kit"}},
         "afirmacoes": {"type": "array", "items": {"type": "string", "pattern": "^a[0-9]+$"}},

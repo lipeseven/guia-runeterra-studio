@@ -26,16 +26,16 @@
           {
             "quadro": 83,
             "local": 83,
-            "psnr": 54.49,
+            "psnr": 55.22,
             "melhor_desloc": 0,
             "parado": false
           },
           {
             "quadro": 167,
             "local": 167,
-            "psnr": 57.04,
+            "psnr": 52.7,
             "melhor_desloc": 0,
-            "parado": true
+            "parado": false
           }
         ]
       },
@@ -46,21 +46,21 @@
           {
             "quadro": 192,
             "local": 24,
-            "psnr": 56.62,
+            "psnr": 53.93,
             "melhor_desloc": 0,
             "parado": false
           },
           {
-            "quadro": 268,
-            "local": 100,
-            "psnr": 56.16,
+            "quadro": 271,
+            "local": 103,
+            "psnr": 54.84,
             "melhor_desloc": 0,
             "parado": false
           },
           {
-            "quadro": 344,
-            "local": 176,
-            "psnr": 55.59,
+            "quadro": 350,
+            "local": 182,
+            "psnr": 55.66,
             "melhor_desloc": 0,
             "parado": false
           }
@@ -71,23 +71,23 @@
         "quadros": 180,
         "amostras": [
           {
-            "quadro": 375,
-            "local": 30,
-            "psnr": 58.25,
+            "quadro": 369,
+            "local": 18,
+            "psnr": 55.85,
             "melhor_desloc": -2,
             "parado": true
           },
           {
-            "quadro": 457,
-            "local": 112,
-            "psnr": 58.03,
+            "quadro": 454,
+            "local": 103,
+            "psnr": 58.33,
             "melhor_desloc": -2,
             "parado": true
           },
           {
             "quadro": 539,
-            "local": 194,
-            "psnr": 57.7,
+            "local": 188,
+            "psnr": 55.58,
             "melhor_desloc": -2,
             "parado": true
           }
@@ -102,29 +102,29 @@
         "n": 24,
         "q0": 168,
         "corte": 180,
-        "pior_psnr": 38.34,
+        "pior_psnr": 38.18,
         "pretos": [],
         "repetidos": []
       },
       {
         "de": "3ed04e68",
         "para": "8667dd4d",
-        "tipo": "zoom",
-        "n": 30,
-        "q0": 345,
+        "tipo": "fade",
+        "n": 18,
+        "q0": 351,
         "corte": 360,
-        "pior_psnr": 41.46,
+        "pior_psnr": 42.33,
         "pretos": [],
         "repetidos": []
       }
     ],
     "sfx": [
       {
-        "categoria": "impacto",
-        "id": "impacto_fs751347",
+        "categoria": "sino",
+        "id": "sino_suave",
         "t": 0.55,
-        "pico_medido": 0.5556,
-        "erro_ms": 5.6,
+        "pico_medido": 0.5456,
+        "erro_ms": -4.4,
         "isolado": true,
         "palavra": "Leclerc"
       },
@@ -138,20 +138,11 @@
         "palavra": "transição wipe"
       },
       {
-        "categoria": "whoosh",
-        "id": "whoosh_capitulo_remotion",
-        "t": 6.0,
-        "pico_medido": 6.0125,
-        "erro_ms": 12.5,
-        "isolado": true,
-        "palavra": "transição zoom"
-      },
-      {
         "categoria": "pop",
         "id": "pop_remotion",
         "t": 8.062,
-        "pico_medido": 8.069,
-        "erro_ms": 7.0,
+        "pico_medido": 8.0688,
+        "erro_ms": 6.8,
         "isolado": true,
         "palavra": "0,117"
       }
@@ -159,7 +150,7 @@
     "audio_alinhamento_ms": 0.0,
     "loudness_mp4": {
       "lufs": -14.0,
-      "pico_dbtp": -2.1
+      "pico_dbtp": -2.5
     }
   }
 }

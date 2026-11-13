@@ -72,6 +72,7 @@ def _render_hyperframes(job: dict, largura: int, altura: int, destino: Path, tmp
     (proj / "assets" / "cfg.js").write_text("window.__CFG = " + json.dumps(job["cfg"], ensure_ascii=False) + ";\n", encoding="utf-8")
     for d in ("src", "exemplo"):
         shutil.copytree(R.KIT / "gps" / d, proj / "assets" / "kit" / "gps" / d)
+    shutil.copy2(R.AQUI / "movimento.js", proj / "assets" / "movimento.js")
     for rel, origem in job["assets"].items():
         alvo = proj / "assets" / rel
         alvo.parent.mkdir(parents=True, exist_ok=True)
@@ -101,17 +102,48 @@ def contar_quadros(mp4: Path) -> int:
     return int(r.stdout.strip().split(",")[0])
 
 
+TETO_LOTE_S = 45.0   # s de vídeo por invocação do Remotion no lote (medido em medir_motores.py; ver README.md)
+
+
+def _chave(job: dict, largura: int, altura: int) -> str:
+    return f"{job['cena']}_{job['hash']}_{largura}x{altura}"
+
+
+def _do_cache(job: dict, trechos: Path, largura: int, altura: int) -> dict | None:
+    chave = _chave(job, largura, altura)
+    mp4, meta = trechos / f"{chave}.mp4", trechos / f"{chave}.json"
+    if mp4.exists() and meta.exists():
+        m = json.loads(meta.read_text(encoding="utf-8"))
+        if m.get("quadros") == job["quadros"]:
+            return {**m, "arquivo": str(mp4), "do_cache": True}
+    return None
+
+
+def _finalizar(job: dict, pngs: list[Path], trechos: Path, largura: int, altura: int, tmp: Path, rascunho: bool) -> dict:
+    chave = _chave(job, largura, altura)
+    mp4, meta = trechos / f"{chave}.mp4", trechos / f"{chave}.json"
+    ajuste = len(pngs) - job["quadros"]
+    if ajuste < 0:
+        raise FalhaRender(f"cena {job['cena']} ({job['motor']}): {len(pngs)} quadros renderizados, esperados {job['quadros']}")
+    # quadro a mais de algum motor (instante final inclusivo) fica de fora e é registrado em `ajuste`
+    # (medido em 2026-11-13: 0 nos dois motores com duração = quadros/60)
+    _codificar(pngs[: job["quadros"]], largura, altura, mp4, tmp, rascunho)
+    n = contar_quadros(mp4)
+    if n != job["quadros"]:
+        raise FalhaRender(f"trecho {mp4.name}: {n} quadros no MP4, esperados {job['quadros']}")
+    m = {"cena": job["cena"], "motor": job["motor"], "hash": job["hash"], "quadros": n, "pre": job["pre"], "pos": job["pos"],
+         "largura": largura, "altura": altura, "ajuste_quadros_motor": ajuste}
+    meta.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {**m, "arquivo": str(mp4), "do_cache": False}
+
+
 def renderizar(job: dict, pasta: Path, largura: int, altura: int, rascunho: bool = True, forcar: bool = False) -> dict:
     """Trecho da cena (cache por hash + resolução). Devolve {arquivo, quadros, hash, do_cache, ajuste}."""
     trechos = Path(pasta) / "trechos"
     trechos.mkdir(parents=True, exist_ok=True)
-    chave = f"{job['cena']}_{job['hash']}_{largura}x{altura}"
-    mp4, meta = trechos / f"{chave}.mp4", trechos / f"{chave}.json"
-    if mp4.exists() and meta.exists() and not forcar:
-        m = json.loads(meta.read_text(encoding="utf-8"))
-        if m.get("quadros") == job["quadros"]:
-            return {**m, "arquivo": str(mp4), "do_cache": True}
-    tmp = trechos / f"_tmp_{chave}"
+    if not forcar and (c := _do_cache(job, trechos, largura, altura)):
+        return c
+    tmp = trechos / f"_tmp_{_chave(job, largura, altura)}"
     shutil.rmtree(tmp, ignore_errors=True)
     tmp.mkdir()
     try:
@@ -120,20 +152,70 @@ def renderizar(job: dict, pasta: Path, largura: int, altura: int, rascunho: bool
             _render_remotion(job, largura, altura, quadros_dir, tmp)
         else:
             _render_hyperframes(job, largura, altura, quadros_dir, tmp)
-        pngs = sorted(quadros_dir.rglob("*.png"))
-        ajuste = len(pngs) - job["quadros"]
-        if ajuste < 0:
-            raise FalhaRender(f"cena {job['cena']} ({job['motor']}): {len(pngs)} quadros renderizados, esperados {job['quadros']}")
-        # quadro a mais de algum motor (instante final inclusivo) fica de fora e é registrado em `ajuste`
-        # (medido em 2026-11-13: 0 nos dois motores com duração = quadros/60)
-        pngs = pngs[: job["quadros"]]
-        _codificar(pngs, largura, altura, mp4, tmp, rascunho)
+        return _finalizar(job, sorted(quadros_dir.rglob("*.png")), trechos, largura, altura, tmp, rascunho)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    n = contar_quadros(mp4)
-    if n != job["quadros"]:
-        raise FalhaRender(f"trecho {mp4.name}: {n} quadros no MP4, esperados {job['quadros']}")
-    m = {"cena": job["cena"], "motor": job["motor"], "hash": job["hash"], "quadros": n, "pre": job["pre"], "pos": job["pos"],
-         "largura": largura, "altura": altura, "ajuste_quadros_motor": ajuste}
-    meta.write_text(json.dumps(m, ensure_ascii=False, indent=2), encoding="utf-8")
-    return {**m, "arquivo": str(mp4), "do_cache": False}
+
+
+def lotes(jobs: list[dict], teto_s: float = TETO_LOTE_S) -> list[list[dict]]:
+    """Cenas Remotion a renderizar, em lotes de até `teto_s` segundos de vídeo (cena maior que o teto = lote sozinha)."""
+    out, atual, soma = [], [], 0.0
+    for j in jobs:
+        d = j["quadros"] / FPS
+        if atual and soma + d > teto_s:
+            out.append(atual)
+            atual, soma = [], 0.0
+        atual.append(j)
+        soma += d
+    if atual:
+        out.append(atual)
+    return out
+
+
+def renderizar_lote(jobs: list[dict], pasta: Path, largura: int, altura: int, rascunho: bool = True, forcar: bool = False,
+                    teto_s: float = TETO_LOTE_S) -> dict:
+    """Várias cenas REMOTION numa invocação só do motor (bundle + navegador uma vez por lote, como o render por blocos
+    do Runeterra): composição `LoteDoc` com as cenas em sequência; os PNGs são repartidos por cena e cada cena vira o
+    PRÓPRIO trecho (mesmo cache por hash de `renderizar`). Cenas já no cache não entram no lote. {cena: resultado}."""
+    trechos = Path(pasta) / "trechos"
+    trechos.mkdir(parents=True, exist_ok=True)
+    out, falta = {}, []
+    for j in jobs:
+        if j["motor"] != "remotion":
+            raise FalhaRender(f"renderizar_lote é só do Remotion (cena {j['cena']} é {j['motor']})")
+        c = None if forcar else _do_cache(j, trechos, largura, altura)
+        if c:
+            out[j["cena"]] = c
+        else:
+            falta.append(j)
+    for k, lote in enumerate(lotes(falta, teto_s)):
+        if len(lote) == 1:
+            out[lote[0]["cena"]] = renderizar(lote[0], pasta, largura, altura, rascunho, forcar=True)
+            continue
+        tmp = trechos / f"_tmp_lote_{lote[0]['hash']}_{k}"
+        shutil.rmtree(tmp, ignore_errors=True)
+        tmp.mkdir()
+        try:
+            nm = _juncao_remotion()
+            navegador = nm / ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/chrome-headless-shell.exe"
+            props = tmp / "props.json"
+            props.write_text(json.dumps({"largura": largura, "altura": altura, "cenas": [{**j["props"], "largura": largura,
+                                         "altura": altura} for j in lote]}, ensure_ascii=False), encoding="utf-8")
+            cmd = ["node", nm / "@remotion" / "cli" / "remotion-cli.js", "render", "index.tsx", "LoteDoc", tmp / "png", "--sequence",
+                   "--image-format=png", f"--props={props}", "--log=error", "--concurrency=4"]
+            if navegador.exists():
+                cmd.append(f"--browser-executable={navegador}")
+            _sh(cmd, cwd=HORIZ / "remotion" / "cena")
+            pngs = sorted((tmp / "png").rglob("*.png"))
+            total = sum(j["quadros"] for j in lote)
+            if len(pngs) < total:
+                raise FalhaRender(f"lote Remotion: {len(pngs)} quadros, esperados {total}")
+            ini = 0
+            for j in lote:
+                sub = tmp / f"cena_{j['cena']}"
+                sub.mkdir()
+                out[j["cena"]] = _finalizar(j, pngs[ini:ini + j["quadros"]], trechos, largura, altura, sub, rascunho)
+                ini += j["quadros"]
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+    return out

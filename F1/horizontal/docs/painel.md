@@ -48,6 +48,27 @@ Abas das 5 etapas com o estado; botão do passo; "Aprovar ★"; caixa "Para o or
   `rascunho/montagem.log`); ao terminar, `gerado` (★) ou `falhou` com o motivo. O vídeo aparece na aba
   (`rascunho_video` → `/api/arquivo`). Ver `../montador/README.md`.
 
+## Storyboard do Rascunho (fase 7b)
+Na aba Rascunho, abaixo do vídeo: uma linha por cena da SPEC, como o storyboard do Runeterra (por frases e momentos-
+chave, ancorado em palavras). Cada cena mostra: número, id, tempo, capítulo, **motor**, **kits**, **estado**
+(`sem prévia` · `renderizando…` · `prévia pronta · aprove ★` · `aprovada ★` · `desatualizada` · `prévia falhou` ·
+`sem receita no montador`), os **quadros de prévia** nos momentos-chave (início, âncoras dos kits, SFX, fim), o **texto
+falado em frases** com o tempo, o objetivo e o texto na tela.
+- **Prévia**: botão "prévia" da cena ou "Gerar prévias que faltam" → `montador/storyboard.py` em processo à parte
+  (o trecho do montador da cena, cache por hash; o que já está no cache sai na hora). Ver `../montador/README.md`.
+- **Aprovar ★ da cena**: guarda o hash que o Felipe viu; a cena mudou → "desatualizada". (O ★ do Rascunho inteiro
+  continua sendo o da etapa.)
+- **Ações diretas** (na hora, SEM modelo; `diretor/ajustes.py` → `etapas.ajustar` grava o `spec.json`, a SPEC continua
+  aprovada, Ativos e Verificação rodam de novo, o Rascunho fica desatualizado): câmera (parado, aproximar, afastar,
+  pan ←/→, subir, descer + intensidade), entrada (corte/fade/wipe/zoom + quadros), "começa em" / "termina antes de"
+  (move o corte com a vizinha), SFX (categoria, palavra, remover, + SFX) e escolhas fechadas do kit (câmera do GPS,
+  minimapa do gráfico). Só as cenas cujo trecho mudou (hash da receita) renderizam de novo; trocar SFX não renderiza
+  nada (só o áudio muda). Histórico em `horizontal/ajustes_diretos.json` (para o aprendizado).
+- **Pedido por cena** (texto OU voz): microfone dentro de cada cena ("Corrigir a cena N por voz", o mesmo ditado local
+  das Observações, `componentes/Ditado.tsx` + `/api/videos/{id}/observacoes/transcrever`); o texto transcrito aparece
+  no campo para corrigir e só então "Enviar". Vira pedido da cena na SPEC (marcado "ditado por voz") + o prompt SÓ
+  daquela cena (`spec.prompt_pedido`) e a pendência para o orquestrador, numa chamada (`painel.pedido_cena`).
+
 ## API (`app/servidor/horizontal_doc.py`)
 | Rota | Faz |
 |---|---|
@@ -56,6 +77,11 @@ Abas das 5 etapas com o estado; botão do passo; "Aprovar ★"; caixa "Para o or
 | `POST /api/videos/{id}/doc/aprovar/{historia\|spec\|rascunho}` | ★ pelo `etapas.aprovar` |
 | `POST /api/videos/{id}/doc/pedido` `{etapa, texto, cena?}` | `etapas.pedir` (cena precisa existir na SPEC) |
 | `DELETE /api/videos/{id}/doc/pedido/{pid}` | retira (status `recusado`); sem outros pedidos abertos a etapa volta a `gerado` |
+| `GET /api/videos/{id}/doc/storyboard` | cenas com frases, momentos-chave, quadros (caminhos para `/api/arquivo`), motor, kits, estado |
+| `POST /api/videos/{id}/doc/cena/{cid}/ajuste` `{acao, previa?}` | ação direta na SPEC (409 com o motivo se não vale); dispara a prévia das cenas afetadas |
+| `POST /api/videos/{id}/doc/previa` `{cenas?}` | prévia das cenas (todas se vazio), processo à parte |
+| `POST /api/videos/{id}/doc/cena/{cid}/aprovar` | ★ da cena (409 sem prévia da versão atual) |
+| `POST /api/videos/{id}/doc/cena/{cid}/pedido` `{texto, origem: texto\|voz}` | pedido da cena + prompt só dela para o orquestrador |
 
 Entradas: `direcao/roteiro.txt` do card vira `horizontal/roteiro.txt`; `direcao/tempos_voz.json` (narração medida) vira
 `horizontal/palavras.json` **só** se tiver o mesmo número de palavras do roteiro (senão aviso e tempos estimados).
@@ -104,6 +130,10 @@ põe o texto nos prompts da História, da SPEC e do pedido por cena (`{{observac
   Whisper fictícios, gravação por upload com limpeza fictícia (voz 1,5 s mais lenta a partir da metade), alinhamento
   e retemporização reais: só as cenas depois do meio mudam, exatamente +1,5 s, SPEC continua ★, verificação sem TEMPO.
   Fase 4:
+
+- `.venv\Scripts\python.exe F1\horizontal\testes\painel\testar_api.py [-v] [--manter]` — 86 checagens (61 + 25 do
+  storyboard: listar, ação direta mantém a SPEC aprovada, movimento/ação desconhecida recusados, corte movido, ★ da cena
+  recusada sem prévia/receita, pedido por voz vira prompt só da cena), ~15 s,
   TestClient em processo (sem porta), dados fictícios em `testes/painel/dados/api/` (apagados no fim). Caminho inteiro:
   criar → roteiro → narração → História (prompt, orquestrador, pedido/retirar, ★) → SPEC (arquivo mexido barrado,
   pedido por cena, refazer só a cena, ★) → Ativos → Verificação → Rascunho "sem montador ainda"; vertical e
@@ -113,6 +143,9 @@ põe o texto nos prompts da História, da SPEC e do pedido por cena (`{{observac
   Precisa do `app/painel/dist` compilado. Fase 7a: 2º card "Fluxo 7a" com o roteiro enviado; `--voz-windows` troca o
   Fish pela voz pt-BR do Windows (fala de verdade para o Whisper) e deixa `gravacao_exemplo.wav` (mais lenta, com uma
   frase repetida) na pasta do projeto.
+
+  Precisa do `app/painel/dist` compilado. `--storyboard` semeia mais um card já no Rascunho com o mini-spec e os
+  trechos do `testes/montador/testar.py` (rode-o antes) para ver o storyboard com quadros de verdade.
 
 ## Limites (o que não foi verificado / não existe)
 - Fase 7a (2026-11-13), visto no navegador (porta 8799, `--voz-windows`): conferência com Wikipedia e **OpenF1 reais**
@@ -131,5 +164,8 @@ põe o texto nos prompts da História, da SPEC e do pedido por cena (`{{observac
 - Narração real (upload, limpeza, medição) não foi exercida no teste: o `tempos_voz.json` é fictício.
 - `ativos.py --produzir` não é disparado pelo painel (rede): o comando vai para o orquestrador.
 - Rascunho: no `testar_api.py` só a recusa clara (a SPEC de exemplo tem kits sem receita); o caminho inteiro (passo →
-  processo → `gerado` → ★) é testado em `testes/montador/testar.py` pela ponte, não pelo servidor HTTP. A tela nova
-  passou no `tsc`, mas o `app/painel/dist` não foi recompilado nem vista no navegador.
+  processo → `gerado` → ★) é testado em `testes/montador/testar.py` pela ponte, não pelo servidor HTTP.
+- Storyboard (7b): visto no navegador na porta 8799 (`servidor.py --storyboard`): quadros reais das 3 cenas, ação direta
+  (câmera da cena 3) → só ela renderizada de novo, prévia HyperFrames pelo botão, ★ da cena, pedido por texto enviado.
+  NÃO exercido: gravar com microfone de verdade na cena (o ditado é o mesmo das Observações); ação direta que reprova a
+  verificação deixa a etapa Verificação "falhou" (no teste, porque a história semeada é fictícia).
