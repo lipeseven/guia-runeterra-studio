@@ -27,7 +27,7 @@ import etapas
 import historia as H
 import spec as S
 import verificar as V
-from comum import AQUI, HORIZONTAL, cache_resposta, entradas, gravar_json, ler_json, palavras_do_roteiro
+from comum import AQUI, HORIZONTAL, cache_resposta, entradas, gravar_json, ler_json, observacoes, palavras_do_roteiro
 
 PY = Path(sys.executable).name
 TITULO = {"historia": "História", "spec": "SPEC", "ativos": "Ativos", "verificacao": "Verificação", "rascunho": "Rascunho"}
@@ -78,6 +78,22 @@ def sincronizar_entradas(pasta: Path, roteiro: str | None, palavras: str | None)
     return avisos
 
 
+def sincronizar_observacoes(pasta: Path, arquivo: str | None) -> None:
+    """Observações gerais do card (`<projeto>/observacoes.json`, gravado pelo painel) → `observacoes.txt` aqui, que
+    entra nos prompts da História, da SPEC e dos pedidos por cena. Sem o caminho (chamada de fora do painel), não mexe."""
+    if arquivo is None:
+        return
+    lista = ler_json(Path(arquivo)) if Path(arquivo).exists() else None
+    destino = pasta / "observacoes.txt"
+    texto = "\n".join(f"- ({str(o.get('criada_em', ''))[:10]}) {str(o.get('texto', '')).strip()}"
+                      for o in (lista if isinstance(lista, list) else []) if str(o.get("texto", "")).strip())
+    if not texto:
+        destino.unlink(missing_ok=True)
+    elif not destino.exists() or destino.read_text(encoding="utf-8") != texto + "\n":
+        pasta.mkdir(parents=True, exist_ok=True)
+        destino.write_text(texto + "\n", encoding="utf-8")
+
+
 # ---------------------------------------------------------------- leitura
 def _orquestrador(pasta: Path, estado: dict) -> list[dict]:
     """O que espera o modelo: prompt gravado e ainda sem resposta aplicada."""
@@ -107,7 +123,8 @@ def resumo(pasta: Path, slug: str) -> dict:
     ativos = ler_json(pasta / "ativos.json")
     return {"estado": estado, "titulos": TITULO, "aprovacao": etapas.APROVACAO,
             "entradas": {"roteiro": (pasta / "roteiro.txt").exists(), "palavras": len(palavras), "tempos": tempos,
-                         "briefing": (pasta / "briefing.txt").exists()},
+                         "briefing": (pasta / "briefing.txt").exists(),
+                         "observacoes": (pasta / "observacoes.txt").exists()},
             "historia": ler_json(pasta / "historia.json"), "spec": ler_json(pasta / "spec.json"),
             "ativos": ativos, "verificacao": ler_json(pasta / etapas.ARQUIVO["verificacao"]),
             "orquestrador": _orquestrador(pasta, estado),
@@ -150,12 +167,12 @@ def passo(pasta: Path, slug: str, nome: str) -> dict:
             raise Recusa(f"{TITULO[nome]} já foi gerada: peça uma mudança para refazer")
         roteiro, palavras, _, briefing = entradas(pasta)
         if nome == "historia":
-            base = H.prompt(roteiro, palavras, briefing)
+            base = H.prompt(roteiro, palavras, briefing, observacoes(pasta))
             spec_atual = None
         else:
             _exige_aprovado(estado, "historia", "gerar a SPEC")
             spec_atual = ler_json(pasta / "spec.json")
-            base = S.prompt(roteiro, palavras, ler_json(pasta / "historia.json"), briefing)
+            base = S.prompt(roteiro, palavras, ler_json(pasta / "historia.json"), briefing, observacoes(pasta))
         # pedido só de cenas, com SPEC já existente: um prompt curto por cena (as outras ficam como estão)
         por_cena = nome == "spec" and spec_atual and abertos and all(p.get("cena") for p in abertos)
         if por_cena:
@@ -295,6 +312,8 @@ def executar(pedido: dict) -> dict:
     slug = pedido.get("slug") or pasta.parent.name
     cmd = pedido["cmd"]
     avisos = sincronizar_entradas(pasta, pedido.get("roteiro"), pedido.get("palavras")) if cmd in ("resumo", "passo") else []
+    if cmd in ("resumo", "passo"):
+        sincronizar_observacoes(pasta, pedido.get("observacoes"))
     if cmd == "resumo":
         r = resumo(pasta, slug)
     elif cmd == "passo":

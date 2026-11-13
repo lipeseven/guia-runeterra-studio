@@ -55,6 +55,14 @@ CREATE TABLE IF NOT EXISTS atividade (
     tipo        TEXT NOT NULL DEFAULT 'info',   -- info | ok | alerta
     quando      TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS observacoes (       -- observações gerais do Felipe sobre o vídeo (ditadas ou digitadas)
+    id          INTEGER PRIMARY KEY,
+    video_id    INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
+    texto       TEXT NOT NULL,
+    origem      TEXT NOT NULL DEFAULT 'texto', -- voz | texto
+    criada_em   TEXT NOT NULL,
+    editada_em  TEXT
+);
 """
 
 

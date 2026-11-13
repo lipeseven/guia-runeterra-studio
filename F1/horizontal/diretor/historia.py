@@ -15,17 +15,17 @@ import time
 from pathlib import Path
 
 import etapas
-from comum import (cache_resposta, entradas, extrair_json, frases, hash_texto, localizar, preencher, prompt_arquivo,
+from comum import (cache_resposta, entradas, extrair_json, frases, hash_texto, localizar, observacoes, preencher, prompt_arquivo,
                    regras_de_direcao)
 from esquema import validar
 
 FUNCOES = ["gancho", "contexto", "evidencia", "tensao", "virada", "desfecho"]
 
 
-def prompt(roteiro: str, palavras: list[dict], briefing: str = "") -> str:
+def prompt(roteiro: str, palavras: list[dict], briefing: str = "", obs: str = "") -> str:
     return preencher(prompt_arquivo("historia.txt"), roteiro_com_tempos=frases(palavras),
                      duracao=f"{palavras[-1]['f']:.0f}", briefing=briefing.strip() or "(sem briefing)",
-                     regras=regras_de_direcao())
+                     regras=regras_de_direcao(), observacoes=obs.strip() or "(nenhuma observação geral)")
 
 
 def normalizar(bruto: dict, palavras: list[dict], roteiro: str, tempos: str = "medidos") -> dict:
@@ -91,7 +91,7 @@ def normalizar(bruto: dict, palavras: list[dict], roteiro: str, tempos: str = "m
 def aplicar(pasta: Path, resposta) -> dict:
     pasta = Path(pasta)
     roteiro, palavras, tempos, briefing = entradas(pasta)
-    cache_resposta(pasta, "historia", prompt(roteiro, palavras, briefing), resposta)
+    cache_resposta(pasta, "historia", prompt(roteiro, palavras, briefing, observacoes(pasta)), resposta)
     h = normalizar(resposta, palavras, roteiro, tempos)
     etapas.registrar(pasta, "historia", h, resumo=f"{len(h['capitulos'])} capítulos, {len(h['afirmacoes'])} afirmações"
                      + (f", {len(h['avisos'])} avisos" if h["avisos"] else ""))
@@ -105,7 +105,7 @@ def _main(argv: list[str]) -> int:
     pasta = Path(argv[1])
     if argv[0] == "prompt":
         roteiro, palavras, tempos, briefing = entradas(pasta)
-        p = prompt(roteiro, palavras, briefing)
+        p = prompt(roteiro, palavras, briefing, observacoes(pasta))
         saida = pasta / "prompts" / "historia.prompt.txt"
         saida.parent.mkdir(parents=True, exist_ok=True)
         saida.write_text(p, encoding="utf-8")

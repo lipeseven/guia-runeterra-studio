@@ -37,6 +37,11 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
 - Card **documentário** (2026-11-13, formato `horizontal_doc`, só no canal com `[horizontal_doc]` no canal.toml = F1): etapas
   História ★/SPEC ★/Ativos/Verificação/Rascunho ★ espelhadas do `estado.json` do diretor (`app/servidor/horizontal_doc.py`,
   `PainelDocumental.tsx`); detalhes em `F1/horizontal/docs/painel.md`. Vertical e horizontal animado não mudam.
+- **Observações gerais por voz ou texto** (2026-11-13, todos os formatos): painel "Observações gerais" na página do vídeo
+  (`Observacoes.tsx`, coluna da direita), microfone estilo ditado (clicar/clicar ou segurar/soltar) → faster-whisper local
+  em processo à parte (`tools/audio/ditado.py`) → texto editável → salvar; editar/apagar. Banco `observacoes` + espelho
+  `<projeto>/observacoes.json`. No documentário do F1 entram nos prompts da História, SPEC e pedido por cena. Ver
+  `docs/observacoes.md`. Microfone só em localhost/https (pelo IP do Wi-Fi no celular não funciona: digitar ou enviar áudio).
 - Card no quadro mostra "Aguardando você: <pendência aberta mais recente>" (`/api/quadro` → `aguardando`), exceto enquanto o motor trabalha nele ou ele está na fila (aí mostra "Na fila (Nº): <tarefa>", `/api/motor` → `fila`).
 - Celular pelo Wi-Fi (2026-11-01): servidores em `--host 0.0.0.0` (os .bat); acesso em `http://<IP do PC>:8765`. O painel não tem senha: quem estiver na mesma rede pode mexer nele.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,

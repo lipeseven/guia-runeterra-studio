@@ -32,6 +32,9 @@ num segundo.
 ## Briefing do vídeo
 {{briefing}}
 
+## Observações gerais do Felipe (ditadas/digitadas no card; como pedido explícito, valem mais que as regras)
+{{observacoes}}
+
 ## História aprovada
 {{historia}}
 

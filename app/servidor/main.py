@@ -58,6 +58,10 @@ from . import horizontal_doc  # noqa: E402  (card documentário: só age nos car
 
 app.include_router(horizontal_doc.rota)
 
+from . import observacoes  # noqa: E402  (observações gerais do card, por voz ou texto: todos os formatos)
+
+app.include_router(observacoes.rota)
+
 
 @app.get("/api/aprendizado")
 def ver_aprendizado():
