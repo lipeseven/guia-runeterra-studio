@@ -1,0 +1,5 @@
+banco/
+exemplo/saida/
+exemplo/remotion/node_modules
+.remotion/
+.cache/
