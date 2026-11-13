@@ -411,6 +411,17 @@ export const camera = (w: Mundo, pos: V, olha: V, lente = 40, rolar = 0, topo = 
  * centro deles). `folga` > 1 = mais respiro; `alvoY` desloca o ponto para onde olha. Devolve a distância usada. */
 export const enquadrar = (w: Mundo, alvo: THREE.Object3D | THREE.Object3D[], de: V = [0.6, 0.35, 1], folga = 1.15, lente = 36, alvoY = 0) => {
   const caixa = new THREE.Box3();
+  // Peças que giram no próprio eixo (rotor do freio: userData.giroLivre) entram na caixa PARADAS: a caixa alinhada aos
+  // eixos de um disco girando cresce e encolhe (até 41% a 45°) e a câmera se aproximava e se afastava a cada volta,
+  // "peça pulando e mudando de tamanho" (freios, 2026-11-13).
+  const girando: [THREE.Object3D, THREE.Euler][] = [];
+  for (const o of Array.isArray(alvo) ? alvo : [alvo])
+    o.traverse((x) => {
+      if (x.userData.giroLivre) {
+        girando.push([x, x.rotation.clone()]);
+        x.rotation.set(0, 0, 0);
+      }
+    });
   for (const o of Array.isArray(alvo) ? alvo : [alvo]) {
     o.updateMatrixWorld(true);
     // chão grande do modelo (grama do circuito, mar do mapa) não conta: marcado com userData.foraDoEnquadro
@@ -418,6 +429,8 @@ export const enquadrar = (w: Mundo, alvo: THREE.Object3D | THREE.Object3D[], de:
       if ((x as THREE.Mesh).isMesh && !x.userData.foraDoEnquadro && !x.parent?.userData.foraDoEnquadro) caixa.union(new THREE.Box3().setFromObject(x, false));
     });
   }
+  for (const [x, r] of girando) x.rotation.copy(r);
+  for (const o of Array.isArray(alvo) ? alvo : [alvo]) if (girando.length) o.updateMatrixWorld(true);
   if (caixa.isEmpty()) return 0;
   const centro = caixa.getCenter(new THREE.Vector3());
   centro.y += alvoY;
