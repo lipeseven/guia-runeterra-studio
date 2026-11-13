@@ -1,0 +1,28 @@
+{
+ "escala": 0.09985881357521532,
+ "R": [
+  [
+   0.9999819761252646,
+   0.0060039507501306166
+  ],
+  [
+   -0.006003950750130611,
+   0.999981976125265
+  ]
+ ],
+ "t": [
+  -147.49664128310872,
+  -150.04278014366804
+ ],
+ "refletir": true,
+ "fonte": "interlagos_sao_paulo.glb (asfalto, material mesh2_7) alinhado ao OpenF1 por ICP de similaridade 2D",
+ "sessao_usada": 11412,
+ "pilotos_usados": [
+  16,
+  12
+ ],
+ "convencao": "glb_x, glb_z = escala * R @ (x_openf1, ±y_openf1) + t   (x,y do OpenF1 em decímetros; refletir = inverter y antes)",
+ "erro_mediano_m": 0.542,
+ "fracao_sobre_asfalto": 0.8419,
+ "n_pontos": 3340
+}
