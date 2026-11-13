@@ -1,0 +1,34 @@
+# PLANO e estado do motor documental horizontal
+
+Memória entre sessões. Atualize a cada marco. Arquitetura em `ARQUITETURA.md`.
+
+## Autonomia (Felipe, 2026-11-13, ao dormir)
+Autorizado a continuar SEM perguntar nada, assim que a janela de 5 h resetar e a cada reset seguinte, até o fim das fases.
+Decisões de detalhe são do orquestrador. Regras que continuam valendo: o repositório só recebe mudanças por PR pequeno com merge
+logo após o PR (memória `feedback-merge-sozinho`); vertical existente não pode quebrar; nada global instalado; painel 8766 e
+8765 não são reiniciados à força; pedidos explícitos do Felipe valem mais que regras pré-setadas.
+
+## Cota
+Parar a 94% da janela de 5 h (salvar estado aqui e esperar o reset; um cron de sessão retoma). Semana: gastar livremente até 92%.
+Janela de 5 h de 2026-11-13 resetou/reseta ~06:20 local; semanal 11:00. Medir com `get_usage` antes de cada lote.
+Subagentes: Opus 5.5 médio (`model: opus`); Fable 5.2 só até 2026-11-16 e só para modelagem 3D (não necessário agora).
+
+## Fases e critério de pronto
+- [x] **0 Esqueleto e docs** (`F1/horizontal/`, `F1/vertical/README.md`, ARQUITETURA, PLANO).
+- [ ] **1 Kit core** (4 módulos independentes, em paralelo de 2 em 2 por causa da cota):
+  - [ ] `kit/gps`: carro pelo GPS do OpenF1, interpolação monotônica sem vai-e-vem, sem sumir, apoiado no asfalto (pista real `interlagos_sao_paulo.glb`), rastro por equipe, dois carros podem se sobrepor. Pronto = folha de sequência a 60 q/s sem tranco + teste automático de monotonicidade/altura + uso nos 2 motores em exemplo mínimo.
+  - [ ] `kit/sfx`: banco por categoria (impacto, riser/crescendo, clique, tecla, sino, whoosh, pop, alerta) reunindo o melhor dos sons dos testes (`C:\Users\Felipe\teste-motores\remotion` e `\hyperframes`, procurar `tools/trilha*`/`sfx*`/assets) e sons livres (CC0) + sintetizados; API por palavra, volume/duração por categoria, normalização medida. Pronto = banco com ≥ 5 variações por categoria, catálogo JSON, teste de loudness estéreo.
+  - [ ] `kit/anotacao`: oval aberto/perninha, seta, sublinhado, chave, riscado, número corrigido, traço de fonte à mão (estilo do teste HyperFrames), ancorado em caixa ESTÁVEL; verificação automática (caixa do oval × caixa da peça, sem cruzar texto, tamanho constante). Pronto = folha de sequência e checagem por script nos 2 motores.
+  - [ ] `kit/imagens`: busca de trechos/imagens reais com yt-dlp e VALIDAÇÃO (volta/piloto/sessão batem com a afirmação), créditos em FONTES.txt. Pronto = exemplo que acerta a volta pedida.
+- [ ] **2 Kit gráficos + foco + cartões + transições**: velocidade×distância com gap, setores, delta, telemetria (freio/marcha), gráfico normalizado claro; blur de foco; cartões de pessoa/capítulo; transições medidas.
+- [ ] **3 Diretor documental** (`diretor/`): `historia.py`, `spec.py` (por palavra, com motor por cena), `ativos.py`, `verificar.py`; protocolo de arquivos (`estado.json`).
+- [ ] **4 Painel**: etapas História/SPEC/Ativos/Verificação/Rascunho no card horizontal + telas de aprovação e pedidos por cena; ganchos mínimos em `app/`.
+- [ ] **5 Montador + primeiro vídeo completo** (ex.: roteiro do teste "1,481 s"), comparado aos dois testes.
+- [ ] **6 Reorganização do vertical** em `F1/vertical/` (docs e atalhos; `canal.toml`, painel e `CLAUDE.md` no mesmo PR; render de validação).
+
+## Estado atual
+Fase 0 pronta (não commitada ainda). Fase 1: aguardando reset da janela de 5 h (~06:20) para o 1º lote (gps + sfx).
+Insumos já gravados: `C:\Users\Felipe\teste-motores\remotion\APONTAMENTOS_FELIPE.md` e `\hyperframes\APONTAMENTOS_FELIPE.md`; memórias `feedback-teste-remotion-vs-hyperframes`, `feedback-60fps`.
+
+## Diário
+- 2026-11-13 04:3x: esqueleto, ARQUITETURA e PLANO escritos; cron de retomada agendado.
