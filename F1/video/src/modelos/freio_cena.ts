@@ -252,23 +252,23 @@ export function criarPlacaCarbono() {
 
 // ---------------------------------------------------------------------------------------------------- híbrido 2026
 /** Esquema do sistema híbrido de 2026 no espaço do CARRO (ponha na mesma posição/giro do carro: `poeHibrido`): motor a
- *  combustão (bloco escuro), MGU-K (cilindro prateado ao lado do motor), bateria (caixa azul sob o tanque), câmbio e eixo
+ *  combustão (bloco vermelho), MGU-K (cilindro verde ao lado do motor), bateria (caixa azul sob o tanque), câmbio e eixo
  *  traseiro, cabos laranja de alta tensão. Peças: motor, mgu_k, bateria, cambio, eixo_traseiro. Use com
  *  raioX(carro, ["tampa_do_motor", "monocoque", "sidepod_esquerda", "sidepod_direita"]) para enxergar. */
 export function criarHibrido() {
   const g = new THREE.Group();
   const M = (cor: string, emis = 0, metal = 0.5) => new THREE.MeshStandardMaterial({ color: cor, emissive: cor, emissiveIntensity: emis, roughness: 0.4, metalness: metal });
   const bloco = peca(new THREE.Group(), "motor", [0, 0.5, 0], 0);
-  const mb = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.36, 0.62), M("#3a3f4a", 0, 0.6));
+  const mb = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.36, 0.62), M("#c8452c", 0.2, 0.3));
   mb.position.set(0, 0.38, 1.05);
   bloco.add(mb);
   const mgu = peca(new THREE.Group(), "mgu_k", [-0.4, 0.2, 0], 0);
-  const cil = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.24, 32), M("#c9ced6", 0.05, 0.9));
+  const cil = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.24, 32), M("#2fc46b", 0.25, 0.3));
   cil.rotation.x = Math.PI / 2;
   cil.position.set(-0.27, 0.26, 0.82);
   mgu.add(cil);
   const bat = peca(new THREE.Group(), "bateria", [0, -0.2, 0], 0);
-  const bb = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.12, 0.36), M("#1f6fe0", 0.25, 0.3));
+  const bb = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.12, 0.36), M("#1f6fe0", 0.35, 0.3));
   bb.position.set(0, 0.16, 0.42);
   bat.add(bb);
   const camb = peca(new THREE.Group(), "cambio", [0, 0.3, 0.3], 0);

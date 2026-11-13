@@ -451,6 +451,18 @@ export const enquadrar = (w: Mundo, alvo: THREE.Object3D | THREE.Object3D[], de:
   if ((Array.isArray(alvo) ? alvo : [alvo]).some((o) => o.userData.circuito)) afastarNevoa(w, d);
   return d;
 };
+/** Órbita lenta em DISTÂNCIA CONSTANTE: a distância e o centro saem do `enquadrar` na direção `de` (fixa no plano) e a
+ *  câmera gira `giro` rad em volta do eixo vertical. A peça não "aumenta e diminui" e a cena não fica parada. Ex.:
+ *  `orbitar(w, f, [0.25, 0.18, 1], -0.25 + 0.5 * c.k, 1.3, 32)` (giro pequeno, até ~0,5 rad no plano). */
+export const orbitar = (w: Mundo, alvo: THREE.Object3D | THREE.Object3D[], de: V, giro = 0, folga = 1.15, lente = 36, alvoY = 0) => {
+  const d = enquadrar(w, alvo, de, folga, lente, alvoY);
+  if (!d) return d;
+  const n = new THREE.Vector3(...de).normalize();
+  const centro = w.cam.position.clone().addScaledVector(n, -d);
+  const p = centro.clone().addScaledVector(n.applyAxisAngle(new THREE.Vector3(0, 1, 0), giro), d);
+  camera(w, [p.x, p.y, p.z], [centro.x, centro.y, centro.z], lente);
+  return d;
+};
 /** Circuito grande visto de longe (Las Vegas: 2 km de ponta a ponta, câmera a mais de 3 km): a névoa recua com a câmera
  *  para o traçado não sumir no branco. Até 3,2 km nada muda (Interlagos fica como estava). */
 export const afastarNevoa = (w: Mundo, d: number) => {
