@@ -5,7 +5,7 @@
 #
 # Passos: (1) OpenF1: janela da volta do piloto no relógio da sessão e valores do contador da TV que cabem nela;
 # (2) fontes: canais oficiais (padrão: FORMULA 1) cujo título não contradiz a sessão; (3) varredura barata: um quadro
-# a cada 10 s por busca HTTP (nada de baixar o vídeo), OCR do contador "LAP C/71"; (4) refino a cada 1 s em volta dos
+# a cada 10 s por busca HTTP (nada de baixar o vídeo), OCR do contador "LAP C/N" (corrida/sprint; sem contador, o tempo da volta); (4) refino a cada 1 s em volta dos
 # acertos (OCR do quadro inteiro: nomes, REPLAY, bandeiras); (5) recorte SÓ do trecho escolhido; (6) validação de novo
 # sobre o ARQUIVO recortado (quadro a quadro) + legendas da narração; (7) FONTES.txt e JSON com a evidência.
 # Se nada bate: arquivo = None e status "nao_encontrado" (com o que cada vídeo mostra). Nunca devolve a volta errada
@@ -28,7 +28,7 @@ import validar as V  # noqa: E402
 from caminhos import CACHE, DADOS  # noqa: E402
 
 CANAIS_OFICIAIS = ("FORMULA 1",)
-REGIAO_CONTADOR = (0.0, 0.0, 0.32, 0.30)   # canto superior esquerdo (contador "LAP C/71" sob o logo)
+REGIAO_CONTADOR = (0.0, 0.0, 0.32, 0.30)   # canto superior esquerdo (contador "LAP C/N" sob o logo; gráfico da TV de 2026; sem leitura ali, o OCR passa ao quadro inteiro)
 
 
 def _mmss(t: float) -> str:
@@ -48,11 +48,13 @@ def _faixas(ns: list[int]) -> str:
 
 
 # ---------------------------------------------------------------- varredura (barata) e refino
-def varrer(url: str, total: int, passo: float = 10.0, ini: float = 2.0, fim: float | None = None) -> list[dict]:
-    """Contador de volta a cada `passo` s, lendo só o canto do contador. Cache por vídeo."""
+def varrer(url: str, total: int, passo: float = 10.0, ini: float = 2.0, fim: float | None = None,
+           so_contador: bool = True) -> list[dict]:
+    """Contador de volta a cada `passo` s, lendo só o canto do contador (so_contador=False: o quadro inteiro, para
+    sessões sem contador, em que se procura o tempo da volta). Cache por vídeo."""
     meta = fonte_video.info(url)
     fim = fim or float(meta.get("duration") or 0)
-    arq = CACHE / "varreduras" / f"{meta['id']}_{passo:g}_{ini:g}_{fim:g}.json"
+    arq = CACHE / "varreduras" / f"{meta['id']}_{passo:g}_{ini:g}_{fim:g}{'' if so_contador else '_quadro'}.json"
     if arq.exists():
         return json.loads(arq.read_text(encoding="utf-8"))
     fl = fonte_video.fluxo(url)
@@ -65,8 +67,8 @@ def varrer(url: str, total: int, passo: float = 10.0, ini: float = 2.0, fim: flo
             txt = [x["texto"] for x in leitura.ler(img, regiao)] if img is not None else []
             saida.append({"t": t, "volta": leitura.volta_do_texto(txt, total), "textos": txt})
         return saida
-    saida = ler_todos(REGIAO_CONTADOR)
-    if not any(s["volta"] for s in saida):
+    saida = ler_todos(REGIAO_CONTADOR) if so_contador else ler_todos(None)
+    if so_contador and not any(s["volta"] for s in saida):
         # vídeos de câmera onboard põem "LAP 42" em outro lugar: lê o quadro inteiro (mais lento)
         saida = ler_todos(None)
     arq.parent.mkdir(parents=True, exist_ok=True)
@@ -186,6 +188,27 @@ def escolher(finos: list[dict], esperados: list[int], jan, voltas, sobrenome: st
     return melhor
 
 
+def escolher_por_tempo(finos: list[dict], alvo: float, sobrenome: str, dur: float,
+                       tardio=lambda x: False) -> tuple[float, float] | None:
+    """Sessão sem contador: melhor janela de `dur` s que mostra o TEMPO da volta pedida (ao menos 1 quadro), sem
+    REPLAY; nota = fração de quadros com o tempo + metade da fração com o nome do piloto + 1 se o tempo APARECE dentro
+    da janela (1º quadro sem ele: o fechamento da volta, que é o que a validação aceita como prova)."""
+    melhor, nota_m = None, 0.0
+    tem = lambda f: any(abs(x - alvo) < 0.0015 for x in leitura.tempos_do_texto(f["textos"]))
+    for a in [f["t"] for f in finos]:
+        b = a + dur
+        dentro = [f for f in finos if a <= f["t"] <= b]
+        if not any(tem(f) for f in dentro) or any("replay" in leitura.marcas(f["textos"]) for f in dentro):
+            continue
+        if any(tardio(x) for f in dentro for x in leitura.tempos_do_texto(f["textos"])):
+            continue   # mostra o tempo de uma volta que terminou depois: o trecho é de outro momento
+        nota = (sum(tem(f) for f in dentro) + 0.5 * sum(leitura.tem_nome(f["textos"], sobrenome) for f in dentro)) / len(dentro)
+        nota += 1.0 if not tem(dentro[0]) else 0.0
+        if nota > nota_m:
+            melhor, nota_m = (a, b), nota
+    return melhor
+
+
 # ---------------------------------------------------------------- API
 def achar(afirmacao: dict, destino: str | Path | None = None, fontes: list[str] | None = None,
           duracao: float = 5.0, canais=CANAIS_OFICIAIS, passo: float = 10.0) -> dict:
@@ -206,9 +229,25 @@ def achar(afirmacao: dict, destino: str | Path | None = None, fontes: list[str] 
     if not jan:
         r = {**base, "status": "reprovado", "evidencia": [f"OpenF1 não tem a volta {n} do carro {piloto} na sessão {sk}"]}
         return _gravar(destino, slug, r)
-    esperados = relogio.contadores_esperados(jan, voltas)
-    evid = [f"OpenF1: volta {n} de {sobrenome or piloto} = {relogio.hora(jan[0])}–{relogio.hora(jan[1])} UTC; "
-            f"contador da TV (volta do líder) nesse intervalo: {esperados} de {total}"]
+    # corrida/sprint: a TV mostra "LAP C/N" (volta do líder); classificação/treinos: não há contador, procura-se o
+    # TEMPO da volta escrito na tela (tudo — ano, lugar, tipo, total de voltas, tempos — vem do OpenF1 da sessão)
+    com_contador = V.tem_contador(pacote["sessao"])
+    alvo = next((v.get("lap_duration") for v in voltas if v["driver_number"] == piloto and v["lap_number"] == n), None)
+    esperados = relogio.contadores_esperados(jan, voltas) if com_contador else []
+    if com_contador:
+        evid = [f"OpenF1: volta {n} de {sobrenome or piloto} = {relogio.hora(jan[0])}–{relogio.hora(jan[1])} UTC; "
+                f"contador da TV (volta do líder) nesse intervalo: {esperados} de {total}"]
+    elif alvo:
+        evid = [f"OpenF1: volta {n} de {sobrenome or piloto} = {relogio.hora(jan[0])}–{relogio.hora(jan[1])} UTC; "
+                f"{pacote['sessao'].get('session_name')} não tem contador de volta na TV: procura o tempo "
+                f"{leitura.formatar_tempo(alvo)} escrito na tela"]
+    else:
+        r = {**base, "status": "nao_encontrado",
+             "evidencia": [f"sessão sem contador de volta na TV e a volta {n} do carro {piloto} não tem tempo no "
+                           "OpenF1: não há como provar a volta na imagem"]}
+        return _gravar(destino, slug, r)
+    acerto = (lambda g: g["volta"] in esperados) if com_contador else \
+        (lambda g: any(abs(x - alvo) < 0.0015 for x in leitura.tempos_do_texto(g["textos"])))
     urls = fontes or [c["webpage_url"] for c in candidatos(pacote, afirmacao, canais)]
     tentativas, melhor_nv = [], None
     for url in urls:
@@ -219,26 +258,36 @@ def achar(afirmacao: dict, destino: str | Path | None = None, fontes: list[str] 
         if cs["status"] == "falhou":
             evid.append(f"{meta['id']} \"{meta['title']}\": descartado ({cs['detalhe']})")
             continue
-        grossa = varrer(url, total, passo)
-        vistas = [g["volta"] for g in grossa if g["volta"]]
-        acertos = [g["t"] for g in grossa if g["volta"] in esperados]
-        evid.append(f"{meta['id']} \"{meta['title']}\": contador lido em {len(vistas)}/{len(grossa)} quadros "
-                    f"(a cada {passo:g} s); voltas vistas: {_faixas(vistas)}; no intervalo pedido: {len(acertos)}")
+        # sem contador o tempo fica poucos segundos na tela: varredura com metade do passo, quadro inteiro
+        p_var = passo if com_contador else passo / 2
+        grossa = varrer(url, total, p_var, so_contador=com_contador)
+        acertos = [g["t"] for g in grossa if acerto(g)]
+        if com_contador:
+            vistas = [g["volta"] for g in grossa if g["volta"]]
+            evid.append(f"{meta['id']} \"{meta['title']}\": contador lido em {len(vistas)}/{len(grossa)} quadros "
+                        f"(a cada {p_var:g} s); voltas vistas: {_faixas(vistas)}; no intervalo pedido: {len(acertos)}")
+        else:
+            nt = sum(bool(leitura.tempos_do_texto(g["textos"])) for g in grossa)
+            evid.append(f"{meta['id']} \"{meta['title']}\": tempo de volta lido em {nt}/{len(grossa)} quadros "
+                        f"(a cada {p_var:g} s); com o tempo {leitura.formatar_tempo(alvo)}: {len(acertos)}")
         if not acertos:
             continue
         # refino: um bloco por grupo de acertos vizinhos (máx. 3 blocos)
         blocos = []
         for t in acertos:
-            if blocos and t - blocos[-1][1] <= passo:
+            if blocos and t - blocos[-1][1] <= p_var:
                 blocos[-1][1] = t
             else:
                 blocos.append([t, t])
         finos = []
         for a, b in blocos[:3]:
-            finos += refinar(url, total, max(0.0, a - passo + 1), min(float(meta["duration"]) - 1, b + passo - 1))
-        janela = escolher(finos, esperados, jan, voltas, sobrenome, duracao)
+            finos += refinar(url, total, max(0.0, a - p_var + 1), min(float(meta["duration"]) - 1, b + p_var - 1))
+        janela = (escolher(finos, esperados, jan, voltas, sobrenome, duracao) if com_contador
+                  else escolher_por_tempo(finos, alvo, sobrenome, duracao,
+                                          tardio=lambda x: V.tempo_posterior(voltas, piloto, n, x) is not None))
         if not janela:
-            evid.append(f"{meta['id']}: nenhum trecho de {duracao:g} s só com contador {esperados} e sem replay")
+            pedido = f"só com contador {esperados}" if com_contador else f"com o tempo {leitura.formatar_tempo(alvo)}"
+            evid.append(f"{meta['id']}: nenhum trecho de {duracao:g} s {pedido} e sem replay")
             continue
         tentativas.append((url, meta, janela))
         r = _recortar_e_validar(afirmacao, pacote, url, meta, janela, destino, slug)
@@ -251,8 +300,9 @@ def achar(afirmacao: dict, destino: str | Path | None = None, fontes: list[str] 
     if tentativas and melhor_nv:
         return _gravar(destino, slug, {**melhor_nv, "evidencia": evid})
     r = {**base, "status": "nao_encontrado" if not tentativas else "reprovado",
-         "evidencia": evid + ([] if tentativas else [f"nenhuma fonte mostra o contador {esperados}: "
-                                                    "sem imagem real validada para esta afirmação"])}
+         "evidencia": evid + ([] if tentativas else [
+             f"nenhuma fonte mostra {'o contador ' + str(esperados) if com_contador else 'o tempo ' + leitura.formatar_tempo(alvo)}: "
+             "sem imagem real validada para esta afirmação"])}
     return _gravar(destino, slug, r)
 
 
@@ -273,10 +323,13 @@ def _recortar_e_validar(afirmacao, pacote, url, meta, janela, destino: Path, slu
     else:
         final.unlink(missing_ok=True)
         tmp.rename(final)
-        # quadro de referência: o primeiro com contador legível (recorte de frame para cartão/still)
+        # quadro de referência: o primeiro com contador legível (ou, sem contador, com um tempo de volta escrito)
         import cv2
-        tq = next((o["t"] for o in obs if leitura.volta_do_texto(o["textos"], relogio.total_voltas(pacote["voltas"]))),
-                  obs[len(obs) // 2]["t"])
+        if V.tem_contador(pacote["sessao"]):
+            marca = lambda o: leitura.volta_do_texto(o["textos"], relogio.total_voltas(pacote["voltas"]))
+        else:
+            marca = lambda o: leitura.tempos_do_texto(o["textos"])
+        tq = next((o["t"] for o in obs if marca(o)), obs[len(obs) // 2]["t"])
         img = fonte_video.quadro(str(final), tq)
         if img is not None:
             quadro = final.with_suffix(".png")

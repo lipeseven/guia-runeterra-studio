@@ -7,13 +7,26 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { montarCena } from "../../kit/gps/exemplo/cena_exemplo.js";
 import lec from "../../kit/gps/voltas/11412_16_51.json";
 import ant from "../../kit/gps/voltas/11412_12_55.json";
+import lecMonza from "../../kit/gps/voltas/9908_16_16.json";
+import hamMonza from "../../kit/gps/voltas/9908_44_16.json";
+import monzaPlana from "../../kit/gps/pista/Monza_plana.json";
 
-type Props = { fator: number; inicio: number; camera: "fixa" | "perseguicao"; rastro?: number; hud?: boolean; distancia?: number; nCarros?: number };
+// Conjuntos de exemplo (2ª pista da fase 2b: Monza 2025, classificação, SEM modelo 3D -> pista plana pelo GPS).
+const CONJUNTOS = {
+  interlagos: { voltas: [lec, ant], glb: "interlagos_sao_paulo.glb", plana: null },
+  monza: { voltas: [lecMonza, hamMonza], glb: null, plana: monzaPlana },
+} as const;
+
+type Props = {
+  fator: number; inicio: number; camera: "fixa" | "perseguicao"; rastro?: number; hud?: boolean; distancia?: number;
+  nCarros?: number; conjunto?: keyof typeof CONJUNTOS;
+};
 type Hud = { sigla: string; cor: string; kmh: number; t: number }[];
 
+// modelo do carro por equipe; equipe sem modelo usa o da Ferrari (o carro é ilustrativo, o movimento é o do GPS)
 const CARRO: Record<string, string> = { Ferrari: "ferrari_sf26.glb", Mercedes: "2026_mercedes_w17.glb" };
 
-export const ExemploGps: React.FC<Props> = ({ fator, inicio, camera, rastro = 2.5, hud: mostrarHud = true, distancia = 0.5, nCarros = 2 }) => {
+export const ExemploGps: React.FC<Props> = ({ fator, inicio, camera, rastro = 2.5, hud: mostrarHud = true, distancia = 0.5, nCarros = 2, conjunto = "interlagos" }) => {
   const frame = useCurrentFrame();
   const { fps, width, height } = useVideoConfig();
   const tela = useRef<HTMLCanvasElement>(null);
@@ -24,13 +37,14 @@ export const ExemploGps: React.FC<Props> = ({ fator, inicio, camera, rastro = 2.
 
   useEffect(() => {
     const ld = new GLTFLoader();
-    const voltas = [lec, ant].slice(0, nCarros);
+    const cj = CONJUNTOS[conjunto];
+    const voltas = cj.voltas.slice(0, nCarros);
     Promise.all([
-      ld.loadAsync(staticFile("interlagos_sao_paulo.glb")),
-      ...voltas.map((v) => ld.loadAsync(staticFile(CARRO[v.equipe]))),
+      cj.glb ? ld.loadAsync(staticFile(cj.glb)) : Promise.resolve(null),
+      ...voltas.map((v) => ld.loadAsync(staticFile(CARRO[v.equipe] ?? CARRO.Ferrari))),
     ]).then(([pista, ...carros]) => {
       cena.current = montarCena(THREE, {
-        canvas: tela.current!, largura: width, altura: height, pista: pista.scene,
+        canvas: tela.current!, largura: width, altura: height, pista: pista?.scene, pistaPlana: cj.plana,
         carros: carros.map((c, i) => ({ cena: c.scene, volta: voltas[i] })), fator, inicio, camera, rastro, distancia,
       });
       setPronto(true);

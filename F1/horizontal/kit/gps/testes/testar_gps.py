@@ -14,8 +14,7 @@ import numpy as np
 AQUI = Path(__file__).resolve().parent
 KIT = AQUI.parent
 sys.path.insert(0, str(KIT / "py"))
-from preparar_volta import PILOTAVEL, _pista  # noqa: E402
-from pista_glb import Superficie  # noqa: E402
+import pista as PISTA  # noqa: E402
 
 SAIDA = KIT.parent.parent / "testes" / "gps"
 FPS = 60
@@ -108,21 +107,22 @@ def checar(d, chao, pilot):
 def main():
     voltas = [Path(a) for a in sys.argv[1:]] or sorted((KIT / "voltas").glob("*.json"))
     SAIDA.mkdir(parents=True, exist_ok=True)
-    p = _pista()
-    chao = p["chao"]
-    pilot = Superficie(np.concatenate([p["T"][k] for k in PILOTAVEL]))
     rel = {"fps": FPS, "limites": dict(salto_m_por_s=LIM_SALTO_M_POR_S, acel_ms2=LIM_ACEL, yaw_rad_s=LIM_YAW_RAD_S,
                                        excesso_pos_m=LIM_EXCESSO_POS), "casos": []}
     tudo_ok = True
     for v in voltas:
         meta = json.loads(v.read_text(encoding="utf-8"))
+        # a malha contra a qual a altura é medida é a da pista da própria volta (modelo 3D ou plana)
+        # (voltas antigas, sem 'circuito'/'modo_pista', são de Interlagos com o modelo 3D)
+        p = PISTA.carregar(meta.get("circuito", "Interlagos"), modo=meta.get("modo_pista", "glb"))
+        chao, pilot = p.chao, p.pilot
         casos = [("volta completa 1x", 1.0, None, None),
                  ("comparação 2,2x", 2.2, None, None),
                  ("além das margens (-8 s a dur+8 s)", 1.0, -8.0, meta["duracao"] + 8.0)]
         for nome, fator, a, b in casos:
             d = amostrar(v, fator, a, b)
             r = checar(d, chao, pilot)
-            r.update(volta=v.name, caso=nome)
+            r.update(volta=v.name, caso=nome, circuito=p.circuito, modo_pista=p.modo)
             rel["casos"].append(r)
             tudo_ok &= r["ok"]
             print(f"{'OK ' if r['ok'] else 'FALHOU'} {v.name:20s} {nome:34s} quadros={r['quadros']:5d} "

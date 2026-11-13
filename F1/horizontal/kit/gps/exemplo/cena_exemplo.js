@@ -1,8 +1,9 @@
 // Cena mínima do kit/gps, IDÊNTICA nos dois motores (Remotion e HyperFrames só criam o canvas, carregam os .glb e
-// chamam desenhar(tCena) a cada quadro). Dois carros pelo GPS real (podem se sobrepor), rastro na cor da equipe,
-// pista interlagos_sao_paulo.glb sem transformação.
+// chamam desenhar(tCena) a cada quadro). Dois carros pelo GPS real (podem se sobrepor), rastro na cor da equipe
+// (2º carro da mesma equipe: cor2). Pista: o .glb do circuito sem transformação (o.pista) OU, sem modelo 3D, a pista
+// plana traçada pelo GPS (o.pistaPlana = JSON de kit/gps/pista/<circuito>_plana.json).
 import { cameraSeguindo, criarAmostrador, relogioComparacao } from "../src/gps.js";
-import { ajustarPista, aplicarPose, criarRastro, prepararCarro } from "../src/gps_three.js";
+import { ajustarPista, aplicarPose, criarPistaPlana, criarRastro, prepararCarro } from "../src/gps_three.js";
 
 /** Parâmetros padrão do exemplo: Leclerc (volta 51) x Antonelli (volta 55), corrida do GP de São Paulo 2026,
  *  freada do S do Senna em tempo real. */
@@ -17,7 +18,8 @@ export const EXEMPLO = {
 
 /**
  * @param THREE módulo three
- * @param o { canvas, largura, altura, pista (gltf.scene), carros: [{ cena (gltf.scene), volta (JSON) }], inicio, fator, rastro, camera }
+ * @param o { canvas, largura, altura, pista (gltf.scene) ou pistaPlana (JSON), carros: [{ cena (gltf.scene), volta (JSON) }],
+ *            inicio, fator, rastro, camera }
  */
 export function montarCena(THREE, o) {
   const p = { ...EXEMPLO, ...o };
@@ -33,14 +35,21 @@ export function montarCena(THREE, o) {
   const sol = new THREE.DirectionalLight(0xfff2e0, 2.0);
   sol.position.set(-300, 700, 300);
   cena.add(sol);
-  ajustarPista(p.pista);
-  cena.add(p.pista);
+  if (p.pistaPlana) cena.add(criarPistaPlana(THREE, p.pistaPlana));
+  else {
+    ajustarPista(p.pista);
+    cena.add(p.pista);
+  }
 
   const relogio = relogioComparacao({ fator: p.fator, inicio: p.inicio });
+  const equipes = [];
   const itens = p.carros.map(({ cena: c, volta }) => {
     const am = criarAmostrador(volta);
     const carro = prepararCarro(THREE, c);
-    const rastro = criarRastro(THREE, am.info.cor);
+    const cor = equipes.includes(am.info.equipe) ? am.info.cor2 : am.info.cor;
+    equipes.push(am.info.equipe);
+    am.info.cor = cor;
+    const rastro = criarRastro(THREE, cor);
     cena.add(carro, rastro);
     return { am, carro, rastro };
   });
