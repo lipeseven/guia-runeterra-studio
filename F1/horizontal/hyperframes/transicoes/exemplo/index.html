@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<!-- Exemplo mínimo HyperFrames do kit/transicoes: a mesma cena do Remotion (kit/transicoes/exemplo/cena.json).
+     F1/horizontal/testes/transicoes/rodar.py monta a pasta do projeto copiando para assets/: transicoes.global.js (kit),
+     camada.js (adaptador), cena.js (window.__CENA) e os WAVs usados (assets/sfx/), e troca o marcador SFX abaixo pelas
+     tags <audio> geradas pelo kit/sfx (mesmos eventos do Remotion). -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="assets/transicoes.global.js"></script>
+<script src="assets/camada.js"></script>
+<script src="assets/cena.js"></script>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #f3f1ec; }
+  #palco > div > svg { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="5.0166667" data-fps="60" data-width="1920" data-height="1080">
+  <div id="palco" class="clip" data-start="0" data-duration="5.0166667" data-track-index="1" style="position:absolute;inset:0;overflow:hidden;background:#f3f1ec"></div>
+  <!--SFX-->
+</div>
+<script>
+  (function () {
+    var cena = window.__CENA, pai = document.getElementById("palco");
+    var els = cena.cenas.map(function (svg) {
+      var d = document.createElement("div");
+      d.innerHTML = '<svg width="1920" height="1080" viewBox="0 0 1920 1080">' + svg + "</svg>";
+      pai.appendChild(d);
+      return d;
+    });
+    var seq = CamadaTransicoes.criar(pai, els, Transicoes.montarTransicoes(cena.transicoes, cena.fps), cena.fps);
+    var estado = { t: 0 };
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+    tl.to(estado, { t: 5.0166667, duration: 5.0166667, ease: "none", onUpdate: function () { seq.render(estado.t); } }, 0);
+    window.__timelines["main"] = tl;
+    seq.render(0);
+  })();
+</script>
+</body>
+</html>
