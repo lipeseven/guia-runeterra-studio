@@ -89,9 +89,9 @@ def principal() -> int:
     checa(list(et) == [e["chave"] for e in ET.ETAPAS_HORIZONTAL_DOC], "etapas do documentário", str(list(et)))
     d = doc(vid)
     checa(d["estado"]["etapa_atual"] == "historia", "estado novo começa na história")
-    checa(d["rascunho"] == "sem montador ainda" and not d["montador"], "rascunho: sem montador ainda")
+    checa(d["rascunho"] is None and d["montador"] and d["rascunho_video"] is None, "rascunho: montador disponível, sem vídeo ainda")
     _, et, _ = card(vid)
-    checa(et["rascunho_doc"]["status"] == "em_breve" and et["rascunho_doc"]["resumo"] == "sem montador ainda", "card Rascunho mostra sem montador ainda")
+    checa(et["rascunho_doc"]["status"] == "pendente", "card Rascunho aguardando (montador existe)", str(et["rascunho_doc"]))
     r = cli.post(f"/api/videos/{vid}/doc/passo/historia")
     checa(r.status_code == 409 and "roteiro" in r.json()["detail"], "história recusada sem roteiro aprovado", r.text)
 
@@ -219,11 +219,14 @@ def principal() -> int:
     if d["verificacao"]["status"] != "aprovado":
         checa("doc_verificacao" in pend, "pendência da verificação")
 
-    # ---- Rascunho: só o gancho
+    # ---- Rascunho: o montador confere tudo antes de renderizar e recusa com o motivo (aqui a SPEC de exemplo tem
+    # cenas com kits sem receita/ativo no montador: nada é renderizado no teste)
     r = cli.post(f"/api/videos/{vid}/doc/passo/rascunho")
-    checa(r.status_code == 409 and r.json()["detail"] == "sem montador ainda", "passo Rascunho: sem montador ainda")
+    det = r.json().get("detail", "")
+    checa(r.status_code == 409 and det.startswith("não dá para montar") and "cena " in det and "sem receita" in det,
+          "passo Rascunho: recusa clara do montador (o que falta, por cena)", det[:300])
     r = cli.post(f"/api/videos/{vid}/doc/aprovar/rascunho")
-    checa(r.status_code == 409 and r.json()["detail"] == "sem montador ainda", "aprovar Rascunho: sem montador ainda")
+    checa(r.status_code == 409 and "só se aprova o que foi gerado" in r.json()["detail"], "aprovar Rascunho sem rascunho gerado: recusado", r.text[:200])
     checa(cli.post(f"/api/videos/{vid}/doc/aprovar/ativos").status_code == 400, "Ativos não tem aprovação ★")
 
     # ---- quadro e gancho do motor

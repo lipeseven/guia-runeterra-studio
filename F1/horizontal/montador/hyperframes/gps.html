@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=__W__, height=__H__" />
+<!-- Cena gps do montador (F1/horizontal/montador/segmentos.py): o mesmo kit/gps/exemplo/cena_exemplo.js dos testes,
+     com os carros, a pista e o relógio vindos de assets/cfg.js (window.__CFG, montado por receitas.py).
+     Relógio: tau = max(0, t - pre/60); os `pre` quadros da transição de entrada seguram o quadro 0. -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="assets/cfg.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: __W__px; height: __H__px; overflow: hidden; background: #e9e9e6; }
+  #root { width: 100%; height: 100%; position: relative; background: #e9e9e6; }
+  #tela { position: absolute; left: 0; top: 0; width: __W__px; height: __H__px; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="__DUR__" data-fps="60" data-width="__W__" data-height="__H__">
+  <canvas id="tela" width="__W__" height="__H__"></canvas>
+</div>
+<script>
+  (function () {
+    var cfg = window.__CFG, relogio = { t: 0 };
+    var host = { relogio: relogio, desenhar: null };
+    window.__cenaGps = host;
+    window.__hf = window.__hf || {};
+    window.__hf.buildReady = window.__hf.buildReady || {};
+    window.__hf.buildReady["main"] = new Promise(function (r) { host.pronto = r; });
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+    var dur = cfg.quadros / 60;
+    tl.to(relogio, { t: dur, duration: dur, ease: "none", onUpdate: function () { if (host.desenhar) host.desenhar(relogio.t); } }, 0);
+    window.__timelines["main"] = tl;
+  })();
+</script>
+<script type="module">
+  import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/+esm";
+  import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/loaders/GLTFLoader.js/+esm";
+  import { montarCena } from "./assets/kit/gps/exemplo/cena_exemplo.js";
+  const cfg = window.__CFG, host = window.__cenaGps;
+  const voltas = await Promise.all(cfg.voltas.map((v) => fetch(`assets/${v.arquivo}`).then((r) => r.json())));
+  const ld = new GLTFLoader();
+  const carros = await Promise.all(cfg.voltas.map((v) => ld.loadAsync(`assets/${v.carro}`)));
+  const o = {
+    canvas: document.getElementById("tela"), largura: __W__, altura: __H__,
+    carros: carros.map((c, i) => ({ cena: c.scene, volta: voltas[i] })),
+    inicio: cfg.inicio, fator: cfg.fator, rastro: cfg.rastro, camera: cfg.camera, duracao: cfg.duracao, distancia: cfg.distancia,
+  };
+  if (cfg.pista.glb) o.pista = (await ld.loadAsync(`assets/${cfg.pista.glb}`)).scene;
+  else o.pistaPlana = await fetch(`assets/${cfg.pista.plana}`).then((r) => r.json());
+  const cena = montarCena(THREE, o);
+  host.desenhar = (t) => cena.desenhar(Math.max(0, t - cfg.pre / 60));
+  host.desenhar(host.relogio.t);
+  host.pronto();
+</script>
+</body>
+</html>

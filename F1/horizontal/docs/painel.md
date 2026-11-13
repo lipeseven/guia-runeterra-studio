@@ -17,7 +17,8 @@ etapas e pendências do banco a cada leitura (o estado vive no arquivo; o banco 
 | `gerado` | ★: Precisa de você ("aprove ★"); sem ★: Concluído |
 | `aprovado` | Concluído |
 | `mudanca_pedida`, `desatualizado`, `falhou` | Precisa de você |
-| Rascunho sem `montador/montar.py` | Em breve — "sem montador ainda" |
+| `andamento` (montador rodando, só Rascunho) | Em andamento — "montando N cenas…" |
+| Rascunho sem `montador/montar.py` | Em breve — "sem montador ainda" (não acontece mais desde a fase 5) |
 
 ## Quem faz o quê
 - **Painel** (`app/servidor/horizontal_doc.py`, gancho mínimo): chama a ponte `diretor/painel.py` num processo à
@@ -42,7 +43,10 @@ Abas das 5 etapas com o estado; botão do passo; "Aprovar ★"; caixa "Para o or
 - Ativos: resumo (pronto/falta/não validado/reprovado/não encontrado), os que faltam com o comando para produzir
   (rede: OpenF1/YouTube, fica para o orquestrador), prontos recolhidos.
 - Verificação: status e as listas de erros, pendências e avisos com código e cena.
-- Rascunho: só o gancho, "sem montador ainda" (montador é a fase 5).
+- Rascunho (fase 5): "Montar rascunho" → a ponte roda `montador/montar.planejar` (sem render). Faltando ativo/receita
+  → 409 com a lista por cena. Senão dispara `montador/montar.py --registrar` em processo à parte (`andamento`,
+  `rascunho/montagem.log`); ao terminar, `gerado` (★) ou `falhou` com o motivo. O vídeo aparece na aba
+  (`rascunho_video` → `/api/arquivo`). Ver `../montador/README.md`.
 
 ## API (`app/servidor/horizontal_doc.py`)
 | Rota | Faz |
@@ -72,4 +76,6 @@ Entradas: `direcao/roteiro.txt` do card vira `horizontal/roteiro.txt`; `direcao/
   narração pronta). Arquivo escrito pelo orquestrador com a página fechada aparece no quadro na próxima leitura.
 - Narração real (upload, limpeza, medição) não foi exercida no teste: o `tempos_voz.json` é fictício.
 - `ativos.py --produzir` não é disparado pelo painel (rede): o comando vai para o orquestrador.
-- Rascunho: sem montador ainda; aprovar Rascunho devolve 409.
+- Rascunho: no `testar_api.py` só a recusa clara (a SPEC de exemplo tem kits sem receita); o caminho inteiro (passo →
+  processo → `gerado` → ★) é testado em `testes/montador/testar.py` pela ponte, não pelo servidor HTTP. A tela nova
+  passou no `tsc`, mas o `app/painel/dist` não foi recompilado nem vista no navegador.

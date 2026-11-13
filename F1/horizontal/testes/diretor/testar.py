@@ -126,13 +126,19 @@ def _testes(raiz: Path) -> int:
     checa(est["etapas"]["spec"]["base_hash"] == hash_dados(hist), "spec.base_hash = hash da história")
 
     print("4. ativos")
+    # GPS de Monza já está preparado no kit/gps (fase 2b). O caminho "falta, com o comando" é testado com uma pasta de
+    # voltas vazia (fixture), sem enfraquecer a checagem; o kit real tem que dar "pronto" para a mesma volta.
+    real = {i["id"]: i for i in A.resolver(spec, hist, pasta)["itens"]}.get("volta_gps:9908:16:16", {})
+    A.VOLTAS_GPS = raiz / "voltas_gps_vazia"
+    A.VOLTAS_GPS.mkdir()
     at = A.aplicar(pasta)
     checa(not validar(at, "ativos"), "ativos.json válido no esquema")
     por = {i["id"]: i for i in at["itens"]}
     comp = por.get("comparacao:9908:16-16:44-16")
     checa(comp and comp["status"] == "pronto" and comp["dados"]["pilotos"]["16"]["tempo"] == 79.007, "comparação Monza pronta (kit/graficos)")
-    checa(por.get("volta_gps:9908:16:16", {}).get("status") == "falta" and "preparar_volta.py 9908 16 16" in por["volta_gps:9908:16:16"]["comando"],
-          "GPS de Monza falta, com o comando")
+    checa(por.get("volta_gps:9908:16:16", {}).get("status") == "falta" and "preparar_volta.py 9908 16 16" in por["volta_gps:9908:16:16"]["comando"]
+          and real.get("status") == "pronto" and Path(real.get("arquivo") or "").name == "9908_16_16.json",
+          "GPS de Monza: sem a volta preparada falta (com o comando); no kit real, pronto", f"(real: {real.get('status')})")
     img = por.get("imagem:s9908_c16_v16")
     checa(img and img["status"] == "nao_validado", "imagem da classificação = nao_validado (kit/imagens)")
     checa(all(i["status"] in ("pronto", "falta") for i in at["itens"] if i["tipo"] == "sfx"), "SFX resolvidos no banco/catálogo")

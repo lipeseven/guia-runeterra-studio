@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -77,6 +78,8 @@ def _status_card(nome: str, reg: dict, montador: bool) -> tuple[str, str | None,
         return "pendente", None, None
     if st == "prompt_pronto":
         return "andamento", "aguardando o orquestrador", resumo
+    if st == "andamento":   # montador rodando (Rascunho)
+        return "andamento", resumo or "montando", None
     if st == "gerado":
         return ("atencao", resumo, "aprove ★") if nome in APROVACAO else ("concluido", resumo, None)
     if st == "aprovado":
@@ -145,6 +148,11 @@ def sincronizar(con, vid: int, r: dict) -> None:
 def ler(con, vid: int) -> dict:
     v = _card(con, vid)
     r = chamar({"cmd": "resumo", **_base(v["slug"])})
+    if r.get("rascunho_video"):   # caminho para /api/arquivo (relativo à raiz)
+        try:
+            r["rascunho_video"] = Path(r["rascunho_video"]).resolve().relative_to(RAIZ.resolve()).as_posix()
+        except ValueError:
+            r["rascunho_video"] = None
     sincronizar(con, vid, r)
     con.commit()
     return r
@@ -177,6 +185,8 @@ def rodar_passo(vid: int, passo: str):
         r = chamar({"cmd": "passo", "passo": passo, **_base(v["slug"])}, tempo=600)["passo"]
         if r.get("do_cache"):
             registrar(con, vid, f"{TITULO[passo]}: resposta já guardada para o mesmo prompt (sem gastar cota)", "ok")
+        elif r.get("montando"):
+            registrar(con, vid, "Rascunho: montador iniciado (cenas por motor + mixagem única)", "info")
         elif r.get("precisa_modelo"):
             registrar(con, vid, f"{TITULO[passo]}: prompt pronto para o orquestrador", "info")
         else:

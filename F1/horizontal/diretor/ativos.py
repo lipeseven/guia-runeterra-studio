@@ -19,6 +19,7 @@ import etapas
 from comum import KIT, categorias_sfx, dados_f1, hash_dados, ler_json
 
 PY = sys.executable
+VOLTAS_GPS = KIT / "gps" / "voltas"   # voltas preparadas do kit/gps (o teste aponta para uma pasta própria)
 
 
 def _acima(rel: str) -> Path | None:
@@ -68,7 +69,7 @@ class Resolvedor:
         s = p.get("sessao")
         for carro in p.get("carros") or []:
             pil, v = carro.get("piloto"), carro.get("volta")
-            arq = _um(str(KIT / "gps" / "voltas" / f"{s}_{pil}_{_volta(v)}.json"))
+            arq = _um(str(VOLTAS_GPS / f"{s}_{pil}_{_volta(v)}.json"))
             it = {"id": f"volta_gps:{s}:{pil}:{v}", "tipo": "volta_gps", "descricao": f"GPS da volta {v} do carro {pil} (sessão {s})"}
             if arq:
                 d = ler_json(arq, {})
