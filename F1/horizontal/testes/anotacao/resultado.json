@@ -104,7 +104,7 @@
      "medido": [
       299,
       397,
-      834,
+      833,
       690
      ],
      "esperado": [
@@ -158,7 +158,7 @@
      "medido": [
       308,
       391,
-      843,
+      842,
       684
      ],
      "esperado": [
@@ -212,7 +212,7 @@
      "medido": [
       319,
       386,
-      854,
+      853,
       679
      ],
      "esperado": [
@@ -230,7 +230,7 @@
      "medido": [
       323,
       385,
-      858,
+      857,
       677
      ],
      "esperado": [
@@ -827,7 +827,7 @@
     "quadros_oval_lados_esq_cima": 363,
     "largura_px": [
      534,
-     535
+     534
     ],
     "altura_px": [
      292,
@@ -1626,10 +1626,10 @@
   }
  },
  "remotion_vs_hyperframes": {
-  "media": 0.028,
+  "media": 0.0,
   "pior": {
-   "q": 360,
-   "dif": 0.047
+   "q": 355,
+   "dif": 0.0
   }
  },
  "falhas": []

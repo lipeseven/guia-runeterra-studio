@@ -16,7 +16,7 @@ Subagentes: Opus 5.5 médio (`model: opus`); Fable 5.2 só até 2026-11-16 e só
 ## Fases e critério de pronto
 - [x] **0 Esqueleto e docs** (`F1/horizontal/`, `F1/vertical/README.md`, ARQUITETURA, PLANO).
 - [ ] **1 Kit core** (4 módulos independentes, em paralelo de 2 em 2 por causa da cota):
-  - [ ] `kit/gps`: carro pelo GPS do OpenF1, interpolação monotônica sem vai-e-vem, sem sumir, apoiado no asfalto (pista real `interlagos_sao_paulo.glb`), rastro por equipe, dois carros podem se sobrepor. Pronto = folha de sequência a 60 q/s sem tranco + teste automático de monotonicidade/altura + uso nos 2 motores em exemplo mínimo.
+  - [x] `kit/gps` (PR f1-horizontal-kit-gps; ver `kit/gps/README.md`; teste e folhas em `testes/gps/`): carro pelo GPS do OpenF1, interpolação monotônica sem vai-e-vem, sem sumir, apoiado no asfalto (pista real `interlagos_sao_paulo.glb`), rastro por equipe, dois carros podem se sobrepor. Pronto = folha de sequência a 60 q/s sem tranco + teste automático de monotonicidade/altura + uso nos 2 motores em exemplo mínimo.
   - [x] `kit/sfx` (2026-11-13, PR `f1-horizontal-kit-sfx`; 66 sons, testes ok; falta o Felipe OUVIR e reprovar o que não servir): banco por categoria (impacto, riser/crescendo, clique, tecla, sino, whoosh, pop, alerta) reunindo o melhor dos sons dos testes (`C:\Users\Felipe\teste-motores\remotion` e `\hyperframes`, procurar `tools/trilha*`/`sfx*`/assets) e sons livres (CC0) + sintetizados; API por palavra, volume/duração por categoria, normalização medida. Pronto = banco com ≥ 5 variações por categoria, catálogo JSON, teste de loudness estéreo.
   - [x] `kit/anotacao` (2026-11-13, PR `f1-horizontal-kit-anotacao`; caixa estável + `caixaEnvelope`, texto à mão por traço da Caveat; `testes.ts` 12/12 e render nos 2 motores com oval constante a 1 px; falta o Felipe VER as folhas em `testes/anotacao/`): oval aberto/perninha, seta, sublinhado, chave, riscado, número corrigido, traço de fonte à mão (estilo do teste HyperFrames), ancorado em caixa ESTÁVEL; verificação automática (caixa do oval × caixa da peça, sem cruzar texto, tamanho constante). Pronto = folha de sequência e checagem por script nos 2 motores.
   - [ ] `kit/imagens`: busca de trechos/imagens reais com yt-dlp e VALIDAÇÃO (volta/piloto/sessão batem com a afirmação), créditos em FONTES.txt. Pronto = exemplo que acerta a volta pedida.
@@ -32,5 +32,6 @@ Insumos já gravados: `C:\Users\Felipe\teste-motores\remotion\APONTAMENTOS_FELIP
 
 ## Diário
 - 2026-11-13 04:3x: esqueleto, ARQUITETURA e PLANO escritos; cron de retomada agendado.
+- 2026-11-13 ~07h: kit/gps pronto (relógio pela velocidade da telemetria ancorada ao GPS, altura por raio na malha, exemplos Remotion e HyperFrames com a mesma cena; teste automático OK em 4 voltas).
 - 2026-11-13: kit/sfx construído (banco fora do Git, `gerar.py` regera; exemplo de 20 s renderizado em numpy, ffmpeg, Remotion e HyperFrames).
 - 2026-11-13: kit/anotacao construído (núcleo TS sem dependências, adaptadores `remotion/anotacao` e `hyperframes/anotacao`, `testes/anotacao/rodar.py` renderiza nos dois motores e mede nos pixels).

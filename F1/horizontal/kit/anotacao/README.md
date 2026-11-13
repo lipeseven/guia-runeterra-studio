@@ -84,7 +84,7 @@ de 13,7 px do traço. A ondulação é de 1,5%, o desenho é monotônico e termi
 Todos os acentos PT-BR têm glifo, e o riscado do "323" foi encurtado antes do "km/h".
 
 `.venv\Scripts\python.exe F1\horizontal\testes\anotacao\rodar.py`: renderiza a cena nos dois motores em PNG quadro a
-quadro (Remotion 4.0.539 pelo `F1/video/node_modules`; HyperFrames 0.9.20 por `npx`, sem instalar nada global) e mede
+quadro (Remotion 4.0.539 pelo `node_modules` de `F1/horizontal/remotion` se houver, senão por uma junção local em `remotion/anotacao/node_modules` para `F1/video/node_modules`; HyperFrames 0.9.20 por `npx`, sem instalar nada global) e mede
 nos **pixels**:
 
 | | Remotion | HyperFrames |
@@ -96,7 +96,7 @@ nos **pixels**:
 | texto da cena fora da caixa declarada | 0 px | 0 px |
 
 A variação de 1 px é arredondamento do pixel num deslocamento subpixel (o traço de 7 px antisserrilhado); a caixa projetada
-da peça, no mesmo trecho, variaria 15 × 72 px. A diferença média entre os quadros dos dois motores é 0,03 de 255.
+da peça, no mesmo trecho, variaria 15 × 72 px. A diferença média entre os quadros dos dois motores é 0,00–0,03 de 255 (duas rodadas): os dois desenham o mesmo SVG no Chrome headless.
 Folhas: `testes/anotacao/folha_<motor>_oval_60qs.jpg` (48 quadros seguidos do oval), `_corrigido_60qs.jpg` e `_cena.jpg`.
 
 ## O que NÃO foi verificado

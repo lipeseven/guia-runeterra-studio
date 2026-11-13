@@ -1,0 +1,10 @@
+{
+  "name": "f1-horizontal-hyperframes",
+  "private": true,
+  "description": "Adaptador HyperFrames do motor documental horizontal (Explicando F1): cenas sobre o kit/ (F1/horizontal/kit)",
+  "scripts": {
+    "preparar": "node preparar.mjs",
+    "check": "node preparar.mjs && npx --yes hyperframes@0.9.20 check",
+    "exemplo-gps": "node preparar.mjs && npx --yes hyperframes@0.9.20 render -o ../testes/gps/exemplo_hyperframes.mp4"
+  }
+}

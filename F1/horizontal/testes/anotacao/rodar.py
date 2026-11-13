@@ -69,9 +69,13 @@ def kit_json(cmd: str, *args: str):
 
 # ---------------------------------------------------------------- 2. render
 def render_remotion(dest: Path) -> None:
-    junc = HORIZ / "remotion" / "node_modules"
-    if not junc.exists():
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(junc), str(NM)], check=True, capture_output=True)
+    # usa o node_modules do projeto F1/horizontal/remotion (npm install lá) se existir; senão, uma junção LOCAL ao
+    # exemplo (remotion/anotacao/node_modules → F1/video/node_modules). Nunca cria junção em remotion/node_modules:
+    # um npm install ali escreveria dentro do F1/video.
+    if not (HORIZ / "remotion" / "node_modules" / "remotion").is_dir():
+        junc = HORIZ / "remotion" / "anotacao" / "node_modules"
+        if not junc.exists():
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(junc), str(NM)], check=True, capture_output=True)
     if dest.exists():
         shutil.rmtree(dest)
     cli = NM / "@remotion" / "cli" / "remotion-cli.js"
