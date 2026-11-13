@@ -1,5 +1,5 @@
 # Leitura do quadro (OCR local, RapidOCR/onnxruntime) e interpretação do que a transmissão escreve:
-# contador "LAP C/71", nomes de piloto, REPLAY, bandeiras.
+# contador "LAP C/N" (N = total de voltas da sessão, vem do OpenF1), tempos de volta, nomes de piloto, REPLAY, bandeiras.
 from __future__ import annotations
 
 import re
@@ -99,6 +99,25 @@ def total_do_texto(textos: list[str]) -> int | None:
     junto = " ".join(normalizar(t) for t in textos).replace(" ", "")
     m = re.search(r"LAP\d{1,2}/(\d{2})", junto)
     return int(m.group(1)) if m else None
+
+
+_TEMPO = re.compile(r"(?<![0-9])([0-9])\s?[:.;]\s?([0-5][0-9])\s?[.,:]\s?([0-9]{3})(?![0-9])")
+
+
+def tempos_do_texto(textos: list[str]) -> list[float]:
+    """Tempos de volta escritos na tela, em s: '1:18.792' -> 78.792. O OCR às vezes troca ':' por '.' ou ';'
+    ('1.18.792'). Usado nas sessões sem contador de volta (classificação, treinos): o tempo identifica a volta."""
+    saida = []
+    for t in textos:
+        for m in _TEMPO.finditer(normalizar(t)):
+            saida.append(round(int(m.group(1)) * 60 + int(m.group(2)) + int(m.group(3)) / 1000, 3))
+    return saida
+
+
+def formatar_tempo(s: float) -> str:
+    """78.792 -> '1:18.792' (como a transmissão escreve)."""
+    ms = int(round(s * 1000))
+    return f"{ms // 60000}:{(ms // 1000) % 60:02d}.{ms % 1000:03d}"
 
 
 def _parecido(a: str, b: str) -> bool:

@@ -1,6 +1,6 @@
 // Monta assets/ (fora do Git): o HyperFrames só serve arquivos de dentro do projeto, então
 //  - modelos 3D: link físico (hard link) a partir de F1/dados/modelos3d (sem copiar 140 MB);
-//  - kit/gps: cópia de src/, exemplo/ e voltas/ (mesma estrutura, para os imports relativos funcionarem).
+//  - kit/gps: cópia de src/, exemplo/, voltas/ e pista/ (pistas planas; mesma estrutura, para os imports relativos funcionarem).
 // Rode antes de qualquer preview/render (os scripts do package.json já rodam).
 import { cpSync, existsSync, linkSync, copyFileSync, mkdirSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
@@ -24,5 +24,5 @@ for (const f of ["interlagos_sao_paulo.glb", "ferrari_sf26.glb", "2026_mercedes_
 }
 const kit = path.join(aqui, "..", "kit", "gps");
 rmSync(path.join(assets, "kit"), { recursive: true, force: true });
-for (const d of ["src", "exemplo", "voltas"]) cpSync(path.join(kit, d), path.join(assets, "kit", "gps", d), { recursive: true });
-console.log("assets/kit/gps (src, exemplo, voltas)");
+for (const d of ["src", "exemplo", "voltas", "pista"]) cpSync(path.join(kit, d), path.join(assets, "kit", "gps", d), { recursive: true });
+console.log("assets/kit/gps (src, exemplo, voltas, pista)");

@@ -28,7 +28,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9712,
    "ok": true,
    "volta": "11408_12_22.json",
-   "caso": "volta completa 1x"
+   "caso": "volta completa 1x",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 2403,
@@ -51,7 +53,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9705,
    "ok": true,
    "volta": "11408_12_22.json",
-   "caso": "comparação 2,2x"
+   "caso": "comparação 2,2x",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 6246,
@@ -74,7 +78,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9752,
    "ok": true,
    "volta": "11408_12_22.json",
-   "caso": "além das margens (-8 s a dur+8 s)"
+   "caso": "além das margens (-8 s a dur+8 s)",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 5285,
@@ -97,7 +103,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9803,
    "ok": true,
    "volta": "11408_16_17.json",
-   "caso": "volta completa 1x"
+   "caso": "volta completa 1x",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 2403,
@@ -120,7 +128,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9804,
    "ok": true,
    "volta": "11408_16_17.json",
-   "caso": "comparação 2,2x"
+   "caso": "comparação 2,2x",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 6245,
@@ -143,7 +153,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9825,
    "ok": true,
    "volta": "11408_16_17.json",
-   "caso": "além das margens (-8 s a dur+8 s)"
+   "caso": "além das margens (-8 s a dur+8 s)",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 4362,
@@ -166,7 +178,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9723,
    "ok": true,
    "volta": "11412_12_55.json",
-   "caso": "volta completa 1x"
+   "caso": "volta completa 1x",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 1983,
@@ -189,7 +203,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9738,
    "ok": true,
    "volta": "11412_12_55.json",
-   "caso": "comparação 2,2x"
+   "caso": "comparação 2,2x",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 5322,
@@ -212,7 +228,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9763,
    "ok": true,
    "volta": "11412_12_55.json",
-   "caso": "além das margens (-8 s a dur+8 s)"
+   "caso": "além das margens (-8 s a dur+8 s)",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 4451,
@@ -235,7 +253,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9683,
    "ok": true,
    "volta": "11412_16_51.json",
-   "caso": "volta completa 1x"
+   "caso": "volta completa 1x",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 2023,
@@ -258,7 +278,9 @@
    "centro_sobre_asfalto_ou_zebra": 0.9664,
    "ok": true,
    "volta": "11412_16_51.json",
-   "caso": "comparação 2,2x"
+   "caso": "comparação 2,2x",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
   },
   {
    "quadros": 5411,
@@ -281,7 +303,159 @@
    "centro_sobre_asfalto_ou_zebra": 0.9732,
    "ok": true,
    "volta": "11412_16_51.json",
-   "caso": "além das margens (-8 s a dur+8 s)"
+   "caso": "além das margens (-8 s a dur+8 s)",
+   "circuito": "Interlagos",
+   "modo_pista": "glb"
+  },
+  {
+   "quadros": 4741,
+   "finitos": true,
+   "monotonico": true,
+   "ds_min_m": 0.34359,
+   "recuos": 0,
+   "salto_max_m": 1.6206,
+   "limite_salto_m": 1.6667,
+   "excesso_pos_max_m": 0.001,
+   "acel_max_ms2": 57.29,
+   "jerk_p99_ms3": 338.5,
+   "yaw_max_rad_s": 1.426,
+   "altura_folga_min_m": 0.02,
+   "altura_folga_max_m": 0.02,
+   "quadros_abaixo_do_chao": 0,
+   "quadros_sem_chao_medido": 0,
+   "rodas_folga_p01_m": 0.02,
+   "rodas_folga_min_m": 0.02,
+   "centro_sobre_asfalto_ou_zebra": 1.0,
+   "ok": true,
+   "volta": "9908_16_16.json",
+   "caso": "volta completa 1x",
+   "circuito": "Monza",
+   "modo_pista": "plana"
+  },
+  {
+   "quadros": 2155,
+   "finitos": true,
+   "monotonico": true,
+   "ds_min_m": 0.75598,
+   "recuos": 0,
+   "salto_max_m": 3.5648,
+   "limite_salto_m": 3.6667,
+   "excesso_pos_max_m": 0.0025,
+   "acel_max_ms2": 54.53,
+   "jerk_p99_ms3": 117.6,
+   "yaw_max_rad_s": 1.422,
+   "altura_folga_min_m": 0.02,
+   "altura_folga_max_m": 0.02,
+   "quadros_abaixo_do_chao": 0,
+   "quadros_sem_chao_medido": 0,
+   "rodas_folga_p01_m": 0.02,
+   "rodas_folga_min_m": 0.02,
+   "centro_sobre_asfalto_ou_zebra": 1.0,
+   "ok": true,
+   "volta": "9908_16_16.json",
+   "caso": "comparação 2,2x",
+   "circuito": "Monza",
+   "modo_pista": "plana"
+  },
+  {
+   "quadros": 5701,
+   "finitos": true,
+   "monotonico": true,
+   "ds_min_m": 0.34359,
+   "recuos": 0,
+   "salto_max_m": 1.6206,
+   "limite_salto_m": 1.6667,
+   "excesso_pos_max_m": 0.001,
+   "acel_max_ms2": 57.29,
+   "jerk_p99_ms3": 324.0,
+   "yaw_max_rad_s": 1.426,
+   "altura_folga_min_m": 0.02,
+   "altura_folga_max_m": 0.02,
+   "quadros_abaixo_do_chao": 0,
+   "quadros_sem_chao_medido": 0,
+   "rodas_folga_p01_m": 0.02,
+   "rodas_folga_min_m": 0.02,
+   "centro_sobre_asfalto_ou_zebra": 1.0,
+   "ok": true,
+   "volta": "9908_16_16.json",
+   "caso": "além das margens (-8 s a dur+8 s)",
+   "circuito": "Monza",
+   "modo_pista": "plana"
+  },
+  {
+   "quadros": 4748,
+   "finitos": true,
+   "monotonico": true,
+   "ds_min_m": 0.33326,
+   "recuos": 0,
+   "salto_max_m": 1.6208,
+   "limite_salto_m": 1.6667,
+   "excesso_pos_max_m": 0.001,
+   "acel_max_ms2": 57.63,
+   "jerk_p99_ms3": 363.7,
+   "yaw_max_rad_s": 1.406,
+   "altura_folga_min_m": 0.02,
+   "altura_folga_max_m": 0.02,
+   "quadros_abaixo_do_chao": 0,
+   "quadros_sem_chao_medido": 0,
+   "rodas_folga_p01_m": 0.02,
+   "rodas_folga_min_m": 0.02,
+   "centro_sobre_asfalto_ou_zebra": 1.0,
+   "ok": true,
+   "volta": "9908_44_16.json",
+   "caso": "volta completa 1x",
+   "circuito": "Monza",
+   "modo_pista": "plana"
+  },
+  {
+   "quadros": 2158,
+   "finitos": true,
+   "monotonico": true,
+   "ds_min_m": 0.73324,
+   "recuos": 0,
+   "salto_max_m": 3.565,
+   "limite_salto_m": 3.6667,
+   "excesso_pos_max_m": 0.0026,
+   "acel_max_ms2": 54.43,
+   "jerk_p99_ms3": 122.8,
+   "yaw_max_rad_s": 1.405,
+   "altura_folga_min_m": 0.02,
+   "altura_folga_max_m": 0.02,
+   "quadros_abaixo_do_chao": 0,
+   "quadros_sem_chao_medido": 0,
+   "rodas_folga_p01_m": 0.02,
+   "rodas_folga_min_m": 0.02,
+   "centro_sobre_asfalto_ou_zebra": 1.0,
+   "ok": true,
+   "volta": "9908_44_16.json",
+   "caso": "comparação 2,2x",
+   "circuito": "Monza",
+   "modo_pista": "plana"
+  },
+  {
+   "quadros": 5708,
+   "finitos": true,
+   "monotonico": true,
+   "ds_min_m": 0.33326,
+   "recuos": 0,
+   "salto_max_m": 1.6208,
+   "limite_salto_m": 1.6667,
+   "excesso_pos_max_m": 0.001,
+   "acel_max_ms2": 57.63,
+   "jerk_p99_ms3": 350.5,
+   "yaw_max_rad_s": 1.406,
+   "altura_folga_min_m": 0.02,
+   "altura_folga_max_m": 0.02,
+   "quadros_abaixo_do_chao": 0,
+   "quadros_sem_chao_medido": 0,
+   "rodas_folga_p01_m": 0.02,
+   "rodas_folga_min_m": 0.02,
+   "centro_sobre_asfalto_ou_zebra": 1.0,
+   "ok": true,
+   "volta": "9908_44_16.json",
+   "caso": "além das margens (-8 s a dur+8 s)",
+   "circuito": "Monza",
+   "modo_pista": "plana"
   }
  ],
  "ok": true
