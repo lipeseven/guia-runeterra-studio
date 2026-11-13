@@ -21,6 +21,7 @@ Subagentes: Opus 5.5 médio (`model: opus`); Fable 5.2 só até 2026-11-16 e só
   - [ ] `kit/anotacao`: oval aberto/perninha, seta, sublinhado, chave, riscado, número corrigido, traço de fonte à mão (estilo do teste HyperFrames), ancorado em caixa ESTÁVEL; verificação automática (caixa do oval × caixa da peça, sem cruzar texto, tamanho constante). Pronto = folha de sequência e checagem por script nos 2 motores.
   - [ ] `kit/imagens`: busca de trechos/imagens reais com yt-dlp e VALIDAÇÃO (volta/piloto/sessão batem com a afirmação), créditos em FONTES.txt. Pronto = exemplo que acerta a volta pedida.
 - [ ] **2 Kit gráficos + foco + cartões + transições**: velocidade×distância com gap, setores, delta, telemetria (freio/marcha), gráfico normalizado claro; blur de foco; cartões de pessoa/capítulo; transições medidas.
+- [ ] **2b Generalização (diretriz do Felipe: QUALQUER vídeo de F1, não um GP)**: `kit/gps` sem depender de modelo 3D (traçar a pista pelo próprio GPS do OpenF1, alinhar a qualquer pista com modelo, outra pista de teste); `kit/imagens` e gráficos sem GP/piloto fixos; teste com 2ª sessão/pista.
 - [ ] **3 Diretor documental** (`diretor/`): `historia.py`, `spec.py` (por palavra, com motor por cena), `ativos.py`, `verificar.py`; protocolo de arquivos (`estado.json`).
 - [ ] **4 Painel**: etapas História/SPEC/Ativos/Verificação/Rascunho no card horizontal + telas de aprovação e pedidos por cena; ganchos mínimos em `app/`.
 - [ ] **5 Montador + primeiro vídeo completo** (ex.: roteiro do teste "1,481 s"), comparado aos dois testes.
