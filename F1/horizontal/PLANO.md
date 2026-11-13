@@ -28,7 +28,7 @@ Subagentes: Opus 5.5 médio (`model: opus`); Fable 5.2 só até 2026-11-16 e só
 - [ ] **2b Generalização (diretriz do Felipe: QUALQUER vídeo de F1, não um GP)**: `kit/gps` sem depender de modelo 3D (traçar a pista pelo próprio GPS do OpenF1, alinhar a qualquer pista com modelo, outra pista de teste); `kit/imagens` e gráficos sem GP/piloto fixos; teste com 2ª sessão/pista.
 - [ ] **3 Diretor documental** (`diretor/`): `historia.py`, `spec.py` (por palavra, com motor por cena), `ativos.py`, `verificar.py`; protocolo de arquivos (`estado.json`).
 - [ ] **4 Painel**: etapas História/SPEC/Ativos/Verificação/Rascunho no card horizontal + telas de aprovação e pedidos por cena; ganchos mínimos em `app/`.
-- [ ] **5 Montador + primeiro vídeo completo** (ex.: roteiro do teste "1,481 s"), comparado aos dois testes.
+- [ ] **5 Montador (só a ferramenta; NENHUM vídeo completo agora, decisão do Felipe)**: `montador/` junta cenas Remotion/HyperFrames + uma mixagem; testado só com cenas de exemplo curtas dos kits. Primeiro vídeo real fica para quando o Felipe pedir.
 - [ ] **6 Reorganização do vertical** em `F1/vertical/` (docs e atalhos; `canal.toml`, painel e `CLAUDE.md` no mesmo PR; render de validação).
 
 ## Estado atual
