@@ -4,6 +4,7 @@ import { AbsoluteFill, Easing, continueRender, delayRender, interpolate, useCurr
 import * as THREE from "three";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { peca } from "./desmonte";
+import { freioDoCarro } from "./freio";
 import { CORES_PIRELLI, aplicarComposto, pneuPirelli } from "./pneus/pneu";
 
 /** `desenho`: onde a cor da faixa entra. Sem desenho = faixa fina no meio; "marlboro" = flechas da McLaren MP4/8 (1993):
@@ -190,6 +191,8 @@ export function carro(p: Pintura): THREE.Group {
     // rodas: dianteira mais estreita que a traseira
     grupo(`roda_dianteira_${lado}`, [s * 1.1, 0, 0], 1).add(roda(s * 0.81, -1.55, 0.36, 0.28));
     grupo(`roda_traseira_${lado}`, [s * 1.1, 0, 0], 1).add(roda(s * 0.76, 1.85, 0.36, 0.38));
+    // freios (2026-11-12): disco de carbono, pinça e pastilhas dentro do aro, tomada de ar do lado de dentro (modelos/freio.ts)
+    g.add(freioDoCarro(s, true, s * 0.81, 0.36, -1.55), freioDoCarro(s, false, s * 0.76, 0.36, 1.85));
     // suspensão em braços (dianteira e traseira)
     for (const [xc, yc, zc, xr, yr, zr] of [
       [0.18, 0.32, -1.3, 0.66, 0.3, -1.55], [0.18, 0.32, -1.85, 0.66, 0.3, -1.55], [0.16, 0.5, -1.35, 0.66, 0.46, -1.55], [0.16, 0.5, -1.8, 0.66, 0.46, -1.55],

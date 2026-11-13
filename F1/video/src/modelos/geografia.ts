@@ -314,16 +314,23 @@ export function noCircuito(circ: THREE.Object3D, f: number, lado = 0) {
   const { pontos, curvatura } = info;
   const N = pontos.length;
   const u = (((f % 1) + 1) % 1) * N;
-  const i = Math.floor(u), a = pontos[i], b = pontos[(i + 1) % N];
-  const p = a.clone().lerp(b, u - i);
-  // direção em janela de ~30 m: sem isso o carro treme nos pontos do traçado
-  const t = pontos[(i + 4) % N].clone().sub(pontos[(i - 4 + N) % N]).normalize();
+  const i = Math.floor(u) % N, fr = u - Math.floor(u), a = pontos[i], b = pontos[(i + 1) % N];
+  const p = a.clone().lerp(b, fr);
+  // direção em janela de ~30 m (sem isso o carro treme nos pontos do traçado), INTERPOLADA entre o ponto i e o i+1:
+  // calculada só no ponto i, o giro mudava em degraus a cada ponto do traçado e a câmera presa ao carro dava um
+  // tranco a cada ponto (medido no "freios", 2026-11-13: saltos periódicos de 12 a 34 quadros conforme a velocidade)
+  const tg = (j: number) => pontos[(j + 4) % N].clone().sub(pontos[(j - 4 + N) % N]).normalize();
+  const t = tg(i).lerp(tg(i + 1), fr).normalize();
   // esterço: curvatura média em ~28 m, um pouco À FRENTE do carro (as rodas viram antes de a traseira entrar na curva);
   // Ackermann (entre-eixos 3,4 m) e curva de visibilidade: curva lenta ~20-25°, rápida 5-10°, reta 0 (sem tremer)
   const passo = info.comprimento / N;
   const W = Math.max(2, Math.round(14 / passo)), A = Math.round(4 / passo);
-  let cv = 0;
-  for (let d = -W; d <= W; d++) cv += curvatura[(i + A + d + N) % N] / (2 * W + 1);
+  const media = (j: number) => {
+    let s = 0;
+    for (let d = -W; d <= W; d++) s += curvatura[(j + A + d + N * 2) % N] / (2 * W + 1);
+    return s;
+  };
+  const cv = media(i) * (1 - fr) + media(i + 1) * fr;
   const ack = Math.atan(3.4 * cv);
   const esterco = Math.sign(ack) * 0.45 * (1 - Math.exp(-Math.max(0, Math.abs(ack) - 0.0025) / 0.05));
   p.x += -t.z * lado;
@@ -408,11 +415,15 @@ export function filmar(w: Mundo, circ: THREE.Object3D, f: number, u: number, lis
   let pz = c.z - tz * v("tras") * deriva + dir.z * v("lado") * deriva;
   // abaixo do alto do alambrado, a câmera não sai da pista: o muro fica a 19 m do centro e não pode passar na frente do carro
   const { pontos } = infoDe(circ);
+  // distância da câmera ao traçado contínua (segmentos inteiros): pontos de 2 em 2 a partir do ponto do carro mudavam
+  // em degraus e davam tranco na câmera baixa a cada ponto do traçado (2026-11-13)
   const N = pontos.length, i0 = Math.floor((((f % 1) + 1) % 1) * N), janela = Math.ceil((120 / comprimento) * N);
   let d = Infinity;
-  for (let k = -janela; k <= janela; k += 2) {
-    const q = pontos[(i0 + k + N * 2) % N];
-    d = Math.min(d, Math.hypot(q.x - px, q.z - pz));
+  for (let k = -janela; k < janela; k++) {
+    const q = pontos[(i0 + k + N * 2) % N], r = pontos[(i0 + k + 1 + N * 2) % N];
+    const sx = r.x - q.x, sz = r.z - q.z, L2 = sx * sx + sz * sz || 1;
+    const h = Math.max(0, Math.min(1, ((px - q.x) * sx + (pz - q.z) * sz) / L2));
+    d = Math.min(d, Math.hypot(q.x + sx * h - px, q.z + sz * h - pz));
   }
   const baixa = Math.max(0, Math.min(1, (9 - v("alto")) / 2));
   const puxa = 1 + (Math.min(1, 14 / Math.max(d, 0.01)) - 1) * baixa;

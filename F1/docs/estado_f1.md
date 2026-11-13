@@ -13,3 +13,14 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
 
 ## Vertical a 60 fps (2026-11-12)
 Ordem do Felipe. `Root.tsx` (`VERTICAL_FPS = 60`), `F1/canal.toml [vertical] fps = 60`, `vertical.py` `FPS` lido do canal.toml e passado como `fps` a `blocos`/`renderizar`/`remixar` (fps na chave dos blocos: cache de 30 não é reaproveitado). Horizontal continua 30 (`horizontal.py` `FPS` próprio, `[horizontal] fps`). Cenas já usam segundos; `V_RODA` é m/s (mesmo giro no tempo). Falta testar: render curto 60 vs 30 e um card com "Só renderizar de novo" (reiniciar o servidor do F1 antes).
+
+## Freio de F1 na biblioteca (2026-11-12, vídeo "pq os freios de um F1 ficam incandescentes?")
+`modelos/freio.ts` (`criarFreio` f1/rua, `freioDoCarro`, `girarDisco`, `apertarFreio`, `corDoCalor`, `calorNosDiscos`) e `modelos/freio_cena.ts` (`aquecer` com halo, `fluxo`, `ventilar`, `criarTermometro`/`medirTemperatura`, `criarMedidorTermico`/`ponteiro`, `criarPlacaCarbono`, `poeHibrido`/`caminhoDaEnergia`, `noFreio`, `tomadaDeAr`, `escurecer`). Medidas da Brembo (disco 328/280 mm, 32 mm, ~1.050 furos radiais na borda, pinça 6 pistões). O `carro()` ganhou os 4 conjuntos de freio (peças `freio_<eixo>_<lado>`, irmãos das rodas: no pit stop a roda sai e o freio fica) com a tomada de ar do lado de dentro; `estercar` vira o conjunto dianteiro e `rolarRodas` gira só o disco. Calor: material próprio por disco na 1ª vez (carros da mesma equipe são clones) e `aoRestaurar` esfria tudo a cada quadro. Nada de Object3D no userData (vira JSON no clone): rotor e pastilhas achados pelo nome. API no `Vertical.tsx` e em `api_cenas.md` ("Freio").
+Vídeo "pq os freios de um F1 ficam incandescentes?" (card 12, 2026-11-12): direção escrita à mão pelo motor (34 planos, `direcao/vertical.json`; fonte em `trabalho/teste/planos.py` + `gerar.py`/`conferir.py`/`render.py`), `saida/final_v1.mp4` a 60 fps. `palavra` encolhe a fonte em palavra longa ("INCANDESCÊNCIA" saía cortada). v2 (2026-11-13, pedidos do Felipe: "coisas pulando e travando"): medido no final_v1 (diferença média entre quadros
+consecutivos): sem quadros duplicados nem emendas ruins entre blocos (12 blocos, quadros inteiros, emendas = cortes), mas
+saltos PERIÓDICOS nos planos com câmera presa ao carro (a cada 12–34 quadros, conforme a velocidade). Causa: `noCircuito`
+calculava o giro (e o esterço) só no ponto inteiro do traçado (degrau a cada ponto); `filmar` media a distância ao muro
+em pontos de 2 em 2 a partir do ponto do carro (degrau na câmera baixa). Agora tudo é interpolado. `rolarRodas` com `v`
+mudando a cada quadro saltava (distância TOTAL × V_RODA/v): acima de V_RODA o giro vem do tempo do vídeo
+(`definirTempo`, posto pelo Vertical.tsx a cada quadro; estado do quadro anterior não serve porque o Remotion desenha fora
+de ordem, em 3 abas). Pedais/piloto no cockpit: `poePedais`, `poePilotoNoCarro`, `linhaDoFreio` (freio_cena.ts).

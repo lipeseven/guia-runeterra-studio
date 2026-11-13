@@ -14,7 +14,7 @@ import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "./mod
 import { ligar } from "./modelos/ligacoes";
 import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "./modelos/pitstop";
 import { filmar, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "./modelos/geografia";
-import { aura, brilho, criarCurva, destacar, estercar, naCurva } from "./modelos/efeitos3d";
+import { aura, brilho, criarCurva, definirTempo, destacar, estercar, naCurva } from "./modelos/efeitos3d";
 import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
 import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
 import {
@@ -23,6 +23,8 @@ import {
 } from "./modelos/extras";
 import "./modelos/logo_canal"; // carrega o logo (segura o render até decodificar)
 import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar } from "./modelos/boneco";
+import { apertarFreio, criarFreio, girarDisco } from "./modelos/freio";
+import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, ponteiro, tomadaDeAr, ventilar } from "./modelos/freio_cena";
 
 type PlacaV = { texto: string; unidade?: string; i?: number; cor?: string; pos?: string };
 export type PlanoV = {
@@ -403,6 +405,8 @@ export const API = {
   explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, estercar, embaralhar, criarMapaBrasil, areaNoMapa, criarCircuito, noCircuito, pontoNoCircuito, revelarCircuito, poeNoCircuito, poePinturaNoCircuito, perseguir, filmar, panorama, transito, nomearTrechos, marcoNoCircuito, destacarTrecho, numerarCurvas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
   criarPitStop, pitStop, noPit, PAPEIS, rolarRodas,
   criarMapaRegiao, neutro, andar, faseDoPasso, carregar, agachar, abaixar, apontar, acenar, empurrar, maos, olhar,
+  criarFreio, girarDisco, apertarFreio, aquecer, noFreio, fluxo, ventilar, criarTermometro, medirTemperatura, criarMedidorTermico, ponteiro,
+  criarPlacaCarbono, criarHibrido, poeHibrido, caminhoDaEnergia, escurecer, tomadaDeAr, poePedais, linhaDoFreio, poePilotoNoCarro,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
@@ -535,6 +539,7 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
     const w = mundo.current ?? (mundo.current = montar(ref.current!));
     esconderExtras(w);
     restaurar(); // desmonte do quadro anterior (explodir, isolar, raio-X, corte) não vaza para este
+    definirTempo(t); // giro das rodas dos carros rápidos (efeitos3d.rolarRodas) vem do tempo do vídeo
     const cena = p.codigo ? cenas[p.id] : null;
     let feito = false;
     if (cena) {

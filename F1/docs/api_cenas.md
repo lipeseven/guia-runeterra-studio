@@ -145,6 +145,46 @@ PIRELLI "serrilham" a 30 q/s: calota parada ou girando para trás, ou tudo em ma
 e na saída. Combina com `estercar` em qualquer ordem (um não apaga o outro). Carro de `poeNoCircuito` já rola sozinho. Ex.: `poe(w, 6, 7.5, 40 - 12 * c.s); rolarRodas(w.carros[6], 12 * c.s, 12)`. Visão geral: `camera(c.w, [6, 7, 7], [0, 0.5, 0], 40)`
 ou de cima (`topo`); close: câmera a ~2,5 m do ponto, por FORA da equipe (x além de ±3), nunca no meio dos mecânicos.
 
+## Freio (disco de carbono, pinça, pastilhas, tomada de ar; `modelos/freio.ts` e `freio_cena.ts`, 2026-11-12)
+Medidas da Brembo: disco de carbono-carbono de 328 mm (frente) e 280 mm (trás), 32 mm de espessura, ~1.050 furos radiais de
+ventilação na borda em fileiras; pinça de 6 pistões (metal, NÃO carbono); pastilhas de carbono. Picos acima de 1.000 °C só
+em frenagem forte (nunca o disco brilhando a volta toda).
+- **No carro (já vem nos 22):** cada roda tem o conjunto `freio_dianteiro_esquerdo` / `_direito` / `freio_traseiro_...`
+  dentro do aro (aparece pelas janelas dos raios) e a tomada de ar do freio do lado de DENTRO da roda, boca para a frente
+  (`tomada_dianteiro_esquerdo`...). O disco rola com a roda (`rolarRodas`/`poeNoCircuito`) e o conjunto esterça junto.
+  `noFreio(carro, "dianteiro_esquerdo")` = centro do disco no mundo (para câmera e `brilho`); `tomadaDeAr(carro,
+  "dianteiro_esquerdo", escala = 1)` = centro da boca da tomada no mundo (escala > 1 = tomada maior só neste quadro).
+- **Freio solto:** `obj(w, "freio:f1", () => criarFreio({ tipo: "f1" | "rua", eixo: "dianteiro", duto: true }))`: conjunto
+  com ~0,45 m de largura, eixo do disco em z (câmera em +z vê a face de fora e a pinça). Peças: disco_freio, canais (os
+  canais internos aparecem com `raioX(f, ["disco_freio", "sino", "pinca"])`), sino, pinca, pastilhas, tomada_freio (duto
+  com boca em funil, do lado de dentro). `tipo: "rua"` = disco de ferro fundido cinza com aletas e pinça de 1 pistão (para
+  comparação). Use `enquadrar`. `girarDisco(f, ang)` (o disco gira, a pinça não), `apertarFreio(f, k)` (0 solto, 1
+  pastilhas encostadas nas duas faces).
+- `aquecer(modelo, graus, w?, quais?, halo = 1)`: incandescência por temperatura (°C), só neste quadro: nada até ~450,
+  vermelho escuro ~550, cereja ~750, laranja ~900, laranja-amarelo ~1.000, amarelo-claro >1.150. Só discos (pastilha um
+  pouco; a pinça nunca). `modelo` = freio solto ou carro (as 4 rodas; `quais` = ["freio_dianteiro_esquerdo", ...]).
+  Com `w` põe também o halo de luz em volta de cada disco. Escuro/noite faz o brilho aparecer.
+- `ventilar(w, freio, c.t, k)`: ar entrando pela tomada, descendo o duto e saindo pela borda do disco (freio solto).
+- `fluxo(w, "chave", [pontos no mundo], c.t, k, { n, cor, tam, vel, espalha })`: partículas correndo por um caminho
+  (ar no duto do carro, linhas de túnel de vento, energia). Até 300 por chave; não usa as 140 de `solta`.
+- `criarTermometro({ marcas: [{ graus: 1000, texto: "1.000 °C" }] })` (1,2 m de pé; só marcas FALADAS; a marca é o filho
+  "marca": `t.getObjectByName("marca").visible = ...`) + `medirTemperatura(t, graus)`.
+- `criarMedidorTermico({ rotulos: ["FRIO", "ADEQUADA", "QUENTE"] })` (arco azul/verde/vermelho SEM números: a faixa
+  ideal muda com material, pista e equipe) + `ponteiro(med, k)` (0 frio, 0,5 adequada, 1 quente; a zona acende).
+- `criarPlacaCarbono()`: placa de fibra de carbono trançada (close do material).
+- Híbrido 2026: `poeHibrido(w, carro)` = motor, MGU-K (cilindro prateado ao lado do motor), bateria (azul, sob o tanque),
+  câmbio e eixo traseiro na posição do carro; enxergue com `raioX(carro, ["tampa_do_motor", "monocoque", "sidepod_esquerda",
+  "sidepod_direita"])`. `caminhoDaEnergia(h, -1 | 1)` = pontos roda traseira → eixo → câmbio → MGU-K → bateria (para `fluxo`).
+- Piloto pisando no freio (raio-X do cockpit, 2026-11-13): `const pd = poePedais(w, carro, k)` (só 2 pedais, como no F1
+  de hoje: FREIO à ESQUERDA, mais largo, pisado com o pé ESQUERDO; acelerador à direita; cilindros-mestres e linhas de
+  freio laranja até as 4 pinças; k 0 solto, 1 no fundo) + `poePilotoNoCarro(w, carro, k)` (boneco articulado reclinado no
+  cockpit, braços no volante, perna esquerda por IK até a sapata: o joelho dobra e o pé acompanha o pedal) +
+  `fluxo(w, "pressao", linhaDoFreio(pd, "dianteiro_esquerdo"), c.t, k)` (pressão correndo até a pinça). Enxergue com
+  `raioX(carro, ["monocoque", "tampa_do_motor", "sidepod_esquerda", "sidepod_direita", "halo", "roda_dianteira_esquerda",
+  "suspensao", "asa_dianteira"])`; câmera de lado a ~3,5 m mostra o piloto inteiro; a ~1,8 m da frente esquerda, o pedal.
+- `escurecer(w, k)`: escurece a tela INTEIRA por igual (vidro preto na frente da câmera; chame depois da câmera). Para o
+  gancho de abertura com `frase`, sem desfocar a cena (o `foco` desfoca).
+
 ## Volante (genérico de 2026, sem equipe)
 `obj(w, "volante", () => criarVolante())`: volante real em metros (~29 cm de largura), frente para +z. É pequeno: use
 `enquadrar(w, v, [0, 0.08, 1], 1.08, 30)` para a frente inteira, `[0.7, 0.25, -1]` para ver os paddles atrás; close de um
@@ -177,6 +217,9 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
   frente do carro, visível: curva lenta ~20-25°, rápida 5-10°, reta 0) E as 4 rodas rolando com a distância de f; `v` = velocidade
   real em m/s (f por segundo × 6201 em Las Vegas; padrão 80), só para limitar o giro visto. Não chame `rolarRodas`/`estercar`
   de novo por cima; `escala` só em vista de longe (4 a 7).
+  `v` pode mudar a cada quadro (frenagem, aceleração): acima de 2,5 m/s o giro visto vem do TEMPO do vídeo (sempre o
+  mesmo ritmo, sem saltos); abaixo, da distância real (2026-11-13). O giro do carro na pista é interpolado entre os pontos
+  do traçado (antes andava em degraus e a câmera presa ao carro dava tranco).
 - `poePinturaNoCircuito(w, "chave", { base, clara, escura, faixa, acento }, circ, f, { escala, v })`: carro com pintura própria (só cores conferidas), com esterço e rodas rolando.
 - **`filmar(w, circ, f, c.k, ["curva", "lado", "atras"], { lado })`: câmera padrão de carro na volta.** Transita pelas posições ao longo do plano, sem tranco: atras, curva, rasante, lado, ladoesq, frente, alto, heli, roda. Use 2 ou 3 posições; com dois carros: alto, atras, frente ou heli (lado corta o outro).
 - `perseguir(w, circ, f, { atras, alto, frente, lente })`: câmera atrás do carro olhando a pista à frente; a curva aparece antes de ele virar. Curva: atras 17, alto 6,5, frente 30, lente 50. Reta rápida: atras 11, alto 2,3, frente 30, lente 62. Velocidade real: ~0,016 da volta por segundo.

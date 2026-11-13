@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { achar, deslocar, girarPeca, girarPecaEixo } from "./desmonte";
 import { obj, rotulo } from "./extras";
 import type { Mundo } from "./mundo";
+import { NOMES_FREIOS, girarDisco } from "./freio";
 
 let texBrilho: THREE.CanvasTexture | null = null;
 function brilhoTex() {
@@ -115,6 +116,11 @@ export function estercar(carro: THREE.Object3D, angulo: number) {
     const roda = achar(carro, nome)?.children[0];
     if (roda) girarPecaEixo(roda, "y", Math.max(-0.6, Math.min(0.6, angulo)));
   }
+  // o conjunto do freio (disco, pinça, tomada de ar) vai preso ao montante: esterça junto com a roda
+  for (const nome of ["freio_dianteiro_esquerdo", "freio_dianteiro_direito"]) {
+    const f = achar(carro, nome);
+    if (f) girarPecaEixo(f, "y", Math.max(-0.6, Math.min(0.6, angulo)));
+  }
 }
 
 /** Giro das rodas no vídeo (30 q/s): a roda de liga tem 10 raios (um a cada 36°). Acima de ~V_RODA m/s a roda passa de
@@ -124,6 +130,11 @@ export function estercar(carro: THREE.Object3D, angulo: number) {
  *  V_RODA é em m/s (giro por SEGUNDO, ~400°/s): a 60 q/s (vertical) dá 6,7° por quadro, o mesmo giro visto no tempo e
  *  ainda mais longe do serrilhado; não mude para valor por quadro. */
 export const V_RODA = 2.5;
+/** Segundo do vídeo no quadro que está sendo desenhado (o Vertical.tsx põe antes de cada cena): base do giro das rodas rápidas. */
+let tempoAtual: number | null = null;
+export const definirTempo = (t: number | null) => {
+  tempoAtual = t;
+};
 const R_RODA = 0.36;
 const NOMES_RODAS = ["roda_dianteira_esquerda", "roda_dianteira_direita", "roda_traseira_esquerda", "roda_traseira_direita"];
 
@@ -131,9 +142,18 @@ const NOMES_RODAS = ["roda_dianteira_esquerda", "roda_dianteira_direita", "roda_
  *  frente (proporcional: carro parado = rodas paradas). `velocidade` (m/s, opcional): com ela o giro visto fica limitado a
  *  V_RODA. Mexe só no eixo da rolagem: o esterço das dianteiras continua. Chame a cada quadro. */
 export function rolarRodas(car: THREE.Object3D, metros: number, velocidade = 0) {
-  const k = velocidade > V_RODA ? V_RODA / velocidade : 1;
+  // Carro rápido: o giro visto é V_RODA m/s, ou seja, uma função do TEMPO do vídeo (não da distância): fica igual quer o
+  // carro freie, acelere ou mantenha a velocidade. Antes era distância TOTAL × V_RODA/velocidade: com a velocidade mudando
+  // a cada quadro (frenagem), a roda saltava dezenas de graus por quadro (2026-11-13). Não dá para "guardar o giro" do
+  // quadro anterior: o Remotion desenha os quadros fora de ordem, em 3 abas. Abaixo de V_RODA = distância real (pit lane).
+  const ang = velocidade > V_RODA && tempoAtual !== null ? V_RODA * tempoAtual : velocidade > V_RODA ? (metros * V_RODA) / velocidade : metros;
   for (const nome of NOMES_RODAS) {
     const r = achar(car, nome)?.children[0];
-    if (r) girarPecaEixo(r, "x", (-metros * k) / R_RODA);
+    if (r) girarPecaEixo(r, "x", -ang / R_RODA);
+  }
+  // o disco gira com a roda (a pinça e as pastilhas não)
+  for (const nome of NOMES_FREIOS) {
+    const f = achar(car, nome)?.getObjectByName("conjunto_freio");
+    if (f) girarDisco(f, -ang / R_RODA);
   }
 }

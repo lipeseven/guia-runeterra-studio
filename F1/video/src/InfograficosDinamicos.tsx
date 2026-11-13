@@ -63,8 +63,8 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
   }
 
   if (g.tipo === "palavra") {
-    // uma palavra grande no corte rápido de uma lista falada
-    return centro(<div style={{ fontFamily: FONTE, fontWeight: 900, fontSize: 118, letterSpacing: 2, color: COR.texto, textAlign: "center", textShadow: `0 6px 34px rgba(0,0,0,.85), 0 0 42px ${cor}66`, borderBottom: `10px solid ${cor}`, padding: "0 26px 12px", maxWidth: 940, boxSizing: "border-box" }}>{g.texto}</div>, 1620);
+    // uma palavra grande no corte rápido de uma lista falada (palavra longa encolhe: "INCANDESCÊNCIA" saía cortada, 2026-11-12)
+    return centro(<div style={{ fontFamily: FONTE, fontWeight: 900, fontSize: Math.min(118, Math.floor(1300 / Math.max(1, (g.texto ?? "").length))), letterSpacing: 2, color: COR.texto, textAlign: "center", whiteSpace: "nowrap", textShadow: `0 6px 34px rgba(0,0,0,.85), 0 0 42px ${cor}66`, borderBottom: `10px solid ${cor}`, padding: "0 26px 12px", maxWidth: 940, boxSizing: "border-box" }}>{g.texto}</div>, 1620);
   }
 
   if (g.tipo === "ano") {
