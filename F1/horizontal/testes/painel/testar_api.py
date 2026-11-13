@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.servidor import etapas as ET  # noqa: E402
 from app.servidor import motor  # noqa: E402
+motor.iniciar = lambda: None   # sem o trabalhador em thread: o teste roda a fila tarefa a tarefa (motor.executar)
 from app.servidor.banco import conectar  # noqa: E402
 from app.servidor.main import app  # noqa: E402
 
@@ -241,8 +242,283 @@ def principal() -> int:
     hist = json.loads((pasta / "estado.json").read_text(encoding="utf-8"))["historico"]
     checa(any("aprovado" in h["evento"] for h in hist), "histórico do estado.json registra as aprovações")
 
+    fase_7a()
     print(f"\n{n_ok} checagens, {len(falhas)} falhas")
     return 1 if falhas else 0
+
+
+# ================================================================ fase 7a: Roteiro, Voz guia, Gravação, Ressincronização
+# Tudo do Runeterra (roteirista + pesquisa, conferência, voz guia, limpeza, alinhamento) rodando no card documental,
+# com o motor chamado tarefa a tarefa (sem thread) e os serviços externos trocados por fictícios: o Claude vira
+# "orquestrador" (respostas gravadas aqui), Wikipedia/OpenF1/Fish/Whisper respondem dados fixos. O alinhamento por
+# palavra (tools/audio/alinhar.py) e a retemporização da SPEC (diretor) são os reais.
+OF1_S = {"Q": {"session_key": 9908, "session_name": "Qualifying", "year": 2025, "circuit_short_name": "Monza", "location": "Monza",
+               "country_name": "Italy"},
+         "R": {"session_key": 9912, "session_name": "Race", "year": 2025, "circuit_short_name": "Monza", "location": "Monza",
+               "country_name": "Italy"},
+         "IMOLA": {"session_key": 9990, "session_name": "Qualifying", "year": 2025, "circuit_short_name": "Imola", "location": "Imola",
+                   "country_name": "Italy"}}
+OF1 = {   # números reais da classificação de Monza 2025 (os do exemplo do diretor), em formato OpenF1
+    ("sessions", (("year", 2025),)): list(OF1_S.values()),
+    ("sessions", (("session_key", 9908),)): [OF1_S["Q"]],
+    ("drivers", (("session_key", 9908),)): [{"driver_number": 16, "name_acronym": "LEC", "last_name": "Leclerc", "full_name": "Charles LECLERC"},
+                                            {"driver_number": 44, "name_acronym": "HAM", "last_name": "Hamilton", "full_name": "Lewis HAMILTON"},
+                                            {"driver_number": 1, "name_acronym": "VER", "last_name": "Verstappen", "full_name": "Max VERSTAPPEN"}],
+    ("laps", (("driver_number", 16), ("session_key", 9908))): [{"lap_number": 10, "lap_duration": 79.31}, {"lap_number": 16, "lap_duration": 79.007},
+                                                                {"lap_number": 17, "lap_duration": None}],
+    ("laps", (("driver_number", 44), ("session_key", 9908))): [{"lap_number": 16, "lap_duration": 79.124}],
+    ("session_result", (("session_key", 9908),)): [{"position": 1, "driver_number": 1, "number_of_laps": 18},
+                                                   {"position": 4, "driver_number": 16, "number_of_laps": 20},
+                                                   {"position": 6, "driver_number": 44, "number_of_laps": 19}],
+    ("session_result", (("driver_number", 16), ("session_key", 9908))): [{"position": 4, "driver_number": 16, "number_of_laps": 20}],
+}
+CHAMADAS_OF1: list[str] = []
+
+
+def _of1(endpoint, **params):
+    CHAMADAS_OF1.append(endpoint)
+    return OF1.get((endpoint, tuple(sorted(params.items()))), [])
+
+
+def _embed(textos):
+    """Embedding fictício (saco de palavras com hash): sem baixar/rodar o modelo de frases na GPU."""
+    import hashlib
+
+    import numpy as np
+
+    m = np.zeros((len(textos), 64))
+    for k, t in enumerate(textos):
+        for w in str(t).lower().split():
+            m[k, int(hashlib.md5(w.encode()).hexdigest(), 16) % 64] += 1
+    return m / np.maximum(np.linalg.norm(m, axis=1, keepdims=True), 1e-9)
+
+
+def _drenar(vid: int) -> list[str]:
+    """Roda as tarefas da fila deste card, uma a uma, como o trabalhador do motor (mesma função `motor.executar`)."""
+    feitas = []
+    while not motor.FILA.empty():
+        v, nome = motor.FILA.get()
+        if v == vid:
+            motor.executar(v, nome)
+            feitas.append(nome)
+    return feitas
+
+
+def _responder(proj: Path, tarefa: str, texto: str) -> Path:
+    """O que o chat/orquestrador faz: lê o prompt pendente e grava a resposta no caminho pedido."""
+    t = json.loads((proj / "orquestrador" / "aguardando.json").read_text(encoding="utf-8"))[tarefa]
+    Path(t["resposta"]).write_text(texto, encoding="utf-8")
+    return Path(t["prompt"])
+
+
+def fase_7a() -> None:
+    import contextlib
+    import wave
+
+    sys.path.insert(0, str(ambiente.RAIZ / "tools" / "audio"))
+    sys.path.insert(0, str(ambiente.RAIZ / "tools" / "direcao"))
+    import claude_cli
+    import limpar_gravacao
+    import tempos
+    import voz_guia
+
+    from app.servidor import conferencia as CF
+    from app.servidor import openf1 as OFM
+    from app.servidor import pesquisa as PQ
+
+    print("— fase 7a")
+    motor._TravaGlobal = contextlib.nullcontext   # sem a trava de máquina real (dados/comum/motor.lock)
+    claude_cli.EXE = Path("NAO_EXISTE/claude.exe")   # qualquer `claude -p` falharia: o card documental não pode chamar
+    OFM._obter = _of1
+    CF._embed = PQ._embed = _embed
+    wiki = [("wiki: 2025 Italian Grand Prix", "Charles Leclerc qualified fourth for Ferrari at Monza in 2025; Lewis Hamilton "
+             "was sixth. Max Verstappen took pole position with a lap record.")]
+    CF._wiki = PQ._wiki = lambda busca: list(wiki)
+    CF._pagina_do_personagem = lambda nome: []
+    roteiro = (ambiente.EXEMPLO / "roteiro.txt").read_text(encoding="utf-8")
+    toks = roteiro.split()
+
+    vid = cli.post("/api/videos", json={"titulo": "Monza 2025: Leclerc × Hamilton", "formato": "horizontal_doc"}).json()["id"]
+    v, et, _ = card(vid)
+    proj = motor.PASTA_PROJETOS / v["slug"]
+    pasta = proj / "horizontal"
+    checa(list(et) == [e["chave"] for e in ET.ETAPAS_HORIZONTAL_DOC] and {"voz_guia", "gravacao", "ressincronizacao"} <= set(et),
+          "7a: card documental com Voz guia, Gravação e Ressincronização", str(list(et)))
+    checa(ET.etapas_do_formato("horizontal_doc", {"roteiro", "voz_ia", "historia"}) == ET.ETAPAS_HORIZONTAL_DOC_V1,
+          "7a: card documental antigo (com Narração voz_ia) continua no fluxo antigo")
+    cli.patch(f"/api/videos/{vid}/mover", json={"coluna": "roteiro"})
+
+    # ---- Roteirista + pesquisa (Wikipedia + OpenF1) pelo orquestrador, sem `claude -p`
+    r = cli.post(f"/api/videos/{vid}/roteiro/gerar", json={"minutos": 1, "notas": "comparar LEC × HAM na classificação"})
+    checa(r.status_code == 200, "7a: pedir roteiro ao roteirista", r.text)
+    feitas = _drenar(vid)
+    checa(feitas == ["roteiro"], "7a: tarefa do roteirista rodou", str(feitas) + str(card(vid)[0]["atividade"][:3]))
+    agu = json.loads((proj / "orquestrador" / "aguardando.json").read_text(encoding="utf-8"))
+    _, et, pend = card(vid)
+    checa("roteiro" in agu and "pesquisa-assuntos" in agu["roteiro"]["prompt"] and "orq_roteiro" in pend
+          and et["roteiro"]["detalhe"] == "aguardando o orquestrador", "7a: pesquisa pausa no prompt dos assuntos (pendência do orquestrador)", str(agu))
+    pr = Path(agu["roteiro"]["prompt"]).read_text(encoding="utf-8")
+    checa("SESSÕES de F1" in pr and "OpenF1" in pr and "## SISTEMA" in pr, "7a: prompt dos assuntos pede as sessões do OpenF1")
+    r = cli.post(f"/api/videos/{vid}/doc/orquestrador/continuar")
+    checa(r.status_code == 409 and "ainda não" in r.json()["detail"], "7a: continuar sem resposta gravada é recusado", r.text)
+    _responder(proj, "roteiro", json.dumps({"assuntos": [{"nome": "Charles Leclerc", "busca": "Charles Leclerc"}], "afirmacoes": [],
+                                            "sessoes": [{"ano": 2025, "local": "Monza", "sessao": "Qualifying", "pilotos": ["LEC", "HAM"]}]}))
+    r = cli.post(f"/api/videos/{vid}/doc/orquestrador/continuar")
+    checa(r.status_code == 200 and r.json()["retomadas"] == ["roteiro"], "7a: resposta gravada → roteirista continua", r.text)
+    _drenar(vid)
+    agu = json.loads((proj / "orquestrador" / "aguardando.json").read_text(encoding="utf-8"))
+    checa("pesquisa-fatos" in agu["roteiro"]["prompt"], "7a: pausa seguinte = dossiê de fatos", agu["roteiro"]["prompt"])
+    _responder(proj, "roteiro", json.dumps({"fatos": [{"assunto": "Charles Leclerc", "fato": "Leclerc largou em 4º em Monza 2025.",
+                                                       "fonte": 0, "canon": "atual"}]}))
+    doc(vid)   # a página aberta (GET /doc) também retoma sozinha
+    _drenar(vid)
+    agu = json.loads((proj / "orquestrador" / "aguardando.json").read_text(encoding="utf-8"))
+    pr = Path(agu["roteiro"]["prompt"]).read_text(encoding="utf-8")
+    checa("roteiro-gerar" in agu["roteiro"]["prompt"] and "melhor volta 1:19,007" in pr and "OpenF1" in pr,
+          "7a: o roteirista recebe os números do OpenF1 no dossiê", pr[:300])
+    dossie = json.loads((proj / "direcao" / "dossie.json").read_text(encoding="utf-8")) if (proj / "direcao" / "dossie.json").exists() else None
+    _responder(proj, "roteiro", roteiro)
+    doc(vid)
+    feitas = _drenar(vid)
+    dossie = json.loads((proj / "direcao" / "dossie.json").read_text(encoding="utf-8"))
+    of_fatos = [f["fato"] for f in dossie["fatos"] if f["assunto"] == "OpenF1"]
+    checa(any("4º LEC" in f for f in of_fatos) and any("HAM (carro 44): melhor volta 1:19,124" in f for f in of_fatos),
+          "7a: dossiê com resultado e melhores voltas do OpenF1", str(of_fatos))
+    checa((proj / "direcao" / "roteiro.txt").read_text(encoding="utf-8").strip() == roteiro.strip() and "conferencia" in feitas,
+          "7a: roteiro gerado vira versão nova e a conferência roda em seguida", str(feitas))
+
+    # ---- Conferência: afirmações (orquestrador) → Wikipedia + OpenF1 (local) → vereditos (orquestrador)
+    agu = json.loads((proj / "orquestrador" / "aguardando.json").read_text(encoding="utf-8"))
+    checa(list(agu) == ["conferencia"] and "conferencia-afirmacoes" in agu["conferencia"]["prompt"], "7a: conferência pausa nas afirmações", str(agu))
+    checa("`openf1`" in Path(agu["conferencia"]["prompt"]).read_text(encoding="utf-8"), "7a: prompt da conferência pede o `openf1` dos números")
+    conf = cli.get(f"/api/videos/{vid}/roteiro/conferencia").json()
+    checa("conferencia" in conf["orquestrador"], "7a: painel do Roteiro mostra a conferência aguardando o orquestrador")
+    afirm = [
+        {"p": 0, "trecho": "Leclerc marcou 1:19,007 na volta 16", "afirmacao": "Leclerc fez 1:19,007 na volta 16", "busca": "Charles Leclerc",
+         "openf1": {"tipo": "tempo_volta", "ano": 2025, "local": "Monza", "sessao": "Qualifying", "piloto": "LEC", "volta": 16, "valor": 79.007, "casas": 3}},
+        {"p": 0, "trecho": "A diferença foi de só 0,117 segundo", "afirmacao": "LEC foi 0,117 s mais rápido que HAM", "busca": "Lewis Hamilton",
+         "openf1": {"tipo": "diferenca", "ano": 2025, "local": "Monza", "sessao": "Qualifying", "piloto": 16, "piloto2": "HAM", "volta": 16, "valor": 0.117, "casas": 3}},
+        {"p": 0, "trecho": "Leclerc marcou", "afirmacao": "Leclerc terminou a classificação em 3º", "busca": "Leclerc",
+         "openf1": {"tipo": "posicao_final", "ano": 2025, "local": "Monza", "sessao": "Qualifying", "piloto": "LEC", "valor": 3}},
+        {"p": 0, "trecho": "Monza", "afirmacao": "Monza recebeu a F1 em 2019", "busca": "Monza",
+         "openf1": {"tipo": "voltas_total", "ano": 2019, "local": "Monza", "sessao": "Race", "valor": 53}},
+        {"p": 0, "trecho": "os dois correram com o mesmo carro", "afirmacao": "Leclerc e Hamilton correram pela Ferrari", "busca": "Ferrari"},
+    ]
+    _responder(proj, "conferencia", json.dumps({"afirmacoes": afirm}, ensure_ascii=False))
+    doc(vid)
+    checa(vid in motor.CONFERINDO, "7a: conferência retomada (roteiro não aprova enquanto confere)")
+    _drenar(vid)
+    agu = json.loads((proj / "orquestrador" / "aguardando.json").read_text(encoding="utf-8"))
+    checa("conferencia-fatos" in agu["conferencia"]["prompt"], "7a: pausa seguinte = vereditos")
+    vered = [{"i": k, "veredito": "sem_fonte", "explicacao": "a wiki não traz o tempo", "trecho": -1, "fontes": 0} for k in range(4)]
+    vered.append({"i": 4, "veredito": "confere", "explicacao": "a wiki cita os dois na Ferrari", "trecho": 0, "fontes": 1})
+    _responder(proj, "conferencia", json.dumps({"vereditos": vered}, ensure_ascii=False))
+    doc(vid)
+    _drenar(vid)
+    conf = cli.get(f"/api/videos/{vid}/roteiro/conferencia").json()
+    fatos = {f["afirmacao"]: f for f in (conf["conferencia"] or {}).get("fatos", [])}
+    checa(conf["atual"] and not conf["orquestrador"] and "erro_fatos" not in conf["conferencia"], "7a: conferência terminou sem `claude -p`",
+          str(conf["conferencia"])[:300])
+    f1 = fatos.get("Leclerc fez 1:19,007 na volta 16", {})
+    checa(f1.get("veredito") == "confere" and f1.get("openf1", {}).get("status") == "confere" and "session_key 9908" in (f1.get("fonte") or {}).get("fonte", ""),
+          "7a: tempo de volta confere com o OpenF1 (fonte = sessão)", str(f1))
+    checa(fatos.get("LEC foi 0,117 s mais rápido que HAM", {}).get("veredito") == "confere", "7a: diferença 0,117 s confere com o OpenF1")
+    f3 = fatos.get("Leclerc terminou a classificação em 3º", {})
+    checa(f3.get("veredito") == "diverge" and "4º" in f3.get("explicacao", "") and "3º" in f3.get("explicacao", ""),
+          "7a: posição errada diverge com o valor do OpenF1", str(f3))
+    f4 = fatos.get("Monza recebeu a F1 em 2019", {})
+    checa(f4.get("openf1", {}).get("status") == "sem_dados" and f4.get("veredito") == "sem_fonte", "7a: antes de 2023 = sem dados no OpenF1 (fica a Wikipedia)", str(f4))
+    checa(fatos.get("Leclerc e Hamilton correram pela Ferrari", {}).get("veredito") == "confere" and "openf1" not in fatos.get("Leclerc e Hamilton correram pela Ferrari", {}),
+          "7a: afirmação sem número segue só a Wikipedia")
+    _, et, pend = card(vid)
+    checa("orq_conferencia" not in pend and "orq_roteiro" not in pend, "7a: pendências do orquestrador fechadas")
+    checa(OFM.conferir({"tipo": "tempo_volta", "ano": 2025, "local": "Italy", "sessao": "Qualifying", "piloto": "LEC", "valor": 79.0})["status"] == "sem_dados",
+          "7a: local ambíguo (2 circuitos na Itália) não decide nada")
+    checa(OFM.conferir({"tipo": "tempo_volta", "session_key": 9908, "piloto": "LEC", "volta": "melhor", "valor": 79.0, "casas": 1})["status"] == "confere"
+          and OFM.conferir({"tipo": "tempo_volta", "session_key": 9908, "piloto": "LEC", "volta": "melhor", "valor": 79.1, "casas": 1})["status"] == "diverge",
+          "7a: tolerância = meia unidade da casa dita (1:19,0 confere; 1:19,1 não)")
+
+    # ---- aprovar → Voz guia (Fish fictício) → tempos por palavra → História/SPEC nos tempos da voz guia
+    def gerar_fish(texto, saida, fator=None, **_):
+        saida.parent.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(saida), "wb") as w:
+            w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000), w.writeframes(b"\0\0" * 8000)
+        return {"duracao": 41.0, "motores": ["fish (fictício)"], "ppm_original": 150, "fator_exato": 1.0}
+
+    guia = [{"t": t, "i": round(k * 0.45, 3), "f": round(k * 0.45 + 0.4, 3)} for k, t in enumerate(toks)]
+
+    def medir(audio, rot, cache):
+        cache.write_text(json.dumps(guia, ensure_ascii=False), encoding="utf-8")
+        return guia
+
+    voz_guia.gerar, tempos.tempos_da_narracao = gerar_fish, medir
+    r = cli.post(f"/api/videos/{vid}/roteiro/aprovar")
+    checa(r.status_code == 200, "7a: aprovar roteiro", r.text)
+    checa(_drenar(vid) == ["voz_guia"], "7a: roteiro aprovado → voz guia na fila (como no Runeterra)")
+    _, et, _ = card(vid)
+    checa(et["voz_guia"]["status"] == "concluido" and "fish" in et["voz_guia"]["resumo"], "7a: card Voz guia concluído", str(et["voz_guia"]))
+    d = doc(vid)
+    checa(d["narracao"] == "guia" and d["entradas"]["tempos"] == "medidos" and json.loads((pasta / "palavras.json").read_text(encoding="utf-8"))[5]["i"] == guia[5]["i"],
+          "7a: tempos da voz guia viram palavras.json do diretor", str(d.get("narracao")))
+    cli.post(f"/api/videos/{vid}/doc/passo/historia")
+    orquestrador(pasta, "historia", json.loads((ambiente.EXEMPLO / "resposta_historia.json").read_text(encoding="utf-8")))
+    cli.post(f"/api/videos/{vid}/doc/aprovar/historia")
+    cli.post(f"/api/videos/{vid}/doc/passo/spec")
+    orquestrador(pasta, "spec", json.loads((ambiente.EXEMPLO / "resposta_spec.json").read_text(encoding="utf-8")))
+    r = cli.post(f"/api/videos/{vid}/doc/aprovar/spec")
+    checa(r.status_code == 200, "7a: SPEC aprovada nos tempos da voz guia", r.text[:200])
+    cli.post(f"/api/videos/{vid}/doc/passo/ativos")
+    cli.post(f"/api/videos/{vid}/doc/passo/verificacao")
+    spec_guia = json.loads((pasta / "spec.json").read_text(encoding="utf-8"))
+    checa(spec_guia["cenas"][2]["t0"] == guia[spec_guia["cenas"][2]["i0"]]["i"], "7a: SPEC nos tempos da voz guia")
+
+    # ---- Gravação (upload, limpeza fictícia) → ponto de controle → aprovar → Ressincronização (alinhar real + retemporizar)
+    meio = len(toks) // 2
+    narradas = [{"t": t, "i": round(k * 0.45 + (1.5 if k >= meio else 0), 3), "f": round(k * 0.45 + 0.4 + (1.5 if k >= meio else 0), 3)}
+                for k, t in enumerate(toks)]   # sua voz: igual à guia até o meio, depois 1,5 s mais lenta
+
+    def limpar_fake(original, pasta_g, rot, **_):
+        pasta_g.mkdir(parents=True, exist_ok=True)
+        (pasta_g / "palavras.json").write_text(json.dumps(narradas, ensure_ascii=False), encoding="utf-8")
+        with wave.open(str(pasta_g / "limpa.wav"), "wb") as w:
+            w.setnchannels(1), w.setsampwidth(2), w.setframerate(8000), w.writeframes(b"\0\0" * 8000)
+        return {"duracao_original": 50.0, "duracao_limpa": narradas[-1]["f"], "removidos": [], "pausas_encurtadas": [],
+                "divergencias_do_roteiro": []}
+
+    limpar_gravacao.limpar = limpar_fake
+    r = cli.post(f"/api/videos/{vid}/gravacao", files={"arquivo": ("minha_voz.wav", b"RIFF0000WAVEfmt ", "audio/wav")})
+    checa(r.status_code == 200, "7a: upload da gravação (como no Runeterra)", r.text)
+    checa(_drenar(vid) == ["gravacao"], "7a: gravação limpa na fila")
+    _, et, pend = card(vid)
+    checa(et["gravacao"]["status"] == "atencao" and "aprovar_gravacao" in pend and "fase 7c" in next(
+        p["texto"] for p in card(vid)[0]["pendencias"] if p["chave"] == "aprovar_gravacao"), "7a: ponto de controle: confira a gravação limpa")
+    checa(doc(vid)["narracao"] == "guia" and not (proj / "direcao" / "tempos_gravacao.json").exists(),
+          "7a: nada é ressincronizado antes de aprovar a gravação")
+    r = cli.post(f"/api/videos/{vid}/gravacao/aprovar")
+    checa(r.status_code == 200 and _drenar(vid) == ["final"], "7a: aprovar gravação → ressincronização", r.text)
+    v, et, pend = card(vid)
+    spec_voz = json.loads((pasta / "spec.json").read_text(encoding="utf-8"))
+    d = doc(vid)
+    cg, cv = spec_guia["cenas"], spec_voz["cenas"]
+    mudou = [b["id"] for a, b in zip(cg, cv) if (a["t0"], a["t1"]) != (b["t0"], b["t1"])]
+    iguais = [b["id"] for a, b in zip(cg, cv) if b["i1"] <= meio and (a["t0"], a["t1"]) == (b["t0"], b["t1"])]
+    checa([c["id"] for c in cg] == [c["id"] for c in cv] and [c["i0"] for c in cg] == [c["i0"] for c in cv],
+          "7a: ressinc mantém cenas, ids e índices (âncora por palavra)")
+    checa(bool(mudou) and len(mudou) < len(cv) and all(c["i1"] > meio for c in cv if c["id"] in mudou) and iguais,
+          "7a: só as cenas depois do trecho mais lento mudaram de tempo", f"mudou={mudou} iguais={iguais}")
+    checa(all(abs(b["t0"] - (a["t0"] + 1.5)) < 0.002 for a, b in zip(cg, cv) if b["i0"] >= meio and b["i0"] > 0),
+          "7a: cena afetada anda exatamente o atraso da sua voz (1,5 s)")
+    checa(et["ressincronizacao"]["status"] == "concluido" and et["ressincronizacao"]["resumo"] == f"{len(mudou)} de {len(cv)} cenas retemporizadas",
+          "7a: card Ressincronização com as cenas afetadas", str(et["ressincronizacao"]))
+    checa(d["narracao"] == "gravacao" and d["ressinc"]["afetadas"] == mudou and d["ressinc"]["narracao"] == "gravacao", "7a: painel mostra a ressincronização")
+    est = d["estado"]["etapas"]
+    checa(est["spec"]["status"] == "aprovado" and est["ativos"]["status"] == "desatualizado" and est["verificacao"]["status"] == "desatualizado",
+          "7a: SPEC continua aprovada ★; ativos e verificação ficam desatualizados", str({k: x["status"] for k, x in est.items()}))
+    r = cli.post(f"/api/videos/{vid}/doc/passo/verificacao")
+    codigos = {e["codigo"] for e in r.json()["verificacao"]["erros"]}
+    checa(r.status_code == 200 and "TEMPO" not in codigos, "7a: verificação nos tempos novos sem erro de TEMPO", str(codigos))
+    checa(et["gravacao"]["status"] == "concluido" and v["coluna"] != "revisao", "7a: sem render do Runeterra no documentário (fase 7c)")
+    checa(claude_cli.EXE.name == "claude.exe" and not claude_cli.EXE.exists(), "7a: nenhuma etapa dependeu do Claude Code local")
 
 
 if __name__ == "__main__":

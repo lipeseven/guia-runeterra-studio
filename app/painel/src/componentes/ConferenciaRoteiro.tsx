@@ -13,6 +13,7 @@ type Fato = {
   fontes?: number | null // quantas fontes diferentes sustentam (wiki, biografia Riot, conto Riot)
   fontes_divergem?: boolean // as próprias fontes se contradizem
   bloco?: string // trecho do roteiro: só volta a ser conferido se o texto dele mudar
+  openf1?: { status: 'confere' | 'diverge' | 'sem_dados'; explicacao: string; fonte: string | null } // F1: número no OpenF1
 }
 type Rodada = { refeitos: number; total: number; novas: string[]; resolvidas: string[] }
 type Semelhanca = { geral: number; total: number; frases: { frase: string; base: string; nota: number; nivel: string }[] }
@@ -27,6 +28,7 @@ type Dados = {
   conferencia: { quando: string; semelhanca?: Semelhanca; fatos?: Fato[]; erro_fatos?: string; rodada?: Rodada } | null
   atual: boolean
   base: string | null
+  orquestrador?: Record<string, { prompt: string; resposta: string; desde: string }> // documentário: prompt esperando o chat
 }
 
 const ICONE = {
@@ -229,6 +231,14 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
         </div>
       )}
 
+      {Object.entries(d.orquestrador ?? {}).map(([tarefa, t]) => (
+        <p key={tarefa} className="mb-2 rounded border border-andamento/40 bg-andamento/5 p-1.5 text-andamento">
+          {tarefa === 'conferencia' ? 'Conferência' : tarefa === 'roteiro' ? 'Roteirista/pesquisa' : tarefa} aguardando o orquestrador
+          (o painel não chama o Claude): prompt <span className="font-mono break-all">{t.prompt}</span> → resposta em{' '}
+          <span className="font-mono break-all">{t.resposta}</span>. Continua sozinho quando a resposta chegar.
+        </p>
+      ))}
+
       {d.dossie && <Pesquisa dossie={d.dossie} />}
 
       {c?.semelhanca && (
@@ -312,6 +322,14 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
                         {c?.rodada?.novas.includes(f.afirmacao) && <span className="ml-1 rounded bg-ouro/20 px-1 text-ouro">novo</span>}
                         {f.veredito === 'confere' && (f.fontes ?? 0) >= 2 && (
                           <span className="ml-1 rounded bg-ok/15 px-1 text-ok" title="confirmado por fontes diferentes">✓✓ {f.fontes} fontes</span>
+                        )}
+                        {f.openf1 && (
+                          <span
+                            className={`ml-1 rounded px-1 ${f.openf1.status === 'confere' ? 'bg-ok/15 text-ok' : f.openf1.status === 'diverge' ? 'bg-atencao/15 text-atencao' : 'bg-borda text-suave'}`}
+                            title="número recalculado dos dados oficiais do OpenF1"
+                          >
+                            OpenF1 {f.openf1.status === 'sem_dados' ? 'sem dados' : f.openf1.status}
+                          </span>
                         )}
                         {f.fontes_divergem && (
                           <span className="ml-1 rounded bg-atencao/15 px-1 text-atencao" title="wiki e Riot não dizem a mesma coisa">fontes divergem entre si</span>

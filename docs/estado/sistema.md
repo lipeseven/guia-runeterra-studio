@@ -37,6 +37,7 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
 - Card **documentário** (2026-11-13, formato `horizontal_doc`, só no canal com `[horizontal_doc]` no canal.toml = F1): etapas
   História ★/SPEC ★/Ativos/Verificação/Rascunho ★ espelhadas do `estado.json` do diretor (`app/servidor/horizontal_doc.py`,
   `PainelDocumental.tsx`); detalhes em `F1/horizontal/docs/painel.md`. Vertical e horizontal animado não mudam.
+  Fase 7a: Voz guia, Gravação e Ressincronização do Runeterra no card (SPEC retemporizada por palavra); tarefas que precisam do modelo pausam num prompt para o orquestrador (`motor.executar`/`aguardar_orquestrador`, pendência `orq_*`).
 - **Observações gerais por voz ou texto** (2026-11-13, todos os formatos): painel "Observações gerais" na página do vídeo
   (`Observacoes.tsx`, coluna da direita), microfone estilo ditado (clicar/clicar ou segurar/soltar) → faster-whisper local
   em processo à parte (`tools/audio/ditado.py`) → texto editável → salvar; editar/apagar. Banco `observacoes` + espelho

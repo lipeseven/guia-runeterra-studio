@@ -37,6 +37,7 @@
         "base_hash": {"type": "string", "description": "hash da etapa anterior usada para gerar esta"},
         "aprovado_em": {"type": "string"},
         "atualizado_em": {"type": "string"},
+        "retemporizada_em": {"type": "string", "description": "SPEC: tempos trocados pela narração nova (etapas.retemporizar)"},
         "resumo": {"type": "string"}
       }
     },

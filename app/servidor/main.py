@@ -331,7 +331,9 @@ def ver_conferencia(vid: int):
     from . import pesquisa
 
     return {"conferencia": dados, "atual": bool(atual) and vid not in motor.CONFERINDO, "dossie": pesquisa.ler(pasta),
-            "base": base.read_text(encoding="utf-8") if base.exists() else None}
+            "base": base.read_text(encoding="utf-8") if base.exists() else None,
+            # documentário (sem `claude -p`): conferência/roteirista pausados esperando a resposta do orquestrador
+            "orquestrador": motor._aguardando(pasta / "orquestrador")}
 
 
 class Base(BaseModel):
@@ -394,7 +396,10 @@ def _roteirista_livre(con, vid: int) -> None:
     st = {r["chave"]: r["status"] for r in con.execute("SELECT chave, status FROM etapas WHERE video_id=?", (vid,))}
     if not st:
         raise HTTPException(404)
-    if st.get("roteiro") == "andamento":
+    slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    if st.get("roteiro") == "andamento" and motor.cancelar_orquestrador(con, vid, slug, "roteiro"):
+        registrar(con, vid, "Roteirista esperando o orquestrador: pedido anterior cancelado", "info")
+    elif st.get("roteiro") == "andamento":
         raise HTTPException(409, "o roteirista ainda está trabalhando neste roteiro")
     executando = motor.situacao()["executando"]
     rodando = [k for k in ("direcao", "rascunho", "gravacao", "render") if st.get(k) == "andamento"]

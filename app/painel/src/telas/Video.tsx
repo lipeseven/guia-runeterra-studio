@@ -89,7 +89,7 @@ export function Video({ id }: { id: number }) {
             >
               <LayoutPanelTop className="size-4" /> Abrir storyboard
             </a>
-          ) : vozIa ? null : (
+          ) : vozIa || documentario ? null : (
             <button
               disabled
               title="O storyboard abre quando o primeiro rascunho estiver pronto"
@@ -163,14 +163,15 @@ export function Video({ id }: { id: number }) {
             )}
             {documentario && (v.coluna !== 'ideia' || roteiro.status === 'concluido') && <PainelDocumental videoId={v.id} aoMudar={recarregar} />}
             {vozIa && vozIa.status !== 'pendente' && <PainelVoz videoId={v.id} etapa={vozIa} aoMudar={recarregar} />}
-            {gravacao && (['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente') && (
+            {gravacao && (['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente' ||
+              (documentario && v.etapas.find((e) => e.chave === 'voz_guia')?.status === 'concluido')) && (
               <PainelGravacao videoId={v.id} etapa={gravacao} aoMudar={recarregar} />
             )}
             {(v.coluna !== 'ideia' || roteiro.status !== 'pendente') && (
               <>
-                {!vozIa && <ProximoPasso c={v.condicoes_direcao} direcao={v.etapas.find((e) => e.chave === 'direcao')!} />}
+                {!vozIa && !documentario && <ProximoPasso c={v.condicoes_direcao} direcao={v.etapas.find((e) => e.chave === 'direcao')!} />}
                 <PainelRoteiro videoId={v.id} etapa={roteiro} aoMudar={recarregar} conferindo={v.conferindo} />
-                {!vozIa && <PainelCapa videoId={v.id} aprovada={Boolean(v.capa_aprovada)} aoMudar={recarregar} />}
+                {!vozIa && !documentario && <PainelCapa videoId={v.id} aprovada={Boolean(v.capa_aprovada)} aoMudar={recarregar} />}
               </>
             )}
             {!animacaoPerto && previaPainel}
@@ -297,6 +298,23 @@ function ProximoPasso({ c, direcao }: { c: TVideo['condicoes_direcao']; direcao:
 /** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
 function AcaoPendencia({ chave, id, videoId, aoMudar, conferindo }: { chave: string | null; id: number; videoId: number; aoMudar: () => void; conferindo: boolean }) {
   const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
+  if (chave?.startsWith('orq_'))
+    return (
+      <button
+        className={estilo}
+        title="Continua quando o orquestrador (chat) já gravou a resposta do prompt"
+        onClick={async () => {
+          try {
+            await api(`/videos/${videoId}/doc/orquestrador/continuar`, { method: 'POST' })
+          } catch (e) {
+            return alert(String(e).match(/"detail":"([^"]+)"/)?.[1] ?? String(e))
+          }
+          aoMudar()
+        }}
+      >
+        Continuar
+      </button>
+    )
   if (chave?.startsWith('doc_'))
     return (
       <button className={estilo} onClick={() => document.getElementById('documentario')?.scrollIntoView({ behavior: 'smooth' })}>

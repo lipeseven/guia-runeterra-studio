@@ -5,6 +5,7 @@ Regra: anda sozinho enquanto não precisa do Felipe; quando precisa, cria uma pe
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import queue
@@ -312,13 +313,13 @@ def condicoes_direcao(con, vid: int) -> dict:
 
 def verificar_direcao(con, vid: int) -> None:
     """Chamado sempre que uma condição muda: se todas estão ok, a Direção começa sozinha."""
+    if _documentario(con, vid):   # documentário: o diretor anda pelo estado.json (horizontal_doc.py)
+        from .horizontal_doc import ao_mudar
+
+        return ao_mudar(con, vid)
     if _animado(con, vid):
         st = {r["chave"]: r["status"] for r in con.execute("SELECT chave, status FROM etapas WHERE video_id=?", (vid,))}
         formato = con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"]
-        if formato == "horizontal_doc":  # documentário: o diretor anda pelo estado.json (horizontal_doc.py)
-            from .horizontal_doc import ao_mudar
-
-            return ao_mudar(con, vid)
         if CANAL.get("vertical" if formato == "vertical" else "horizontal") and st.get("roteiro") == "concluido" and st.get("voz_ia") == "concluido" and st.get("direcao") == "pendente":
             atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "aguardando a vez")
             FILA.put((vid, "direcao"))
@@ -354,6 +355,12 @@ def tarefa_voz_guia(vid: int) -> None:
     info_antes = pasta / "trabalho" / "voz_guia.json"
     fator = json.loads(info_antes.read_text(encoding="utf-8")).get("fator_exato") if info_antes.exists() else None
     info = gerar(roteiro, pasta / "trabalho" / "voz_guia.wav", fator=fator)
+    if eh_documentario(vid):  # documentário: os tempos por palavra da voz guia dosam a História/SPEC até a sua gravação
+        sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+        from tempos import tempos_da_narracao
+
+        definir_progresso("Voz guia", "medindo os tempos de cada palavra")
+        tempos_da_narracao(pasta / "trabalho" / "voz_guia.wav", roteiro, pasta / "direcao" / "tempos_guia.json")
     with conectar() as con:
         atualizar_etapa(con, vid, "voz_guia", "concluido", f"{mmss(info['duracao'])} · {', '.join(info['motores'])}",
                         f"{info['ppm_original']} → {PPM_FELIPE} palavras/min",
@@ -640,7 +647,8 @@ def publicar_limpeza(con, vid: int, slug: str, original: Path, rel: dict, nota: 
     abrir_pendencia(con, vid, "aprovar_gravacao", "gravacao", "Confira a gravação limpa",
                     f"{len(rel['removidos'])} cortes, {mmss(rel['duracao_original'])} → {mmss(rel['duracao_limpa'])}. "
                     + nota + "Ouça o áudio limpo no painel “Gravação” (na linha do tempo dá para ouvir, cortar e "
-                    "recuperar cada fala). Se estiver bom, aprove: aí o sistema realinha as cenas à sua voz e renderiza.")
+                    "recuperar cada fala). Se estiver bom, aprove: aí o sistema realinha as cenas à sua voz"
+                    + (" (SPEC retemporizada; o render final é a fase 7c)." if _documentario(con, vid) else " e renderiza."))
 
 
 def tarefa_remontar_gravacao(vid: int) -> None:
@@ -675,8 +683,40 @@ def aprovar_gravacao(con, vid: int) -> None:
     FILA.put((vid, "final"))
 
 
+def tarefa_ressinc_doc(vid: int) -> None:
+    """Documentário: gravação aprovada → tempos por palavra DO ROTEIRO na sua voz → a ponte do diretor retemporiza a
+    SPEC (`spec.retemporizar`, mesmas cenas e índices; só mudam os tempos das cenas afetadas). Render é a fase 7c."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from alinhar import alinhar
+
+    from .horizontal_doc import ler
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+        atualizar_etapa(con, vid, "ressincronizacao", "andamento", "alinhando à sua voz…", "palavras do roteiro")
+        con.commit()
+    pasta = PASTA_PROJETOS / slug
+    roteiro = (pasta / "direcao" / "roteiro.txt").read_text(encoding="utf-8")
+    palavras = alinhar(roteiro, json.loads((pasta / "trabalho" / "gravacao" / "palavras.json").read_text(encoding="utf-8")))
+    (pasta / "direcao" / "tempos_gravacao.json").write_text(json.dumps(palavras, ensure_ascii=False, indent=1), encoding="utf-8")
+    estimadas = sum(1 for w in palavras if w.get("estimado"))
+    with conectar() as con:
+        info = ler(con, vid).get("ressinc") or {}
+        if info.get("narracao") == "gravacao" and info.get("cenas"):
+            resumo = f"{len(info['afetadas'])} de {info['cenas']} cenas retemporizadas"
+        else:
+            resumo = "sem SPEC ainda: a SPEC já nasce nos tempos da sua voz"
+        atualizar_etapa(con, vid, "ressincronizacao", "concluido", resumo,
+                        f"{estimadas} palavras com tempo estimado" if estimadas else "todas as palavras encontradas",
+                        {"afetadas": info.get("afetadas", []), "audio": caminho_rel(slug, "trabalho", "gravacao", "limpa.wav")})
+        registrar(con, vid, f"Ressincronização: {resumo} (sua voz, {mmss(palavras[-1]['f'])})", "ok")
+        con.commit()
+
+
 def tarefa_final(vid: int) -> None:
     """Depois da gravação aprovada: realinha a direção à voz do Felipe e renderiza com a narração real."""
+    if eh_documentario(vid):
+        return tarefa_ressinc_doc(vid)
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     from alinhar import alinhar
     from montar import montar, renderizar
@@ -740,6 +780,16 @@ def eh_vertical(vid: int) -> bool:
     with conectar() as con:
         r = con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()
     return bool(r) and r["formato"] == "vertical"
+
+
+def _documentario(con, vid: int) -> bool:
+    r = con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()
+    return bool(r) and r["formato"] == "horizontal_doc"
+
+
+def eh_documentario(vid: int) -> bool:
+    with conectar() as con:
+        return _documentario(con, vid)
 
 
 def _animado(con, vid: int) -> bool:
@@ -1350,6 +1400,85 @@ class _TravaGlobal:
             self.f.close()
 ESTADO = {"executando": None}
 
+# ---------------------------------------------------------------- orquestrador (cards sem `claude -p`)
+# Documentário do F1: o painel não chama o Claude. Roteirista, pesquisa, conferência e publicação rodam o MESMO código
+# do Runeterra dentro de `claude_cli.pelo_orquestrador`: cada prompt vira arquivo em <projeto>/orquestrador/, a tarefa
+# pausa até o chat gravar a resposta e recomeça (as chamadas já respondidas saem do arquivo, sem gastar cota).
+TAREFAS_DO_ORQUESTRADOR = {"roteiro": "roteiro", "conferencia": "roteiro", "publicacao": "publicacao"}   # tarefa → etapa
+
+
+def pasta_do_orquestrador(vid: int, nome: str) -> Path | None:
+    if nome not in TAREFAS_DO_ORQUESTRADOR or not eh_documentario(vid):
+        return None
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    return PASTA_PROJETOS / slug / "orquestrador"
+
+
+def _aguardando(pasta: Path) -> dict:
+    arq = pasta / "aguardando.json"
+    return json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else {}
+
+
+def aguardar_orquestrador(vid: int, nome: str, p) -> None:
+    pasta = p.prompt.parent
+    fila = _aguardando(pasta)
+    fila[nome] = {"prompt": str(p.prompt), "resposta": str(p.resposta), "etiqueta": p.etiqueta, "desde": agora()}
+    (pasta / "aguardando.json").write_text(json.dumps(fila, ensure_ascii=False, indent=1), encoding="utf-8")
+    etapa = TAREFAS_DO_ORQUESTRADOR[nome]
+    with conectar() as con:
+        if nome == "roteiro":
+            atualizar_etapa(con, vid, "roteiro", "andamento", None, "aguardando o orquestrador")
+        rot = {"roteiro": "do roteirista/pesquisa", "conferencia": "da conferência do roteiro", "publicacao": "da publicação"}[nome]
+        texto = (f"Para o chat/orquestrador (o painel não chama o Claude): rode o prompt {p.prompt} e grave a resposta "
+                 f"em {p.resposta}. O painel continua sozinho (ou clique em “Continuar”).")
+        abrir_pendencia(con, vid, f"orq_{nome}", etapa, f"Orquestrador: rodar o prompt {rot}", texto)
+        # mesmo assunto, prompt novo (a tarefa andou até a próxima chamada): o texto da pendência acompanha
+        con.execute("UPDATE pendencias SET texto=? WHERE video_id=? AND chave=? AND resolvida=0", (texto, vid, f"orq_{nome}"))
+        registrar(con, vid, f"{nome.capitalize()}: prompt pronto para o orquestrador ({p.prompt.name})", "info")
+        con.commit()
+
+
+def fim_do_orquestrador(vid: int, nome: str) -> None:
+    pasta = pasta_do_orquestrador(vid, nome)
+    fila = _aguardando(pasta)
+    if fila.pop(nome, None) is not None:
+        (pasta / "aguardando.json").write_text(json.dumps(fila, ensure_ascii=False, indent=1), encoding="utf-8")
+    with conectar() as con:
+        fechar_pendencia(con, vid, f"orq_{nome}")
+        con.commit()
+
+
+def cancelar_orquestrador(con, vid: int, slug: str, nome: str) -> bool:
+    """O Felipe trocou o roteiro enquanto o roteirista esperava o chat: a pausa antiga não continua mais."""
+    pasta = PASTA_PROJETOS / slug / "orquestrador"
+    fila = _aguardando(pasta)
+    if fila.pop(nome, None) is None:
+        return False
+    (pasta / "aguardando.json").write_text(json.dumps(fila, ensure_ascii=False, indent=1), encoding="utf-8")
+    fechar_pendencia(con, vid, f"orq_{nome}")
+    return True
+
+
+def retomar_orquestrador(con, vid: int, slug: str) -> list[str]:
+    """Respostas que o orquestrador já gravou: a tarefa pausada volta para a fila (uma vez). Devolve as retomadas."""
+    pasta = PASTA_PROJETOS / slug / "orquestrador"
+    fila, retomadas = _aguardando(pasta), []
+    na_fila = {t for v, t in list(FILA.queue) if v == vid} | ({ESTADO["executando"]["tarefa"]} if (ESTADO.get("executando") or {}).get("video") == vid else set())
+    for nome, t in list(fila.items()):
+        r = Path(t["resposta"])
+        if nome in na_fila or not (r.exists() and r.read_text(encoding="utf-8").strip()):
+            continue
+        if nome == "conferencia":
+            CONFERINDO.add(vid)
+        del fila[nome]   # a pausa acabou (se a tarefa parar no próximo prompt, ela volta com o prompt novo)
+        (pasta / "aguardando.json").write_text(json.dumps(fila, ensure_ascii=False, indent=1), encoding="utf-8")
+        fechar_pendencia(con, vid, f"orq_{nome}")
+        FILA.put((vid, nome))
+        retomadas.append(nome)
+        registrar(con, vid, f"Orquestrador respondeu ({r.name}): {nome} continua", "info")
+    return retomadas
+
 
 def _trabalhador() -> None:
     while True:
@@ -1372,26 +1501,42 @@ def _trabalhador() -> None:
             if nome == "conferencia":
                 CONFERINDO.discard(vid)
             continue
-        ESTADO["executando"] = {"video": vid, "tarefa": nome, "desde": agora()}
         try:
-            with _TravaGlobal():
-                TAREFAS[nome](vid)
-        except Exception as e:  # erro vira pendência visível, nunca some em silêncio
-            traceback.print_exc()
-            with conectar() as con:
-                atualizar_etapa_status(con, vid, nome, "atencao")
-                # nada pode ficar "girando" depois de uma falha (ex.: Direção presa em andamento)
-                con.execute("UPDATE etapas SET status='atencao', atualizado_em=? WHERE video_id=? AND status='andamento'",
-                            (agora(), vid))
-                abrir_pendencia(con, vid, f"erro_{nome}", nome, f"Falha na etapa “{nome}”", str(e)[:400])
-                registrar(con, vid, f"Erro em {nome}: {e}", "alerta")
-                con.commit()
+            executar(vid, nome)
         finally:
-            if nome == "conferencia":
-                CONFERINDO.discard(vid)
-            ESTADO["executando"] = None
-            ESTADO["progresso"] = None
             FILA.task_done()
+
+
+def executar(vid: int, nome: str) -> None:
+    """Roda UMA tarefa de um card (o trabalhador da fila chama; os testes também, sem thread)."""
+    ESTADO["executando"] = {"video": vid, "tarefa": nome, "desde": agora()}
+    if str(RAIZ / "tools" / "direcao") not in sys.path:
+        sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    from claude_cli import PrecisaOrquestrador, pelo_orquestrador
+
+    pasta_orq = pasta_do_orquestrador(vid, nome)
+    try:
+        with _TravaGlobal(), (pelo_orquestrador(pasta_orq) if pasta_orq else contextlib.nullcontext()):
+            TAREFAS[nome](vid)
+        if pasta_orq:
+            fim_do_orquestrador(vid, nome)
+    except PrecisaOrquestrador as p:  # card sem `claude -p` (documentário): o prompt espera o chat/orquestrador
+        aguardar_orquestrador(vid, nome, p)
+    except Exception as e:  # erro vira pendência visível, nunca some em silêncio
+        traceback.print_exc()
+        with conectar() as con:
+            atualizar_etapa_status(con, vid, nome, "atencao")
+            # nada pode ficar "girando" depois de uma falha (ex.: Direção presa em andamento)
+            con.execute("UPDATE etapas SET status='atencao', atualizado_em=? WHERE video_id=? AND status='andamento'",
+                        (agora(), vid))
+            abrir_pendencia(con, vid, f"erro_{nome}", nome, f"Falha na etapa “{nome}”", str(e)[:400])
+            registrar(con, vid, f"Erro em {nome}: {e}", "alerta")
+            con.commit()
+    finally:
+        if nome == "conferencia":
+            CONFERINDO.discard(vid)
+        ESTADO["executando"] = None
+        ESTADO["progresso"] = None
 
 
 def tentar_de_novo(con, vid: int, etapa: str) -> None:

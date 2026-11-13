@@ -34,6 +34,8 @@ type Doc = {
   montador: boolean
   rascunho: string | null
   rascunho_video?: string | null
+  narracao?: 'guia' | 'gravacao' | null // de quem são os tempos por palavra: voz guia (Fish) ou a sua gravação
+  ressinc?: { quando: string; narracao: string; cenas: number; afetadas: string[] } | null // última retemporização da SPEC
 }
 
 const ETAPAS = ['historia', 'spec', 'ativos', 'verificacao', 'rascunho'] as const
@@ -101,9 +103,18 @@ export function PainelDocumental({ videoId, aoMudar }: { videoId: number; aoMuda
         <h2 className="text-sm font-semibold">Documentário</h2>
         <span className="font-mono text-[11px] text-apagado">
           roteiro {d.entradas.roteiro ? 'ok' : 'falta'} · {d.entradas.palavras} palavras · tempos {d.entradas.tempos ?? '—'}
+          {d.narracao ? ` (${d.narracao === 'gravacao' ? 'sua gravação' : 'voz guia'})` : ''}
           {d.entradas.briefing ? ' · com briefing' : ''}
         </span>
       </header>
+      {d.ressinc && d.ressinc.cenas > 0 && (
+        <p className="mb-2 rounded-md border border-borda bg-painel-2 px-3 py-2 text-xs text-suave">
+          Ressincronização ({d.ressinc.narracao === 'gravacao' ? 'sua gravação' : d.ressinc.narracao === 'guia' ? 'voz guia' : d.ressinc.narracao}):{' '}
+          {d.ressinc.afetadas.length} de {d.ressinc.cenas} cenas com tempos novos
+          {d.ressinc.afetadas.length ? ` (${d.ressinc.afetadas.slice(0, 12).join(', ')}${d.ressinc.afetadas.length > 12 ? '…' : ''})` : ''};
+          cenas, ids e palavras iguais.
+        </p>
+      )}
       {d.avisos_entrada.map((a) => (
         <p key={a} className="mb-2 rounded-md border border-atencao/30 bg-atencao/5 px-3 py-2 text-xs text-atencao">{a}</p>
       ))}
