@@ -44,7 +44,7 @@ export type Piloto = {
   bruto?: { t: number[]; d: number[]; vel: number[]; acel: number[]; freio: number[]; marcha: number[] }; // amostras do car_data
 };
 export type Dados = {
-  fonte: string; fonte_curta: string; comprimento_m: number; passo_m: number; grade_d: number[];
+  fonte: string; fonte_curta: string; circuito?: string; comprimento_m: number; passo_m: number; grade_d: number[];
   pilotos: Piloto[]; delta: number[]; setores_d: { d: number }[];
   curvas: { n: number; nome: string; d: number }[];
   tracado: { x: number[]; z: number[]; d: number[] } | null;
@@ -304,7 +304,7 @@ function plano(c: Construtor, plot: Caixa, d0: number, d1: number, v0: number, v
   const rotulos: Parameters<Construtor["fileiras"]>[0] = [];
   if (spec.setores !== false) {
     const fr = [0, ...c.D.setores_d.map((f) => f.d), c.D.comprimento_m];
-    for (let k = 0; k < 3; k++) {
+    for (let k = 0; k < fr.length - 1; k++) {
       const a = Math.max(fr[k], d0), b = Math.min(fr[k + 1], d1);
       if (b - a < (d1 - d0) * 0.06) continue;
       rotulos.push({ id: `setor-${k + 1}`, x: xOf((a + b) / 2), texto: `SETOR ${k + 1}`, cor: T.tinta2, peso: 700, em: em + 0.3 });
@@ -339,15 +339,23 @@ function serie(P: Plano, Pi: Piloto, campo: "vel" | "acel" | "marcha", ids: numb
 
 /** trecho de maior ganho: janela (m) em que o delta mais muda */
 export function destaqueAuto(D: Dados, d0: number, d1: number, janela = 250): { d0: number; d1: number; ganho: number } {
-  const g = D.grade_d;
-  let best = { d0, d1: Math.min(d1, d0 + janela), ganho: 0 };
-  for (let i = 0; i < g.length; i++) {
+  const g = D.grade_d, n = g.length;
+  // escolhe a janela pelo delta suavizado (mediana de ±150 m): nas frenagens fortes, o erro da distância integrada de
+  // cada piloto gera picos que vão e voltam (0,2 s em ~350 m na 1ª chicane de Monza) e não são ganho que fica
+  const r = Math.max(1, Math.round(50 / D.passo_m)), rs = Math.max(1, Math.round(150 / D.passo_m));
+  const sv = g.map((_, i) => { const w = D.delta.slice(Math.max(0, i - rs), Math.min(n, i + rs + 1)).sort((a, b) => a - b); return w[w.length >> 1]; });
+  const passos = Math.round(janela / D.passo_m);
+  let bi = -1, bj = -1, bg = 0;
+  for (let i = 0; i < n; i++) {
     if (g[i] < d0 || g[i] + janela > d1) continue;
-    const j = Math.min(g.length - 1, i + Math.round(janela / D.passo_m));
-    const ganho = D.delta[j] - D.delta[i];
-    if (Math.abs(ganho) > Math.abs(best.ganho)) best = { d0: g[i], d1: g[j], ganho };
+    const j = Math.min(n - 1, i + passos);
+    if (Math.abs(sv[j] - sv[i]) > Math.abs(bg)) { bi = i; bj = j; bg = sv[j] - sv[i]; }
   }
-  return best;
+  if (bi < 0) return { d0, d1: Math.min(d1, d0 + janela), ganho: 0 };
+  // pontas: o ponto (±50 m) em que o delta bruto mais se aproxima do suavizado (fora de pico); o ganho escrito é o BRUTO
+  const firme = (k: number) => { let b = k; for (let q = Math.max(0, k - r); q <= Math.min(n - 1, k + r); q++) if (Math.abs(D.delta[q] - sv[q]) < Math.abs(D.delta[b] - sv[b])) b = q; return b; };
+  const i = firme(bi), j = firme(bj);
+  return { d0: g[i], d1: g[j], ganho: D.delta[j] - D.delta[i] };
 }
 function textoGanho(c: Construtor, ganho: number): { texto: string; cor: string } {
   // delta = tA − tB: se diminui no trecho, A ganhou tempo
@@ -486,7 +494,7 @@ function grafVelocidade(c: Construtor, temDelta = false) {
   if (spec.minimapa) {
     const mx = area.x + area.w - pad - mapaW;
     minimapa(c, { x: mx, y: plot.y, w: mapaW, h: Math.min(plot.h, mapaW * 1.1) }, dest, emDest);
-    c.t("mapa-rotulo", "rotulo", mx + mapaW / 2, plot.y + Math.min(plot.h, mapaW * 1.1) + 26 * s, dest ? "trecho destacado" : c.D.tracado ? "Interlagos" : "",
+    c.t("mapa-rotulo", "rotulo", mx + mapaW / 2, plot.y + Math.min(plot.h, mapaW * 1.1) + 26 * s, dest ? "trecho destacado" : (c.D.circuito ?? ""),
       19 * s, 600, dest ? T.destaque : T.tinta2, "middle", emDest + 0.15);
   }
 }
@@ -496,7 +504,7 @@ function grafSetores(c: Construtor) {
   const { spec, s, D, T } = c, area = spec.area, pad = 30 * s, em = spec.em;
   const yTop = c.cabecalho(spec.titulo ?? "Onde a volta foi ganha", spec.subtitulo ?? "Diferença de tempo em cada setor (OpenF1, tempos oficiais de setor)", false);
   const yBot = c.rodape();
-  const linhas = [0, 1, 2].map((k) => ({ rot: `Setor ${k + 1}`, a: c.A.setores[k], b: c.B.setores[k] }));
+  const linhas = c.A.setores.map((a, k) => ({ rot: `Setor ${k + 1}`, a, b: c.B.setores[k] }));
   linhas.push({ rot: "Volta", a: c.A.tempo, b: c.B.tempo });
   const tamR = 30 * s, tamV = 28 * s, tamP = 20 * s;
   const rotW = Math.max(...linhas.map((l) => larguraTexto(l.rot, tamR, 700))) + 24 * s;

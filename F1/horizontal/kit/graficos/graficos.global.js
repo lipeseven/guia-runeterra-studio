@@ -308,7 +308,7 @@ var Graficos = (() => {
     const rotulos = [];
     if (spec.setores !== false) {
       const fr = [0, ...c.D.setores_d.map((f) => f.d), c.D.comprimento_m];
-      for (let k = 0; k < 3; k++) {
+      for (let k = 0; k < fr.length - 1; k++) {
         const a = Math.max(fr[k], d0), b = Math.min(fr[k + 1], d1);
         if (b - a < (d1 - d0) * 0.06) continue;
         rotulos.push({ id: `setor-${k + 1}`, x: xOf((a + b) / 2), texto: `SETOR ${k + 1}`, cor: T.tinta2, peso: 700, em: em + 0.3 });
@@ -340,15 +340,31 @@ var Graficos = (() => {
     return pts;
   }
   function destaqueAuto(D, d0, d1, janela = 250) {
-    const g = D.grade_d;
-    let best = { d0, d1: Math.min(d1, d0 + janela), ganho: 0 };
-    for (let i = 0; i < g.length; i++) {
-      if (g[i] < d0 || g[i] + janela > d1) continue;
-      const j = Math.min(g.length - 1, i + Math.round(janela / D.passo_m));
-      const ganho = D.delta[j] - D.delta[i];
-      if (Math.abs(ganho) > Math.abs(best.ganho)) best = { d0: g[i], d1: g[j], ganho };
+    const g = D.grade_d, n = g.length;
+    const r = Math.max(1, Math.round(50 / D.passo_m)), rs = Math.max(1, Math.round(150 / D.passo_m));
+    const sv = g.map((_, i2) => {
+      const w = D.delta.slice(Math.max(0, i2 - rs), Math.min(n, i2 + rs + 1)).sort((a, b) => a - b);
+      return w[w.length >> 1];
+    });
+    const passos = Math.round(janela / D.passo_m);
+    let bi = -1, bj = -1, bg = 0;
+    for (let i2 = 0; i2 < n; i2++) {
+      if (g[i2] < d0 || g[i2] + janela > d1) continue;
+      const j2 = Math.min(n - 1, i2 + passos);
+      if (Math.abs(sv[j2] - sv[i2]) > Math.abs(bg)) {
+        bi = i2;
+        bj = j2;
+        bg = sv[j2] - sv[i2];
+      }
     }
-    return best;
+    if (bi < 0) return { d0, d1: Math.min(d1, d0 + janela), ganho: 0 };
+    const firme = (k) => {
+      let b = k;
+      for (let q = Math.max(0, k - r); q <= Math.min(n - 1, k + r); q++) if (Math.abs(D.delta[q] - sv[q]) < Math.abs(D.delta[b] - sv[b])) b = q;
+      return b;
+    };
+    const i = firme(bi), j = firme(bj);
+    return { d0: g[i], d1: g[j], ganho: D.delta[j] - D.delta[i] };
   }
   function textoGanho(c, ganho) {
     const P = ganho < 0 ? c.A : c.B;
@@ -373,7 +389,7 @@ var Graficos = (() => {
     }
   }
   function grafVelocidade(c, temDelta = false) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f;
     const { spec, s, D, T } = c, area = spec.area, pad = 30 * s;
     const [d0, d1] = (_a = spec.trecho) != null ? _a : [0, D.comprimento_m];
     const ids = indices(D, d0, d1);
@@ -547,7 +563,7 @@ var Graficos = (() => {
         "rotulo",
         mx + mapaW / 2,
         plot.y + Math.min(plot.h, mapaW * 1.1) + 26 * s,
-        dest ? "trecho destacado" : c.D.tracado ? "Interlagos" : "",
+        dest ? "trecho destacado" : (_f = c.D.circuito) != null ? _f : "",
         19 * s,
         600,
         dest ? T.destaque : T.tinta2,
@@ -561,7 +577,7 @@ var Graficos = (() => {
     const { spec, s, D, T } = c, area = spec.area, pad = 30 * s, em = spec.em;
     const yTop = c.cabecalho((_a = spec.titulo) != null ? _a : "Onde a volta foi ganha", (_b = spec.subtitulo) != null ? _b : "Diferença de tempo em cada setor (OpenF1, tempos oficiais de setor)", false);
     const yBot = c.rodape();
-    const linhas = [0, 1, 2].map((k) => ({ rot: `Setor ${k + 1}`, a: c.A.setores[k], b: c.B.setores[k] }));
+    const linhas = c.A.setores.map((a, k) => ({ rot: `Setor ${k + 1}`, a, b: c.B.setores[k] }));
     linhas.push({ rot: "Volta", a: c.A.tempo, b: c.B.tempo });
     const tamR = 30 * s, tamV = 28 * s, tamP = 20 * s;
     const rotW = Math.max(...linhas.map((l) => larguraTexto(l.rot, tamR, 700))) + 24 * s;

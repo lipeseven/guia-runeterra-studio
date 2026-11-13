@@ -162,22 +162,22 @@
   },
   "barras": {
    "setor1": {
-    "lec_menos_ant_s": -0.065,
+    "a_menos_b_s": -0.065,
     "px": 55.72,
     "texto": "0,065 s"
    },
    "setor2": {
-    "lec_menos_ant_s": -0.693,
+    "a_menos_b_s": -0.693,
     "px": 594.07,
     "texto": "0,693 s"
    },
    "setor3": {
-    "lec_menos_ant_s": 0.745,
+    "a_menos_b_s": 0.745,
     "px": 638.65,
     "texto": "0,745 s"
    },
-   "setor4": {
-    "lec_menos_ant_s": -0.013,
+   "volta": {
+    "a_menos_b_s": -0.013,
     "px": 11.14,
     "texto": "0,013 s"
    },
@@ -223,20 +223,20 @@
   "textos": [
    {
     "grafico": "vel",
-    "texto": "ANT ganha 0,490 s aqui",
-    "esperado": "ANT ganha 0,490 s aqui",
+    "texto": "ANT ganha 0,419 s aqui",
+    "esperado": "ANT ganha 0,419 s aqui",
     "trecho_m": [
-     3260.0,
-     3510.0
+     3280.0,
+     3525.0
     ]
    },
    {
     "grafico": "dlt",
-    "texto": "ANT ganha 0,490 s aqui",
-    "esperado": "ANT ganha 0,490 s aqui",
+    "texto": "ANT ganha 0,419 s aqui",
+    "esperado": "ANT ganha 0,419 s aqui",
     "trecho_m": [
-     3260.0,
-     3510.0
+     3280.0,
+     3525.0
     ]
    }
   ],
@@ -363,10 +363,10 @@
    }
   },
   "minimapa": {
-   "area_assinada_tela": -395169.2,
+   "area_assinada_tela": -396373.1,
    "sentido": "anti-horário",
-   "pontos": 530,
-   "d_final": 4307.3
+   "pontos": 342,
+   "d_final": 4300.5
   }
  },
  "textos_chrome": {
@@ -404,6 +404,269 @@
    "sobrepostos": [],
    "fora_da_area": [],
    "real_maior_que_estimado_px": 1.63
+  }
+ },
+ "outras_sessoes": {
+  "monza": {
+   "fonte": "OpenF1 (api.openf1.org) /v1/car_data, /v1/laps e /v1/location; Monza 2025 Qualifying (session_key 9908)",
+   "comprimento": [
+    5793.0,
+    "pista/Monza.json"
+   ],
+   "pilotos": [
+    [
+     "LEC",
+     "Ferrari",
+     "#E8002D",
+     79.007
+    ],
+    [
+     "HAM",
+     "Ferrari",
+     "#FFD12E",
+     79.124
+    ]
+   ],
+   "kit": {
+    "vel": {
+     "elementos": 39,
+     "textos": 24,
+     "fim": 4.3,
+     "menorFolgaTextos": 6.4,
+     "foraDaArea": 0
+    },
+    "set": {
+     "elementos": 36,
+     "textos": 24,
+     "fim": 8.15,
+     "menorFolgaTextos": 8.5,
+     "foraDaArea": 0
+    },
+    "dlt": {
+     "elementos": 44,
+     "textos": 27,
+     "fim": 14.7,
+     "menorFolgaTextos": 6.4,
+     "foraDaArea": 0
+    },
+    "tel": {
+     "elementos": 47,
+     "textos": 27,
+     "fim": 19.75,
+     "menorFolgaTextos": 8.5,
+     "foraDaArea": 0
+    },
+    "nrm": {
+     "elementos": 48,
+     "textos": 33,
+     "fim": 24.1,
+     "menorFolgaTextos": 6.8,
+     "foraDaArea": 0
+    }
+   },
+   "dados": {
+    "origem": "cache OpenF1",
+    "series": {
+     "LEC_grade": {
+      "vel": 0.005,
+      "acel": 0.0501,
+      "t": 0.0001
+     },
+     "HAM_grade": {
+      "vel": 0.005,
+      "acel": 0.0499,
+      "t": 0.0
+     },
+     "vel:serie-b": {
+      "pontos": 1160,
+      "erro_max": 0.005,
+      "unidade": "vel",
+      "d": [
+       0.0,
+       5793.0
+      ]
+     },
+     "vel:serie-a": {
+      "pontos": 1160,
+      "erro_max": 0.005,
+      "unidade": "vel",
+      "d": [
+       0.0,
+       5793.0
+      ]
+     },
+     "dlt:serie-delta": {
+      "pontos": 1160,
+      "erro_max": 0.0001,
+      "unidade": "vantagem",
+      "d": [
+       0.0,
+       5793.0
+      ]
+     },
+     "tel:serie-acelerador-b": {
+      "pontos": 201,
+      "erro_max": 0.04823,
+      "unidade": "acel",
+      "d": [
+       500.0,
+       1500.0
+      ]
+     },
+     "tel:serie-acelerador-a": {
+      "pontos": 201,
+      "erro_max": 0.04923,
+      "unidade": "acel",
+      "d": [
+       500.0,
+       1500.0
+      ]
+     },
+     "tel:serie-marcha-b": {
+      "pontos": 209,
+      "erro_max": 0.0,
+      "unidade": "marcha",
+      "d": [
+       500.0,
+       1500.0
+      ]
+     },
+     "tel:serie-marcha-a": {
+      "pontos": 211,
+      "erro_max": 0.0,
+      "unidade": "marcha",
+      "d": [
+       500.0,
+       1500.0
+      ]
+     }
+    },
+    "barras": {
+     "setor1": {
+      "a_menos_b_s": 0.046,
+      "px": 210.31,
+      "texto": "0,046 s"
+     },
+     "setor2": {
+      "a_menos_b_s": -0.104,
+      "px": 475.49,
+      "texto": "0,104 s"
+     },
+     "setor3": {
+      "a_menos_b_s": -0.059,
+      "px": 269.75,
+      "texto": "0,059 s"
+     },
+     "volta": {
+      "a_menos_b_s": -0.117,
+      "px": 534.92,
+      "texto": "0,117 s"
+     },
+     "freio_LEC": {
+      "faixas": 2,
+      "pontos_errados": 0
+     },
+     "freio_HAM": {
+      "faixas": 2,
+      "pontos_errados": 0
+     },
+     "vmax": {
+      "LEC": 351.0,
+      "HAM": 350.0,
+      "vantagem_pct": 0.286,
+      "texto": "+0,3 %"
+     },
+     "vmin": {
+      "LEC": 75.0,
+      "HAM": 71.0,
+      "vantagem_pct": 5.634,
+      "texto": "+5,6 %"
+     },
+     "vmedia": {
+      "LEC": 263.961,
+      "HAM": 263.571,
+      "vantagem_pct": 0.148,
+      "texto": "+0,1 %"
+     },
+     "acelPleno": {
+      "LEC": 80.455,
+      "HAM": 79.424,
+      "vantagem_pct": 1.298,
+      "texto": "+1,3 %"
+     },
+     "freando": {
+      "LEC": 10.238,
+      "HAM": 10.239,
+      "vantagem_pct": 0.01,
+      "texto": "empate"
+     }
+    },
+    "textos": [
+     {
+      "grafico": "vel",
+      "texto": "LEC ganha 0,067 s aqui",
+      "esperado": "LEC ganha 0,067 s aqui",
+      "trecho_m": [
+       2560.0,
+       2755.0
+      ]
+     },
+     {
+      "grafico": "dlt",
+      "texto": "LEC ganha 0,067 s aqui",
+      "esperado": "LEC ganha 0,067 s aqui",
+      "trecho_m": [
+       2560.0,
+       2755.0
+      ]
+     }
+    ],
+    "curvas": {},
+    "minimapa": {
+     "area_assinada_tela": 971320.3,
+     "sentido": "horário",
+     "pontos": 299,
+     "d_final": 5792.8
+    }
+   },
+   "textos_chrome": {
+    "vel": {
+     "textos": 24,
+     "menor_folga_real_px": 6.9,
+     "sobrepostos": [],
+     "fora_da_area": [],
+     "real_maior_que_estimado_px": 1.2
+    },
+    "set": {
+     "textos": 24,
+     "menor_folga_real_px": 12.4,
+     "sobrepostos": [],
+     "fora_da_area": [],
+     "real_maior_que_estimado_px": 1.63
+    },
+    "dlt": {
+     "textos": 27,
+     "menor_folga_real_px": 6.9,
+     "sobrepostos": [],
+     "fora_da_area": [],
+     "real_maior_que_estimado_px": 1.0
+    },
+    "tel": {
+     "textos": 27,
+     "menor_folga_real_px": 15.3,
+     "sobrepostos": [],
+     "fora_da_area": [],
+     "real_maior_que_estimado_px": 1.2
+    },
+    "nrm": {
+     "textos": 33,
+     "menor_folga_real_px": 8.5,
+     "sobrepostos": [],
+     "fora_da_area": [],
+     "real_maior_que_estimado_px": 1.63
+    }
+   },
+   "falhas": []
   }
  },
  "pixels": {

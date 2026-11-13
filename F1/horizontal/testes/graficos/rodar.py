@@ -10,7 +10,9 @@ Passos:
       (velocidade, acelerador, marcha em degrau, vantagem acumulada), as barras de freio com o freio bruto, as barras de
       setor com os tempos oficiais, as barras do normalizado com as métricas refeitas aqui, e os números escritos;
     - curvas nomeadas: cada curva lenta tem de estar a ≤ 60 m de um mínimo local de velocidade;
-    - minimapa: o traçado anda no sentido anti-horário (Interlagos) e o trecho destacado corresponde à distância;
+    - minimapa: o traçado anda no sentido declarado no arquivo da pista e cobre a volta inteira;
+    + outras sessões/pistas (kit/graficos/exemplo/cena_*.json, ex.: Monza 2025 LEC × HAM, mesma equipe): checar, dados =
+      fonte, textos no Chrome e foto do estado final de cada gráfico (folha_<nome>.jpg);
  3. mede as caixas REAIS dos textos no Chrome (getBBox na horizontal, tinta de measureText na vertical) com o estado
     final de cada gráfico: nenhum par se sobrepõe, todos dentro da área, e a estimativa do kit não fica menor que o real;
  4. renderiza a cena em PNG quadro a quadro no Remotion e no HyperFrames e mede nos PIXELS: nada desenhado fora da
@@ -182,13 +184,13 @@ def conferir_dados(D: dict, mont: dict, falhas: Falhas) -> dict:
         textos = {e["id"].split(":", 1)[1]: e["texto"] for e in G["elementos"] if e["tipo"] == "texto"}
         rets = {e["id"].split(":", 1)[1]: e for e in G["elementos"] if e["tipo"] == "ret"}
         if tipo == "setores":
-            pares = [(A["setores"][k], B["setores"][k]) for k in range(3)] + [(A["tempo"], B["tempo"])]
+            pares = [(A["setores"][k], B["setores"][k]) for k in range(len(A["setores"]))] + [(A["tempo"], B["tempo"])]
             for k, (a, b) in enumerate(pares):
                 r = rets[f"barra-{k}"]
                 lado_ok = (r["revela"] == "esq") == (a < b)
                 falhas.conferir(abs(r["w"] / r["escala"] - abs(a - b)) < 1e-9 and lado_ok, f"setores: barra {k} ≠ |{a}−{b}| ou lado errado")
                 falhas.conferir(textos[f"val-{k}"] == f"{fmt(abs(a - b), 3)} s", f"setores: texto {textos[f'val-{k}']!r}")
-                rel["barras"][f"setor{k + 1}"] = {"lec_menos_ant_s": round(a - b, 3), "px": round(r["w"], 2), "texto": textos[f"val-{k}"]}
+                rel["barras"]["volta" if k == len(pares) - 1 else f"setor{k + 1}"] = {"a_menos_b_s": round(a - b, 3), "px": round(r["w"], 2), "texto": textos[f"val-{k}"]}
         if tipo == "normalizado":
             d0, d1 = G["spec"].get("trecho") or [0, D["comprimento_m"]]
             for m in G["spec"].get("metricas") or ["vmax", "vmin", "vmedia", "acelPleno", "freando"]:
@@ -261,8 +263,10 @@ def conferir_dados(D: dict, mont: dict, falhas: Falhas) -> dict:
         area2 = float(np.sum(x * np.roll(z, -1) - np.roll(x, -1) * z)) / 2  # na tela (z para baixo): <0 = anti-horário
         rel["minimapa"] = {"area_assinada_tela": round(area2, 1), "sentido": "anti-horário" if area2 < 0 else "horário",
                            "pontos": len(x), "d_final": tr["d"][-1]}
-        falhas.conferir(area2 < 0, "minimapa: traçado no sentido horário (Interlagos é anti-horário: pista espelhada?)")
-        falhas.conferir(abs(tr["d"][-1] - D["comprimento_m"]) < 15 and tr["d"][0] < 15, "minimapa: distância do traçado não cobre a volta")
+        if D.get("sentido"):  # sentido declarado no arquivo da pista (kit/graficos/pista/<circuito>.json)
+            falhas.conferir(rel["minimapa"]["sentido"] == D["sentido"], f"minimapa: traçado {rel['minimapa']['sentido']}, pista {D['sentido']} (espelhado?)")
+        # GPS a ~3,7 Hz: o 1º e o último ponto ficam até ~0,3 s (≤ ~35 m a 350 km/h) das pontas da volta
+        falhas.conferir(abs(tr["d"][-1] - D["comprimento_m"]) < 40 and tr["d"][0] < 40, f"minimapa: traçado não cobre a volta ({tr['d'][0]}–{tr['d'][-1]} m)")
     return rel
 
 
@@ -324,18 +328,52 @@ def projeto_hf(dest: Path, cena_arq: Path) -> None:
     (dest / "package.json").write_text(json.dumps({"name": "exemplo-graficos", "private": True, "type": "module"}), encoding="utf-8")
 
 
-def medir_textos(falhas: Falhas) -> dict:
-    proj = SAIDA / "medir"
-    projeto_hf(proj, CENA)
-    html = ("<!doctype html><meta charset='utf-8'><body style='margin:0'>"
-            "<svg id='g' width='1920' height='1080' viewBox='0 0 1920 1080'></svg><pre id='saida'></pre>"
-            "<script src='assets/graficos.global.js'></script><script src='assets/camada.js'></script>"
-            "<script src='assets/cena.js'></script><script src='assets/dados.js'></script><script src='assets/larguras.js'></script>"
-            f"<script>{MEDIR_JS}</script></body>")
+PAGINA = ("<!doctype html><meta charset='utf-8'><body style='margin:0;width:1920px;height:1080px;overflow:hidden;background:{fundo}'>"
+          "<svg id='g' width='1920' height='1080' viewBox='0 0 1920 1080' style='position:absolute;left:0;top:0'></svg>"
+          "<pre id='saida' style='display:none'></pre>"
+          "<script src='assets/graficos.global.js'></script><script src='assets/camada.js'></script>"
+          "<script src='assets/cena.js'></script><script src='assets/dados.js'></script><script src='assets/larguras.js'></script>"
+          "<script>{js}</script></body>")
+
+
+def fotos(cena_arq: Path, tag: str, falhas: Falhas) -> list[Path]:
+    """Estado final de cada gráfico da cena fotografado no Chrome (adaptador HyperFrames, sem a timeline) + pixels
+    fora da área. Para cenas extras (outra sessão/pista), sem render de vídeo."""
+    proj = SAIDA / f"fotos_{tag}"
+    projeto_hf(proj, cena_arq)
+    cena = json.loads(cena_arq.read_text(encoding="utf-8"))
+    fundo = {"claro": "#f2f1ed", "escuro": "#141518"}[cena.get("tema", "claro")]
+    saidas = []
+    for i, g in enumerate(cena["graficos"]):
+        js = ("(function(){var c=window.__CENA,s=c.graficos.map(function(g){return Object.assign({tema:c.tema},g);});"
+              "var m=Graficos.montar(s,window.__DADOS,window.__LARGURAS);var cam=CamadaGrafico.criar(document.getElementById('g'),m);"
+              f"cam.render(m.graficos[{i}].fim+0.01);}})();")
+        html = proj / f"foto_{g['id']}.html"
+        html.write_text(PAGINA.format(fundo=fundo, js=js), encoding="utf-8")
+        png = proj / f"{g['id']}.png"
+        sh([NAVEGADOR, "--headless", "--disable-gpu", "--allow-file-access-from-files", "--hide-scrollbars", "--window-size=1920,1080",
+            "--virtual-time-budget=5000", f"--screenshot={png}", html.as_uri()])
+        img = np.asarray(Image.open(png).convert("RGB")).astype(np.int16)
+        f = np.array([int(fundo[k:k + 2], 16) for k in (1, 3, 5)])
+        tinta = np.abs(img - f).sum(-1) > 24
+        a = g["area"]
+        dentro = np.zeros(tinta.shape, bool)
+        dentro[int(a["y"]):int(math.ceil(a["y"] + a["h"])), int(a["x"]):int(math.ceil(a["x"] + a["w"]))] = True
+        n = int((tinta & ~dentro).sum())
+        falhas.conferir(n == 0, f"{tag} {g['id']}: {n} px fora da área na foto")
+        falhas.conferir(int(tinta.sum()) > 20000, f"{tag} {g['id']}: foto quase vazia ({int(tinta.sum())} px)")
+        saidas.append(png)
+    return saidas
+
+
+def medir_textos(falhas: Falhas, cena_arq: Path = CENA, tag: str = "medir") -> dict:
+    proj = SAIDA / tag
+    projeto_hf(proj, cena_arq)
+    html = PAGINA.format(fundo="#fff", js=MEDIR_JS)
     (proj / "medir.html").write_text(html, encoding="utf-8")
     r = sh([NAVEGADOR, "--headless", "--disable-gpu", "--allow-file-access-from-files", "--virtual-time-budget=8000",
             "--dump-dom", (proj / "medir.html").as_uri()])
-    m = re.search(r"<pre id=\"saida\">(.*?)</pre>", r.stdout, re.S)
+    m = re.search(r"<pre id=\"saida\"[^>]*>(.*?)</pre>", r.stdout, re.S)
     if not m or not m.group(1).strip():
         falhas.append("medição de textos no Chrome não retornou nada")
         return {}
@@ -515,7 +553,31 @@ def main() -> None:
     falhas.extend(f"tema escuro: {f}" for f in f2)
     # 3. textos reais no Chrome
     rel_textos = medir_textos(falhas)
-    resultado = {"kit": rel_kit, "dados": rel_dados, "textos_chrome": rel_textos}
+    resultado = {"kit": rel_kit, "dados": rel_dados, "textos_chrome": rel_textos, "outras_sessoes": {}}
+    # 3b. outras sessões/pistas (kit/graficos/exemplo/cena_*.json): o mesmo kit, sem nada fixo de Interlagos.
+    #     checar do kit, dados = fonte, textos no Chrome e foto do estado final de cada gráfico (sem render de vídeo)
+    for extra in sorted((KIT / "exemplo").glob("cena_*.json")):
+        tag = extra.stem.removeprefix("cena_")
+        fx = Falhas()
+        ce = json.loads(extra.read_text(encoding="utf-8"))
+        De = json.loads((KIT / ce["dados"]).read_text(encoding="utf-8"))
+        rk = kit_json("checar", extra)
+        fx.extend(f"kit: {f}" for f in rk["falhas"])
+        fx.extend(f"kit aviso: {a}" for a in rk["avisos"])
+        rd = conferir_dados(De, kit_json("montar", extra), fx)
+        rt = medir_textos(fx, extra, f"medir_{tag}")
+        fs = fotos(extra, tag, fx)
+        ims = [Image.open(p).convert("RGB").resize((960, 540), Image.LANCZOS) for p in fs]
+        sheet = Image.new("RGB", (2 * 964 + 4, math.ceil(len(ims) / 2) * 544 + 48), (90, 90, 90))
+        ImageDraw.Draw(sheet).text((8, 8), f"{tag}: {De['fonte']} — estado final de cada gráfico (Chrome)", font=FONTE_ROT, fill=(255, 255, 255))
+        for i, im in enumerate(ims):
+            sheet.paste(im, (4 + (i % 2) * 964, 48 + (i // 2) * 544))
+        sheet.save(AQUI / f"folha_{tag}.jpg", quality=86)
+        resultado["outras_sessoes"][tag] = {"fonte": De["fonte"], "comprimento": [De["comprimento_m"], De["comprimento_origem"]],
+                                            "pilotos": [(P["sigla"], P["equipe"], P["cor"], P["tempo"]) for P in De["pilotos"]],
+                                            "kit": rk["graficos"], "dados": rd, "textos_chrome": rt, "falhas": list(fx)}
+        falhas.extend(f"[{tag}] {f}" for f in fx)
+        print(tag, "falhas:", len(fx), "| barras:", json.dumps(rd["barras"], ensure_ascii=False)[:600])
     if not so_dados:
         pastas = {"remotion": SAIDA / "remotion", "hyperframes": SAIDA / "hyperframes"}
         if not sem_render:
