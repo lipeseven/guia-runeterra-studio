@@ -65,8 +65,13 @@ def _base(slug: str) -> dict:
     from .motor import PASTA_PROJETOS
 
     p = PASTA_PROJETOS / slug
-    return {"pasta": str(p / "horizontal"), "slug": slug,
-            "roteiro": str(p / "direcao" / "roteiro.txt"), "palavras": str(p / "direcao" / "tempos_voz.json"),
+    # tempos por palavra da narração que vale agora: a sua gravação (depois da Ressincronização) > voz guia (Fish) >
+    # narração medida do card antigo (etapa "voz_ia", antes da fase 7a). Trocar a tabela = a ponte retemporiza a SPEC.
+    narracao, palavras = next(((n, p / "direcao" / a) for n, a in (("gravacao", "tempos_gravacao.json"), ("guia", "tempos_guia.json"),
+                                                                   ("gravacao", "tempos_voz.json")) if (p / "direcao" / a).exists()),
+                              ("guia", p / "direcao" / "tempos_guia.json"))
+    return {"pasta": str(p / "horizontal"), "slug": slug, "roteiro": str(p / "direcao" / "roteiro.txt"),
+            "palavras": str(palavras), "narracao": narracao,
             "observacoes": str(p / "observacoes.json")}   # observações gerais do Felipe (observacoes.py)
 
 
@@ -122,7 +127,8 @@ def sincronizar(con, vid: int, r: dict) -> None:
         manter.add("doc_historia")
         _abrir(con, vid, "doc_historia", "historia", "Gere a história do documentário",
                "No painel “Documentário”, clique em “Gerar prompt da História”"
-               + ("" if st_banco.get("voz_ia") == "concluido" else " (sem a narração medida, os tempos ficam estimados)") + ".")
+               + ("" if "concluido" in (st_banco.get("voz_ia"), st_banco.get("voz_guia"))
+                  else " (sem a voz guia medida, os tempos ficam estimados)") + ".")
     for t in r["orquestrador"]:
         chave = f"doc_orq_{t['etapa']}"
         manter.add(chave)
@@ -147,8 +153,13 @@ def sincronizar(con, vid: int, r: dict) -> None:
 
 
 def ler(con, vid: int) -> dict:
+    from .motor import retomar_orquestrador
+
     v = _card(con, vid)
-    r = chamar({"cmd": "resumo", **_base(v["slug"])})
+    retomar_orquestrador(con, vid, v["slug"])   # resposta do chat já gravada: roteiro/conferência pausados continuam
+    base = _base(v["slug"])
+    r = chamar({"cmd": "resumo", **base})
+    r["narracao"] = base["narracao"] if r["entradas"]["tempos"] == "medidos" else None   # de quem são os tempos
     if r.get("rascunho_video"):   # caminho para /api/arquivo (relativo à raiz)
         try:
             r["rascunho_video"] = Path(r["rascunho_video"]).resolve().relative_to(RAIZ.resolve()).as_posix()
@@ -194,6 +205,22 @@ def rodar_passo(vid: int, passo: str):
             registrar(con, vid, f"{TITULO[passo]}: " + (f"{r['status']}" if "status" in r else
                                                       ", ".join(f"{n} {k}" for k, n in r.get("resumo", {}).items() if n)), "info")
         return {"passo": r, **ler(con, vid)}
+
+
+@rota.post("/api/videos/{vid}/doc/orquestrador/continuar")
+def continuar_orquestrador(vid: int):
+    """Roteiro/conferência/publicação pausados num prompt: continua se o orquestrador já gravou a resposta."""
+    from .motor import PASTA_PROJETOS, _aguardando, retomar_orquestrador
+
+    with conectar() as con:
+        v = _card(con, vid)
+        if not _aguardando(PASTA_PROJETOS / v["slug"] / "orquestrador"):
+            raise HTTPException(409, "nada aguardando o orquestrador neste card")
+        retomadas = retomar_orquestrador(con, vid, v["slug"])
+        if not retomadas:
+            raise HTTPException(409, "a resposta ainda não foi gravada (veja o caminho na pendência)")
+        con.commit()
+        return {"retomadas": retomadas}
 
 
 @rota.post("/api/videos/{vid}/doc/aprovar/{etapa}")

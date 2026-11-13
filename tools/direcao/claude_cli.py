@@ -7,6 +7,9 @@ Imagens vão como blocos de conteúdo (stream-json), sem precisar da ferramenta 
 from __future__ import annotations
 
 import base64
+import contextlib
+import contextvars
+import hashlib
 import json
 import os
 import re
@@ -21,6 +24,49 @@ REGISTRO = Path(__file__).resolve().parents[2] / "dados" / "comum" / "uso_claude
 
 class ErroClaude(RuntimeError):
     pass
+
+
+# ---------------------------------------------------------------- modo orquestrador (sem `claude -p`)
+# Card que não pode chamar o modelo pelo painel (documentário do F1): dentro de `pelo_orquestrador(pasta)`, `chamar`
+# NÃO roda o Claude Code. Cada prompt vira `<pasta>/<etiqueta>_<hash>.prompt.txt`; se já existe a resposta
+# (`<mesmo nome>.resposta.txt`, gravada pelo orquestrador/chat), ela é usada; senão sobe `PrecisaOrquestrador` e a
+# tarefa pausa. Rodar a tarefa de novo refaz as mesmas chamadas (mesmo prompt = mesma resposta, sem gastar cota) e
+# avança até o próximo prompt sem resposta.
+_ORQUESTRADOR: contextvars.ContextVar[Path | None] = contextvars.ContextVar("orquestrador", default=None)
+
+
+class PrecisaOrquestrador(BaseException):
+    """Pausa (não é erro): o prompt foi gravado e espera a resposta do orquestrador. BaseException de propósito, para
+    atravessar os `except Exception` de quem trata falha de rede/cota como aviso (conferência, pesquisa)."""
+
+    def __init__(self, prompt: Path, resposta: Path, etiqueta: str):
+        super().__init__(f"aguardando o orquestrador: {prompt.name}")
+        self.prompt, self.resposta, self.etiqueta = prompt, resposta, etiqueta
+
+
+@contextlib.contextmanager
+def pelo_orquestrador(pasta: Path):
+    marca = _ORQUESTRADOR.set(Path(pasta))
+    try:
+        yield
+    finally:
+        _ORQUESTRADOR.reset(marca)
+
+
+def _pelo_orquestrador(prompt: str, sistema: str, modelo: str, imagens: list[Path] | None, etiqueta: str) -> str | None:
+    pasta = _ORQUESTRADOR.get()
+    if pasta is None:
+        return None
+    h = hashlib.sha1("\0".join([sistema, prompt, *(str(p) for p in imagens or [])]).encode("utf-8")).hexdigest()[:16]
+    nome = f"{re.sub(r'[^a-z0-9_-]', '_', (etiqueta or 'prompt').lower())}_{h}"
+    arq_p, arq_r = pasta / f"{nome}.prompt.txt", pasta / f"{nome}.resposta.txt"
+    if arq_r.exists() and arq_r.read_text(encoding="utf-8").strip():
+        return arq_r.read_text(encoding="utf-8")
+    pasta.mkdir(parents=True, exist_ok=True)
+    arq_p.write_text(f"# modelo sugerido: {modelo}\n# imagens: {', '.join(str(p) for p in imagens or []) or 'nenhuma'}\n"
+                     f"# grave a resposta (só o texto/JSON pedido) em: {arq_r}\n\n## SISTEMA\n{sistema}\n\n## PROMPT\n{prompt}\n",
+                     encoding="utf-8")
+    raise PrecisaOrquestrador(arq_p, arq_r, etiqueta)
 
 
 def _bloco_imagem(caminho: Path) -> dict:
@@ -40,6 +86,9 @@ def extrair_json(texto: str):
 def chamar(prompt: str, sistema: str, modelo: str = "opus", imagens: list[Path] | None = None,
            etiqueta: str = "", tentativas: int = 2, timeout: int = 900, ferramentas: str = "") -> str:
     """`ferramentas` (ex.: "WebSearch,WebFetch"): só para quem precisa, já liberadas (sem pergunta); o padrão é nenhuma."""
+    resposta = _pelo_orquestrador(prompt, sistema, modelo, imagens, etiqueta)
+    if resposta is not None:
+        return resposta
     if not EXE.exists():
         raise ErroClaude(f"Claude Code não encontrado em {EXE}")
     conteudo = [_bloco_imagem(p) for p in (imagens or [])] + [{"type": "text", "text": prompt}]

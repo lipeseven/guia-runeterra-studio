@@ -5,9 +5,9 @@ Card novo no painel do F1: formato **`horizontal_doc`** ("documentário" no bot�
 só mostra e grava o protocolo de arquivos do `diretor/` (ver `../diretor/README.md`).
 
 ## Etapas do card
-Roteiro → Narração → **História ★** → **SPEC ★** → Ativos → Verificação → **Rascunho ★** → Publicação.
-Roteiro e Narração são os de sempre (painel Roteiro e painel Voz: a gravação do Felipe é limpa e medida, como no
-horizontal animado). As cinco do meio são o `estado.json` de `F1/dados/projetos/<slug>/horizontal/`, espelhado nas
+Roteiro → Voz guia → **História ★** → **SPEC ★** → Ativos → Verificação → **Rascunho ★** → Gravação → Ressincronização → Publicação
+(fase 7a; card criado antes, com a etapa "Narração" `voz_ia`, continua no fluxo antigo: `etapas.ETAPAS_HORIZONTAL_DOC_V1`).
+Roteiro, Voz guia, Gravação e Ressincronização são as do Runeterra (ver "Fase 7a" abaixo). As cinco do meio são o `estado.json` de `F1/dados/projetos/<slug>/horizontal/`, espelhado nas
 etapas e pendências do banco a cada leitura (o estado vive no arquivo; o banco só reflete).
 
 | estado.json | card |
@@ -60,22 +60,71 @@ Abas das 5 etapas com o estado; botão do passo; "Aprovar ★"; caixa "Para o or
 Entradas: `direcao/roteiro.txt` do card vira `horizontal/roteiro.txt`; `direcao/tempos_voz.json` (narração medida) vira
 `horizontal/palavras.json` **só** se tiver o mesmo número de palavras do roteiro (senão aviso e tempos estimados).
 
+## Fase 7a: Roteiro, Voz guia, Gravação e Ressincronização (como no Runeterra)
+O MESMO código do Runeterra, com dois ganchos: o card documental não chama `claude -p` e os números de F1 vão ao OpenF1.
+- **Modo orquestrador** (`tools/direcao/claude_cli.pelo_orquestrador`): o motor roda `roteiro` (roteirista + pesquisa),
+  `conferencia` e `publicacao` deste card dentro dele (`motor.executar`, `TAREFAS_DO_ORQUESTRADOR`). Cada chamada ao
+  modelo vira `<projeto>/orquestrador/<etiqueta>_<hash>.prompt.txt` (sistema + prompt + onde responder) e a tarefa pausa
+  (`PrecisaOrquestrador`, `orquestrador/aguardando.json`, pendência `orq_<tarefa>` com o caminho). O chat grava
+  `<mesmo nome>.resposta.txt`; o painel retoma sozinho na próxima leitura de `/doc` (ou botão "Continuar" =
+  `POST /api/videos/{id}/doc/orquestrador/continuar`). A tarefa recomeça do zero e as chamadas já respondidas saem do
+  arquivo (sem cota), até o próximo prompt. Trocar o roteiro com o roteirista pausado cancela a pausa.
+- **Pesquisa antes do roteiro** (`pesquisa.py`, só F1): além da Wikipedia, os assuntos trazem as `sessoes` citadas e
+  `openf1.fatos_da_sessao` põe no dossiê resultado (top 10 + pilotos pedidos), melhor volta e pit stops, com a fonte
+  `OpenF1 · <circuito> <ano> <sessão> (session_key …)`. O roteirista só escreve com o dossiê.
+- **Conferência** (`conferencia.py`, só F1: `REGRAS` ganha `-of1`, o Runeterra não reconfere): cada afirmação com
+  número traz `openf1` {tipo, ano, local, sessao, piloto, piloto2, volta, valor, casas}; `app/servidor/openf1.py`
+  recalcula dos dados brutos (cliente e cache do `kit/gps`): tempo de volta, diferença, posição final/largada, voltas,
+  pit stops, tempo parado, velocidade máxima, com tolerância de meia unidade da casa dita. O OpenF1 decide o veredito
+  dos números (vale acima da Wikipedia); antes de 2023, sessão ambígua ou sem dados = `sem_dados` e fica a Wikipedia.
+  Painel: selo "OpenF1 confere/diverge/sem dados" e a fonte com o `session_key`.
+- **Voz guia**: roteiro aprovado → `voz_guia` (Fish Audio s2.1, reserva Piper, `tools/audio/voz_guia.py`); só no
+  documentário os tempos por palavra (`tempos.tempos_da_narracao`, Whisper) vão para `direcao/tempos_guia.json` e a
+  ponte copia para `horizontal/palavras.json`. Nunca vai para vídeo publicado.
+- **Gravação**: igual ao Runeterra (upload com progresso ou pasta `entrada/` + "Já coloquei na pasta"; limpeza
+  `limpar_gravacao.py`; ponto de controle "Confira a gravação limpa"; linha do tempo de cortes). O painel aparece depois da voz guia.
+- **Ressincronização**: aprovar a gravação → `motor.tarefa_ressinc_doc` (no lugar do render do Runeterra, que é a 7c):
+  `alinhar.py` (tempos por palavra DO ROTEIRO na sua voz) → `direcao/tempos_gravacao.json` → a ponte
+  (`painel.ressincronizar`) roda `spec.retemporizar`: mesmas cenas, ids e índices; só mudam os tempos das cenas
+  afetadas (`horizontal/ressinc.json`). `etapas.retemporizar` grava o hash novo SEM perder o ★ da SPEC (o Felipe aprovou
+  cenas presas a palavras) e deixa ativos/verificação/rascunho `desatualizado`. Qualquer troca de narração (estimados →
+  voz guia → gravação) passa pelo mesmo caminho. Tempos que valem: gravação > voz guia > `tempos_voz.json` (card antigo).
+  `alinhar.py` conta todo token ("—"); a ponte descarta os sem letra/número para bater com o diretor.
+
 ## Observações gerais do Felipe
 O painel "Observações gerais" do card (voz ou texto, `docs/observacoes.md` na raiz) grava `<projeto>/observacoes.json`;
 a ponte (`sincronizar_observacoes`, em `resumo`/`passo`) copia para `horizontal/observacoes.txt`, e `comum.observacoes`
 põe o texto nos prompts da História, da SPEC e do pedido por cena (`{{observacoes}}`).
 
 ## Testes
-- `.venv\Scripts\python.exe F1\horizontal\testes\painel\testar_api.py [-v] [--manter]` — 61 checagens, ~10 s,
+- `.venv\Scripts\python.exe F1\horizontal\testes\painel\testar_api.py [-v] [--manter]` — 107 checagens (61 da fase 4 +
+  46 da 7a), ~15 s, motor sem thread (`motor.executar` tarefa a tarefa). 7a: roteirista+pesquisa e conferência pelo
+  orquestrador (3 + 2 prompts respondidos no teste; `claude_cli.EXE` apontado para um caminho que não existe), números
+  do OpenF1 fictícios (valores reais de Monza 2025 Q) com confere/diverge/sem dados/ambíguo/tolerância, voz guia e
+  Whisper fictícios, gravação por upload com limpeza fictícia (voz 1,5 s mais lenta a partir da metade), alinhamento
+  e retemporização reais: só as cenas depois do meio mudam, exatamente +1,5 s, SPEC continua ★, verificação sem TEMPO.
+  Fase 4:
   TestClient em processo (sem porta), dados fictícios em `testes/painel/dados/api/` (apagados no fim). Caminho inteiro:
   criar → roteiro → narração → História (prompt, orquestrador, pedido/retirar, ★) → SPEC (arquivo mexido barrado,
   pedido por cena, refazer só a cena, ★) → Ativos → Verificação → Rascunho "sem montador ainda"; vertical e
   horizontal animado com as etapas de sempre; motor não põe a direção do animado na fila.
 - `.venv\Scripts\python.exe F1\horizontal\testes\painel\servidor.py --porta 8799` — painel numa porta temporária
   (recusa 8765/8766) com dados fictícios e um card documental semeado (História aguardando ★), para ver as telas.
-  Precisa do `app/painel/dist` compilado.
+  Precisa do `app/painel/dist` compilado. Fase 7a: 2º card "Fluxo 7a" com o roteiro enviado; `--voz-windows` troca o
+  Fish pela voz pt-BR do Windows (fala de verdade para o Whisper) e deixa `gravacao_exemplo.wav` (mais lenta, com uma
+  frase repetida) na pasta do projeto.
 
 ## Limites (o que não foi verificado / não existe)
+- Fase 7a (2026-11-13), visto no navegador (porta 8799, `--voz-windows`): conferência com Wikipedia e **OpenF1 reais**
+  (LEC 1:19,007 e HAM 1:19,124 na volta 16 e a diferença 0,117 conferidos na sessão 9908), prompts respondidos pelo
+  chat no papel de orquestrador, voz guia da voz do Windows medida pelo Whisper real (91 palavras, 8 estimadas),
+  gravação de exemplo limpa pelo `limpar_gravacao` real (1 corte: a frase repetida), aprovação e ressincronização
+  (8 de 8 cenas retemporizadas: a voz de exemplo é mais lenta do começo ao fim).
+- **Fish Audio não foi exercido** (sem `FISH_API_KEY` no worktree; a chave do Felipe não foi usada): a voz guia real
+  continua sendo o `voz_guia.py` de sempre, sem mudança. Roteirista e pesquisa (Wikipedia + OpenF1) só no teste
+  automático com dados fictícios; no navegador só a conferência. Nenhum prompt rodou num modelo via `claude -p`.
+- Números por extenso: a voz do Windows lê "1:19,007" diferente do texto e a limpeza marca "Leitura diferente do
+  roteiro" (só informativo); com o Felipe gravando depende de como ele fala os números.
 - Nenhum prompt rodou num modelo; as respostas dos testes são as fixas de `testes/diretor/exemplo/`.
 - O card só se atualiza quando alguém lê `/doc` (página do vídeo aberta) ou quando o motor avisa (roteiro aprovado,
   narração pronta). Arquivo escrito pelo orquestrador com a página fechada aparece no quadro na próxima leitura.
