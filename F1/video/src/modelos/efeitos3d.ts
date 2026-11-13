@@ -120,7 +120,9 @@ export function estercar(carro: THREE.Object3D, angulo: number) {
 /** Giro das rodas no vídeo (30 q/s): a roda de liga tem 10 raios (um a cada 36°). Acima de ~V_RODA m/s a roda passa de
  *  ~13° por quadro e o desenho (raios, PIRELLI, xadrez) "serrilha": os raios parecem parados ou girando para trás enquanto
  *  a borracha anda (calota "solta" do pneu), ou tudo lê como marcha à ré. O sentido já é o certo; o que muda é a velocidade
- *  VISTA, limitada a V_RODA (13,3° por quadro = 37% do passo dos raios: pneu, aro e calota giram juntos, para a frente). */
+ *  VISTA, limitada a V_RODA (13,3° por quadro = 37% do passo dos raios: pneu, aro e calota giram juntos, para a frente).
+ *  V_RODA é em m/s (giro por SEGUNDO, ~400°/s): a 60 q/s (vertical) dá 6,7° por quadro, o mesmo giro visto no tempo e
+ *  ainda mais longe do serrilhado; não mude para valor por quadro. */
 export const V_RODA = 2.5;
 const R_RODA = 0.36;
 const NOMES_RODAS = ["roda_dianteira_esquerda", "roda_dianteira_direita", "roda_traseira_esquerda", "roda_traseira_direita"];
