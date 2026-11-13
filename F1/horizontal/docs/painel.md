@@ -60,6 +60,11 @@ Abas das 5 etapas com o estado; botão do passo; "Aprovar ★"; caixa "Para o or
 Entradas: `direcao/roteiro.txt` do card vira `horizontal/roteiro.txt`; `direcao/tempos_voz.json` (narração medida) vira
 `horizontal/palavras.json` **só** se tiver o mesmo número de palavras do roteiro (senão aviso e tempos estimados).
 
+## Observações gerais do Felipe
+O painel "Observações gerais" do card (voz ou texto, `docs/observacoes.md` na raiz) grava `<projeto>/observacoes.json`;
+a ponte (`sincronizar_observacoes`, em `resumo`/`passo`) copia para `horizontal/observacoes.txt`, e `comum.observacoes`
+põe o texto nos prompts da História, da SPEC e do pedido por cena (`{{observacoes}}`).
+
 ## Testes
 - `.venv\Scripts\python.exe F1\horizontal\testes\painel\testar_api.py [-v] [--manter]` — 61 checagens, ~10 s,
   TestClient em processo (sem porta), dados fictícios em `testes/painel/dados/api/` (apagados no fim). Caminho inteiro:

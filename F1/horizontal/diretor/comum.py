@@ -223,6 +223,14 @@ def entradas(pasta: Path) -> tuple[str, list[dict], str, str]:
     return roteiro, palavras, tempos, b.read_text(encoding="utf-8") if b.exists() else ""
 
 
+def observacoes(pasta: Path) -> str:
+    """Observações gerais do Felipe sobre o vídeo (ditadas/digitadas no card do painel), já como texto de prompt.
+    O painel copia para <pasta>/observacoes.txt (ver painel.sincronizar_entradas); sem arquivo = nenhuma."""
+    arq = Path(pasta) / "observacoes.txt"
+    texto = arq.read_text(encoding="utf-8").strip() if arq.exists() else ""
+    return texto or "(nenhuma observação geral)"
+
+
 def regras_de_direcao() -> str:
     p = F1 / "docs" / "regras_de_direcao.md"
     return p.read_text(encoding="utf-8") if p.exists() else ""

@@ -10,6 +10,9 @@ esta cena, atendendo os pedidos; o resto do vídeo não muda. O pedido dele vale
 ## Pedidos do Felipe
 {{pedidos}}
 
+## Observações gerais do Felipe (ditadas/digitadas no card; como pedido explícito, valem mais que as regras)
+{{observacoes}}
+
 ## Kits disponíveis
 {{kits}}
 

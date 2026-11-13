@@ -19,17 +19,18 @@ from pathlib import Path
 
 import etapas
 from comum import (FPS, KITS, MOTORES, TRANSICOES, cache_resposta, entradas, extrair_json, frases, hash_dados, hash_texto, ler_json,
-                   localizar, preencher, prompt_arquivo, regras_de_direcao, resumo_kits)
+                   localizar, observacoes, preencher, prompt_arquivo, regras_de_direcao, resumo_kits)
 from esquema import validar
 
 CAUDA = 0.6   # s depois da última palavra (respiro final)
 
 
-def prompt(roteiro: str, palavras: list[dict], historia: dict, briefing: str = "") -> str:
+def prompt(roteiro: str, palavras: list[dict], historia: dict, briefing: str = "", obs: str = "") -> str:
     h = {k: historia[k] for k in ("titulo", "tese", "capitulos", "afirmacoes")}
     return preencher(prompt_arquivo("spec.txt"), roteiro_com_tempos=frases(palavras), duracao=f"{palavras[-1]['f']:.0f}",
                      historia=json.dumps(h, ensure_ascii=False, indent=1), kits=resumo_kits(),
-                     briefing=briefing.strip() or "(sem briefing)", regras=regras_de_direcao(), fps=FPS)
+                     briefing=briefing.strip() or "(sem briefing)", regras=regras_de_direcao(), fps=FPS,
+                     observacoes=obs.strip() or "(nenhuma observação geral)")
 
 
 def _ancoras(no, palavras: list[dict], i0: int, i1: int, avisos: list[str], onde: str):
@@ -148,7 +149,7 @@ def aplicar(pasta: Path, resposta) -> dict:
     estado = etapas.ler(pasta)
     if estado["etapas"]["historia"]["status"] != "aprovado":
         print("aviso: a história ainda não foi aprovada pelo Felipe (★)", file=sys.stderr)
-    cache_resposta(pasta, "spec", prompt(roteiro, palavras, historia, briefing), resposta)
+    cache_resposta(pasta, "spec", prompt(roteiro, palavras, historia, briefing, observacoes(pasta)), resposta)
     s = normalizar(resposta, palavras, historia, roteiro, tempos)
     etapas.registrar(pasta, "spec", s, base=historia, resumo=f"{len(s['cenas'])} cenas"
                      + (f", {len(s['avisos'])} avisos" if s["avisos"] else ""))
@@ -164,7 +165,8 @@ def prompt_pedido(pasta: Path, id_cena: str) -> str:
     pedidos = [p["texto"] for p in etapas.pedidos_abertos(etapas.ler(pasta), "spec") if p.get("cena") == id_cena]
     trecho = " ".join(p["t"] for p in palavras[c["i0"]:c["i1"]])
     return preencher(prompt_arquivo("pedido_cena.txt"), cena=json.dumps(c, ensure_ascii=False, indent=1), trecho=trecho,
-                     pedidos="\n".join(f"- {p}" for p in pedidos) or "(nenhum pedido aberto)", kits=resumo_kits())
+                     pedidos="\n".join(f"- {p}" for p in pedidos) or "(nenhum pedido aberto)", kits=resumo_kits(),
+                     observacoes=observacoes(pasta))
 
 
 def trocar_cena(spec: dict, id_cena: str, nova: dict, palavras: list[dict], historia: dict, roteiro: str) -> dict:
@@ -185,7 +187,7 @@ def _main(argv: list[str]) -> int:
     pasta = Path(argv[1])
     if argv[0] == "prompt":
         roteiro, palavras, tempos, briefing = entradas(pasta)
-        p = prompt(roteiro, palavras, ler_json(pasta / "historia.json"), briefing)
+        p = prompt(roteiro, palavras, ler_json(pasta / "historia.json"), briefing, observacoes(pasta))
         saida = pasta / "prompts" / "spec.prompt.txt"
     elif argv[0] == "pedido":
         p = prompt_pedido(pasta, argv[2])

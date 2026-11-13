@@ -66,7 +66,8 @@ def _base(slug: str) -> dict:
 
     p = PASTA_PROJETOS / slug
     return {"pasta": str(p / "horizontal"), "slug": slug,
-            "roteiro": str(p / "direcao" / "roteiro.txt"), "palavras": str(p / "direcao" / "tempos_voz.json")}
+            "roteiro": str(p / "direcao" / "roteiro.txt"), "palavras": str(p / "direcao" / "tempos_voz.json"),
+            "observacoes": str(p / "observacoes.json")}   # observações gerais do Felipe (observacoes.py)
 
 
 # ---------------------------------------------------------------- estado.json → banco
