@@ -33,6 +33,7 @@ type Doc = {
   orquestrador: Tarefa[]
   montador: boolean
   rascunho: string | null
+  rascunho_video?: string | null
 }
 
 const ETAPAS = ['historia', 'spec', 'ativos', 'verificacao', 'rascunho'] as const
@@ -171,9 +172,14 @@ export function PainelDocumental({ videoId, aoMudar }: { videoId: number; aoMuda
         {atual === 'ativos' && <VerAtivos a={d.ativos} />}
         {atual === 'verificacao' && <VerVerificacao v={d.verificacao} />}
         {atual === 'rascunho' && (
-          <p className="text-sm text-suave">
-            {d.montador ? 'Montador disponível.' : 'Sem montador ainda: a montagem por cena e a mixagem única entram na fase 5 (F1/horizontal/montador/). Esta etapa é só o gancho.'}
-          </p>
+          <div className="space-y-2 text-sm text-suave">
+            <p>
+              {!d.montador ? 'Sem montador ainda.'
+                : d.estado.etapas.rascunho?.status === 'andamento' ? 'Montando: cada cena no motor dela, junção com as transições e uma mixagem só (o card muda ao terminar).'
+                : d.estado.etapas.rascunho?.resumo ?? 'Montador disponível: “Montar rascunho” confere os ativos e monta (1280×720, 60 q/s).'}
+            </p>
+            {d.rascunho_video && <video key={d.rascunho_video} controls className="w-full rounded" src={`/api/arquivo?caminho=${encodeURIComponent(d.rascunho_video)}`} />}
+          </div>
         )}
       </div>
 

@@ -17,6 +17,8 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -109,7 +111,9 @@ def resumo(pasta: Path, slug: str) -> dict:
             "historia": ler_json(pasta / "historia.json"), "spec": ler_json(pasta / "spec.json"),
             "ativos": ativos, "verificacao": ler_json(pasta / etapas.ARQUIVO["verificacao"]),
             "orquestrador": _orquestrador(pasta, estado),
-            "montador": _montador_pronto(), "rascunho": None if _montador_pronto() else SEM_MONTADOR}
+            "montador": _montador_pronto(), "rascunho": None if _montador_pronto() else SEM_MONTADOR,
+            "rascunho_info": ler_json(pasta / etapas.ARQUIVO["rascunho"]),
+            "rascunho_video": str(pasta / "rascunho" / "rascunho.mp4") if (pasta / "rascunho" / "rascunho.mp4").exists() else None}
 
 
 # ---------------------------------------------------------------- passos
@@ -184,8 +188,40 @@ def passo(pasta: Path, slug: str, nome: str) -> dict:
     if nome == "rascunho":
         if not _montador_pronto():
             raise Recusa(SEM_MONTADOR)
-        raise Recusa("rascunho: gancho do montador ainda não ligado ao painel")
+        return _rascunho(pasta, estado)
     raise Recusa(f"passo desconhecido: {nome}")
+
+
+MONTANDO_MAX_S = 3 * 3600   # "andamento" mais velho que isto = montagem morreu (pode montar de novo)
+
+
+def _rascunho(pasta: Path, estado: dict) -> dict:
+    """Confere TUDO o que o montador precisa (rápido, sem render) e, se dá, dispara `montador/montar.py --registrar`
+    num processo à parte (o render leva minutos). O montador grava `gerado` ou `falhou` no estado.json ao terminar."""
+    import time
+
+    reg = estado["etapas"]["rascunho"]
+    if reg["status"] == "andamento":
+        trava = ler_json(pasta / "rascunho" / "montando.json") or {}
+        if time.time() - trava.get("inicio", 0) < MONTANDO_MAX_S:
+            raise Recusa("o rascunho já está sendo montado (aguarde; o card muda sozinho ao terminar)")
+    mdir = HORIZONTAL / "montador"
+    sys.path.insert(0, str(mdir))
+    import montar as MT   # noqa: PLC0415 (só aqui: render/numpy não carregam nas outras chamadas da ponte)
+
+    try:
+        plano = _calado(MT.planejar, pasta)
+    except MT.NaoMonta as e:
+        raise Recusa(str(e)) from None
+    (pasta / "rascunho").mkdir(parents=True, exist_ok=True)
+    log = pasta / "rascunho" / "montagem.log"
+    gravar_json(pasta / "rascunho" / "montando.json", {"inicio": time.time()})
+    etapas.marcar(pasta, "rascunho", "andamento", f"montando {len(plano['jobs'])} cenas…")
+    fh = open(log, "w", encoding="utf-8")   # noqa: SIM115 (fica com o processo filho)
+    flags = (subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP) if sys.platform == "win32" else 0
+    subprocess.Popen([sys.executable, str(mdir / "montar.py"), str(pasta), "--registrar"], stdout=fh, stderr=subprocess.STDOUT,
+                     stdin=subprocess.DEVNULL, cwd=str(mdir), creationflags=flags, env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    return {"precisa_modelo": False, "montando": True, "log": str(log), "avisos": plano["avisos"]}
 
 
 # ---------------------------------------------------------------- aprovações e pedidos

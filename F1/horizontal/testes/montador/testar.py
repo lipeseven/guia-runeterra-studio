@@ -1,0 +1,248 @@
+"""Teste do montador com um mini-spec de 3 cenas curtas (kits existentes; NÃO é um vídeo de verdade).
+
+Projeto fictício em `testes/montador/saida/projeto/horizontal/` (fora do Git):
+  c1  0–3 s  Remotion     kit/graficos  velocidade × distância, Monza 2025 Q (9908) LEC v16 × HAM v16   (corte; impacto em "Leclerc,")
+  c2  3–6 s  HyperFrames  kit/gps       os dois carros pelo GPS, pista plana de Monza, câmera perseguindo  (wipe 24 q + whoosh)
+  c3  6–9 s  Remotion     kit/anotacao  "0,117 s" com oval à mão                                            (zoom 30 q + whoosh; pop em "0,117")
+Narração e trilha são SINTÉTICAS (ruído com envelope de sílabas e acorde senoidal), só para exercitar a mixagem:
+nenhuma voz de IA. A SPEC passa no esquema do diretor (`diretor/esquemas/spec.schema.json`).
+
+Confere: verificação do montador aprovada (quadros por cena, junções, sincronia, loudness); medidas independentes com
+ffprobe; cache (2ª montagem sem render; trocar o texto da c3 re-renderiza SÓ a c3); cena por demanda; mensagens claras
+de falta (ativo inexistente, kit sem receita). Copia as folhas de quadros para `testes/montador/`.
+    .venv\\Scripts\\python.exe F1\\horizontal\\testes\\montador\\testar.py [--limpar]   (~2–4 min na 1ª vez; precisa de internet
+    para o gsap/three.js do CDN na cena HyperFrames)
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+import numpy as np
+
+AQUI = Path(__file__).resolve().parent
+HORIZ = AQUI.parents[1]
+sys.path.insert(0, str(HORIZ / "montador"))
+sys.path.insert(1, str(HORIZ / "diretor"))
+sys.path.insert(2, str(HORIZ / "kit" / "sfx"))
+
+import medir           # noqa: E402
+import montar as MT    # noqa: E402
+from esquema import validar  # noqa: E402
+
+SAIDA = AQUI / "saida"
+PASTA = SAIDA / "projeto" / "horizontal"
+SR = 48000
+falhas: list[str] = []
+n_ok = 0
+
+
+def checa(cond, nome, detalhe=""):
+    global n_ok
+    if cond:
+        n_ok += 1
+        print("  ok  ", nome)
+    else:
+        falhas.append(f"{nome} {detalhe}")
+        print("  FALHA", nome, detalhe)
+
+
+FRASES = [("Em Monza, Leclerc foi mais rápido que Hamilton na reta.", 0.0),
+          ("Os dois carros dividem a mesma pista, cada um no próprio GPS.", 3.0),
+          ("No fim, a diferença foi de 0,117 segundo.", 6.0)]
+FIM = 9.0
+
+
+def palavras() -> list[dict]:
+    out = []
+    for k, (frase, t0) in enumerate(FRASES):
+        ws = frase.split()
+        t1 = FRASES[k + 1][1] if k + 1 < len(FRASES) else FIM
+        passo = (t1 - t0 - 0.25) / len(ws)
+        for j, w in enumerate(ws):
+            out.append({"t": w, "i": round(t0 + j * passo, 3), "f": round(t0 + (j + 0.82) * passo, 3)})
+    return out
+
+
+def idx(pal: list[dict], palavra: str) -> int:
+    return next(k for k, p in enumerate(pal) if p["t"] == palavra)
+
+
+def spec(pal: list[dict], texto_c3: list[str]) -> dict:
+    inicios = [sum(len(x.split()) for x, _ in FRASES[:k]) for k in range(len(FRASES))]
+    fins = inicios[1:] + [len(pal)]
+    base = []
+    for k, (frase, t0) in enumerate(FRASES):
+        em = " ".join(frase.split()[:3])
+        base.append({"id": hashlib.sha1(em.encode()).hexdigest()[:8], "em": em, "i0": inicios[k], "i1": fins[k], "t0": t0,
+                     "t1": FRASES[k + 1][1] if k + 1 < len(FRASES) else FIM, "capitulo": "c1", "afirmacoes": [], "texto": []})
+    c1, c2, c3 = base
+    c1.update(objetivo="a diferença de velocidade aparece no gráfico", motor="remotion", transicao={"tipo": "corte", "quadros": 0},
+              kits=[{"kit": "graficos", "params": {"tipo": "velocidade", "sessao": 9908, "a": {"piloto": 16, "volta": 16},
+                                                   "b": {"piloto": 44, "volta": 16}, "dur": 2.2}}],
+              sfx=[{"categoria": "impacto", "em": "Leclerc", "i": idx(pal, "Leclerc"), "intensidade": 0.8}])
+    c2.update(objetivo="os dois carros na mesma pista, cada um no próprio GPS", motor="hyperframes", camera="perseguição",
+              transicao={"tipo": "wipe", "quadros": 24},
+              kits=[{"kit": "gps", "params": {"sessao": 9908, "carros": [{"piloto": 16, "volta": 16}, {"piloto": 44, "volta": 16}],
+                                              "fator": 1, "inicio": 40.0, "camera_gps": "perseguicao"}}], sfx=[])
+    c3.update(objetivo="o número da diferença, circulado", motor="remotion", transicao={"tipo": "zoom", "quadros": 30},
+              texto=texto_c3,
+              kits=[{"kit": "anotacao", "params": {"tipo": "oval", "alvo": 0, "em": "0,117", "i": idx(pal, "0,117")}}],
+              sfx=[{"categoria": "pop", "em": "0,117", "i": idx(pal, "0,117"), "intensidade": 0.7}])
+    return {"versao": 1, "fps": 60, "largura": 1920, "altura": 1080, "roteiro_hash": "0" * 12, "historia_hash": "0" * 12,
+            "tempos": "medidos", "cenas": base}
+
+
+def narracao_sintetica(pal: list[dict], saida: Path) -> None:
+    """Ruído filtrado com envelope de sílaba em cada palavra (só para ter uma 'voz' no lugar certo). Não é voz."""
+    n = int(FIM * SR)
+    x = np.zeros(n)
+    rng = np.random.default_rng(7)
+    for p in pal:
+        a, b = int(p["i"] * SR), int(p["f"] * SR)
+        t = np.arange(b - a) / SR
+        sil = max(1, round(len(p["t"]) / 3))
+        env = np.sin(np.pi * np.clip(t / (t[-1] + 1e-9), 0, 1)) * (0.6 + 0.4 * np.abs(np.sin(np.pi * sil * t / (t[-1] + 1e-9))))
+        ruido = np.convolve(rng.standard_normal(b - a), np.hanning(24) / 12, "same")
+        f0 = 140 + 30 * rng.random()
+        x[a:b] += env * (0.5 * ruido + 0.5 * np.sin(2 * np.pi * f0 * t) * np.sign(np.sin(2 * np.pi * f0 * 0.5 * t)))
+    x *= 10 ** ((-14 - medir.lufs_integrado(np.stack([x, x], 1))) / 20)
+    medir.gravar(str(saida), np.clip(x, -0.95, 0.95))
+
+
+def trilha_sintetica(saida: Path) -> None:
+    t = np.arange(int(6 * SR)) / SR
+    x = sum(np.sin(2 * np.pi * f * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 0.25 * t + k)) for k, f in enumerate((110, 164.8, 220, 277.2)))
+    medir.gravar(str(saida), 0.08 * x / 4)
+
+
+def ffprobe(mp4: Path) -> dict:
+    r = subprocess.run(["ffprobe", "-v", "error", "-count_frames", "-show_entries",
+                        "stream=codec_type,codec_name,width,height,r_frame_rate,nb_read_frames,duration", "-of", "json", str(mp4)],
+                       capture_output=True, text=True)
+    return {s["codec_type"]: s for s in json.loads(r.stdout)["streams"]}
+
+
+def main() -> int:
+    if "--limpar" in sys.argv:
+        shutil.rmtree(SAIDA, ignore_errors=True)
+    for d in ("trechos", "rascunho", "verificacao", "estado.json"):   # cada rodada começa sem cache (o teste do cache depende disso)
+        p = PASTA / d
+        shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
+    PASTA.mkdir(parents=True, exist_ok=True)
+    pal = palavras()
+    (PASTA / "roteiro.txt").write_text(" ".join(f for f, _ in FRASES) + "\n", encoding="utf-8")
+    (PASTA / "palavras.json").write_text(json.dumps(pal, ensure_ascii=False, indent=1), encoding="utf-8")
+    sp = spec(pal, ["0,117 s", "Leclerc × Hamilton · classificação de Monza 2025"])
+    (PASTA / "spec.json").write_text(json.dumps(sp, ensure_ascii=False, indent=1), encoding="utf-8")
+    narracao_sintetica(pal, PASTA / "narracao.wav")
+    trilha_sintetica(PASTA / "trilha.wav")
+
+    print("1. mini-spec")
+    checa(not validar(sp, "spec"), "mini-spec válido no esquema do diretor", str(validar(sp, "spec"))[:300])
+    checa([c["motor"] for c in sp["cenas"]] == ["remotion", "hyperframes", "remotion"], "1 cena HyperFrames + 2 Remotion")
+
+    print("2. montagem (rascunho 1280x720)")
+    rel = MT.montar(PASTA, "rascunho", exigir_estado=False)
+    print("  ", MT.resumo(rel))
+    v = rel["verificacao"]
+    for e in v["erros"]:
+        print("   ERRO", e)
+    for a in v["avisos"]:
+        print("   aviso", a)
+    checa(v["status"] == "aprovado", "verificação do montador aprovada", f"({len(v['erros'])} erros)")
+    pr = ffprobe(Path(rel["arquivo"]))
+    checa(int(pr["video"]["nb_read_frames"]) == 540 and pr["video"]["r_frame_rate"] == "60/1", "540 quadros a 60 q/s (9 s)",
+          f"({pr['video']['nb_read_frames']} {pr['video']['r_frame_rate']})")
+    checa((pr["video"]["width"], pr["video"]["height"]) == (1280, 720), "1280x720")
+    checa("audio" in pr and abs(float(pr["audio"]["duration"]) - 9.0) < 0.03, "áudio com a duração do vídeo", f"({pr.get('audio', {}).get('duration')})")
+    med = v["medidas"]
+    checa([c["quadros"] for c in med["cenas"]] == [180, 180, 180], "180 quadros por cena")
+    checa(all(s["melhor_desloc"] == 0 for c in med["cenas"] for s in c["amostras"] if not s["parado"]),
+          "quadros puros no lugar certo (deslocamento 0)")
+    j = {x["tipo"]: x for x in med["juncoes"]}
+    checa(j.get("wipe", {}).get("n") == 24 and j.get("zoom", {}).get("n") == 30, "junções wipe 24 q e zoom 30 q")
+    checa(all(not x["pretos"] and not x["repetidos"] for x in med["juncoes"]), "junções sem quadro preto nem repetido")
+    sfx = med.get("sfx", [])
+    checa(len(sfx) == 4 and {s["categoria"] for s in sfx} == {"impacto", "pop", "whoosh"}, "4 SFX (impacto, pop, 2 whoosh)",
+          f"({[s['categoria'] for s in sfx]})")
+    checa(all(abs(s["erro_ms"]) <= 12 for s in sfx if s["categoria"] in ("impacto", "pop")), "impacto e pop no pico (≤ 12 ms)",
+          f"({[(s['categoria'], s['erro_ms']) for s in sfx]})")
+    checa(abs(med.get("audio_alinhamento_ms", 99)) <= 1.0, "áudio do MP4 alinhado ao master (≤ 1 ms)", f"({med.get('audio_alinhamento_ms')})")
+    lf = med.get("loudness_mp4", {})
+    checa(abs(lf.get("lufs", 0) + 14) <= 0.7 and lf.get("pico_dbtp", 0) <= -1.0, "loudness do MP4 −14 LUFS, pico ≤ −1 dBTP", f"({lf})")
+
+    print("3. cache e cena por demanda")
+    rel2 = MT.montar(PASTA, "rascunho", exigir_estado=False)
+    checa(all(c["do_cache"] for c in rel2["cenas"]), "2ª montagem: nenhuma cena renderizada de novo")
+    sp2 = spec(pal, ["0,117 s", "Leclerc × Hamilton · Monza 2025"])
+    (PASTA / "spec.json").write_text(json.dumps(sp2, ensure_ascii=False, indent=1), encoding="utf-8")
+    rel3 = MT.montar(PASTA, "rascunho", exigir_estado=False)
+    checa([c["do_cache"] for c in rel3["cenas"]] == [True, True, False], "texto da c3 mudou: só a c3 re-renderizada",
+          f"({[c['do_cache'] for c in rel3['cenas']]})")
+    checa(rel3["verificacao"]["status"] == "aprovado", "montagem com a c3 nova aprovada")
+    so = MT.montar(PASTA, "rascunho", cenas=[sp2["cenas"][1]["id"]], exigir_estado=False)
+    checa(list(so["cenas"]) == [sp2["cenas"][1]["id"]] and so["cenas"][sp2["cenas"][1]["id"]]["do_cache"], "cena por demanda (só c2, do cache)")
+
+    print("4. mensagens de falta")
+    ruim = json.loads(json.dumps(sp2))
+    ruim["cenas"][0]["kits"][0]["params"]["sessao"] = 1
+    ruim["cenas"][1]["kits"] = [{"kit": "imagens", "params": {"afirmacao": "a1"}}]
+    (PASTA / "spec.json").write_text(json.dumps(ruim, ensure_ascii=False), encoding="utf-8")
+    try:
+        MT.planejar(PASTA, exigir_estado=False)
+        checa(False, "falta de ativo barrada")
+    except MT.NaoMonta as e:
+        msg = str(e)
+        checa("falta comparação 1_16-16_44-16.json" in msg and "preparar.py" in msg, "falta de comparação: diz qual e o comando", msg[:200])
+        checa("imagens ainda sem receita no HyperFrames" in msg, "kit sem receita: mensagem clara", msg[:300])
+    try:
+        MT.planejar(PASTA, exigir_estado=True)
+        checa(False, "sem estado: barrado")
+    except MT.NaoMonta as e:
+        checa("aprove ★" in str(e), "SPEC não aprovada: barrado com o motivo", str(e)[:200])
+    (PASTA / "spec.json").write_text(json.dumps(sp2, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    print("5. gancho do painel (ponte diretor/painel.py → montador em processo à parte → estado.json)")
+    import etapas as E
+    from comum import gravar_json, hash_dados
+    est = E.novo("projeto")
+    for n, st in (("historia", "aprovado"), ("spec", "aprovado"), ("ativos", "gerado"), ("verificacao", "gerado")):
+        est["etapas"][n]["status"] = st
+    est["etapas"]["spec"]["hash"] = hash_dados(sp2)
+    gravar_json(PASTA / "verificacao" / "verificacao.json", {"status": "aprovado", "erros": [], "pendencias": [], "avisos": []})
+    E.gravar(PASTA, est)
+    ped = json.dumps({"cmd": "passo", "passo": "rascunho", "pasta": str(PASTA), "slug": "projeto"}).encode()
+    r = subprocess.run([sys.executable, str(HORIZ / "diretor" / "painel.py")], input=ped, capture_output=True)
+    resp = json.loads(r.stdout.decode("utf-8"))
+    checa(resp.get("ok") and resp["passo"].get("montando"), "passo rascunho dispara o montador", str(resp)[:300])
+    checa(E.ler(PASTA)["etapas"]["rascunho"]["status"] in ("andamento", "gerado"), "estado: rascunho em andamento")
+    r2 = json.loads(subprocess.run([sys.executable, str(HORIZ / "diretor" / "painel.py")], input=ped, capture_output=True).stdout.decode())
+    checa(not r2.get("ok") and "já está sendo montado" in r2.get("erro", ""), "2º clique durante a montagem: recusado", str(r2)[:200])
+    import time
+    for _ in range(240):
+        if E.ler(PASTA)["etapas"]["rascunho"]["status"] != "andamento":
+            break
+        time.sleep(1)
+    reg = E.ler(PASTA)["etapas"]["rascunho"]
+    checa(reg["status"] == "gerado" and "verificação aprovado" in reg.get("resumo", ""), "montador terminou: rascunho gerado (★ pendente)",
+          f"({reg})")
+    try:
+        E.aprovar(PASTA, "rascunho")
+        checa(True, "rascunho aprovável ★")
+    except ValueError as e:
+        checa(False, "rascunho aprovável ★", str(e))
+
+    for f in sorted((PASTA / "rascunho" / "verificacao").glob("folha_*.jpg")):
+        shutil.copy2(f, AQUI / f.name)
+    shutil.copy2(PASTA / "rascunho" / "verificacao" / "verificacao_montagem.json", AQUI / "verificacao_montagem.json")
+    print(f"\nvídeo: {rel3['arquivo']}\n{n_ok} checagens ok, {len(falhas)} falhas")
+    return 1 if falhas else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

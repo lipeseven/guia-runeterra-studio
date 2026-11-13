@@ -96,8 +96,9 @@ Avisos: `DURACAO_LONGA`, `MOTOR_PREFERIDO`, `CAPITULO_TROCADO`, `TRANSICAO_FORA_
 Roteiro de exemplo de 91 palavras (~41 s estimados): Monza 2025, classificação (session_key 9908), LEC v16 1:19,007 ×
 HAM v16 1:19,124. História: 4 capítulos, 7 afirmações (6 verificáveis; a inventada saiu com aviso). SPEC: 8 cenas (a
 de trecho inventado saiu), 2 em HyperFrames e 6 em Remotion. Ativos: comparação do `kit/graficos` pronta (os 6 valores
-— 2 tempos, a diferença de 0,117 e os 3 setores — conferidos com o OpenF1), GPS de Monza **falta** (só Interlagos está
-preparada no `kit/gps`) com o comando, imagem `nao_validado` (resultado **simulado** do `kit/imagens`: classificação
+— 2 tempos, a diferença de 0,117 e os 3 setores — conferidos com o OpenF1), GPS de Monza **falta** com o comando (desde a fase 2b o
+GPS de Monza existe no `kit/gps`: o teste aponta `ativos.VOLTAS_GPS` para uma pasta vazia para exercitar a falta e
+confere à parte que o kit real dá `pronto`), imagem `nao_validado` (resultado **simulado** do `kit/imagens`: classificação
 não tem contador de volta). Verificação: `pendente`, 0 erros. Depois, 34 casos errados, cada um barrado com o código
 esperado. 82 checagens, 0 falhas.
 

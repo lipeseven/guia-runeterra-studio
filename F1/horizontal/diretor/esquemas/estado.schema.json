@@ -31,7 +31,7 @@
       "required": ["status"],
       "additionalProperties": false,
       "properties": {
-        "status": {"enum": ["pendente", "prompt_pronto", "gerado", "aprovado", "mudanca_pedida", "desatualizado", "falhou"]},
+        "status": {"enum": ["pendente", "prompt_pronto", "andamento", "gerado", "aprovado", "mudanca_pedida", "desatualizado", "falhou"]},
         "arquivo": {"type": "string"},
         "hash": {"type": "string"},
         "base_hash": {"type": "string", "description": "hash da etapa anterior usada para gerar esta"},
