@@ -1,0 +1,14 @@
+[
+ {"categoria": "whoosh", "palavra": "GP", "intensidade": 0.6},
+ {"categoria": "clique", "palavra": "Leclerc"},
+ {"categoria": "clique", "palavra": "Antonelli"},
+ {"categoria": "tecla", "palavra": "diferença", "ponto": "f", "intensidade": 0.9},
+ {"categoria": "impacto", "palavra": "1,481", "intensidade": 1.0},
+ {"categoria": "pop", "palavra": "Ferrari"},
+ {"categoria": "capitulo", "palavra": "Capítulo"},
+ {"categoria": "clique", "palavra": "asa"},
+ {"categoria": "clique", "palavra": "freio"},
+ {"categoria": "alerta", "palavra": "Penalidade", "intensidade": 0.8},
+ {"categoria": "whoosh", "palavra": "fim", "intensidade": 0.5},
+ {"categoria": "sino", "palavra": "Explicando", "intensidade": 0.8}
+]
