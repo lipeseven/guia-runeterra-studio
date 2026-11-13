@@ -85,7 +85,7 @@ export function Quadro() {
   )
 }
 
-type Canal = { chave: string; nome: string; porta: number; formatos?: string[]; canais: { chave: string; nome: string; porta: number }[] }
+type Canal = { chave: string; nome: string; porta: number; formatos?: string[]; rotulos?: Record<string, string>; canais: { chave: string; nome: string; porta: number }[] }
 
 /** Nome do canal deste servidor; os outros canais abrem no servidor deles (os canais não se misturam). */
 function SeletorDeCanal() {
@@ -206,9 +206,14 @@ function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; vide
   const { setNodeRef, isOver } = useDroppable({ id: coluna.chave })
   const [titulo, setTitulo] = useState('')
   const [formatos, setFormatos] = useState<string[]>([])
+  const [rotulos, setRotulos] = useState<Record<string, string>>({})
   const [formato, setFormato] = useState('horizontal')
   useEffect(() => {
-    if (coluna.chave === 'ideia') api<Canal>('/canal').then((c) => setFormatos(c.formatos ?? []))
+    if (coluna.chave === 'ideia')
+      api<Canal>('/canal').then((c) => {
+        setFormatos(c.formatos ?? [])
+        setRotulos(c.rotulos ?? {})
+      })
   }, [coluna.chave])
   const criar = async () => {
     if (!titulo.trim()) return
@@ -234,14 +239,14 @@ function ColunaQuadro({ coluna, videos, aoCriar, motor }: { coluna: Coluna; vide
       </div>
       {coluna.chave === 'publicado' && <JaPublicado aoCriar={aoCriar} />}
       {coluna.chave === 'ideia' && formatos.length > 1 && (
-        <div className="mt-3 grid grid-cols-2 gap-1 rounded-lg border border-borda p-1 text-xs">
+        <div className={`mt-3 grid gap-1 rounded-lg border border-borda p-1 text-xs ${formatos.length > 2 ? 'grid-cols-3' : 'grid-cols-2'}`}>
           {formatos.map((f) => (
             <button
               key={f}
               onClick={() => setFormato(f)}
               className={`rounded px-2 py-1 capitalize ${formato === f ? 'bg-ouro/20 text-ouro' : 'text-suave hover:text-texto'}`}
             >
-              {f}
+              {rotulos[f] ?? f}
             </button>
           ))}
         </div>
@@ -384,6 +389,7 @@ function CardVideo({ video, flutuando, menu, motor = null }: { video: VideoResum
             {video.travado ? <Lock className="mr-1.5 mb-0.5 inline size-3.5 text-ouro" /> : null}
             {video.titulo}
             {video.formato === 'vertical' && <span className="ml-1.5 rounded bg-ouro/20 px-1 py-0.5 align-middle text-[10px] font-normal text-ouro">vertical</span>}
+            {video.formato === 'horizontal_doc' && <span className="ml-1.5 rounded bg-andamento/20 px-1 py-0.5 align-middle text-[10px] font-normal text-andamento">documentário</span>}
           </h3>
           {menu && <div className="-mt-0.5 -mr-1 shrink-0">{menu}</div>}
         </div>

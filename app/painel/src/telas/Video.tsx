@@ -6,6 +6,7 @@ import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
 import { PainelAnimacao } from '../componentes/PainelAnimacao'
 import { PainelCapa } from '../componentes/PainelCapa'
+import { PainelDocumental } from '../componentes/PainelDocumental'
 import { PainelGravacao } from '../componentes/PainelGravacao'
 import { PainelPublicacao } from '../componentes/PainelPublicacao'
 import { PainelRoteiro } from '../componentes/PainelRoteiro'
@@ -47,7 +48,9 @@ export function Video({ id }: { id: number }) {
   const vozIa = v.etapas.find((e) => e.chave === 'voz_ia')
   const publicacaoEtapa = v.etapas.find((e) => e.chave === 'publicacao')!
 
-  const animacaoPerto = Boolean(vozIa) && v.etapas.find((e) => e.chave === 'direcao')!.status !== 'pendente'
+  const documentario = v.formato === 'horizontal_doc' // diretor documental: sem Direção/Render do animado
+  const direcaoEtapa = v.etapas.find((e) => e.chave === 'direcao')
+  const animacaoPerto = Boolean(vozIa) && Boolean(direcaoEtapa) && direcaoEtapa!.status !== 'pendente'
   const previaPainel = (
             <Painel titulo="Prévia" lateral={previa ? `${previa.titulo.toLowerCase()} · ${previa.detalhe ?? ''}` : undefined}>
               {previa && typeof previa.dados.video === 'string' ? (
@@ -157,6 +160,7 @@ export function Video({ id }: { id: number }) {
                 />
               </div>
             )}
+            {documentario && (v.coluna !== 'ideia' || roteiro.status === 'concluido') && <PainelDocumental videoId={v.id} aoMudar={recarregar} />}
             {vozIa && vozIa.status !== 'pendente' && <PainelVoz videoId={v.id} etapa={vozIa} aoMudar={recarregar} />}
             {gravacao && (['gravacao', 'montagem', 'revisao', 'publicado'].includes(v.coluna) || gravacao.status !== 'pendente') && (
               <PainelGravacao videoId={v.id} etapa={gravacao} aoMudar={recarregar} />
@@ -291,6 +295,12 @@ function ProximoPasso({ c, direcao }: { c: TVideo['condicoes_direcao']; direcao:
 /** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
 function AcaoPendencia({ chave, id, videoId, aoMudar, conferindo }: { chave: string | null; id: number; videoId: number; aoMudar: () => void; conferindo: boolean }) {
   const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
+  if (chave?.startsWith('doc_'))
+    return (
+      <button className={estilo} onClick={() => document.getElementById('documentario')?.scrollIntoView({ behavior: 'smooth' })}>
+        Ir para o documentário
+      </button>
+    )
   if (chave === 'publicar' || chave === 'limpeza')
     return (
       <button className={estilo} onClick={() => document.getElementById('publicacao')?.scrollIntoView({ behavior: 'smooth' })}>

@@ -54,6 +54,10 @@ from .banco import CANAL  # noqa: E402
 
 app = FastAPI(title=f"{CANAL['nome']} Studio", lifespan=_ciclo_de_vida)
 
+from . import horizontal_doc  # noqa: E402  (card documentário: só age nos cards formato "horizontal_doc")
+
+app.include_router(horizontal_doc.rota)
+
 
 @app.get("/api/aprendizado")
 def ver_aprendizado():
@@ -136,7 +140,8 @@ def ver_canal():
     from canal import todos
 
     return {"chave": CANAL["chave"], "nome": CANAL["nome"], "porta": CANAL["porta"], "canais": todos(),
-            "formatos": CANAL.get("formatos", [])}
+            "formatos": CANAL.get("formatos", []),
+            "rotulos": {"horizontal_doc": (CANAL.get("horizontal_doc") or {}).get("rotulo", "documentário")}}
 motor.iniciar()
 
 
