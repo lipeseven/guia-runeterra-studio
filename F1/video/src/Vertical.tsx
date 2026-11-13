@@ -6,7 +6,7 @@ import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurren
 import * as THREE from "three";
 import { FONTE, Legenda, Placa, entra, suave, type Palavra } from "./kit";
 import {
-  Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, enquadrar, drawRastro, fumaca, grade, gridX, gridZ, halo,
+  Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, enquadrar, orbitar, drawRastro, fumaca, grade, gridX, gridZ, halo,
   luzGantry, luzesDesfocadas, montar, num, poe, poeCinza, poePneu, preparar, seed, solta, type Mundo,
 } from "./modelos/mundo";
 import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
@@ -399,7 +399,7 @@ const pneus = (w: Mundo, k: number, composto: string) => trocarComposto(w.carros
 // só nomes aqui dentro (nada de função escrita no bloco).
 // API:inicio
 export const API = {
-  THREE, camera, enquadrar, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
+  THREE, camera, enquadrar, orbitar, poe, poeCinza, halo, grade, solta, fumaca, confete, drawRastro, camCircuito, poePneu, luzesDesfocadas, bandeira,
   luzGantry, seed, suave, entra, num, gridX, gridZ, Z_POLE, Z_PORTICO, obj, criarPiloto, bracos, criarKart, criarPodio, topoDoPodio,
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
   explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, estercar, embaralhar, criarMapaBrasil, areaNoMapa, criarCircuito, noCircuito, pontoNoCircuito, revelarCircuito, poeNoCircuito, poePinturaNoCircuito, perseguir, filmar, panorama, transito, nomearTrechos, marcoNoCircuito, destacarTrecho, numerarCurvas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,

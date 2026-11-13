@@ -63,6 +63,9 @@ lista de objetos) INTEIRO no quadro vertical, vindo da direção `de` (vetor a p
 (escada, pódio, kart com piloto, mapa, carro parado, pilotos lado a lado) usa `enquadrar`; para movimentar, anime `de`,
 `folga` (1.4 → 1.05 = aproxima) ou `lente` com `c.k`. `camera()` à mão só para perseguição, POV e passagem rápida.
 Exemplo: `enquadrar(w, escada, [0.35, 0.3, 1], 1.25 - c.k * 0.15, 36)`.
+`orbitar(w, objetos, de, giro, folga, lente, alvoY)`: como `enquadrar` (com `de` FIXO), mas a câmera gira `giro` rad em
+volta do eixo vertical na MESMA distância: movimento sem a peça aumentar e diminuir. Close de peça (freio, medidor) usa
+`orbitar(w, f, [0.25, 0.18, 1], -0.22 + 0.44 * c.k, 1.25, 32)` em vez de animar `de`/`folga`.
 
 ## Unidades e direções
 Metros. y = altura. Carros andam para -z (câmera em +z atrás vê a traseira). Pessoas, pódio e escada olham para +z
@@ -176,7 +179,7 @@ em frenagem forte (nunca o disco brilhando a volta toda).
 - `criarMedidorTermico({ rotulos: ["FRIO", "ADEQUADA", "QUENTE"] })` (arco azul/verde/vermelho SEM números: a faixa
   ideal muda com material, pista e equipe) + `ponteiro(med, k)` (0 frio, 0,5 adequada, 1 quente; a zona acende).
 - `criarPlacaCarbono()`: placa de fibra de carbono trançada (close do material).
-- Híbrido 2026: `poeHibrido(w, carro)` = motor, MGU-K (cilindro prateado ao lado do motor), bateria (azul, sob o tanque),
+- Híbrido 2026: `poeHibrido(w, carro)` = motor (vermelho), MGU-K (cilindro verde ao lado do motor), bateria (azul, sob o tanque),
   câmbio e eixo traseiro na posição do carro; enxergue com `raioX(carro, ["tampa_do_motor", "monocoque", "sidepod_esquerda",
   "sidepod_direita"])`. `caminhoDaEnergia(h, -1 | 1)` = pontos roda traseira → eixo → câmbio → MGU-K → bateria (para `fluxo`).
 - Piloto pisando no freio (raio-X do cockpit, 2026-11-13): `const pd = poePedais(w, carro, k)` (só 2 pedais, como no F1
