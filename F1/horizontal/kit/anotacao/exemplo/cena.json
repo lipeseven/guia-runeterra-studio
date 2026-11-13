@@ -1,0 +1,358 @@
+{
+ "largura": 1920,
+ "altura": 1080,
+ "fps": 60,
+ "duracao": 7.0,
+ "fundo": "#f2f1ec",
+ "tinta": "#141414",
+ "alvos": {
+  "asa": {
+   "caixa": {
+    "x": 372.498,
+    "y": 468.778,
+    "w": 375.003,
+    "h": 182.444
+   },
+   "movimento": [
+    {
+     "t": 0.0,
+     "dx": 0.0,
+     "dy": -0.0
+    },
+    {
+     "t": 0.25,
+     "dx": 0.56,
+     "dy": -4.031
+    },
+    {
+     "t": 0.5,
+     "dx": 2.187,
+     "dy": -8.011
+    },
+    {
+     "t": 0.75,
+     "dx": 4.797,
+     "dy": -11.89
+    },
+    {
+     "t": 1.0,
+     "dx": 8.309,
+     "dy": -15.62
+    },
+    {
+     "t": 1.25,
+     "dx": 12.641,
+     "dy": -19.153
+    },
+    {
+     "t": 1.5,
+     "dx": 17.711,
+     "dy": -22.446
+    },
+    {
+     "t": 1.75,
+     "dx": 23.438,
+     "dy": -25.456
+    },
+    {
+     "t": 2.0,
+     "dx": 29.738,
+     "dy": -28.146
+    },
+    {
+     "t": 2.25,
+     "dx": 36.53,
+     "dy": -30.482
+    },
+    {
+     "t": 2.5,
+     "dx": 43.732,
+     "dy": -32.435
+    },
+    {
+     "t": 2.75,
+     "dx": 51.262,
+     "dy": -33.98
+    },
+    {
+     "t": 3.0,
+     "dx": 59.038,
+     "dy": -35.097
+    },
+    {
+     "t": 3.25,
+     "dx": 66.978,
+     "dy": -35.774
+    },
+    {
+     "t": 3.5,
+     "dx": 75.0,
+     "dy": -36.0
+    },
+    {
+     "t": 3.75,
+     "dx": 83.022,
+     "dy": -35.774
+    },
+    {
+     "t": 4.0,
+     "dx": 90.962,
+     "dy": -35.097
+    },
+    {
+     "t": 4.25,
+     "dx": 98.738,
+     "dy": -33.98
+    },
+    {
+     "t": 4.5,
+     "dx": 106.268,
+     "dy": -32.435
+    },
+    {
+     "t": 4.75,
+     "dx": 113.47,
+     "dy": -30.482
+    },
+    {
+     "t": 5.0,
+     "dx": 120.262,
+     "dy": -28.146
+    },
+    {
+     "t": 5.25,
+     "dx": 126.562,
+     "dy": -25.456
+    },
+    {
+     "t": 5.5,
+     "dx": 132.289,
+     "dy": -22.446
+    },
+    {
+     "t": 5.75,
+     "dx": 137.359,
+     "dy": -19.153
+    },
+    {
+     "t": 6.0,
+     "dx": 141.691,
+     "dy": -15.62
+    },
+    {
+     "t": 6.25,
+     "dx": 145.203,
+     "dy": -11.89
+    },
+    {
+     "t": 6.5,
+     "dx": 147.813,
+     "dy": -8.011
+    },
+    {
+     "t": 6.75,
+     "dx": 149.44,
+     "dy": -4.031
+    },
+    {
+     "t": 7.0,
+     "dx": 150.0,
+     "dy": -0.0
+    }
+   ],
+   "peca": {
+    "w": 360,
+    "h": 110,
+    "giroAmp": 12.0,
+    "giroPeriodo": 2.4,
+    "cx": 560.0,
+    "cy": 560.0
+   }
+  },
+  "titulo": {
+   "caixa": {
+    "x": 116,
+    "y": 99,
+    "w": 538,
+    "h": 56
+   },
+   "texto": true,
+   "render": {
+    "texto": "ASA TRASEIRA",
+    "fonte": "Arial Black",
+    "peso": 900,
+    "tamanho": 64,
+    "x": 120,
+    "y": 150
+   }
+  },
+  "valor": {
+   "caixa": {
+    "x": 1176,
+    "y": 359,
+    "w": 248,
+    "h": 96
+   },
+   "texto": true,
+   "render": {
+    "texto": "323",
+    "fonte": "Arial Black",
+    "peso": 900,
+    "tamanho": 120,
+    "x": 1180,
+    "y": 450
+   }
+  },
+  "rotulo": {
+   "caixa": {
+    "x": 1175,
+    "y": 478,
+    "w": 444,
+    "h": 36
+   },
+   "texto": true,
+   "render": {
+    "texto": "VELOCIDADE MÁXIMA · SF-26",
+    "fonte": "Arial",
+    "peso": 700,
+    "tamanho": 30,
+    "x": 1180,
+    "y": 510
+   }
+  },
+  "s1": {
+   "caixa": {
+    "x": 1176,
+    "y": 683,
+    "w": 424,
+    "h": 51
+   },
+   "texto": true,
+   "render": {
+    "texto": "SETOR 1   +0,412",
+    "fonte": "Arial Black",
+    "peso": 900,
+    "tamanho": 44,
+    "x": 1180,
+    "y": 720
+   }
+  },
+  "s2": {
+   "caixa": {
+    "x": 1176,
+    "y": 753,
+    "w": 424,
+    "h": 51
+   },
+   "texto": true,
+   "render": {
+    "texto": "SETOR 2   +1,155",
+    "fonte": "Arial Black",
+    "peso": 900,
+    "tamanho": 44,
+    "x": 1180,
+    "y": 790
+   }
+  },
+  "s3": {
+   "caixa": {
+    "x": 1176,
+    "y": 823,
+    "w": 424,
+    "h": 51
+   },
+   "texto": true,
+   "render": {
+    "texto": "SETOR 3   −0,086",
+    "fonte": "Arial Black",
+    "peso": 900,
+    "tamanho": 44,
+    "x": 1180,
+    "y": 860
+   }
+  },
+  "unidade": {
+   "caixa": {
+    "x": 1442,
+    "y": 405,
+    "w": 154,
+    "h": 50
+   },
+   "texto": true,
+   "render": {
+    "texto": "km/h",
+    "fonte": "Arial Black",
+    "peso": 900,
+    "tamanho": 56,
+    "x": 1446,
+    "y": 450
+   }
+  }
+ },
+ "anotacoes": [
+  {
+   "id": "oval-asa",
+   "tipo": "oval",
+   "alvo": "asa",
+   "em": 0.4,
+   "folga": 26
+  },
+  {
+   "id": "nota-gira",
+   "tipo": "nota",
+   "texto": "gira ±12°",
+   "em": 1.15,
+   "perto": {
+    "alvo": "oval-asa",
+    "lado": "auto",
+    "distancia": 60,
+    "desloc": [
+     230,
+     0
+    ]
+   }
+  },
+  {
+   "id": "seta-gira",
+   "tipo": "seta",
+   "de": "nota-gira",
+   "para": "oval-asa",
+   "em": 2.25,
+   "curva": -0.18
+  },
+  {
+   "id": "sub-titulo",
+   "tipo": "sublinhado",
+   "alvo": "titulo",
+   "em": 2.75
+  },
+  {
+   "id": "corr-valor",
+   "tipo": "corrigido",
+   "alvo": "valor",
+   "texto": "326",
+   "em": 3.3
+  },
+  {
+   "id": "chave-s12",
+   "tipo": "chave",
+   "alvos": [
+    "s1",
+    "s2"
+   ],
+   "lado": "direita",
+   "em": 4.6
+  },
+  {
+   "id": "nota-78",
+   "tipo": "nota",
+   "texto": "78% aqui",
+   "em": 5.05,
+   "perto": {
+    "alvo": "chave-s12",
+    "lado": "direita",
+    "distancia": 20
+   }
+  }
+ ]
+}
