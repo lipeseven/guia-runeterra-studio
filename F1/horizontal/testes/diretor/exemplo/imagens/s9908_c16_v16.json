@@ -1,0 +1,10 @@
+{
+  "_nota": "FICTÍCIO: resultado simulado do kit/imagens para o teste do diretor (nenhum vídeo foi buscado). Classificação não tem contador de volta na TV, então a volta fica não verificada.",
+  "afirmacao": {"sessao": 9908, "piloto": 16, "volta": 16, "evento": null},
+  "arquivo": "NAO_VALIDADO_s9908_c16_v16.mp4",
+  "quadro": "s9908_c16_v16.png",
+  "validado": false,
+  "status": "nao_validado",
+  "evidencia": ["sessão ok (título: Qualifying, Monza, 2025)", "volta: nao_verificado (classificação não tem contador de volta)", "piloto ok (LECLERC na tela)"],
+  "credito": "FORMULA 1 (YouTube), teste"
+}

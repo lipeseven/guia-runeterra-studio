@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "f1-horizontal/estado.schema.json",
+  "title": "estado.json de um vídeo horizontal (lido pelo painel e pelo orquestrador)",
+  "type": "object",
+  "required": ["versao", "slug", "etapa_atual", "etapas", "pedidos", "historico"],
+  "additionalProperties": false,
+  "properties": {
+    "versao": {"const": 1},
+    "slug": {"type": "string", "minLength": 1},
+    "etapa_atual": {"enum": ["historia", "spec", "ativos", "verificacao", "rascunho", "pronto"]},
+    "etapas": {
+      "type": "object",
+      "required": ["historia", "spec", "ativos", "verificacao", "rascunho"],
+      "additionalProperties": false,
+      "properties": {
+        "historia": {"$ref": "#/$defs/etapa"},
+        "spec": {"$ref": "#/$defs/etapa"},
+        "ativos": {"$ref": "#/$defs/etapa"},
+        "verificacao": {"$ref": "#/$defs/etapa"},
+        "rascunho": {"$ref": "#/$defs/etapa"}
+      }
+    },
+    "pedidos": {"type": "array", "items": {"$ref": "#/$defs/pedido"}},
+    "historico": {"type": "array", "items": {"type": "object", "required": ["em", "evento"],
+      "properties": {"em": {"type": "string"}, "evento": {"type": "string"}}}}
+  },
+  "$defs": {
+    "etapa": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["pendente", "prompt_pronto", "gerado", "aprovado", "mudanca_pedida", "desatualizado", "falhou"]},
+        "arquivo": {"type": "string"},
+        "hash": {"type": "string"},
+        "base_hash": {"type": "string", "description": "hash da etapa anterior usada para gerar esta"},
+        "aprovado_em": {"type": "string"},
+        "atualizado_em": {"type": "string"},
+        "resumo": {"type": "string"}
+      }
+    },
+    "pedido": {
+      "type": "object",
+      "required": ["id", "etapa", "texto", "status", "criado_em"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "etapa": {"enum": ["historia", "spec", "ativos", "verificacao", "rascunho"]},
+        "cena": {"type": "string"},
+        "texto": {"type": "string", "minLength": 1},
+        "status": {"enum": ["aberto", "atendido", "recusado"]},
+        "criado_em": {"type": "string"},
+        "resposta": {"type": "string"}
+      }
+    }
+  }
+}

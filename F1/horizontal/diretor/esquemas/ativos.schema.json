@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "f1-horizontal/ativos.schema.json",
+  "title": "Ativos resolvidos para a SPEC",
+  "type": "object",
+  "required": ["versao", "spec_hash", "itens", "resumo"],
+  "additionalProperties": false,
+  "properties": {
+    "versao": {"const": 1},
+    "spec_hash": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+    "criado_em": {"type": "string"},
+    "resumo": {
+      "type": "object",
+      "required": ["pronto", "falta", "nao_validado", "reprovado", "nao_encontrado"],
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "itens": {"type": "array", "items": {"$ref": "#/$defs/item"}}
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": ["id", "cena", "tipo", "status", "descricao"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "minLength": 3, "description": "chave estável do ativo (o mesmo ativo em 2 cenas = mesmo id)"},
+        "cena": {"type": "string"},
+        "cenas": {"type": "array", "items": {"type": "string"}},
+        "tipo": {"enum": ["volta_gps", "comparacao", "imagem", "sfx", "modelo3d", "pista"]},
+        "status": {"enum": ["pronto", "falta", "nao_validado", "reprovado", "nao_encontrado"]},
+        "descricao": {"type": "string"},
+        "arquivo": {"type": ["string", "null"]},
+        "comando": {"type": "string", "description": "como produzir o que falta (executado pelo orquestrador/painel)"},
+        "evidencia": {"type": "array", "items": {"type": "string"}},
+        "afirmacao": {"type": "string"},
+        "dados": {"type": "object"}
+      }
+    }
+  }
+}

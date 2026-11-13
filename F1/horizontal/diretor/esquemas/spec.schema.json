@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "f1-horizontal/spec.schema.json",
+  "title": "SPEC por palavra de um vídeo horizontal",
+  "type": "object",
+  "required": ["versao", "fps", "largura", "altura", "roteiro_hash", "historia_hash", "tempos", "cenas"],
+  "additionalProperties": false,
+  "properties": {
+    "versao": {"const": 1},
+    "fps": {"const": 60},
+    "largura": {"const": 1920},
+    "altura": {"const": 1080},
+    "roteiro_hash": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+    "historia_hash": {"type": "string", "pattern": "^[0-9a-f]{12}$"},
+    "tempos": {"enum": ["medidos", "estimados"]},
+    "cenas": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/cena"}},
+    "criado_em": {"type": "string"},
+    "avisos": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "cena": {
+      "type": "object",
+      "required": ["id", "em", "i0", "i1", "t0", "t1", "capitulo", "objetivo", "motor", "kits", "afirmacoes", "sfx", "transicao"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^[0-9a-f]{8}$", "description": "estável: hash do trecho-âncora"},
+        "em": {"type": "string", "minLength": 1, "description": "trecho LITERAL do roteiro onde a cena começa"},
+        "i0": {"type": "integer", "minimum": 0, "description": "índice da 1ª palavra (resolvido de em)"},
+        "i1": {"type": "integer", "minimum": 1, "description": "índice da 1ª palavra DEPOIS da cena (exclusivo)"},
+        "t0": {"type": "number", "minimum": 0},
+        "t1": {"type": "number", "exclusiveMinimum": 0},
+        "capitulo": {"type": "string", "pattern": "^c[0-9]+$"},
+        "objetivo": {"type": "string", "minLength": 3, "description": "o que o espectador entende nesta cena"},
+        "camera": {"type": "string"},
+        "motor": {"enum": ["remotion", "hyperframes"]},
+        "kits": {"type": "array", "items": {"$ref": "#/$defs/uso_kit"}},
+        "afirmacoes": {"type": "array", "items": {"type": "string", "pattern": "^a[0-9]+$"}},
+        "texto": {"type": "array", "items": {"type": "string"}, "description": "textos que aparecem na tela"},
+        "sfx": {"type": "array", "items": {"$ref": "#/$defs/sfx"}},
+        "transicao": {
+          "type": "object",
+          "required": ["tipo", "quadros"],
+          "additionalProperties": false,
+          "properties": {
+            "tipo": {"enum": ["corte", "fade", "wipe", "zoom"]},
+            "quadros": {"type": "integer", "minimum": 0, "maximum": 60}
+          }
+        },
+        "aceitar_nao_validado": {"type": "string", "minLength": 10,
+          "description": "só quando o Felipe aceita usar imagem NAO_VALIDADO nesta cena: o motivo (e a tela leva aviso)"},
+        "notas": {"type": "string"}
+      }
+    },
+    "uso_kit": {
+      "type": "object",
+      "required": ["kit", "params"],
+      "additionalProperties": false,
+      "properties": {
+        "kit": {"enum": ["gps", "graficos", "imagens", "anotacao", "cartoes", "foco", "modelo3d"]},
+        "params": {"type": "object"}
+      }
+    },
+    "sfx": {
+      "type": "object",
+      "required": ["categoria", "em", "i"],
+      "additionalProperties": false,
+      "properties": {
+        "categoria": {"enum": ["impacto", "riser", "whoosh", "sino", "alerta", "pop", "clique", "tecla", "capitulo"]},
+        "em": {"type": "string", "minLength": 1},
+        "i": {"type": "integer", "minimum": 0},
+        "ponto": {"enum": ["i", "f"]},
+        "intensidade": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}
