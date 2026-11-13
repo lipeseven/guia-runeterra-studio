@@ -21,7 +21,7 @@ roteiro.txt + palavras.json ─▶ historia.py ─▶ historia.json ★ ─▶ s
 | `spec.py` | prompt da SPEC; resposta → `spec.json` (cenas por palavra, motor por cena, kits e parâmetros); `retemporizar` (narração nova), `prompt_pedido`/`trocar_cena` (pedido em UMA cena) |
 | `ativos.py` | resolve o que cada cena precisa nos kits (OpenF1 via `kit/gps` e `kit/graficos`, imagens via `kit/imagens`, `kit/sfx`, modelos 3D); `--produzir` roda o que falta (rede) |
 | `verificar.py` | checagens automáticas da SPEC (lista abaixo); grava `verificacao/verificacao.json`; sai 1 se houver erro |
-| `etapas.py` | fluxo e `estado.json` (gerado/aprovado/desatualizado, pedidos, histórico) |
+| `etapas.py` | fluxo e `estado.json` (gerado/aprovado/desatualizado, pedidos, histórico); `retemporizar` = narração nova sem perder o ★ da SPEC (fase 7a) |
 | `painel.py` | ponte com o painel (JSON pela entrada/saída padrão) e `aplicar` do orquestrador; ver `../docs/painel.md` |
 | `ajustes.py` | ações diretas do storyboard (movimento, transição, corte/fim, SFX, escolhas fechadas do kit) aplicadas na SPEC sem modelo; gravadas por `etapas.ajustar` (SPEC segue aprovada, etapas seguintes desatualizadas); campo novo da cena: `movimento` {tipo, intensidade?, foco?} |
 | `comum.py` | caminhos, palavras e âncoras (mesma regra do `tools/direcao/vertical.py`), cache por prompt, **registro dos kits** (`KITS`) |

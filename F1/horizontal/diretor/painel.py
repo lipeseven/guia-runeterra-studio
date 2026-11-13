@@ -29,7 +29,7 @@ import etapas
 import historia as H
 import spec as S
 import verificar as V
-from comum import AQUI, HORIZONTAL, cache_resposta, entradas, gravar_json, ler_json, observacoes, palavras_do_roteiro
+from comum import AQUI, HORIZONTAL, cache_resposta, entradas, gravar_json, ler_json, limpa, observacoes, palavras_do_roteiro
 
 PY = Path(sys.executable).name
 TITULO = {"historia": "História", "spec": "SPEC", "ativos": "Ativos", "verificacao": "Verificação", "rascunho": "Rascunho"}
@@ -57,9 +57,10 @@ def _cmd_aplicar(pasta: Path, etapa: str, cena: str | None = None) -> str:
 
 
 # ---------------------------------------------------------------- entradas (roteiro e narração do card)
-def sincronizar_entradas(pasta: Path, roteiro: str | None, palavras: str | None) -> list[str]:
-    """Copia o roteiro aprovado e as palavras medidas da narração do card para a pasta do horizontal.
-    Só copia as palavras se forem do MESMO roteiro (mesma contagem); senão os tempos ficam estimados."""
+def sincronizar_entradas(pasta: Path, roteiro: str | None, palavras: str | None, narracao: str | None = None) -> list[str]:
+    """Copia o roteiro aprovado e as palavras medidas da narração do card (voz guia ou sua gravação) para a pasta do
+    horizontal. Só copia as palavras se forem do MESMO roteiro (mesma contagem); senão os tempos ficam estimados.
+    Palavras novas com SPEC já feita = ressincronização (`ressincronizar`)."""
     avisos = []
     pasta.mkdir(parents=True, exist_ok=True)
     if roteiro and Path(roteiro).exists():
@@ -67,17 +68,42 @@ def sincronizar_entradas(pasta: Path, roteiro: str | None, palavras: str | None)
         destino = pasta / "roteiro.txt"
         if not destino.exists() or destino.read_text(encoding="utf-8") != texto:
             destino.write_text(texto, encoding="utf-8")
-    if palavras and Path(palavras).exists() and (pasta / "roteiro.txt").exists():
+    if not (pasta / "roteiro.txt").exists():
+        return avisos
+    n_rot = len(palavras_do_roteiro((pasta / "roteiro.txt").read_text(encoding="utf-8")))
+    atual = ler_json(pasta / "palavras.json")
+    if isinstance(atual, list) and len(atual) != n_rot:   # tempos de um roteiro antigo: não valem mais
+        (pasta / "palavras.json").unlink()
+    if palavras and Path(palavras).exists():
         lista = json.loads(Path(palavras).read_text(encoding="utf-8"))
-        n_rot = len(palavras_do_roteiro((pasta / "roteiro.txt").read_text(encoding="utf-8")))
         valida = isinstance(lista, list) and all(isinstance(p, dict) and {"t", "i", "f"} <= set(p) for p in lista)
+        if valida and len(lista) != n_rot:   # alinhar.py conta todo token ("—"); o diretor só palavras com letra/número
+            lista = [p for p in lista if limpa(p["t"])]
         if valida and len(lista) == n_rot:
             if ler_json(pasta / "palavras.json") != lista:
                 gravar_json(pasta / "palavras.json", lista)
+                ressincronizar(pasta, narracao or "narração")
         else:
             avisos.append(f"narração medida com {len(lista) if isinstance(lista, list) else '?'} palavras × roteiro com "
                           f"{n_rot}: tempos ficam estimados até medir de novo")
     return avisos
+
+
+def ressincronizar(pasta: Path, narracao: str) -> dict | None:
+    """Narração nova → SPEC retemporizada pelas palavras (`spec.retemporizar`): mesmas cenas, ids e índices; só mudam os
+    tempos. Grava `ressinc.json` com as cenas afetadas (o painel mostra; a etapa Ressincronização do card usa)."""
+    s = ler_json(pasta / "spec.json")
+    info = {"quando": etapas.agora(), "narracao": narracao, "cenas": 0, "afetadas": []}
+    if s and isinstance(s.get("cenas"), list):
+        _, palavras, _, _ = entradas(pasta)
+        nova = S.retemporizar(s, palavras)
+        chave = lambda c: (c.get("i0"), c.get("i1"), c.get("t0"), c.get("t1"))   # noqa: E731
+        info["cenas"] = len(nova["cenas"])
+        info["afetadas"] = [b["id"] for a, b in zip(s["cenas"], nova["cenas"]) if chave(a) != chave(b)]
+        if nova != s:
+            etapas.retemporizar(pasta, nova, f"{len(info['afetadas'])} de {info['cenas']} cenas, {narracao}")
+    gravar_json(pasta / "ressinc.json", info)
+    return info
 
 
 def sincronizar_observacoes(pasta: Path, arquivo: str | None) -> None:
@@ -132,6 +158,7 @@ def resumo(pasta: Path, slug: str) -> dict:
             "orquestrador": _orquestrador(pasta, estado),
             "montador": _montador_pronto(), "rascunho": None if _montador_pronto() else SEM_MONTADOR,
             "rascunho_info": ler_json(pasta / etapas.ARQUIVO["rascunho"]),
+            "ressinc": ler_json(pasta / "ressinc.json"),   # última troca de narração (cenas retemporizadas)
             "rascunho_video": str(pasta / "rascunho" / "rascunho.mp4") if (pasta / "rascunho" / "rascunho.mp4").exists() else None}
 
 
@@ -405,7 +432,8 @@ def executar(pedido: dict) -> dict:
     pasta = Path(pedido["pasta"])
     slug = pedido.get("slug") or pasta.parent.name
     cmd = pedido["cmd"]
-    avisos = sincronizar_entradas(pasta, pedido.get("roteiro"), pedido.get("palavras")) if cmd in ("resumo", "passo") else []
+    avisos = (sincronizar_entradas(pasta, pedido.get("roteiro"), pedido.get("palavras"), pedido.get("narracao"))
+              if cmd in ("resumo", "passo") else [])
     if cmd in ("resumo", "passo"):
         sincronizar_observacoes(pasta, pedido.get("observacoes"))
     if cmd == "resumo":

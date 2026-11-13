@@ -85,6 +85,23 @@ def registrar(pasta: Path, etapa: str, dados: dict, base: dict | None = None, re
     return estado
 
 
+def retemporizar(pasta: Path, spec: dict, resumo: str) -> dict:
+    """Narração nova (voz guia → sua gravação): a SPEC é a MESMA (cenas, índices, kits), só os tempos mudam. Grava o
+    hash novo sem perder o status (aprovado continua aprovado: o Felipe aprovou cenas presas a palavras, não
+    segundos); o que depende dos tempos (ativos, verificação, rascunho) fica `desatualizado` para rodar de novo."""
+    pasta = Path(pasta)
+    estado = ler(pasta)
+    gravar_json(pasta / ARQUIVO["spec"], spec)
+    reg = estado["etapas"]["spec"]
+    reg["hash"], reg["atualizado_em"], reg["retemporizada_em"] = hash_dados(spec), agora(), agora()
+    for n in NOMES[NOMES.index("spec") + 1:]:
+        if estado["etapas"][n]["status"] not in ("pendente",):
+            estado["etapas"][n]["status"] = "desatualizado"
+    _log(estado, f"spec: retemporizada ({resumo})")
+    gravar(pasta, estado)
+    return estado
+
+
 def marcar(pasta: Path, etapa: str, status: str, resumo: str = "") -> dict:
     estado = ler(pasta)
     estado["etapas"][etapa]["status"] = status

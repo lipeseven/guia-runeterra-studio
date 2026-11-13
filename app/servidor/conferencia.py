@@ -227,6 +227,36 @@ SISTEMA = f"Você confere roteiros do canal \"{CANAL['nome']}\" ({CANAL['assunto
 
 # Versão das regras da checagem: mudou a regra (fontes, prompt) → todo parágrafo é conferido de novo uma vez.
 REGRAS = "4"  # 4 = obra mais recente vale mais, eventos/LoR/Riftbound na busca, fatos do canal (2026-10-31)
+F1 = CANAL.get("fatos", "lol") == "f1"
+if F1:
+    REGRAS += "-of1"  # F1 (2026-11-14): números conferidos contra o OpenF1 (Runeterra não muda nem reconfere)
+
+
+def _pedido_openf1() -> str:
+    """F1: o que pedir ao modelo para cada afirmação com número (o cálculo é local, no OpenF1)."""
+    from .openf1 import SESSOES, TIPOS
+
+    return ("Afirmação com NÚMERO de uma sessão de F1 (tempo de volta, diferença, posição, voltas, pit stop, velocidade) "
+            "ganha também `openf1` para conferir o número nos dados oficiais: {\"tipo\": um de " + ", ".join(TIPOS)
+            + ", \"ano\": 2025, \"local\": \"circuito ou cidade em inglês (Monza, Interlagos)\", \"sessao\": um de "
+            + ", ".join(SESSOES) + ", \"piloto\": número ou sigla (LEC), \"piloto2\": (só na diferença), \"volta\": número "
+            "ou \"melhor\", \"valor\": o número dito no roteiro em segundos/km/h/posição (1:19,007 = 79.007), \"casas\": "
+            "casas decimais ditas}. Sem número ou fora de uma sessão: sem `openf1`.\n\n")
+
+
+def _aplicar_openf1(a: dict, item: dict) -> None:
+    """Número de F1 recalculado no OpenF1: ele decide o veredito (vale acima da Wikipedia para números)."""
+    from .openf1 import conferir
+
+    if not isinstance(a.get("openf1"), dict):
+        return
+    r = conferir(a["openf1"])
+    item["openf1"] = {**r, "pedido": a["openf1"]}
+    if r["status"] in ("confere", "diverge"):
+        item["veredito"] = r["status"]
+        item["explicacao"] = r["explicacao"] + (f" · {item['explicacao']}" if item.get("explicacao") else "")
+        item["fonte"] = {"fonte": r["fonte"], "texto": r["explicacao"]}
+        item["fontes"] = max(1, item.get("fontes") or 0)
 
 
 LOTE = 8  # trechos por chamada ao Claude: o progresso fica guardado a cada lote
@@ -282,15 +312,18 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
 
     if novos:
         r = chamar_json(
-            "Liste as afirmações de LORE checáveis destes trechos (nomes, datas, eras, quem fez o quê, parentesco, "
+            f"Liste as afirmações de {'FATOS' if F1 else 'LORE'} checáveis destes trechos (nomes, datas, eras, quem fez o quê, parentesco, "
             "lugares). Ignore piadas, opiniões, ganchos, comentários do narrador e o que o próprio roteiro já chama de "
             "teoria/especulação. Cada afirmação = UM fato só: frase com vários fatos vira várias afirmações curtas. "
             "Liste todas, no máximo 6 por trecho. Para cada uma, dê termos de busca em INGLÊS para a wiki "
             f"({FONTE['nome']}), começando pelo nome de quem aparece, e os {FONTE['quem']} de que o trecho fala, "
             "mesmo quando o fato é sobre um coadjuvante.\n\n"
+            + (_pedido_openf1() if F1 else "")
             + "\n\n".join(f"[{i}] {p}" for i, p in novos)
             + '\n\nJSON: {"afirmacoes": [{"p": 0, "trecho": "palavras do roteiro", "afirmacao": "o fato, curto", '
-              '"busca": "english search terms", "campeoes": ["Mordekaiser"]}]}',
+              '"busca": "english search terms", "campeoes": ["Mordekaiser"]'
+            + (', "openf1": {"tipo": "tempo_volta", "ano": 2025, "local": "Monza", "sessao": "Qualifying", '
+               '"piloto": "LEC", "volta": "melhor", "valor": 79.007, "casas": 3}' if F1 else "") + '}]}',
             SISTEMA, modelo="sonnet", etiqueta="conferencia-afirmacoes")
         pedidos = {i for i, _ in novos}
         afirm = [a for a in r.get("afirmacoes", []) if a.get("p") in pedidos]
@@ -347,10 +380,13 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
         for k, a in enumerate(afirm):
             x = vered.get(k, {})
             t = a["trechos"][x["trecho"]] if isinstance(x.get("trecho"), int) and 0 <= x["trecho"] < len(a["trechos"]) else None
-            por_par[a["p"]].append({"trecho": a.get("trecho"), "afirmacao": a["afirmacao"],
-                                    "veredito": x.get("veredito", "sem_fonte"), "explicacao": x.get("explicacao", ""),
-                                    "fonte": t, "fontes": x.get("fontes") if isinstance(x.get("fontes"), int) else None,
-                                    "fontes_divergem": bool(x.get("fontes_divergem"))})
+            item = {"trecho": a.get("trecho"), "afirmacao": a["afirmacao"],
+                    "veredito": x.get("veredito", "sem_fonte"), "explicacao": x.get("explicacao", ""),
+                    "fonte": t, "fontes": x.get("fontes") if isinstance(x.get("fontes"), int) else None,
+                    "fontes_divergem": bool(x.get("fontes_divergem"))}
+            if F1:
+                _aplicar_openf1(a, item)
+            por_par[a["p"]].append(item)
         for i, lista in por_par.items():
             cache[chaves[i]] = lista
 
