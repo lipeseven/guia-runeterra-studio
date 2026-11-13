@@ -8,7 +8,7 @@
 ## 2. Estrutura de pastas
 ```
 F1/horizontal/            código e docs do horizontal (ver README.md)
-  kit/                    módulos independentes de motor: gps, sfx, anotacao, graficos, imagens, foco
+  kit/                    módulos independentes de motor: gps, sfx, anotacao, graficos, imagens, foco, cartoes, transicoes
   remotion/ hyperframes/  adaptadores de cada motor sobre o kit
   montador/               junta trechos por cena (ffmpeg) e faz UMA mixagem de áudio
   diretor/                historia, spec, ativos, verificar (Python)
@@ -45,6 +45,8 @@ Nada depende de um único `claude -p` longo.
 | `kit/graficos` | velocidade×distância com gap destacado, setores, delta acumulado, telemetria (freio/marcha), gráfico normalizado com disclaimer de fonte | gráficos elogiados, agora reutilizáveis |
 | `kit/imagens` | busca de trechos/imagens reais (yt-dlp), **validação** de que batem com a afirmação (volta, piloto, sessão), crédito em FONTES | imagem da volta errada |
 | `kit/foco` | blur de profundidade no que não é destaque | falta de foco ao destacar peça |
+| `kit/cartoes` | cartão de pessoa (foto+nome+função), capítulo (PARTE 0N + título + traçado), tag ancorada na pista com perninha; layout sem navegador | texto cortado, tag saindo do quadro |
+| `kit/transicoes` | corte, fade, wipe, zoom-through com duração exata em quadros e SFX (whoosh/impacto) no quadro de pico | transição sem som casado / duração no olho |
 
 ## 6. Motores: híbrido por cena + montador
 O SPEC marca o motor de cada cena. Cenas editoriais (palavra gigante, cartões, números, gráficos) → Remotion (cache por cena,

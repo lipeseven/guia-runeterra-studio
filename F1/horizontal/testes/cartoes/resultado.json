@@ -1,0 +1,57 @@
+{
+ "kit": "OK: 1017 checagens, 0 falhas",
+ "render": {
+  "remotion": {
+   "motor": "remotion",
+   "quadros": 421,
+   "falhas": [],
+   "tags": {
+    "quadros_medidos": 24,
+    "erro_caixa_px": 0.85,
+    "quadros_fora_da_margem": 0
+   },
+   "pessoa": {
+    "tinta_fora_da_caixa_px": 0.0,
+    "nome_largura_medida_kit": [
+     327,
+     330.6
+    ]
+   },
+   "capitulo": {
+    "medidas": 50,
+    "tinta_fora_da_caixa_px": 0.0,
+    "fora_da_area_util": 0
+   }
+  },
+  "hyperframes": {
+   "motor": "hyperframes",
+   "quadros": 421,
+   "falhas": [],
+   "tags": {
+    "quadros_medidos": 24,
+    "erro_caixa_px": 0.85,
+    "quadros_fora_da_margem": 0
+   },
+   "pessoa": {
+    "tinta_fora_da_caixa_px": 0.0,
+    "nome_largura_medida_kit": [
+     327,
+     330.6
+    ]
+   },
+   "capitulo": {
+    "medidas": 50,
+    "tinta_fora_da_caixa_px": 0.0,
+    "fora_da_area_util": 0
+   }
+  }
+ },
+ "remotion_vs_hyperframes": {
+  "media": 0.0,
+  "pior": {
+   "q": 165,
+   "dif": 0.001
+  }
+ },
+ "falhas": []
+}

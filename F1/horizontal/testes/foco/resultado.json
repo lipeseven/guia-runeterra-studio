@@ -1,0 +1,71 @@
+{
+ "kit": "OK: 30 checagens, 0 falhas",
+ "render": {
+  "remotion": {
+   "motor": "remotion",
+   "quadros": 361,
+   "falhas": [],
+   "por_foco": {
+    "asa": {
+     "quadros": 155,
+     "dif_max_caixa": 0,
+     "dif_max_janela": 0,
+     "quadros_k1": 110,
+     "nitidez_listras_com_sem": [
+      0.0,
+      0.0
+     ]
+    },
+    "roda": {
+     "quadros": 131,
+     "dif_max_caixa": 0,
+     "dif_max_janela": 0,
+     "quadros_k1": 86,
+     "nitidez_listras_com_sem": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "dif_max_sem_foco_k0": 0,
+   "erro_forca_max": 0.022
+  },
+  "hyperframes": {
+   "motor": "hyperframes",
+   "quadros": 361,
+   "falhas": [],
+   "por_foco": {
+    "asa": {
+     "quadros": 155,
+     "dif_max_caixa": 0,
+     "dif_max_janela": 0,
+     "quadros_k1": 110,
+     "nitidez_listras_com_sem": [
+      0.0,
+      0.0
+     ]
+    },
+    "roda": {
+     "quadros": 131,
+     "dif_max_caixa": 0,
+     "dif_max_janela": 0,
+     "quadros_k1": 86,
+     "nitidez_listras_com_sem": [
+      0.0,
+      0.0
+     ]
+    }
+   },
+   "dif_max_sem_foco_k0": 0,
+   "erro_forca_max": 0.022
+  }
+ },
+ "remotion_vs_hyperframes": {
+  "media": 0.0,
+  "pior": {
+   "q": 185,
+   "dif": 0.0
+  }
+ },
+ "falhas": []
+}
