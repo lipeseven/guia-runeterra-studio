@@ -1,0 +1,196 @@
+{
+ "kit": "OK: 329 checagens, 0 falhas",
+ "eventos_sfx": [
+  {
+   "id": "impacto_fs751347",
+   "categoria": "impacto",
+   "arquivo": "banco/impacto/impacto_fs751347.wav",
+   "t": 1,
+   "inicio": 0.76,
+   "corte_ini": 0,
+   "dur": 2.5,
+   "ganho_db": -2.7,
+   "palavra": null
+  },
+  {
+   "id": "whoosh_sint_largo",
+   "categoria": "whoosh",
+   "arquivo": "banco/whoosh/whoosh_sint_largo.wav",
+   "t": 3,
+   "inicio": 2.51,
+   "corte_ini": 0,
+   "dur": 1.111,
+   "ganho_db": -5.7,
+   "palavra": null
+  },
+  {
+   "id": "whoosh_capitulo_remotion",
+   "categoria": "whoosh",
+   "arquivo": "banco/whoosh/whoosh_capitulo_remotion.wav",
+   "t": 4,
+   "inicio": 3.57,
+   "corte_ini": 0,
+   "dur": 2.75,
+   "ganho_db": -5.7,
+   "palavra": null
+  }
+ ],
+ "pixels": {
+  "remotion": {
+   "motor": "remotion",
+   "quadros": 301,
+   "transicoes": [
+    {
+     "tipo": "corte",
+     "declarado": 0,
+     "medido": 0,
+     "primeiro": null,
+     "ultimo": null,
+     "q_pico_kit": 60,
+     "q_maior_mudanca": 60
+    },
+    {
+     "tipo": "fade",
+     "declarado": 18,
+     "medido": 18,
+     "primeiro": 111,
+     "ultimo": 128,
+     "q_pico_kit": 120,
+     "q_maior_mudanca": 122
+    },
+    {
+     "tipo": "wipe",
+     "declarado": 24,
+     "medido": 24,
+     "primeiro": 168,
+     "ultimo": 191,
+     "q_pico_kit": 180,
+     "q_maior_mudanca": 180
+    },
+    {
+     "tipo": "zoom",
+     "declarado": 30,
+     "medido": 30,
+     "primeiro": 225,
+     "ultimo": 254,
+     "q_pico_kit": 240,
+     "q_maior_mudanca": 240
+    }
+   ],
+   "falhas": []
+  },
+  "hyperframes": {
+   "motor": "hyperframes",
+   "quadros": 301,
+   "transicoes": [
+    {
+     "tipo": "corte",
+     "declarado": 0,
+     "medido": 0,
+     "primeiro": null,
+     "ultimo": null,
+     "q_pico_kit": 60,
+     "q_maior_mudanca": 60
+    },
+    {
+     "tipo": "fade",
+     "declarado": 18,
+     "medido": 18,
+     "primeiro": 111,
+     "ultimo": 128,
+     "q_pico_kit": 120,
+     "q_maior_mudanca": 122
+    },
+    {
+     "tipo": "wipe",
+     "declarado": 24,
+     "medido": 24,
+     "primeiro": 168,
+     "ultimo": 191,
+     "q_pico_kit": 180,
+     "q_maior_mudanca": 180
+    },
+    {
+     "tipo": "zoom",
+     "declarado": 30,
+     "medido": 30,
+     "primeiro": 225,
+     "ultimo": 254,
+     "q_pico_kit": 240,
+     "q_maior_mudanca": 240
+    }
+   ],
+   "falhas": []
+  }
+ },
+ "audio": {
+  "remotion": {
+   "motor": "remotion",
+   "eventos": [
+    {
+     "tipo": "corte",
+     "som": "impacto_fs751347",
+     "t_pico_kit": 1,
+     "pico_esperado_s": 1.0,
+     "pico_medido_s": 1.0076,
+     "erro_ms": 7.6
+    },
+    {
+     "tipo": "wipe",
+     "som": "whoosh_sint_largo",
+     "t_pico_kit": 3,
+     "pico_esperado_s": 3.0,
+     "pico_medido_s": 3.0009,
+     "erro_ms": 0.9
+    },
+    {
+     "tipo": "zoom",
+     "som": "whoosh_capitulo_remotion",
+     "t_pico_kit": 4,
+     "pico_esperado_s": 4.0,
+     "pico_medido_s": 4.0045,
+     "erro_ms": 4.5
+    }
+   ],
+   "falhas": []
+  },
+  "hyperframes": {
+   "motor": "hyperframes",
+   "eventos": [
+    {
+     "tipo": "corte",
+     "som": "impacto_fs751347",
+     "t_pico_kit": 1,
+     "pico_esperado_s": 1.0,
+     "pico_medido_s": 1.0006,
+     "erro_ms": 0.6
+    },
+    {
+     "tipo": "wipe",
+     "som": "whoosh_sint_largo",
+     "t_pico_kit": 3,
+     "pico_esperado_s": 3.0,
+     "pico_medido_s": 2.9939,
+     "erro_ms": -6.1
+    },
+    {
+     "tipo": "zoom",
+     "som": "whoosh_capitulo_remotion",
+     "t_pico_kit": 4,
+     "pico_esperado_s": 4.0,
+     "pico_medido_s": 4.0075,
+     "erro_ms": 7.5
+    }
+   ],
+   "falhas": []
+  }
+ },
+ "remotion_vs_hyperframes": {
+  "media": 0.0,
+  "pior": {
+   "q": 300,
+   "dif": 0.0
+  }
+ },
+ "falhas": []
+}

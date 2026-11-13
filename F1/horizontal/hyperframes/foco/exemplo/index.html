@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<!-- Exemplo mínimo HyperFrames do kit/foco: a mesma cena do Remotion (kit/foco/exemplo/cena.json).
+     F1/horizontal/testes/foco/rodar.py monta a pasta do projeto copiando para assets/:
+     foco.global.js (kit), camada.js (adaptador) e cena.js (window.__CENA; window.__SEM_FOCO = referência sem a camada). -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="assets/foco.global.js"></script>
+<script src="assets/camada.js"></script>
+<script src="assets/cena.js"></script>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #f3f1ec; }
+  #root { position: absolute; inset: 0; }
+  svg, #foco { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="6.0166667" data-fps="60" data-width="1920" data-height="1080">
+  <div id="palco" class="clip" data-start="0" data-duration="6.0166667" data-track-index="1" style="position:absolute;inset:0;background:#f3f1ec">
+    <svg id="cenario" width="1920" height="1080" viewBox="0 0 1920 1080"><g id="fundo"></g><g id="carro"></g></svg>
+    <div id="foco"></div>
+  </div>
+</div>
+<script>
+  (function () {
+    var cena = window.__CENA;
+    document.getElementById("fundo").innerHTML = cena.fundo_svg;
+    var carro = document.getElementById("carro");
+    carro.innerHTML = cena.carro_svg;
+    var trilha = { caixa: { x: 0, y: 0, w: 0, h: 0 }, movimento: cena.movimento };
+    var camada = window.__SEM_FOCO ? null : CamadaFoco.criar(document.getElementById("foco"), Foco.montarFoco(cena));
+    function render(t) {
+      var a = Foco.ancoraEm(trilha, t);
+      carro.setAttribute("transform", "translate(" + a.dx + " " + a.dy + ")");
+      if (camada) camada.render(t);
+    }
+    var estado = { t: 0 };
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+    tl.to(estado, { t: 6.0166667, duration: 6.0166667, ease: "none", onUpdate: function () { render(estado.t); } }, 0);
+    window.__timelines["main"] = tl;
+    render(0);
+  })();
+</script>
+</body>
+</html>
