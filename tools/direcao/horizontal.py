@@ -20,9 +20,10 @@ from pathlib import Path
 from canal import CANAL, RAIZ, caminho
 from claude_cli import chamar_json
 import vertical
-from vertical import FPS, _briefing, frases, localizar
+from vertical import _briefing, frases, localizar
 
 CFG = CANAL.get("horizontal", {})
+FPS = int(CFG.get("fps", 30))  # quadros por segundo do horizontal (igual ao Root.tsx); o vertical tem o seu
 MODELO = CFG.get("modelo", "sonnet")
 TIPOS = {"estudio", "pista", "pessoa", "capitulo", "solta"}
 MODOS = {"claro", "cheio", "escuro", "tecnico"}
@@ -476,8 +477,11 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
                                      and p.get("nome") in aprovadas else p for p in direcao["planos"]]}
     pr = props(direcao, palavras)
     return vertical.renderizar(trabalho, direcao, palavras, saida, progresso, composicao=CFG.get("composicao", "Horizontal"),
-                               props=pr, cache_nome="blocos_horizontal", concorrencia=2)
+                               props=pr, cache_nome="blocos_horizontal", concorrencia=2, fps=FPS)
 
 
 gerar_musica = vertical.gerar_musica
-remixar = vertical.remixar
+
+
+def remixar(trabalho: Path, direcao: dict, palavras: list[dict], base: Path, saida: Path) -> None:
+    vertical.remixar(trabalho, direcao, palavras, base, saida, FPS)

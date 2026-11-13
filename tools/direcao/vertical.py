@@ -292,7 +292,7 @@ def quadros(trabalho: Path, direcao: dict, palavras: list[dict], ids: set[str] |
             continue
         ini = 0 if n == 0 else palavras[p["i"]]["i"]
         fim = palavras[planos[n + 1]["i"]]["i"] if n + 1 < len(planos) else fim_fala
-        alvos.append((n, p, int((ini + (fim - ini) * 0.6) * 30)))
+        alvos.append((n, p, int((ini + (fim - ini) * 0.6) * FPS)))
     props = trabalho / "vertical_props_conferencia.json"
     props.write_text(json.dumps(_props(direcao, palavras), ensure_ascii=False), encoding="utf-8")
     pedido = trabalho / "quadros_pedido.json"
@@ -471,7 +471,7 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
     return conferir(nova, palavras, briefing, trabalho if mudou else None, aviso, mudou)
 
 # ------------------------------------------------------------------------------------------------ render
-FPS = 30
+FPS = int(CFG.get("fps", 60))  # quadros por segundo do vertical (canal.toml [vertical] fps; igual ao Root.tsx). Tempos das cenas em segundos
 
 
 def _fonte_remotion(projeto: Path) -> str:
@@ -492,12 +492,12 @@ def _corte(pid: str) -> bool:
         return int(hashlib.sha1(pid.encode()).hexdigest()[:6], 16) % 3 == 0
 
 
-def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
+def blocos(direcao: dict, palavras: list[dict], fonte: str = "", fps: int = FPS) -> list[dict]:
     """Planos agrupados em blocos de ~3 planos (corte decidido pelo id do plano, não pela posição: inserir ou tirar um
     plano não muda os blocos dos outros). Cada bloco = intervalo de quadros + impressão do que aparece nele."""
     planos = direcao["planos"]
-    total = math.ceil((palavras[-1]["f"] + 0.35) * FPS)
-    q = [0] + [min(total, math.ceil(palavras[p["i"]]["i"] * FPS - 1e-6)) for p in planos[1:]] + [total]
+    total = math.ceil((palavras[-1]["f"] + 0.35) * fps)
+    q = [0] + [min(total, math.ceil(palavras[p["i"]]["i"] * fps - 1e-6)) for p in planos[1:]] + [total]
     comum = hashlib.sha1(json.dumps([[w["t"], w["i"], w["f"]] for w in palavras] + [direcao.get("chaves", []), fonte],
                                     ensure_ascii=False).encode()).hexdigest()
     saida, atual = [], []
@@ -510,7 +510,7 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "") -> list[dict]:
                 sem_som = [{c: v for c, v in planos[k].items() if c not in ("som", "sons")} for k in atual]
                 if n + 1 < len(planos) and planos[n + 1].get("entrada"):  # horizontal: a transição da próxima cena começa neste bloco
                     sem_som.append({"proxima_entrada": planos[n + 1]["entrada"]})
-                chave = json.dumps({"planos": sem_som, "q": [ini, fim], "comum": comum}, sort_keys=True,
+                chave = json.dumps({"planos": sem_som, "q": [ini, fim], "fps": fps, "comum": comum}, sort_keys=True,
                                    ensure_ascii=False)
                 saida.append({"inicio": ini, "fim": fim, "planos": [planos[k]["id"] for k in atual],
                               "impressao": hashlib.sha1(chave.encode()).hexdigest()[:16]})
@@ -649,10 +649,10 @@ def arquivo_musica(projeto: Path) -> Path | None:
     return gerada if gerada and gerada.exists() else None
 
 
-def _com_audio(video: list[str], trabalho: Path, direcao: dict, palavras: list[dict], saida: Path) -> None:
+def _com_audio(video: list[str], trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, fps: int = FPS) -> None:
     """Vídeo (sem recomprimir) + áudio: voz, efeitos (2 quadros antes da palavra, ~15 dB abaixo da voz) e, se ligada,
     a música de fundo em laço, baixa e com ducking (abaixa sozinha enquanto alguém fala), entrando e saindo em fade."""
-    total = math.ceil((palavras[-1]["f"] + 0.35) * FPS) / FPS
+    total = math.ceil((palavras[-1]["f"] + 0.35) * fps) / fps
     efeitos = sons(direcao, palavras, trabalho)
     musica = arquivo_musica(trabalho.parent)
     entradas = [*video, "-i", str(trabalho / "voz.wav")]
@@ -687,9 +687,9 @@ def _com_audio(video: list[str], trabalho: Path, direcao: dict, palavras: list[d
         raise RuntimeError("mixagem do áudio falhou: " + r.stderr[-600:])
 
 
-def remixar(trabalho: Path, direcao: dict, palavras: list[dict], base: Path, saida: Path) -> None:
+def remixar(trabalho: Path, direcao: dict, palavras: list[dict], base: Path, saida: Path, fps: int = FPS) -> None:
     """Só o áudio de novo (ex.: música ligada/trocada): a imagem do vídeo `base` é copiada, sem renderizar."""
-    _com_audio(["-i", str(base)], trabalho, direcao, palavras, saida)
+    _com_audio(["-i", str(base)], trabalho, direcao, palavras, saida, fps)
 
 
 def gerar_musica(projeto: Path, segundos: float, aviso=lambda m: None) -> Path | None:
@@ -716,7 +716,7 @@ def gerar_musica(projeto: Path, segundos: float, aviso=lambda m: None) -> Path |
 
 
 def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, progresso=None, composicao: str | None = None,
-               props: dict | None = None, cache_nome: str = "blocos_vertical", concorrencia: int = 3) -> float:
+               props: dict | None = None, cache_nome: str = "blocos_vertical", concorrencia: int = 3, fps: int = FPS) -> float:
     """Render por blocos com cache (como no Runeterra): só os blocos com plano alterado são renderizados de novo; a
     voz entra no FFmpeg, sem recomprimir o vídeo. A pasta trabalho/ do vídeo (com voz.wav) é a pasta pública do Remotion."""
     projeto = RAIZ / CFG.get("projeto", "")
@@ -726,7 +726,7 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
     arq_props.write_text(json.dumps(_props(direcao, palavras) if props is None else props, ensure_ascii=False), encoding="utf-8")
     # props entram na impressão dos blocos: no horizontal elas trazem dados que não estão nos planos (paleta, carro)
     lista = blocos(direcao, palavras, _fonte_remotion(projeto) + ("" if props is None else json.dumps(
-        {k: v for k, v in props.items() if k != "cenas"}, sort_keys=True)))
+        {k: v for k, v in props.items() if k != "cenas"}, sort_keys=True)), fps)
     faltam = [b for b in lista if not (cache / f"{b['impressao']}.mp4").exists()]
     inicio = time.time()
     if faltam:
@@ -750,8 +750,7 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
     saida.parent.mkdir(parents=True, exist_ok=True)
     juntar = trabalho / "render_blocos.txt"
     juntar.write_text("".join(f"file '{(cache / (b['impressao'] + '.mp4')).as_posix()}'\n" for b in lista), encoding="utf-8")
-    total = math.ceil((palavras[-1]["f"] + 0.35) * FPS) / FPS
-    _com_audio(["-f", "concat", "-safe", "0", "-i", str(juntar)], trabalho, direcao, palavras, saida)
+    _com_audio(["-f", "concat", "-safe", "0", "-i", str(juntar)], trabalho, direcao, palavras, saida, fps)
     # o cache guarda os blocos desta versão e os da anterior (para voltar atrás sem renderizar)
     usados = {b["impressao"] for b in lista}
     anterior = trabalho.parent / f"{cache_nome}.json"

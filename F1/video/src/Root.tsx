@@ -7,6 +7,8 @@ import { TesteCorrida } from "./TesteCorrida";
 import { DEMO_HORIZONTAL, Horizontal, medirHorizontal } from "./horizontal/Horizontal";
 import { Vertical, type PropsVertical } from "./Vertical";
 
+export const VERTICAL_FPS = 60;
+
 // Projeto Remotion só do Explicando F1. Não importa nada de app/video nem de outro canal.
 export const Root: React.FC = () => (
   <>
@@ -20,13 +22,14 @@ export const Root: React.FC = () => (
       defaultProps={{ pista: "interlagos_sao_paulo.glb", carro: "ferrari_sf26.glb", fundo: "#dcd9d2", destaque: "#f2c230" }} />
     <Composition id="Horizontal" component={Horizontal} durationInFrames={1500} fps={30} width={1920} height={1080}
       defaultProps={DEMO_HORIZONTAL} calculateMetadata={medirHorizontal} />
+    {/* vertical a 60 fps (decisão do Felipe, 2026-11-12); igual a [vertical] fps no F1/canal.toml */}
     <Composition
       id="Vertical"
       component={Vertical}
       defaultProps={{ palavras: [{ t: "", i: 0, f: 1 }], planos: [{ id: "a", i: 0, tipo: "voo_grid" }], audio: "voz.wav" } as PropsVertical}
-      calculateMetadata={({ props }) => ({ durationInFrames: Math.ceil((props.palavras[props.palavras.length - 1].f + 0.35) * 30) })}
-      durationInFrames={30}
-      fps={30}
+      calculateMetadata={({ props }) => ({ durationInFrames: Math.ceil((props.palavras[props.palavras.length - 1].f + 0.35) * VERTICAL_FPS) })}
+      durationInFrames={VERTICAL_FPS}
+      fps={VERTICAL_FPS}
       width={1080}
       height={1920}
     />

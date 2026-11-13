@@ -15,6 +15,7 @@ sfx = ["clique", "seletor", "radio", "whoosh", "pop", "alerta"]   # efeitos sono
 [vertical]                                  # animação do vídeo vertical: projeto Remotion do canal + catálogo do diretor
 projeto = "F1/video"
 composicao = "Vertical"
+fps = 60                                    # igual ao Root.tsx (VERTICAL_FPS); tempos das cenas sempre em segundos
 catalogo = "catalogo_vertical.md"           # em F1/docs; a 1ª coluna da tabela = tipos válidos
 
 [horizontal]                                # vídeo longo animado (F1/docs/folha_horizontal.md): sua voz gravada + diretor do horizontal
