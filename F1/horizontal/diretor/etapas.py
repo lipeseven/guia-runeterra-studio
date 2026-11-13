@@ -118,6 +118,29 @@ def aprovar(pasta: Path, etapa: str) -> dict:
     return estado
 
 
+def ajustar(pasta: Path, etapa: str, dados: dict, evento: str) -> dict:
+    """Ação direta do Felipe no arquivo da etapa (storyboard → spec.json): grava e atualiza o hash SEM mudar o status
+    (aprovado continua aprovado: quem mexeu foi ele). As etapas depois dela que já tinham saído ficam `desatualizado`
+    (o painel roda Ativos/Verificação de novo na hora; o Rascunho espera a próxima montagem)."""
+    pasta = Path(pasta)
+    estado = ler(pasta)
+    reg = estado["etapas"][etapa]
+    if reg["status"] not in ("gerado", "aprovado"):
+        raise ValueError(f"{etapa} está '{reg['status']}': ação direta só em {etapa} gerada/aprovada")
+    gravar_json(pasta / ARQUIVO[etapa], dados)
+    h = hash_dados(dados)
+    if reg.get("hash") != h:
+        reg["hash"], reg["atualizado_em"] = h, agora()
+        if reg["status"] == "aprovado":
+            reg["aprovado_em"] = agora()
+        for n in NOMES[NOMES.index(etapa) + 1:]:
+            if estado["etapas"][n]["status"] in ("gerado", "aprovado", "falhou"):
+                estado["etapas"][n]["status"] = "desatualizado"
+    _log(estado, f"{etapa}: ajuste direto — {evento}")
+    gravar(pasta, estado)
+    return estado
+
+
 def pedir(pasta: Path, etapa: str, texto: str, cena: str | None = None) -> dict:
     """Pedido de mudança do Felipe (por cena na SPEC). A etapa volta para `mudanca_pedida`."""
     estado = ler(pasta)

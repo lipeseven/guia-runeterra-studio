@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api, useAoVivo } from '../api'
+import { StoryboardDoc } from './StoryboardDoc'
 
 /** Documentário horizontal (card formato "horizontal_doc"): o diretor documental do canal, pelo estado.json.
  *  História ★ → SPEC ★ → Ativos → Verificação → Rascunho ★. O painel não chama o Claude: o que precisa do modelo
@@ -179,6 +180,16 @@ export function PainelDocumental({ videoId, aoMudar }: { videoId: number; aoMuda
                 : d.estado.etapas.rascunho?.resumo ?? 'Montador disponível: “Montar rascunho” confere os ativos e monta (1280×720, 60 q/s).'}
             </p>
             {d.rascunho_video && <video key={d.rascunho_video} controls className="w-full rounded" src={`/api/arquivo?caminho=${encodeURIComponent(d.rascunho_video)}`} />}
+            {d.spec && (
+              <div className="pt-2">
+                <h3 className="mb-1 text-xs font-semibold text-texto">Storyboard (por cena)</h3>
+                <p className="mb-2 text-[11px] text-apagado">
+                  Câmera, entrada, corte e SFX mudam na hora (sem o Claude) e só a cena afetada renderiza de novo. O resto, peça por texto ou voz: vai para o orquestrador, só desta cena.
+                </p>
+                {/* ação no storyboard reroda Ativos/Verificação: a aba fica no Rascunho (não pula para a etapa atual) */}
+                <StoryboardDoc videoId={videoId} pedidos={d.estado.pedidos} aoMudar={() => { setAba('rascunho'); aoMudar() }} />
+              </div>
+            )}
           </div>
         )}
       </div>

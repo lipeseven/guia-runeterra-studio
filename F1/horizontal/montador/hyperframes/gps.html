@@ -13,6 +13,7 @@
   html, body { width: __W__px; height: __H__px; overflow: hidden; background: #e9e9e6; }
   #root { width: 100%; height: 100%; position: relative; background: #e9e9e6; }
   #tela { position: absolute; left: 0; top: 0; width: __W__px; height: __H__px; }
+  #root { overflow: hidden; }
 </style>
 </head>
 <body>
@@ -38,7 +39,16 @@
   import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/+esm";
   import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/loaders/GLTFLoader.js/+esm";
   import { montarCena } from "./assets/kit/gps/exemplo/cena_exemplo.js";
+  import { movimento, transformCss } from "./assets/movimento.js";
   const cfg = window.__CFG, host = window.__cenaGps;
+  const tela = document.getElementById("tela");
+  // câmera da cena inteira (ação direta do storyboard): o mesmo cálculo da cena Remotion (montador/movimento.js)
+  const mover = (tau) => {
+    if (!cfg.movimento || cfg.movimento.tipo === "parado") return;
+    const css = transformCss(movimento(cfg.movimento, (tau * 60) / Math.max(1, (cfg.L || cfg.quadros) - 1)));
+    tela.style.transformOrigin = css.transformOrigin;
+    tela.style.transform = css.transform;
+  };
   const voltas = await Promise.all(cfg.voltas.map((v) => fetch(`assets/${v.arquivo}`).then((r) => r.json())));
   const ld = new GLTFLoader();
   const carros = await Promise.all(cfg.voltas.map((v) => ld.loadAsync(`assets/${v.carro}`)));
@@ -50,7 +60,7 @@
   if (cfg.pista.glb) o.pista = (await ld.loadAsync(`assets/${cfg.pista.glb}`)).scene;
   else o.pistaPlana = await fetch(`assets/${cfg.pista.plana}`).then((r) => r.json());
   const cena = montarCena(THREE, o);
-  host.desenhar = (t) => cena.desenhar(Math.max(0, t - cfg.pre / 60));
+  host.desenhar = (t) => { const tau = Math.max(0, t - cfg.pre / 60); cena.desenhar(tau); mover(tau); };
   host.desenhar(host.relogio.t);
   host.pronto();
 </script>

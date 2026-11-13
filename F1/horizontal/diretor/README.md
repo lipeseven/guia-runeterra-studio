@@ -23,6 +23,7 @@ roteiro.txt + palavras.json ─▶ historia.py ─▶ historia.json ★ ─▶ s
 | `verificar.py` | checagens automáticas da SPEC (lista abaixo); grava `verificacao/verificacao.json`; sai 1 se houver erro |
 | `etapas.py` | fluxo e `estado.json` (gerado/aprovado/desatualizado, pedidos, histórico) |
 | `painel.py` | ponte com o painel (JSON pela entrada/saída padrão) e `aplicar` do orquestrador; ver `../docs/painel.md` |
+| `ajustes.py` | ações diretas do storyboard (movimento, transição, corte/fim, SFX, escolhas fechadas do kit) aplicadas na SPEC sem modelo; gravadas por `etapas.ajustar` (SPEC segue aprovada, etapas seguintes desatualizadas); campo novo da cena: `movimento` {tipo, intensidade?, foco?} |
 | `comum.py` | caminhos, palavras e âncoras (mesma regra do `tools/direcao/vertical.py`), cache por prompt, **registro dos kits** (`KITS`) |
 | `esquema.py` | validador de JSON Schema (subconjunto, sem dependência; o `.venv` não tem `jsonschema`) |
 | `esquemas/*.schema.json` | JSON Schema de `historia`, `spec`, `ativos` e `estado` (padrão draft 2020-12) |

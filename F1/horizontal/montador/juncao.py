@@ -120,9 +120,19 @@ def pecas(cenas: list[dict], trechos: list[dict], est: list[dict | None], largur
     return out
 
 
-def encodar_final(pcs: list[dict], audio: Path | None, saida: Path, largura: int, altura: int, rascunho: bool, tmp: Path) -> str:
+def parametros_codec(cod: str, rascunho: bool) -> list[str]:
+    """Parâmetros fixos por codificador: todos os blocos de um vídeo saem iguais (concat sem recodificar). Sem quadros B
+    (`-bf 0`): cada bloco começa e termina limpo no relógio de 60 q/s."""
+    if cod == "h264_nvenc":
+        return ["h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "19" if rascunho else "16", "-b:v", "0", "-bf", "0"]
+    return ["libx264", "-preset", "veryfast" if rascunho else "slow", "-crf", "18" if rascunho else "15", "-bf", "0"]
+
+
+def encodar_final(pcs: list[dict], audio: Path | None, saida: Path, largura: int, altura: int, rascunho: bool, tmp: Path,
+                  codec: str | None = None) -> str:
     """UMA passada do ffmpeg: trims dos trechos + quadros das transições → concat → setpts por quadro (60 q/s CFR) +
-    o áudio da mixagem. Filtro longo vai por arquivo (`-/filter_complex`). Devolve o codificador usado."""
+    o áudio da mixagem. Filtro longo vai por arquivo (`-/filter_complex`). Devolve o codificador usado.
+    `codec` fixa o codificador (blocos: todos iguais); sem ele, NVENC e x264 se falhar."""
     entradas, filtros, rot = [], [], []
     for k, p in enumerate(pcs):
         if p["tipo"] == "trecho":
@@ -140,8 +150,8 @@ def encodar_final(pcs: list[dict], audio: Path | None, saida: Path, largura: int
     if audio:
         entradas += ["-i", str(audio)]
         mapa += ["-map", f"{len(pcs)}:a", "-c:a", "aac", "-b:a", "256k" if rascunho else "320k", "-ar", "48000"]
-    for cod in (["h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "19" if rascunho else "16", "-b:v", "0"],
-                ["libx264", "-preset", "veryfast" if rascunho else "slow", "-crf", "18" if rascunho else "15"]):
+    opcoes = [codec] if codec else ["h264_nvenc", "libx264"]
+    for cod in [parametros_codec(c, rascunho) for c in opcoes]:
         cmd = ["ffmpeg", "-y", "-v", "error", *entradas, "-/filter_complex", str(script), *mapa, "-c:v", *cod,
                "-pix_fmt", "yuv420p", "-r", str(FPS), "-fps_mode", "cfr", "-g", "120", "-movflags", "+faststart", str(saida)]
         r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")

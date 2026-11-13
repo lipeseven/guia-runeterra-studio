@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import tempfile
 from pathlib import Path
 
 from PIL import ImageFont
@@ -53,8 +54,27 @@ def dados_f1() -> Path:
     return HORIZ.parent / "dados"
 
 
+_MEMO_HASH = Path(tempfile.gettempdir()) / "f1_horizontal_hash_arquivos.json"   # o storyboard planeja a cada leitura
+
+
 def hash_arquivo(p: Path) -> str:
-    return hashlib.sha1(Path(p).read_bytes()).hexdigest()[:16]
+    """sha1 do conteúdo; arquivos grandes (modelos 3D) lembrados por caminho + tamanho + data (não relê a cada plano)."""
+    p = Path(p)
+    st = p.stat()
+    if st.st_size < 2_000_000:
+        return hashlib.sha1(p.read_bytes()).hexdigest()[:16]
+    chave = f"{p.resolve()}|{st.st_size}|{st.st_mtime_ns}"
+    try:
+        memo = json.loads(_MEMO_HASH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        memo = {}
+    if chave not in memo:
+        memo[chave] = hashlib.sha1(p.read_bytes()).hexdigest()[:16]
+        try:
+            _MEMO_HASH.write_text(json.dumps(memo), encoding="utf-8")
+        except OSError:
+            pass
+    return memo[chave]
 
 
 def _volta(v) -> str:
@@ -228,6 +248,8 @@ def receita(cena: dict, palavras: list[dict], pre: int, pos: int) -> dict:
             camadas.append(c)
             arquivos += a
         job["props"] = {"quadros": quadros, "pre": pre, "camadas": camadas}
+        if cena.get("movimento"):   # câmera da cena inteira (ação direta do storyboard; montador/movimento.js)
+            job["props"].update(movimento=cena["movimento"], L=quadros - pre - pos)
     elif motor == "hyperframes":
         outros = [k for k in kits if k != "gps"]
         if outros:
@@ -236,12 +258,15 @@ def receita(cena: dict, palavras: list[dict], pre: int, pos: int) -> dict:
             raise SemReceita("mais de um uso de gps na mesma cena: junte os carros em um só")
         cfg, assets, a = _gps(cena, usos[0]["params"], dur)
         cfg.update({"quadros": quadros, "pre": pre})
+        if cena.get("movimento"):
+            cfg.update(movimento=cena["movimento"], L=quadros - pre - pos)
         job["cfg"] = cfg
         job["assets"] = {k: str(v) for k, v in assets.items()}
         arquivos += a
     else:
         raise SemReceita(f"motor desconhecido: {motor}")
-    codigo = sorted({str(f) for k in kits for f in FONTES_CODIGO.get((motor, k), [])} | {str(AQUI / "receitas.py"), str(AQUI / "segmentos.py")})
+    codigo = sorted({str(f) for k in kits for f in FONTES_CODIGO.get((motor, k), [])}
+                    | {str(AQUI / "receitas.py"), str(AQUI / "segmentos.py"), str(AQUI / "movimento.js")})
     h = hashlib.sha1()
     h.update(json.dumps({k: v for k, v in job.items() if k not in ("assets",)}, sort_keys=True, ensure_ascii=False).encode())
     for f in sorted({str(x) for x in arquivos}) + codigo:

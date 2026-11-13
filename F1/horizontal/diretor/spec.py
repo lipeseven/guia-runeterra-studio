@@ -97,7 +97,7 @@ def normalizar(bruto, palavras: list[dict], historia: dict, roteiro: str, tempos
             pref = [KITS[u.get("kit")].get("prefere") for u in c["kits"] if u.get("kit") in KITS]
             c["motor"] = "hyperframes" if "hyperframes" in pref else "remotion"
             avisos.append(f"cena {c['id']}: motor '{b.get('motor')}' inválido/ausente, ficou {c['motor']} (pelos kits)")
-        for k in ("camera", "aceitar_nao_validado", "notas"):
+        for k in ("camera", "movimento", "aceitar_nao_validado", "notas"):
             if b.get(k):
                 c[k] = b[k]
         for s in b.get("sfx") or []:
