@@ -1,0 +1,27 @@
+{
+  "titulo": "Por que Leclerc foi mais rápido que Hamilton em Monza?",
+  "tese": "Com o mesmo carro, Leclerc ganhou a volta nas frenagens e retomadas dos setores 2 e 3, não nas retas.",
+  "capitulos": [
+    {"titulo": "A pergunta", "funcao": "gancho", "ritmo": "denso", "em": "Por que a Ferrari"},
+    {"titulo": "Mesmo carro, duas voltas", "funcao": "contexto", "ritmo": "respiro", "em": "Na classificação de 2025,"},
+    {"titulo": "Setor por setor", "funcao": "evidencia", "ritmo": "denso", "em": "No primeiro setor, Hamilton"},
+    {"titulo": "Onde a volta se decide", "funcao": "desfecho", "ritmo": "respiro", "em": "No fim, a volta"}
+  ],
+  "afirmacoes": [
+    {"texto": "Leclerc marcou 1:19,007 na volta 16 da classificação", "em": "Leclerc marcou 1:19,007", "tipo": "tempo_volta",
+     "verificavel": true, "sessao": 9908, "carros": [{"piloto": 16, "volta": 16}], "valor": 79.007, "unidade": "s", "fonte": "OpenF1 /laps"},
+    {"texto": "Hamilton marcou 1:19,124 na volta 16", "em": "Hamilton fez 1:19,124,", "tipo": "tempo_volta",
+     "verificavel": true, "sessao": 9908, "carros": [{"piloto": 44, "volta": 16}], "valor": 79.124, "unidade": "s", "fonte": "OpenF1 /laps"},
+    {"texto": "A diferença entre as duas voltas foi de 0,117 s", "em": "A diferença foi de", "tipo": "diferenca",
+     "verificavel": true, "sessao": 9908, "carros": [{"piloto": 16, "volta": 16}, {"piloto": 44, "volta": 16}], "valor": 0.117, "unidade": "s", "fonte": "OpenF1 /laps"},
+    {"texto": "Hamilton foi mais rápido no setor 1", "em": "Hamilton chegou na frente.", "tipo": "setor", "setor": 1,
+     "verificavel": true, "sessao": 9908, "carros": [{"piloto": 44, "volta": 16}, {"piloto": 16, "volta": 16}], "valor": 0.046, "unidade": "s", "fonte": "OpenF1 /laps"},
+    {"texto": "Leclerc ganhou 0,104 s no setor 2", "em": "Leclerc ganhou 0,104 segundo", "tipo": "setor", "setor": 2,
+     "verificavel": true, "sessao": 9908, "carros": [{"piloto": 16, "volta": 16}, {"piloto": 44, "volta": 16}], "valor": 0.104, "unidade": "s", "fonte": "OpenF1 /laps"},
+    {"texto": "Leclerc ganhou mais 0,059 s no setor 3", "em": "mais 0,059 na saída", "tipo": "setor", "setor": 3,
+     "verificavel": true, "sessao": 9908, "carros": [{"piloto": 16, "volta": 16}, {"piloto": 44, "volta": 16}], "valor": 0.059, "unidade": "s", "fonte": "OpenF1 /laps"},
+    {"texto": "A volta se decide nas frenagens e retomadas", "em": "onde o carro freia", "tipo": "contexto", "verificavel": false},
+    {"texto": "afirmação com trecho inventado (deve sair com aviso)", "em": "Verstappen venceu a corrida", "tipo": "contexto", "verificavel": false}
+  ],
+  "fontes": ["OpenF1 (api.openf1.org) /v1/laps e /v1/car_data, Qualifying Monza 2025 (session_key 9908)"]
+}

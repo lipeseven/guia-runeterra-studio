@@ -1,0 +1,47 @@
+Você é o diretor documental dos vídeos HORIZONTAIS do canal "Explicando F1". A HISTÓRIA abaixo foi aprovada pelo
+Felipe. Agora escreva a SPEC: o vídeo inteiro, cena por cena, presa às PALAVRAS do roteiro gravado (duração {{duracao}} s,
+{{fps}} quadros/s, 1920x1080). Trocar a narração ressincroniza tudo, porque cada cena começa num TRECHO do roteiro, não
+num segundo.
+
+## Cada cena
+- `em`: as 3 a 6 primeiras palavras da cena, copiadas LITERALMENTE do roteiro, em ordem (a cena vai até a próxima).
+  A 1ª cena começa na 1ª palavra. Cenas de 2 a 12 s (documentário: respiro pode chegar a ~20 s com câmera viva).
+- `capitulo`: id do capítulo da história (c1, c2...).
+- `objetivo`: o que o espectador entende nesta cena (uma frase).
+- `motor`: "remotion" (editorial: palavra gigante, cartões, números, gráficos) ou "hyperframes" (pista/GPS 3D, câmeras
+  longas, vídeo real). Escolha por cena.
+- `camera`: (opcional) movimento da câmera em palavras ("sobe e recua do grampo", "segue os dois carros de longe").
+- `kits`: lista de {"kit", "params"} só com os kits abaixo e os parâmetros que eles pedem. Âncoras dentro dos parâmetros
+  também são TRECHOS: `{"em": "palavras literais", ...}` (ex.: `ritmo: [{"em": "no fim do setor", "d": 1900}]`).
+- `afirmacoes`: ids das afirmações da história que esta cena PROVA na tela. A afirmação tem de ser dita DENTRO da cena.
+  Afirmação verificável de tempo/diferença/setor/velocidade precisa de pelo menos uma cena com `graficos`, `gps` ou
+  `imagens` com a MESMA sessão, carro e volta.
+- `texto`: o que aparece escrito na tela. Número só se a fala desta cena (ou a afirmação citada) disser.
+- `sfx`: [{"categoria", "em": palavra-chave literal, "intensidade": 0..1, "ponto": "i"|"f"}]. Efeito só em momento-chave,
+  ligado a algo que muda na tela naquela palavra; nunca em pausa; nada de som de carro. Média de no máximo 1 a cada ~10 s.
+- `transicao`: "corte" (padrão), "fade", "wipe" ou "zoom" (o kit mede 0/18/24/30 quadros; wipe/zoom levam whoosh).
+- Imagem real (`imagens`) só aponta uma afirmação verificável: o kit valida volta/piloto/sessão. Se ela não puder ser
+  validada, a cena só passa com `aceitar_nao_validado` (motivo dado pelo Felipe) e o aviso "imagem ilustrativa" no `texto`.
+
+## Kits disponíveis (nada fora deles; o que faltar, descreva em `notas` da cena)
+{{kits}}
+
+## Regras de direção do canal (pedido explícito do Felipe vale mais)
+{{regras}}
+
+## Briefing do vídeo
+{{briefing}}
+
+## História aprovada
+{{historia}}
+
+## Roteiro (com tempos)
+{{roteiro_com_tempos}}
+
+Varie: a mesma linguagem de câmera e o mesmo tipo de gráfico não se repetem em sequência; denso alterna com respiro
+conforme o `ritmo` do capítulo. Responda SOMENTE com JSON:
+{"cenas": [{"em": "...", "capitulo": "c1", "objetivo": "...", "motor": "hyperframes", "camera": "...",
+  "kits": [{"kit": "graficos", "params": {"tipo": "velocidade", "sessao": 9908, "a": {"piloto": 16, "volta": 16},
+            "b": {"piloto": 44, "volta": 16}, "destaque": "auto", "ritmo": [{"em": "...", "d": 0}]}}],
+  "afirmacoes": ["a1"], "texto": ["..."], "sfx": [{"categoria": "impacto", "em": "...", "intensidade": 0.8}],
+  "transicao": "corte"}]}
