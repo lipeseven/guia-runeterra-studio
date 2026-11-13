@@ -91,6 +91,13 @@ def conectar() -> sqlite3.Connection:
     return con
 
 
+def _formato(formato: str) -> str:
+    """vertical | horizontal | horizontal_doc (este só no canal com `[horizontal_doc]`); qualquer outro = horizontal."""
+    if formato == "vertical" or (formato == "horizontal_doc" and CANAL.get("horizontal_doc")):
+        return formato
+    return "horizontal"
+
+
 def criar_video(con: sqlite3.Connection, titulo: str, coluna: str = "ideia", capa: str | None = None,
                 formato: str = "horizontal") -> int:
     base, n = slugify(titulo), 1
@@ -101,8 +108,9 @@ def criar_video(con: sqlite3.Connection, titulo: str, coluna: str = "ideia", cap
     ordem = (con.execute("SELECT MAX(ordem) FROM videos WHERE coluna=?", (coluna,)).fetchone()[0] or 0) + 1
     vid = con.execute(
         "INSERT INTO videos (titulo, slug, coluna, ordem, capa, criado_em, atualizado_em, formato) VALUES (?,?,?,?,?,?,?,?)",
-        (titulo, slug, coluna, ordem, capa, agora(), agora(), "vertical" if formato == "vertical" else "horizontal")).lastrowid
-    em_breve = EM_BREVE_VERTICAL if formato == "vertical" or CANAL.get("horizontal") else EM_BREVE
+        (titulo, slug, coluna, ordem, capa, agora(), agora(), _formato(formato))).lastrowid
+    formato = _formato(formato)
+    em_breve = EM_BREVE_VERTICAL if formato != "horizontal" or CANAL.get("horizontal") else EM_BREVE
     for e in etapas_do_formato(formato):
         con.execute("INSERT INTO etapas (video_id, chave, status, atualizado_em) VALUES (?,?,?,?)",
                     (vid, e["chave"], "em_breve" if e["chave"] in em_breve else "pendente", agora()))

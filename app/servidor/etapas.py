@@ -35,10 +35,27 @@ ETAPAS_HORIZONTAL_ANIMADO = [
 ]
 
 
+# Horizontal DOCUMENTAL (canal com `[horizontal_doc]` no canal.toml): o fluxo do diretor documental
+# (F1/horizontal/diretor/etapas.py, estado.json da pasta <projeto>/horizontal/) espelhado nos cards; ver horizontal_doc.py.
+# Narração = mesma etapa "voz_ia" do animado (sua gravação, limpa e medida). ★ = aprovação no painel.
+ETAPAS_HORIZONTAL_DOC = [
+    {"chave": "roteiro", "titulo": "Roteiro", "descricao": "Texto final e fatos conferidos"},
+    {"chave": "voz_ia", "titulo": "Narração", "descricao": "Sua gravação, limpa e medida"},
+    {"chave": "historia", "titulo": "História ★", "descricao": "Capítulos e afirmações presos ao roteiro"},
+    {"chave": "spec", "titulo": "SPEC ★", "descricao": "Cenas por palavra, motor e kits"},
+    {"chave": "ativos", "titulo": "Ativos", "descricao": "Dados OpenF1, imagens validadas, 3D, SFX"},
+    {"chave": "verificacao", "titulo": "Verificação", "descricao": "Checagens automáticas da SPEC"},
+    {"chave": "rascunho_doc", "titulo": "Rascunho ★", "descricao": "Montagem em baixa resolução"},
+    {"chave": "publicacao", "titulo": "Publicação", "descricao": "Título, descrição e créditos"},
+]
+
+
 def etapas_do_formato(formato: str, chaves: set[str] | None = None) -> list[dict]:
     """`chaves` = etapas que o card já tem: card horizontal criado antes do fluxo animado continua no fluxo antigo."""
     if formato == "vertical":
         return ETAPAS_VERTICAL
+    if formato == "horizontal_doc":
+        return ETAPAS_HORIZONTAL_DOC
     if chaves is not None and "voz_ia" not in chaves:
         return ETAPAS
     from canal import CANAL  # tools/ já está no caminho (banco.py)

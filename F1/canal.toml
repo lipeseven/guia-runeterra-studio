@@ -9,7 +9,7 @@ fatos = "f1"                                # fontes da conferência de fatos (W
 aviso_legal = "f1"
 exemplo_titulo = "A Maior Rivalidade da Fórmula 1 Explicada em 12 minutos"
 glossario = "Fórmula 1, Grand Prix, pit stop, DRS, FIA, Interlagos, Mônaco, Monza, Senna, Prost, Schumacher, Hamilton, Verstappen"
-formatos = ["horizontal", "vertical"]       # o card escolhe ao nascer: horizontal = documentário; vertical = curto animado
+formatos = ["horizontal", "vertical", "horizontal_doc"]   # o card escolhe ao nascer: horizontal = animado v1; vertical = curto animado; horizontal_doc = documentário (motor documental)
 sfx = ["clique", "seletor", "radio", "whoosh", "pop", "alerta"]   # efeitos sonoros do canal (tools/audio/sfx.py)
 
 [vertical]                                  # animação do vídeo vertical: projeto Remotion do canal + catálogo do diretor
@@ -25,6 +25,10 @@ api = "api_horizontal.md"                  # em F1/docs
 modelo = "sonnet"                          # modelo do diretor (opus custa mais cota)
 modelos = "F1/dados/modelos3d"             # .glb do acervo 3D (entram por link na pasta pública do render)
 carro = "ferrari_sf26.glb"                # carro padrão do estúdio
+
+[horizontal_doc]                            # documentário horizontal (F1/horizontal/): História ★ → SPEC ★ → Ativos → Verificação → Rascunho ★
+diretor = "F1/horizontal/diretor"          # o painel chama a ponte painel.py daqui; estado em <projeto>/horizontal/estado.json
+rotulo = "documentário"                    # nome do formato no botão do quadro
 
 [pastas]
 acervo = 'C:\Users\Felipe\Downloads\canais\catálogo F1'   # pasta do Felipe (só leitura)

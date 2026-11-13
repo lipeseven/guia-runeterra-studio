@@ -315,6 +315,10 @@ def verificar_direcao(con, vid: int) -> None:
     if _animado(con, vid):
         st = {r["chave"]: r["status"] for r in con.execute("SELECT chave, status FROM etapas WHERE video_id=?", (vid,))}
         formato = con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()["formato"]
+        if formato == "horizontal_doc":  # documentário: o diretor anda pelo estado.json (horizontal_doc.py)
+            from .horizontal_doc import ao_mudar
+
+            return ao_mudar(con, vid)
         if CANAL.get("vertical" if formato == "vertical" else "horizontal") and st.get("roteiro") == "concluido" and st.get("voz_ia") == "concluido" and st.get("direcao") == "pendente":
             atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "aguardando a vez")
             FILA.put((vid, "direcao"))

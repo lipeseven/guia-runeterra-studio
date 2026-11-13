@@ -34,6 +34,9 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
   prompts (planejar/escolher/revisar/roteirista/publicacao/conferencia). Sem GRS_CANAL = runeterra, caminhos de
   sempre (`Runeterra/Iniciar Runeterra.bat`, porta 8765). Hoje só existe o Runeterra (o perfil Pokémon saiu em 2026-11-01; volta pelo histórico do Git).
   Trava `dados/comum/motor.lock` = uma tarefa por vez na máquina entre os canais. Seletor de canal no título do quadro.
+- Card **documentário** (2026-11-13, formato `horizontal_doc`, só no canal com `[horizontal_doc]` no canal.toml = F1): etapas
+  História ★/SPEC ★/Ativos/Verificação/Rascunho ★ espelhadas do `estado.json` do diretor (`app/servidor/horizontal_doc.py`,
+  `PainelDocumental.tsx`); detalhes em `F1/horizontal/docs/painel.md`. Vertical e horizontal animado não mudam.
 - Card no quadro mostra "Aguardando você: <pendência aberta mais recente>" (`/api/quadro` → `aguardando`), exceto enquanto o motor trabalha nele ou ele está na fila (aí mostra "Na fila (Nº): <tarefa>", `/api/motor` → `fila`).
 - Celular pelo Wi-Fi (2026-11-01): servidores em `--host 0.0.0.0` (os .bat); acesso em `http://<IP do PC>:8765`. O painel não tem senha: quem estiver na mesma rede pode mexer nele.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,

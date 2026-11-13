@@ -22,6 +22,7 @@ roteiro.txt + palavras.json ─▶ historia.py ─▶ historia.json ★ ─▶ s
 | `ativos.py` | resolve o que cada cena precisa nos kits (OpenF1 via `kit/gps` e `kit/graficos`, imagens via `kit/imagens`, `kit/sfx`, modelos 3D); `--produzir` roda o que falta (rede) |
 | `verificar.py` | checagens automáticas da SPEC (lista abaixo); grava `verificacao/verificacao.json`; sai 1 se houver erro |
 | `etapas.py` | fluxo e `estado.json` (gerado/aprovado/desatualizado, pedidos, histórico) |
+| `painel.py` | ponte com o painel (JSON pela entrada/saída padrão) e `aplicar` do orquestrador; ver `../docs/painel.md` |
 | `comum.py` | caminhos, palavras e âncoras (mesma regra do `tools/direcao/vertical.py`), cache por prompt, **registro dos kits** (`KITS`) |
 | `esquema.py` | validador de JSON Schema (subconjunto, sem dependência; o `.venv` não tem `jsonschema`) |
 | `esquemas/*.schema.json` | JSON Schema de `historia`, `spec`, `ativos` e `estado` (padrão draft 2020-12) |
@@ -112,4 +113,4 @@ esperado. 82 checagens, 0 falhas.
 - `NUMERO_NA_TELA` compara dígitos: número falado por extenso ("um décimo") no roteiro não conta como dito.
 - Pista para o GPS: o item `pista` exige o `.glb` em `F1/dados/modelos3d` e um alinhamento em `kit/gps/pista/`
   (hoje só Interlagos). A generalização do `kit/gps` é a fase 2b.
-- O painel ainda não lê nada disto (fase 4).
+- Painel: ligado na fase 4 (`painel.py` + `app/servidor/horizontal_doc.py`, ver `../docs/painel.md`).
