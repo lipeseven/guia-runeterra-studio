@@ -1,7 +1,9 @@
-# Alinha o sistema x,y do OpenF1 (decímetros) ao plano XZ do interlagos_sao_paulo.glb (metros, Y para cima).
-# Método: similaridade 2D (escala, rotação, translação, com reflexão testada) por ICP contra o asfalto (material mesh2_7),
-# usando as posições de várias voltas limpas. Grava pista/interlagos_alinhamento.json (pequeno, vai para o Git).
-# Uso: python alinhar.py [session_key] [piloto ...]
+# Alinhador genérico: x,y do OpenF1 (decímetros) -> plano XZ do .glb de QUALQUER circuito (metros, Y para cima).
+# Método: similaridade 2D (escala, rotação, translação, com reflexão testada) por ICP contra o asfalto do modelo,
+# usando as posições de várias voltas limpas. Parâmetros do modelo (arquivo, nó, material do asfalto) e o resultado
+# ficam em pista/<circuito>.json (pequeno, vai para o Git). <circuito> = circuit_short_name do OpenF1.
+# Uso: python alinhar.py <circuito> <session_key> <piloto> [<piloto> ...]
+#      (circuito novo: crie antes pista/<circuito>.json com o bloco "glb", como em pista/Interlagos.json)
 import json
 import sys
 from datetime import datetime
@@ -12,34 +14,11 @@ from scipy.spatial import cKDTree
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import openf1  # noqa: E402
+import pista as P  # noqa: E402
+from pista import aplicar  # noqa: E402,F401  (reexportado: alinhar.aplicar continua valendo)
 from pista_glb import Superficie  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent.parent
-
-
-def _achar_glb(nome="interlagos_sao_paulo.glb"):
-    """F1/dados/modelos3d fica fora do Git: procura subindo as pastas (funciona também numa worktree)."""
-    for base in AQUI.parents:
-        c = base / "F1" / "dados" / "modelos3d" / nome
-        if c.exists():
-            return c
-    raise FileNotFoundError(f"não achei F1/dados/modelos3d/{nome}")
-
-
-GLB = _achar_glb()
-MATERIAL_ASFALTO = "mesh2_7"
-
-
-def carregar_pista():
-    """Triângulos da pista (sub-árvore tracksplit_0), com cache em npz."""
-    arq = AQUI / "cache" / "pista_tracksplit.npz"
-    if not arq.exists():
-        from pista_glb import triangulos
-        T = triangulos(GLB, "tracksplit_0")
-        arq.parent.mkdir(parents=True, exist_ok=True)
-        np.savez_compressed(arq, **{str(k): v.astype(np.float32) for k, v in T.items()})
-    z = np.load(arq)
-    return {k: z[k].astype(float) for k in z.files}
 
 
 def _ts(s):
@@ -74,11 +53,6 @@ def umeyama(a, b, refletir):
     return s, R, mb - s * R @ ma
 
 
-def aplicar(al, xy):
-    xy = np.asarray(xy, float) * np.array([1.0, -1.0 if al["refletir"] else 1.0])
-    return al["escala"] * (np.array(al["R"]) @ xy.T).T + np.array(al["t"])
-
-
 def icp(gps, alvo, refletir, ang0):
     kd = cKDTree(alvo)
     c = np.array([[np.cos(ang0), -np.sin(ang0)], [np.sin(ang0), np.cos(ang0)]])
@@ -99,9 +73,12 @@ def icp(gps, alvo, refletir, ang0):
     return al, float(np.median(d))
 
 
-def alinhar(sessao=11412, pilotos=(16, 12)):
-    T = carregar_pista()
-    asf = T[MATERIAL_ASFALTO]
+def alinhar(circuito, sessao, pilotos, gravar=True):
+    par = P.parametros(circuito)
+    if not par.get("glb"):
+        raise ValueError(f"pista/{circuito}.json sem bloco 'glb' (arquivo, no, asfalto, pilotavel, fundo)")
+    T = P.triangulos_glb(circuito)
+    asf = T[par["glb"]["asfalto"]]
     alvo = np.concatenate([asf.mean(1), asf.reshape(-1, 3)])[:, [0, 2]]
     gps = np.concatenate([pontos_gps(sessao, p) for p in pilotos])
     melhor = None
@@ -111,24 +88,24 @@ def alinhar(sessao=11412, pilotos=(16, 12)):
             if melhor is None or med < melhor[1]:
                 melhor = (al, med)
     al, med = melhor
-    # quantos pontos GPS caem sobre o asfalto (raio vertical)
-    sup = Superficie(asf)
+    sup = Superficie(asf)  # quantos pontos GPS caem sobre o asfalto (raio vertical)
     q = aplicar(al, gps)
     dentro = np.mean([bool(sup.alturas(x, z)) for x, z in q])
     al.update(
-        fonte="interlagos_sao_paulo.glb (asfalto, material mesh2_7) alinhado ao OpenF1 por ICP de similaridade 2D",
+        fonte=f"{par['glb']['arquivo']} (asfalto, material {par['glb']['asfalto']}) alinhado ao OpenF1 por ICP de similaridade 2D",
         sessao_usada=sessao, pilotos_usados=list(pilotos),
         convencao="glb_x, glb_z = escala * R @ (x_openf1, ±y_openf1) + t   (x,y do OpenF1 em decímetros; refletir = inverter y antes)",
         erro_mediano_m=round(med, 3), fracao_sobre_asfalto=round(float(dentro), 4), n_pontos=int(len(gps)),
     )
-    saida = AQUI / "pista" / "interlagos_alinhamento.json"
-    saida.parent.mkdir(exist_ok=True)
-    saida.write_text(json.dumps(al, indent=1, ensure_ascii=False), encoding="utf-8")
+    if gravar:
+        par["alinhamento"] = al
+        (P.PASTA / f"{circuito}.json").write_text(json.dumps(par, indent=1, ensure_ascii=False), encoding="utf-8")
     return al
 
 
 if __name__ == "__main__":
-    s = int(sys.argv[1]) if len(sys.argv) > 1 else 11412
-    ps = tuple(int(p) for p in sys.argv[2:]) or (16, 12)
-    al = alinhar(s, ps)
+    if len(sys.argv) < 4:
+        print("uso: python alinhar.py <circuito> <session_key> <piloto> [<piloto> ...]")
+        sys.exit(1)
+    al = alinhar(sys.argv[1], int(sys.argv[2]), tuple(int(p) for p in sys.argv[3:]))
     print({k: al[k] for k in ("escala", "refletir", "erro_mediano_m", "fracao_sobre_asfalto", "n_pontos")})

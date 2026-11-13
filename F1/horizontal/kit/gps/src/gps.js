@@ -1,7 +1,8 @@
 // kit/gps — núcleo independente de motor (JS puro, ES module; tipos em gps.d.ts).
 // Lê uma volta preparada por py/preparar_volta.py (voltas/<sessao>_<piloto>_<volta>.json) e devolve um AMOSTRADOR:
 //   s(t)          distância ao longo do caminho (m), sempre crescente (cúbica monotônica de Fritsch–Carlson)
-//   pos(t)        [x, y, z] no sistema do interlagos_sao_paulo.glb (three.js, Y para cima), já apoiado no asfalto
+//   pos(t)        [x, y, z] no sistema da pista da volta (three.js, Y para cima, metros), já apoiado no asfalto:
+//                 o do .glb do circuito (modo "glb") ou o da pista plana traçada pelo GPS (modo "plana", y ≈ 0)
 //   pose(t)       posição + yaw/pitch/roll + frente + velocidade
 //   rastro(t0,t1) pontos do caminho percorrido entre dois tempos (linha atrás do carro)
 // t = segundos desde o início da volta (0 = linha de chegada no início da volta; duracao = fim da volta).
@@ -94,6 +95,8 @@ export function criarAmostrador(volta) {
       sessao: volta.sessao, sessaoNome: volta.sessao_nome, piloto: volta.piloto, sigla: volta.sigla, nome: volta.nome,
       equipe: volta.equipe, cor: volta.cor, cor2: volta.cor2, volta: volta.volta, duracao: volta.duracao,
       setores: volta.setores, fonte: volta.fonte, pista: volta.pista,
+      // voltas antigas (antes da fase 2b) não têm estes campos: eram Interlagos com o modelo 3D
+      circuito: volta.circuito ?? "Interlagos", modoPista: volta.modo_pista ?? "glb", ano: volta.ano,
     },
     duracao: volta.duracao,
     tIni: t0,

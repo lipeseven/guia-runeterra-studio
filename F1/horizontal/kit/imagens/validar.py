@@ -15,6 +15,7 @@ import leitura
 import relogio
 
 LIMIAR_CONFIANCA = 0.6   # fração mínima das janelas do contador visto que cai dentro da volta pedida
+FOLGA_TEMPO_NA_TELA = 20.0  # s: sem contador, tempo de volta terminada até 20 s depois da pedida ainda é "o mesmo momento"
 
 TIPOS = {  # palavras do título que indicam a sessão
     "race": ["RACE", "CORRIDA", "GRANDE PREMIO"],
@@ -37,6 +38,11 @@ def _tipo_sessao(s: dict) -> str:
     return "race"
 
 
+def tem_contador(s: dict) -> bool:
+    """Corrida e sprint mostram 'LAP C/N' na TV; classificação e treinos não (lá a volta é provada pelo tempo)."""
+    return _tipo_sessao(s) in ("race", "sprint")
+
+
 def checar_sessao(pacote: dict, fonte: dict, observacoes: list[dict]) -> dict:
     s = pacote["sessao"]
     titulo = leitura.normalizar(fonte.get("title") or "")
@@ -52,8 +58,6 @@ def checar_sessao(pacote: dict, fonte: dict, observacoes: list[dict]) -> dict:
     if s.get("meeting_name"):
         lugares.add(leitura.normalizar(s["meeting_name"]).replace(" GRAND PRIX", "").strip())
     lugar = next((l for l in lugares if l and l in titulo), None)
-    if not lugar and s.get("country_code") == "BRA" and "BRAZIL" in titulo:
-        lugar = "BRAZIL"
     tipo = _tipo_sessao(s)
     proprio = TIPOS.get(tipo if tipo != "sprint_quali" else "sprint", [])
     tipo_ok = any(p in titulo for p in proprio)
@@ -68,10 +72,11 @@ def checar_sessao(pacote: dict, fonte: dict, observacoes: list[dict]) -> dict:
         dia = datetime.fromisoformat(s["date_start"]).strftime("%Y%m%d")
         if up < dia:
             falhas.append(f"vídeo publicado em {up}, antes da sessão ({dia})")
+    # total de voltas da sessão = o do OpenF1 (maior volta registrada); só corrida/sprint mostram "LAP C/N"
     total = relogio.total_voltas(pacote["voltas"])
     lidos = {t for o in observacoes if (t := leitura.total_do_texto(o.get("textos", [])))}
     total_ok = False
-    if lidos and total:
+    if lidos and total and tem_contador(s):
         if lidos - {total}:
             falhas.append(f"contador da TV mostra /{', /'.join(map(str, sorted(lidos)))}, a sessão teve {total} voltas")
         else:
@@ -85,14 +90,93 @@ def checar_sessao(pacote: dict, fonte: dict, observacoes: list[dict]) -> dict:
         notas.append(f"tipo de sessão ({s.get('session_name')}) no título")
     if falhas:
         st = "falhou"
-    elif ano_ok and lugar and (tipo_ok or total_ok):
+    elif ano_ok and lugar and (tipo_ok or total_ok):  # (sem contador, só o tipo no título prova a sessão)
         st = "ok"
     else:
         st = "nao_verificado"
     return {"status": st, "detalhe": "; ".join(falhas or notas) or "título não identifica a sessão"}
 
 
+def tempo_posterior(voltas: list[dict], piloto: int, n: int, x: float):
+    """Tempo x visto na tela é de uma volta (de qualquer piloto) que terminou mais de FOLGA_TEMPO_NA_TELA s depois da
+    volta n do piloto? Devolve (fim, volta, fim_alvo) ou None. Entre voltas com o mesmo tempo, vale a que terminou mais
+    cedo (conservador: só acusa 'depois' quando nenhuma hipótese cabe)."""
+    va = next((v for v in voltas if v.get("driver_number") == piloto and v.get("lap_number") == n), None)
+    if not va or not va.get("date_start") or not va.get("lap_duration"):
+        return None
+    fim_alvo = relogio.ts(va["date_start"]) + va["lap_duration"]
+    cands = [(relogio.ts(v["date_start"]) + v["lap_duration"], v) for v in voltas
+             if v.get("lap_duration") and v.get("date_start") and abs(v["lap_duration"] - x) < 0.0015]
+    if not cands:
+        return None
+    fim, v = min(cands, key=lambda c: c[0])
+    return (fim, v, fim_alvo) if fim > fim_alvo + FOLGA_TEMPO_NA_TELA else None
+
+
+def checar_volta_por_tempo(pacote: dict, afirmacao: dict, observacoes: list[dict]) -> dict:
+    """Sessão sem contador na TV (classificação, treinos): a volta é provada pelo TEMPO dela escrito na tela
+    (o OpenF1 tem o tempo de cada volta ao milésimo). Tempo de OUTRA volta do mesmo piloto na tela = falhou."""
+    voltas = pacote["voltas"]
+    piloto, n = int(afirmacao["piloto"]), int(afirmacao["volta"])
+    minhas = {v["lap_number"]: v.get("lap_duration") for v in voltas if v.get("driver_number") == piloto}
+    if n not in minhas:
+        return {"status": "falhou", "detalhe": f"OpenF1 não tem a volta {n} do carro {piloto}"}
+    alvo = minhas[n]
+    base = {"modo": "tempo_na_tela", "tempo_esperado": leitura.formatar_tempo(alvo) if alvo else None}
+    if not alvo:
+        return {**base, "status": "nao_verificado", "confianca": 0.0,
+                "detalhe": f"sessão sem contador de volta na TV e a volta {n} do carro {piloto} não tem tempo no OpenF1"}
+    obs = sorted(observacoes, key=lambda o: o["t"])
+    vistos = [(o["t"], x) for o in obs if "replay" not in leitura.marcas(o.get("textos", []))
+              for x in leitura.tempos_do_texto(o.get("textos", []))]
+    base["tempos_vistos"] = [[t, leitura.formatar_tempo(x)] for t, x in vistos]
+    # tempo de OUTRA volta do mesmo piloto na tela: o trecho mostra aquela volta (vale mesmo se o tempo pedido também
+    # aparece: na classificação a torre continua mostrando o melhor tempo enquanto ele faz outras voltas)
+    outras = {m: d for m, d in minhas.items() if d and m != n}
+    erradas = sorted({(m, d) for _, x in vistos for m, d in outras.items() if abs(x - d) < 0.0015})
+    if erradas:
+        return {**base, "status": "falhou", "confianca": 0.0,
+                "detalhe": "; ".join(f"tempo {leitura.formatar_tempo(d)} = volta {m} do carro {piloto}" for m, d in erradas)
+                           + f", não a volta {n} ({leitura.formatar_tempo(alvo)})"}
+    # Relógio da sessão: um tempo só aparece na tela depois que a volta dele terminou. Se o trecho mostra o tempo de
+    # uma volta (de QUALQUER piloto) que terminou bem depois da volta pedida, o trecho é de depois (ex.: gráfico
+    # "BEST LAP" comparando VER x LEC sobre a imagem do carro do VER, minutos depois da volta do LEC).
+    depois = [(t, x, *d) for t, x in vistos if (d := tempo_posterior(voltas, piloto, n, x))]
+    if depois:
+        t, x, fim, v, fim_alvo = depois[0]
+        return {**base, "status": "falhou", "confianca": 0.0,
+                "detalhe": f"em t = {t} s a tela mostra {leitura.formatar_tempo(x)} = volta {v['lap_number']} do carro "
+                           f"{v['driver_number']}, que terminou às {relogio.hora(fim)} UTC; a volta {n} do carro {piloto} "
+                           f"terminou às {relogio.hora(fim_alvo)}: o trecho é de depois"}
+    em = sorted({t for t, x in vistos if abs(x - alvo) < 0.0015})
+    txt = f"tempo {leitura.formatar_tempo(alvo)} da volta {n} do carro {piloto}"
+    if em:
+        # Prova forte = o tempo APARECE no trecho (ausente num quadro anterior do mesmo plano, sem corte entre eles):
+        # é o fechamento da volta. Se ele já está na tela desde o início, pode ser a torre mostrando o tempo minutos
+        # depois (o melhor tempo fica lá) -> ambíguo, não valida sozinho.
+        t1 = em[0]
+        antes = [o for o in obs if o["t"] < t1 and "replay" not in leitura.marcas(o.get("textos", []))]
+        fecha = None
+        for o in reversed(antes):
+            if any(c.get("corte") for c in obs if o["t"] < c["t"] <= t1):
+                break
+            fecha = o["t"]
+            break
+        base["fechamento"] = {"t_sem_tempo": fecha, "t_com_tempo": t1} if fecha is not None else None
+        if fecha is not None:
+            return {**base, "status": "ok", "confianca": 1.0,
+                    "detalhe": f"{txt} aparece na tela entre t = {fecha} e {t1} s (fechamento da volta, mesmo plano)"}
+        return {**base, "status": "ambiguo", "confianca": 0.5,
+                "detalhe": f"{txt} já está na tela desde t = {t1} s: pode ser a torre mostrando o tempo depois da volta "
+                           "(trecho sem o momento em que o tempo aparece)"}
+    return {**base, "status": "nao_verificado", "confianca": 0.0,
+            "detalhe": f"sessão sem contador de volta na TV; o tempo da volta {n} ({leitura.formatar_tempo(alvo)}) "
+                       "não aparece escrito no trecho"}
+
+
 def checar_volta(pacote: dict, afirmacao: dict, observacoes: list[dict]) -> dict:
+    if not tem_contador(pacote["sessao"]):
+        return checar_volta_por_tempo(pacote, afirmacao, observacoes)
     voltas = pacote["voltas"]
     piloto, n = int(afirmacao["piloto"]), int(afirmacao["volta"])
     jan = relogio.janela_volta(voltas, piloto, n)

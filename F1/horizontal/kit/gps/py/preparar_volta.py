@@ -4,7 +4,8 @@
 # Passos (cada um resolve um defeito visto nos testes de motor):
 #  1. GPS bruto (~3,7 Hz) da volta + margem de 4 s antes/depois (o carro nunca "acaba" no meio da cena);
 #     remove amostras repetidas/paradas com o carro andando (causa de tranco/vai-e-vem).
-#  2. x,y OpenF1 -> XZ do .glb pelo alinhamento (pista/interlagos_alinhamento.json).
+#  2. x,y OpenF1 -> XZ da pista do circuito (py/pista.py): modelo 3D alinhado (pista/<circuito>.json) ou, sem modelo,
+#     pista plana traçada pelo próprio GPS (pista/<circuito>_plana.json).
 #  3. Caminho geométrico: spline cúbica suavizada parametrizada pela corda (sem deslocamento lateral artificial:
 #     é o traçado real do piloto); se o centro do carro sair da área pilotável (asfalto + zebra), é puxado de volta.
 #  4. Relógio s(t): distância acumulada ao longo do caminho; suavização + reforço de monotonicidade (s sempre cresce)
@@ -17,21 +18,17 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import cv2
 import numpy as np
 from scipy.interpolate import PchipInterpolator, UnivariateSpline, splev, splprep
 from scipy.ndimage import gaussian_filter1d
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import openf1  # noqa: E402
-from alinhar import aplicar, carregar_pista  # noqa: E402
-from pista_glb import Superficie  # noqa: E402
+import pista as PISTA  # noqa: E402
 
 AQUI = Path(__file__).resolve().parent.parent
-PILOTAVEL = ("mesh2_7", "mesh2_8")            # asfalto e zebras
-# superfícies para a altura: tudo da sub-árvore tracksplit_0 (asfalto, zebras, faixas pintadas, grama, escape),
-# menos o terreno de fundo (mesh2, mesh2_0), que se estende por km e pode cruzar a pista.
-FUNDO = ("mesh2", "mesh2_0")
+# A pista (modelo 3D alinhado ou plana traçada pelo GPS) e os materiais de cada circuito ficam em pista/<circuito>.json
+# (ver py/pista.py). Nada aqui é de um GP: circuito, sessão, piloto e volta vêm por parâmetro / do OpenF1.
 MARGEM_S = 4.0       # segundos de GPS antes e depois da volta
 DS = 1.0             # passo do caminho (m)
 DT_RELOGIO = 0.05    # passo da tabela s(t) (s)
@@ -40,42 +37,14 @@ MEIA_BITOLA = 0.8    # m, para medir a rolagem
 SIGMA_AO_LONGO = 3.0  # m, ruído do GPS ao longo da pista tolerado pela correção lenta do relógio
 CORES = json.loads((AQUI / "cores.json").read_text(encoding="utf-8"))
 
-_cache = {}
-
 
 def _ts(s):
     return datetime.fromisoformat(s).timestamp()
 
 
-def _pista():
-    if "T" not in _cache:
-        T = carregar_pista()
-        _cache["T"] = T
-        _cache["chao"] = Superficie(np.concatenate([v for k, v in T.items() if k not in FUNDO]))
-        _cache["asf"] = Superficie(T["mesh2_7"])
-        # máscara pilotável (0,25 m/px) para manter o centro do carro sobre asfalto/zebra
-        tri = np.concatenate([T[k] for k in PILOTAVEL])[:, :, [0, 2]]
-        lo = tri.reshape(-1, 2).min(0) - 20
-        hi = tri.reshape(-1, 2).max(0) + 20
-        r = 0.25
-        W, H = (np.ceil((hi - lo) / r)).astype(int)
-        m = np.zeros((H, W), np.uint8)
-        cv2.fillPoly(m, [np.round((t - lo) / r).astype(np.int32) for t in tri], 1)
-        m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))  # fecha frestas entre triângulos
-        dist, lab = cv2.distanceTransformWithLabels(1 - m, cv2.DIST_L2, 5, labelType=cv2.DIST_LABEL_PIXEL)
-        zy, zx = np.nonzero(m == 1)
-        # rótulo -> coordenada do pixel pilotável mais próximo
-        lab_xy = np.zeros((lab.max() + 1, 2))
-        lab_xy[lab[zy, zx]] = np.c_[zx, zy]
-        # distância até a borda por dentro (para saber quão dentro está)
-        dentro = cv2.distanceTransform(m, cv2.DIST_L2, 5)
-        _cache["mask"] = dict(lo=lo, r=r, m=m, dist=dist, lab=lab, lab_xy=lab_xy, dentro=dentro)
-    return _cache
-
-
-def _puxar_para_pista(P, margem=0.6):
-    """Desloca pontos fora da área pilotável até ficarem 'margem' m para dentro. Devolve (P2, correção em m)."""
-    M = _pista()["mask"]
+def _puxar_para_pista(P, pista, margem=0.6):
+    """Desloca pontos fora da área pilotável até ficarem 'margem' m para dentro. Devolve a correção (m)."""
+    M = pista.mascara
     ij = np.round((P - M["lo"]) / M["r"]).astype(int)
     ij[:, 0] = ij[:, 0].clip(0, M["m"].shape[1] - 1)
     ij[:, 1] = ij[:, 1].clip(0, M["m"].shape[0] - 1)
@@ -106,9 +75,15 @@ def _dedup(t, xy, vel):
     return np.array(ok)
 
 
-def preparar(sessao, piloto, volta, saida=None):
-    al = json.loads((AQUI / "pista" / "interlagos_alinhamento.json").read_text(encoding="utf-8"))
-    lap = next(v for v in openf1.voltas(sessao, piloto) if v["lap_number"] == volta)
+def preparar(sessao, piloto, volta, saida=None, circuito=None, modo=None):
+    """circuito = circuit_short_name do OpenF1 (padrão: o da sessão); modo = None (automático: modelo 3D se houver),
+    'glb' ou 'plana' (pista traçada pelo GPS, sem modelo)."""
+    info = openf1.sessao_info(sessao)
+    circuito = circuito or info["circuit_short_name"]
+    pista = PISTA.carregar(circuito, sessao=sessao, modo=modo)
+    lap = next((v for v in openf1.voltas(sessao, piloto) if v["lap_number"] == volta), None)
+    if lap is None or not lap.get("lap_duration"):
+        raise ValueError(f"OpenF1 não tem a volta {volta} (com tempo) do carro {piloto} na sessão {sessao}")
     t0 = _ts(lap["date_start"])
     dur = float(lap["lap_duration"])
     L = openf1.localizacao(sessao, piloto)
@@ -122,7 +97,7 @@ def preparar(sessao, piloto, volta, saida=None):
     vel_gps = np.interp(tl, tc, vc)
     keep = _dedup(tl, raw, vel_gps)
     tl, raw = tl[keep], raw[keep]
-    xz = aplicar(al, raw)
+    xz = pista.aplicar(raw)
     buracos = [[round(float(a), 3), round(float(b), 3)] for a, b in zip(tl[:-1], tl[1:]) if b - a > 0.6]
 
     # --- 3. caminho geométrico (spline suavizada; corda como parâmetro)
@@ -135,7 +110,7 @@ def preparar(sessao, piloto, volta, saida=None):
     S = np.arange(0, sf[-1], DS)
     P = np.c_[np.interp(S, sf, pf[:, 0]), np.interp(S, sf, pf[:, 1])]
     # mantém o centro sobre asfalto/zebra; correção suavizada para não criar quina
-    corr = _puxar_para_pista(P)
+    corr = _puxar_para_pista(P, pista)
     corr = np.c_[gaussian_filter1d(corr[:, 0], 3, mode="nearest"), gaussian_filter1d(corr[:, 1], 3, mode="nearest")]
     corr_mag = np.linalg.norm(corr, axis=1)
     P = P + corr
@@ -181,8 +156,7 @@ def preparar(sessao, piloto, volta, saida=None):
     s_ini, s_fim = float(np.interp(0, tg, sg)), float(np.interp(dur, tg, sg))
 
     # --- 5. altura, inclinação, rolagem, rumo
-    pista = _pista()
-    chao, asf = pista["chao"], pista["asf"]
+    chao, asf = pista.chao, pista.asf
     tang = np.c_[gaussian_filter1d(np.gradient(P[:, 0]), 1.5, mode="nearest"),
                  gaussian_filter1d(np.gradient(P[:, 1]), 1.5, mode="nearest")]
     tang /= np.linalg.norm(tang, axis=1, keepdims=True)
@@ -232,18 +206,20 @@ def preparar(sessao, piloto, volta, saida=None):
     drv = next((d for d in openf1.pilotos(sessao) if d["driver_number"] == piloto), {})
     equipe = drv.get("team_name", eq["equipe"] if eq else "?")
     cor_eq = CORES["equipes"].get(equipe, {})
-    info = openf1.sessao_info(sessao)
     out = dict(
         versao=1,
         fonte=f"OpenF1 (api.openf1.org) /v1/location e /v1/laps; {info['circuit_short_name']} {info['year']} {info['session_name']} (session_key {sessao})",
-        sessao=sessao, sessao_nome=info["session_name"], piloto=piloto, sigla=drv.get("name_acronym", ""),
+        sessao=sessao, sessao_nome=info["session_name"], ano=info.get("year"), circuito=circuito,
+        piloto=piloto, sigla=drv.get("name_acronym", ""),
         nome=drv.get("full_name", ""), equipe=equipe,
         cor=cor_eq.get("cor", "#" + drv.get("team_colour", "888888")),
         cor2=cor_eq.get("cor2", "#" + drv.get("team_colour", "888888")),
         volta=volta, duracao=dur,
         setores=[lap.get("duration_sector_1"), lap.get("duration_sector_2"), lap.get("duration_sector_3")],
-        pista="interlagos_sao_paulo.glb",
-        coordenadas="glTF/three.js (Y para cima, metros), arquivo carregado sem transformação",
+        pista=pista.render, modo_pista=pista.modo,
+        coordenadas=("glTF/three.js (Y para cima, metros), arquivo carregado sem transformação" if pista.modo == "glb" else
+                     "three.js (Y para cima, metros), pista plana y = 0 desenhada de pista/" + pista.render
+                     + " por criarPistaPlana (gps_three.js)"),
         relogio=dict(t0=round(float(tg[0]), 4), dt=DT_RELOGIO, s=np.round(sg, 3).tolist(), s_ini=round(s_ini, 3), s_fim=round(s_fim, 3)),
         caminho=dict(ds=DS, x=np.round(P[:, 0], 3).tolist(), y=np.round(Y, 3).tolist(), z=np.round(P[:, 1], 3).tolist(),
                      yaw=np.round(yaw, 4).tolist(), pitch=np.round(pitch, 4).tolist(), roll=np.round(roll, 4).tolist()),
@@ -258,20 +234,28 @@ def preparar(sessao, piloto, volta, saida=None):
                                           max=round(float(np.abs(erro_gps_ao_longo).max()), 2)),
         ),
     )
-    saida = Path(saida) if saida else AQUI / "voltas" / f"{sessao}_{piloto}_{volta}.json"
+    # modo plano forçado num circuito que tem modelo 3D: sufixo, para não sobrescrever a volta do modo glb
+    sufixo = "_plana" if pista.modo == "plana" and PISTA.tem_modelo(circuito) else ""
+    saida = Path(saida) if saida else AQUI / "voltas" / f"{sessao}_{piloto}_{volta}{sufixo}.json"
     saida.parent.mkdir(parents=True, exist_ok=True)
     saida.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     return out, saida
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("uso: python preparar_volta.py <session_key> <piloto> <volta|melhor> [...mais trios]")
-        sys.exit(1)
-    a = sys.argv[1:]
+    import argparse
+    ap = argparse.ArgumentParser(description="prepara voltas do OpenF1 para o kit/gps (qualquer sessão/circuito)")
+    ap.add_argument("trios", nargs="+", help="<session_key> <piloto> <volta|melhor> [...mais trios]")
+    ap.add_argument("--modo", choices=("glb", "plana"), default=None,
+                    help="pista: glb (modelo 3D alinhado) ou plana (traçada pelo GPS). Padrão: glb se houver modelo")
+    ap.add_argument("--circuito", default=None, help="circuit_short_name (padrão: o da sessão no OpenF1)")
+    a = ap.parse_args()
+    if len(a.trios) % 3:
+        ap.error("os argumentos vêm em trios: <session_key> <piloto> <volta|melhor>")
+    a, modo, circ = a.trios, a.modo, a.circuito
     for i in range(0, len(a), 3):
         s, p, v = int(a[i]), int(a[i + 1]), a[i + 2]
         if v == "melhor":
             v = min((x for x in openf1.voltas(s, p) if x.get("lap_duration")), key=lambda x: x["lap_duration"])["lap_number"]
-        out, arq = preparar(s, p, int(v))
+        out, arq = preparar(s, p, int(v), circuito=circ, modo=modo)
         print(arq.name, f"{arq.stat().st_size / 1024:.0f} KB", out["sigla"], out["volta"], out["duracao"], out["qualidade"])

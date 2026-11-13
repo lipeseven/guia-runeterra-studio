@@ -184,6 +184,81 @@ checa(r["checagens"]["evento"]["status"] == "ok", f"volta mais rápida = carro {
 r = val({**LEC55, "evento": "volta_mais_rapida"}, HL, obs((0, ["LAP55/71"])))
 checa(r["checagens"]["evento"]["status"] == "falhou", "volta 55 do LEC não é a mais rápida")
 
+# ---------------------------------------------------------------- 2ª pista (fase 2b): Monza 2025, nada fixo de GP
+# Classificação (9908): sem contador na TV -> a volta é provada pelo TEMPO escrito na tela; corrida (9912): o total
+# do contador (/53) vem do OpenF1, não de um número fixo. Ano, lugar e tipo vêm de /v1/sessions e /v1/meetings.
+print("Monza 2025 (classificação 9908 e corrida 9912)")
+checa(leitura.tempos_do_texto(["LECLERC", "1:19.007"]) == [79.007], "tempo '1:19.007'")
+checa(leitura.tempos_do_texto(["1.19.007 P4"]) == [79.007], "tempo com ':' lido como '.'")
+checa(leitura.tempos_do_texto(["GAP +0.215", "S1 26.512"]) == [], "gap e setor não são tempo de volta")
+checa(leitura.formatar_tempo(79.007) == "1:19.007", "formatar 79.007")
+QM = json.loads((AQUI / "dados_teste" / "openf1_9908.json").read_text(encoding="utf-8"))
+CM = json.loads((AQUI / "dados_teste" / "openf1_9912.json").read_text(encoding="utf-8"))
+checa(not V.tem_contador(QM["sessao"]) and V.tem_contador(CM["sessao"]), "classificação sem contador, corrida com")
+lec_q = sorted([v for v in QM["voltas"] if v["driver_number"] == 16 and v.get("lap_duration")], key=lambda v: v["lap_duration"])
+LQ = {"sessao": 9908, "piloto": 16, "volta": lec_q[0]["lap_number"]}
+tq, tq2 = leitura.formatar_tempo(lec_q[0]["lap_duration"]), leitura.formatar_tempo(lec_q[1]["lap_duration"])
+HQ = {"id": "x", "title": "Qualifying Highlights | 2025 Italian Grand Prix", "channel": "FORMULA 1", "upload_date": "20250906"}
+vq = lambda af, fonte, o, leg=None: V.validar(af, QM, fonte, o, leg or [])
+r = vq(LQ, HQ, obs((0, ["LECLERC", "FERRARI"]), (1, ["LECLERC", tq, "P2"])))
+checa(r["status"] == "validado" and r["checagens"]["volta"]["modo"] == "tempo_na_tela",
+      f"Monza Q: tempo {tq} na tela -> validado", r["evidencia"])
+checa(r["checagens"]["sessao"]["status"] == "ok", "Monza Q: título 'Qualifying ... 2025 Italian' -> sessão ok", r["checagens"]["sessao"])
+r = vq(LQ, HQ, obs((0, ["LECLERC", tq]), (1, ["LECLERC", tq])))
+checa(r["checagens"]["volta"]["status"] == "ambiguo" and r["status"] == "nao_validado",
+      "Monza Q: tempo na tela desde o 1º quadro (pode ser a torre depois) -> não validado", r["checagens"]["volta"])
+r = vq(LQ, HQ, obs((0, ["LECLERC"]), (1, ["LECLERC", tq], True)))
+checa(r["checagens"]["volta"]["status"] == "ambiguo", "Monza Q: tempo aparece só depois de um corte -> ambíguo")
+r = vq(LQ, HQ, obs((0, ["LECLERC"]), (1, ["LECLERC", tq, tq2])))
+checa(r["status"] == "reprovado", "Monza Q: tempo pedido na torre + tempo de outra volta dele -> reprovado")
+# ERRO visto no teste real (Qualifying Highlights 05:04): gráfico "BEST LAP" VER x LEC sobre o carro do VER, minutos
+# depois da volta do LEC; o tempo do LEC "aparece" com o gráfico. O tempo do VER na tela prova que o trecho é de depois.
+fim_lec = relogio.ts(lec_q[0]["date_start"]) + lec_q[0]["lap_duration"]
+tardia = min((v for v in QM["voltas"] if v.get("lap_duration") and v.get("date_start") and v["driver_number"] != 16
+              and relogio.ts(v["date_start"]) + v["lap_duration"] > fim_lec + 60), key=lambda v: v["lap_duration"])
+tt = leitura.formatar_tempo(tardia["lap_duration"])
+r = vq(LQ, HQ, obs((0, ["VER", tt]), (0.5, ["VER", tt, "BEST LAP", "LECLERC", tq])))
+checa(r["status"] == "reprovado" and "depois" in r["checagens"]["volta"]["detalhe"],
+      f"Monza Q: tempo {tt} (carro {tardia['driver_number']}, volta posterior) junto com o do LEC -> reprovado",
+      r["checagens"]["volta"])
+r = vq(LQ, HQ, obs((0, ["LECLERC", tq2])))
+checa(r["status"] == "reprovado", f"Monza Q: tempo de OUTRA volta do LEC ({tq2}) -> reprovado", r["checagens"]["volta"])
+r = vq(LQ, HQ, obs((0, ["LECLERC", "LAP 3"])))
+checa(r["checagens"]["volta"]["status"] == "nao_verificado" and r["status"] == "nao_validado",
+      "Monza Q: sem tempo (e 'LAP 3' não conta como contador) -> não validado", r["checagens"]["volta"])
+r = vq(LQ, HQ, obs((0, ["REPLAY", "LECLERC", tq])))
+checa(r["checagens"]["volta"]["status"] == "nao_verificado", "Monza Q: tempo em REPLAY não conta")
+for titulo, nome in [("Race Highlights | 2025 Italian Grand Prix", "corrida"),
+                     ("Qualifying Highlights | 2024 Italian Grand Prix", "ano 2024")]:
+    r = vq(LQ, {**HQ, "title": titulo}, obs((0, ["LECLERC", tq])))
+    checa(r["checagens"]["sessao"]["status"] == "falhou", f"Monza Q: título de {nome} -> sessão falha")
+r = vq(LQ, {**HQ, "title": "Qualifying Highlights | 2025 Dutch Grand Prix"}, obs((0, ["LECLERC", tq])))
+checa(r["checagens"]["sessao"]["status"] != "ok", "Monza Q: título da Holanda não valida Monza")
+pole = min((v for v in QM["voltas"] if v.get("lap_duration")), key=lambda v: v["lap_duration"])
+r = vq({"sessao": 9908, "piloto": pole["driver_number"], "volta": pole["lap_number"], "evento": "volta_mais_rapida"},
+       HQ, obs((0, ["VERSTAPPEN"]), (0.5, [leitura.formatar_tempo(pole["lap_duration"])])))
+checa(r["checagens"]["evento"]["status"] == "ok" and r["checagens"]["volta"]["status"] == "ok",
+      f"Monza Q: pole (carro {pole['driver_number']}, {leitura.formatar_tempo(pole['lap_duration'])}) -> volta e evento ok")
+# corrida: total do OpenF1
+tot = relogio.total_voltas(CM["voltas"])
+checa(tot == 53, "Monza corrida: total de voltas do OpenF1 = 53", tot)
+checa(leitura.volta_do_texto(["LAP20I53"], tot) == 20 and leitura.volta_do_texto(["LAP20/71"], tot) is None,
+      "contador lido com o total da sessão (/53), não com /71")
+HC = {"id": "y", "title": "Race Highlights | 2025 Italian Grand Prix", "channel": "FORMULA 1", "upload_date": "20250907"}
+jl = relogio.janela_volta(CM["voltas"], 16, 30)
+esp = relogio.contadores_esperados(jl, CM["voltas"])
+r = V.validar({"sessao": 9912, "piloto": 16, "volta": 30}, CM, HC,
+              obs((0, [f"LAP{esp[0]}/{tot}", "LECLERC"]), (0.5, [f"LAP{esp[0]}/{tot}"]), (1.0, [f"LAP{esp[0] + 1}/{tot}"])), [])
+checa(r["checagens"]["sessao"]["status"] == "ok", "Monza corrida: contador /53 confere a sessão", r["checagens"]["sessao"])
+checa(r["status"] == "validado" and r["checagens"]["volta"]["ancora"],
+      f"Monza corrida: virada {esp[0]}->{esp[0] + 1} ancorada na volta 30 do LEC -> validado", r["checagens"]["volta"])
+r = V.validar({"sessao": 9912, "piloto": 16, "volta": 30}, CM, {**HC, "title": "Highlights"},
+              obs((0, [f"LAP {esp[0]}/71", "LECLERC"])), [])
+checa(r["checagens"]["sessao"]["status"] == "falhou", "Monza corrida: contador /71 numa corrida de 53 -> sessão falha")
+fora = 5 if 5 not in esp else 40
+r = V.validar({"sessao": 9912, "piloto": 16, "volta": 30}, CM, HC, obs((0, [f"LAP{fora}/{tot}", "LECLERC"])), [])
+checa(r["status"] == "reprovado", f"Monza corrida: contador {fora} para a volta 30 -> reprovado", r["checagens"]["volta"])
+
 
 # ---------------------------------------------------------------- rede (opcional)
 def rede():

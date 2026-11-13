@@ -1,0 +1,13 @@
+{
+ "video": "exemplo_remotion_monza_folha.mp4",
+ "quadros": 240,
+ "quadros_com_carro": 98,
+ "passos_medidos": 80,
+ "passo_px_med": 13.36,
+ "passo_px_min": 10.23,
+ "passo_px_max": 23.13,
+ "variacao_passo_p95_px": 1.243,
+ "variacao_passo_max_px": 1.682,
+ "recuos_na_tela": 0,
+ "nota": "centroide da diferença para o fundo (mediana); passo = deslocamento do carro na imagem entre quadros"
+}
