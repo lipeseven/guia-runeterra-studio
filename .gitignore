@@ -16,9 +16,3 @@ app/video/public/
 F1/video/public/
 # código das cenas conferido pelo tsc (temporário, tools/direcao/vertical.py)
 F1/video/src/_conferir_cenas.ts
-# F1 horizontal: cache do OpenF1 e da malha da pista (kit/gps), modelos 3D ligados para cada motor, amostras de teste
-F1/horizontal/kit/gps/cache/
-F1/horizontal/remotion/public/
-F1/horizontal/hyperframes/assets/
-F1/horizontal/hyperframes/renders/
-F1/horizontal/hyperframes/.hyperframes/

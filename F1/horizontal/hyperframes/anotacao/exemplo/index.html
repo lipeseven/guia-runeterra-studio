@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<!-- Exemplo mínimo HyperFrames do kit/anotacao: a mesma cena de teste do Remotion (kit/anotacao/exemplo/cena.json).
+     F1/horizontal/testes/anotacao/rodar.py monta a pasta do projeto copiando para assets/:
+     anotacao.global.js (kit), camada.js (adaptador), cena.js (window.__CENA) e fonte.js (window.__FONTE). -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="assets/anotacao.global.js"></script>
+<script src="assets/camada.js"></script>
+<script src="assets/cena.js"></script>
+<script src="assets/fonte.js"></script>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  #root { position: absolute; inset: 0; }
+  svg { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="7.0166667" data-fps="60" data-width="1920" data-height="1080">
+  <div id="palco" class="clip" data-start="0" data-duration="7.0166667" data-track-index="1" style="position:absolute;inset:0">
+    <svg id="cenario" width="1920" height="1080" viewBox="0 0 1920 1080"></svg>
+    <svg id="anotacoes" width="1920" height="1080" viewBox="0 0 1920 1080"></svg>
+  </div>
+</div>
+<script>
+  (function () {
+    var cena = window.__CENA, NS = "http://www.w3.org/2000/svg";
+    document.getElementById("palco").style.background = cena.fundo;
+    var cen = document.getElementById("cenario");
+    function el(tag, a, pai) { var e = document.createElementNS(NS, tag); for (var k in a) e.setAttribute(k, a[k]); pai.appendChild(e); return e; }
+    Object.keys(cena.alvos).forEach(function (id) {
+      var r = cena.alvos[id].render; if (!r) return;
+      el("text", { x: r.x, y: r.y, "font-family": '"' + r.fonte + '"', "font-weight": r.peso, "font-size": r.tamanho, fill: cena.tinta }, cen).textContent = r.texto;
+    });
+    var asa = cena.alvos.asa, pc = asa.peca;
+    var g = el("g", {}, cen);
+    el("rect", { x: -pc.w / 2, y: -pc.h / 2, width: pc.w, height: pc.h, rx: 14, fill: "#1d1d1f" }, g);
+    el("rect", { x: -pc.w / 2 + 14, y: -pc.h / 2 + 12, width: pc.w - 28, height: 30, rx: 8, fill: "#55565a" }, g);
+    el("rect", { x: -pc.w / 2 + 14, y: pc.h / 2 - 34, width: pc.w - 28, height: 18, rx: 6, fill: "#3a3b3f" }, g);
+
+    var m = Anotacao.montar(cena, window.__FONTE);
+    var camada = CamadaAnotacao.criar(document.getElementById("anotacoes"), m);
+    function render(t) {
+      var an = Anotacao.ancoraEm(asa, t);
+      var giro = pc.giroAmp * Math.sin((2 * Math.PI * t) / pc.giroPeriodo);
+      g.setAttribute("transform", "translate(" + (pc.cx + an.dx) + " " + (pc.cy + an.dy) + ") rotate(" + giro + ")");
+      camada.render(t);
+    }
+    var estado = { t: 0 };
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+    tl.to(estado, { t: 7.0166667, duration: 7.0166667, ease: "none", onUpdate: function () { render(estado.t); } }, 0);
+    window.__timelines["main"] = tl;
+    render(0);
+  })();
+</script>
+</body>
+</html>
