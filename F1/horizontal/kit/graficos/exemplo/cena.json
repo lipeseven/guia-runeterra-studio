@@ -1,0 +1,18 @@
+{
+  "_nota": "Cena de exemplo e de teste do kit/graficos (1920x1080, 60 q/s, 26 s): os 5 gráficos em sequência, na classificação do GP de São Paulo 2026 (LEC volta 17 × ANT volta 22). O delta mostra o uso de 'ritmo' (âncoras de tempo, como viriam das palavras da narração).",
+  "largura": 1920, "altura": 1080, "fps": 60, "duracao": 26,
+  "tema": "claro",
+  "dados": "comparacoes/11408_16-17_12-22.json",
+  "graficos": [
+    {"id": "vel", "tipo": "velocidade", "area": {"x": 60, "y": 40, "w": 1800, "h": 1000}, "em": 0, "ate": 5.5,
+     "dur": 3.2, "destaque": "auto", "curvas": true, "minimapa": true},
+    {"id": "set", "tipo": "setores", "area": {"x": 60, "y": 40, "w": 1800, "h": 1000}, "em": 5.5, "ate": 10.5},
+    {"id": "dlt", "tipo": "delta", "area": {"x": 60, "y": 40, "w": 1800, "h": 1000}, "em": 10.5, "ate": 16,
+     "ritmo": [{"t": 11.05, "d": 0}, {"t": 12.3, "d": 1237}, {"t": 14.0, "d": 3167}, {"t": 14.6, "d": 4309}],
+     "destaque": "auto", "curvas": true, "minimapa": true},
+    {"id": "tel", "tipo": "telemetria", "area": {"x": 60, "y": 40, "w": 1800, "h": 1000}, "em": 16, "ate": 21.5,
+     "trecho": [2250, 2900], "dur": 3.0,
+     "titulo": "Pinheirinho e Bico de Pato: pé, freio e marcha"},
+    {"id": "nrm", "tipo": "normalizado", "area": {"x": 60, "y": 40, "w": 1800, "h": 1000}, "em": 21.5, "ate": 26.1}
+  ]
+}

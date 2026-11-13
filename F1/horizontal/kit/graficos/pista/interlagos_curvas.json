@@ -1,0 +1,20 @@
+{
+  "_nota": "Curvas de Interlagos na distância normalizada a 4.309 m (a mesma do kit/graficos). Distâncias: arquivo de referência do teste HyperFrames (teste-motores/hyperframes/dados/telemetria_interlagos_2026.json, base 4.247,7 m) multiplicadas por 4309/4247,7. Nomes: tradicionais do autódromo. A verificação (testes/graficos/rodar.py) confere cada curva nomeada contra o mínimo local de velocidade da telemetria.",
+  "curvas": [
+    {"n": 1, "nome": "S do Senna", "d": 365},
+    {"n": 2, "nome": "", "d": 467},
+    {"n": 3, "nome": "Curva do Sol", "d": 649},
+    {"n": 4, "nome": "Descida do Lago", "d": 1420},
+    {"n": 5, "nome": "", "d": 1583},
+    {"n": 6, "nome": "Ferradura", "d": 2039},
+    {"n": 7, "nome": "", "d": 2171},
+    {"n": 8, "nome": "Laranjinha", "d": 2333},
+    {"n": 9, "nome": "Pinheirinho", "d": 2465},
+    {"n": 10, "nome": "Bico de Pato", "d": 2759},
+    {"n": 11, "nome": "Mergulho", "d": 2972},
+    {"n": 12, "nome": "Junção", "d": 3266},
+    {"n": 13, "nome": "", "d": 3388},
+    {"n": 14, "nome": "Subida dos Boxes", "d": 3652},
+    {"n": 15, "nome": "", "d": 4058}
+  ]
+}

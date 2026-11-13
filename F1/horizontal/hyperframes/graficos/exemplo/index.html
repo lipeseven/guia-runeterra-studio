@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<!-- Exemplo mínimo HyperFrames do kit/graficos: a mesma cena de teste do Remotion (kit/graficos/exemplo/cena.json).
+     F1/horizontal/testes/graficos/rodar.py monta a pasta do projeto copiando para assets/:
+     graficos.global.js (kit), camada.js (adaptador), cena.js (window.__CENA), dados.js (window.__DADOS) e
+     larguras.js (window.__LARGURAS). -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="assets/graficos.global.js"></script>
+<script src="assets/camada.js"></script>
+<script src="assets/cena.js"></script>
+<script src="assets/dados.js"></script>
+<script src="assets/larguras.js"></script>
+<style>
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  #root { position: absolute; inset: 0; }
+  svg { position: absolute; inset: 0; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="26.0166667" data-fps="60" data-width="1920" data-height="1080">
+  <div id="palco" class="clip" data-start="0" data-duration="26.0166667" data-track-index="1" style="position:absolute;inset:0">
+    <svg id="graficos" width="1920" height="1080" viewBox="0 0 1920 1080"></svg>
+  </div>
+</div>
+<script>
+  (function () {
+    var cena = window.__CENA;
+    var specs = cena.graficos.map(function (g) { return Object.assign({ tema: cena.tema }, g); });
+    var m = Graficos.montar(specs, window.__DADOS, window.__LARGURAS);
+    document.getElementById("palco").style.background = Graficos.TEMAS[cena.tema || "claro"].fundo;
+    var camada = CamadaGrafico.criar(document.getElementById("graficos"), m);
+    var estado = { t: 0 };
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+    tl.to(estado, { t: 26.0166667, duration: 26.0166667, ease: "none", onUpdate: function () { camada.render(estado.t); } }, 0);
+    window.__timelines["main"] = tl;
+    window.__graficos = m;
+    camada.render(0);
+  })();
+</script>
+</body>
+</html>
