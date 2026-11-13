@@ -11,7 +11,7 @@
 // No carro (Carro3D), cada roda ganha um conjunto `freio_<eixo>_<lado>` (peça do desmonte) virado para fora, com o
 // disco dentro do aro (atrás dos raios: aparece pelas janelas da roda) e a tomada de ar do lado de dentro.
 import * as THREE from "three";
-import { aoRestaurar, girarPecaEixo, peca } from "./desmonte";
+import { aoRestaurar, deslocar, girarPecaEixo, peca } from "./desmonte";
 
 export type TipoFreio = "f1" | "rua";
 export type OpcoesFreio = {
@@ -170,6 +170,7 @@ export function criarFreio(o: OpcoesFreio = {}): THREE.Group {
   g.name = f1 ? "freio_f1" : "freio_rua";
   const rotor = new THREE.Group();
   rotor.name = "rotor";
+  rotor.userData.giroLivre = true; // enquadrar() mede o rotor parado (girando, a caixa dele cresce e encolhe)
   g.add(rotor);
   g.userData.raio = ro;
 
@@ -198,14 +199,22 @@ export function criarFreio(o: OpcoesFreio = {}): THREE.Group {
   sino.add(tubo(rs, prof, tit, e / 2 + prof / 2 - 0.004));
   const tampa = anel(f1 ? 0.034 : 0.035, rs, tit, e / 2 + prof - 0.004);
   sino.add(tampa);
+  // parafusos da roda no sino, na volta INTEIRA: cabeça sextavada clara (titânio) com o furo escuro no meio. Antes eram
+  // cilindros pretos quase rentes à tampa escura: no lado sem luz não se viam (pareciam só meia volta) e, com o disco
+  // girando, sumiam e voltavam (2026-11-13)
   const furo = m("furo", () => new THREE.MeshStandardMaterial({ color: "#0b0b0d", roughness: 0.6, metalness: 0.4 }));
+  const cabeca = m("parafuso", () => new THREE.MeshStandardMaterial({ color: "#c9cdd4", roughness: 0.35, metalness: 0.3 }));
   const nPar = f1 ? 12 : 5;
+  const zTampa = e / 2 + prof - 0.004;
   for (let k = 0; k < nPar; k++) {
     const a = (k / nPar) * Math.PI * 2;
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.01, 12), furo);
+    const x = Math.cos(a) * (rs * 0.68), y = Math.sin(a) * (rs * 0.68);
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.0068, 0.0068, 0.008, 6), cabeca);
     p.rotation.x = Math.PI / 2;
-    p.position.set(Math.cos(a) * (rs * 0.68), Math.sin(a) * (rs * 0.68), e / 2 + prof - 0.002);
-    sino.add(p);
+    p.position.set(x, y, zTampa + 0.004);
+    const oco = new THREE.Mesh(new THREE.CircleGeometry(0.003, 12), furo);
+    oco.position.set(x, y, zTampa + 0.0082);
+    sino.add(p, oco);
   }
   if (!f1) {
     // aletas internas do disco de rua (entre as duas placas)
@@ -322,10 +331,11 @@ export function girarDisco(freio: THREE.Object3D, ang: number) {
 export function apertarFreio(freio: THREE.Object3D, k: number) {
   const lados = [freio.getObjectByName("pastilha_dentro"), freio.getObjectByName("pastilha_fora")];
   if (!lados[0] || !lados[1]) return;
-  const e = freio.userData.e as number;
-  const folga = (freio.userData.folga as number) * (1 - Math.max(0, Math.min(1, k)));
-  lados[0]!.position.z = -(e / 2 + folga);
-  lados[1]!.position.z = e / 2 + folga;
+  // só neste quadro (volta no restaurar): antes a posição ficava gravada no modelo guardado e vazava para os planos que
+  // não chamam apertarFreio (cada aba do render com a pastilha num lugar)
+  const anda = (freio.userData.folga as number) * Math.max(0, Math.min(1, k));
+  deslocar(lados[0]!, new THREE.Vector3(0, 0, anda));
+  deslocar(lados[1]!, new THREE.Vector3(0, 0, -anda));
 }
 
 /** Cor da incandescência do carbono pela temperatura (°C), como o olho vê no escuro: nada até ~450 °C, vermelho escuro

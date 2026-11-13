@@ -158,8 +158,12 @@ em frenagem forte (nunca o disco brilhando a volta toda).
   com ~0,45 m de largura, eixo do disco em z (câmera em +z vê a face de fora e a pinça). Peças: disco_freio, canais (os
   canais internos aparecem com `raioX(f, ["disco_freio", "sino", "pinca"])`), sino, pinca, pastilhas, tomada_freio (duto
   com boca em funil, do lado de dentro). `tipo: "rua"` = disco de ferro fundido cinza com aletas e pinça de 1 pistão (para
-  comparação). Use `enquadrar`. `girarDisco(f, ang)` (o disco gira, a pinça não), `apertarFreio(f, k)` (0 solto, 1
-  pastilhas encostadas nas duas faces).
+  comparação). Use `enquadrar` com `de`, `folga` e `lente` FIXOS no plano (o Felipe reprovou a peça "aumentando e
+  diminuindo"; o disco girando já não mexe no enquadramento: o rotor entra na caixa parado). Para abrir a peça, enquadre o
+  conjunto já aberto e depois anime: `explodir(f, 1, d); enquadrar(...); explodir(f, k, d)`. `criarFreio({ pinca: 90 })`
+  = pinça em cima (vista de lado `[1, 0.25, 0.3]` + `raioX(f, ["pinca"], 0.75)` mostra as pastilhas apertando o disco).
+  `girarDisco(f, ang)` (o disco gira, a pinça não), `apertarFreio(f, k)` (0 solto, 1 pastilhas encostadas nas duas
+  faces; só neste quadro). Freio do carro: nunca `isolar` o carro com a roda girando (o fantasma pisca).
 - `aquecer(modelo, graus, w?, quais?, halo = 1)`: incandescência por temperatura (°C), só neste quadro: nada até ~450,
   vermelho escuro ~550, cereja ~750, laranja ~900, laranja-amarelo ~1.000, amarelo-claro >1.150. Só discos (pastilha um
   pouco; a pinça nunca). `modelo` = freio solto ou carro (as 4 rodas; `quais` = ["freio_dianteiro_esquerdo", ...]).
