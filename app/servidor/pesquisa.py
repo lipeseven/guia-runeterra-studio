@@ -38,9 +38,11 @@ def _assuntos(titulo: str, notas: str, base: str | None) -> dict:
         + (" Liste também TODAS as afirmações de lore checáveis do roteiro base (quem fez o quê, quando, onde, "
            "parentesco, nomes) — no máximo 40, as que importam para o vídeo." if base else "")
         + ("" if LOL else " Liste também as SESSÕES de F1 (2023 em diante) de que o vídeo fala, para buscar os números "
-           "oficiais no OpenF1 (até 4).")
+           "oficiais no OpenF1 (até 4): local em inglês como o OpenF1 escreve (Monza, Interlagos, Mexico City) e, se "
+           "você souber, o \"session_key\" (https://api.openf1.org/v1/sessions?year=ANO).")
         + '\n\nJSON: {"assuntos": [{"nome": "Aatrox", "busca": "Aatrox", "personagem": true}], ' + pedido_base
-        + ("" if LOL else ', "sessoes": [{"ano": 2025, "local": "Monza", "sessao": "Race", "pilotos": ["LEC", "PIA"]}]') + "}",
+        + ("" if LOL else ', "sessoes": [{"ano": 2025, "local": "Monza", "sessao": "Race", "pilotos": ["LEC", "PIA"], '
+                           '"session_key": 9912}]') + "}",
         SISTEMA, modelo="sonnet", etiqueta="pesquisa-assuntos")
 
 
@@ -137,11 +139,12 @@ def pesquisar(pasta: Path, titulo: str, notas: str, base: str | None, aviso=lamb
         aviso(f"montando o dossiê de fatos ({g // 4 + 1}/{(len(achados) + 3) // 4})")
         fatos += _fatos(titulo, notas, achados[g:g + 4])
     if not LOL:   # F1: números oficiais das sessões citadas, direto do OpenF1 (sem modelo)
-        from .openf1 import fatos_da_sessao
+        from .openf1 import fatos_da_sessao, sessao_do_texto
 
+        ctx = sessao_do_texto(f"{titulo}. {notas}")   # "GP do México de 2026" no tema/orientações completa o pedido
         for s in [x for x in r.get("sessoes") or [] if isinstance(x, dict)][:4]:
             aviso(f"buscando os números de {s.get('local')} {s.get('ano')} {s.get('sessao')} no OpenF1")
-            fatos += [{"assunto": "OpenF1", "fato": t, "canon": "atual", "fonte": f} for f, t in fatos_da_sessao(s)]
+            fatos += [{"assunto": "OpenF1", "fato": t, "canon": "atual", "fonte": f} for f, t in fatos_da_sessao(s, ctx)]
     afirm = [a for a in r.get("afirmacoes", []) if a.get("afirmacao")][:40] if base else []
     crivo = _crivo(afirm, todos, aviso) if afirm else []
     dossie = {"quando": agora(), "titulo": titulo, "assuntos": [a["nome"] for a in assuntos],

@@ -1329,17 +1329,24 @@ def tarefa_conferencia(vid: int) -> None:
         return
     fat = r.get("fatos") or []
     div = sum(1 for f in fat if f["veredito"] == "diverge")
+    # "sem fonte" NÃO é conferido (uso real, 2026-11-14: 16 de 16 sem fonte apareciam como "0 divergente(s)" = falsa
+    # segurança). Vale para todo canal: o resumo só ganha a contagem dos não conferidos.
+    sem_f = sum(1 for f in fat if f["veredito"] == "sem_fonte")
+    com_fonte = len(fat) - sem_f
     sem = r.get("semelhanca") or {}
-    resumo_conf = f"conferido: {div} ⚠️ fato(s)" + (f" · {len(sem.get('frases', []))} parecida(s)" if sem else "")
+    resumo_conf = ((f"conferido: {div} ⚠️ fato(s)" + (f" · {sem_f} não conferido(s)" if sem_f else "")) if com_fonte or not fat
+                   else f"não conferido: {sem_f} fato(s) sem fonte") \
+        + (f" · {len(sem.get('frases', []))} parecida(s)" if sem else "")
     with conectar() as con:
         e = con.execute("SELECT detalhe FROM etapas WHERE video_id=? AND chave='roteiro'", (vid,)).fetchone()
         if e:  # card do Roteiro: "~20:00 narrado · v3 · conferido: 1 ⚠️ fato(s)"
-            base = (e["detalhe"] or "").split(" · conferido:")[0]
+            base = re.split(r" · (?:não )?conferido:", e["detalhe"] or "")[0]
             con.execute("UPDATE etapas SET detalhe=? WHERE video_id=? AND chave='roteiro'",
                         (f"{base} · {resumo_conf}" if base else resumo_conf, vid))
-        registrar(con, vid, f"Roteiro conferido: {len(fat)} fato(s) checado(s), {div} divergente(s)"
+        registrar(con, vid, f"Roteiro conferido: {com_fonte} de {len(fat)} fato(s) com fonte, {div} divergente(s)"
+                  + (f", {sem_f} NÃO conferido(s) (sem fonte)" if sem_f else "")
                   + (f"; {len(sem.get('frases', []))} frase(s) parecida(s) com o roteiro base" if sem else ""),
-                  "alerta" if div or sem.get("frases") else "ok")
+                  "alerta" if div or sem.get("frases") or (fat and not com_fonte) else "ok")
         con.commit()
 
 

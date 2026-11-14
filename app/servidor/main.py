@@ -28,7 +28,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from . import motor, publicacao, recursos, storyboard
+from . import motor, publicacao, recursos, storyboard, versao
 from .banco import RAIZ, agora, atualizar_etapa, conectar, criar_video, registrar
 from .etapas import COLUNAS, ETAPAS, etapas_do_formato
 
@@ -145,8 +145,14 @@ def ver_canal():
 
     return {"chave": CANAL["chave"], "nome": CANAL["nome"], "porta": CANAL["porta"], "canais": todos(),
             "formatos": CANAL.get("formatos", []),
-            "rotulos": {"horizontal_doc": (CANAL.get("horizontal_doc") or {}).get("rotulo", "documentário")}}
+            "rotulos": {"horizontal_doc": (CANAL.get("horizontal_doc") or {}).get("rotulo", "documentário")},
+            "codigo": versao.atual()}   # pasta atrás do GitHub / código mudou sem reiniciar → aviso no quadro
 motor.iniciar()
+if versao.atual()["aviso"]:   # código velho rodando (uso real 2026-11-14: card novo saiu no fluxo antigo)
+    print("AVISO:", versao.atual()["aviso"], flush=True)
+    with conectar() as _con:
+        registrar(_con, None, versao.atual()["aviso"], "alerta")
+        _con.commit()
 
 
 @app.middleware("http")

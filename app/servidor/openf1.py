@@ -26,9 +26,42 @@ TIPOS = {
     "pit_stops": "quantos pit stops o piloto fez",
     "pit_tempo": "tempo parado no box (s) no pit stop da volta pedida (ou o mais rápido, sem volta)",
     "velocidade_max": "velocidade máxima do piloto na sessão (km/h) pela telemetria",
+    "setor": "tempo do setor (1, 2 ou 3) na volta pedida (s); com piloto2 = diferença entre os dois nesse setor",
 }
 SESSOES = ("Race", "Qualifying", "Sprint", "Sprint Qualifying", "Sprint Shootout", "Practice 1", "Practice 2", "Practice 3")
 PRIMEIRO_ANO = 2023   # o OpenF1 começa em 2023: antes disso, sem dados (a conferência cai na Wikipedia)
+
+# GP / país / cidade / circuito como o roteiro (PT) e o modelo (EN) costumam escrever → circuit_short_name do OpenF1.
+# Uso real (2026-11-14): "classificação do GP do México de 2026" não achava a sessão (o modelo pode mandar "México",
+# "Hermanos Rodríguez", "Classificação"...). Chaves já normalizadas por `_normal` (sem acento/espaço, minúsculas).
+# País com mais de um GP (Itália: Monza/Imola; Espanha: Barcelona/Madri; EUA: Austin/Miami/Las Vegas) NÃO entra:
+# fica ambíguo de propósito (sem dados), e o prompt pede o session_key ao orquestrador.
+LOCAIS = {
+    "mexico": "Mexico City", "cidadedomexico": "Mexico City", "mexicocity": "Mexico City", "hermanosrodriguez": "Mexico City",
+    "brasil": "Interlagos", "brazil": "Interlagos", "saopaulo": "Interlagos", "interlagos": "Interlagos",
+    "monza": "Monza", "emiliaromagna": "Imola", "imola": "Imola",
+    "monaco": "Monte Carlo", "montecarlo": "Monte Carlo", "barcelona": "Catalunya", "catalunha": "Catalunya", "catalunya": "Catalunya", "madri": "Madring", "madrid": "Madring",
+    "belgica": "Spa-Francorchamps", "belgium": "Spa-Francorchamps", "spa": "Spa-Francorchamps",
+    "japao": "Suzuka", "japan": "Suzuka", "suzuka": "Suzuka", "holanda": "Zandvoort", "paisesbaixos": "Zandvoort",
+    "netherlands": "Zandvoort", "zandvoort": "Zandvoort", "hungria": "Hungaroring", "hungary": "Hungaroring",
+    "hungaroring": "Hungaroring", "austria": "Spielberg", "spielberg": "Spielberg", "redbullring": "Spielberg",
+    "grabretanha": "Silverstone", "inglaterra": "Silverstone", "reinounido": "Silverstone", "britain": "Silverstone",
+    "silverstone": "Silverstone", "canada": "Montreal", "montreal": "Montreal",
+    "austin": "Austin",
+    "lasvegas": "Las Vegas", "miami": "Miami", "arabiasaudita": "Jeddah", "saudiarabia": "Jeddah", "jeddah": "Jeddah",
+    "bahrein": "Sakhir", "barein": "Sakhir", "bahrain": "Sakhir", "sakhir": "Sakhir",
+    "australia": "Melbourne", "melbourne": "Melbourne", "china": "Shanghai", "xangai": "Shanghai", "shanghai": "Shanghai",
+    "azerbaijao": "Baku", "azerbaijan": "Baku", "baku": "Baku", "singapura": "Singapore", "singapore": "Singapore",
+    "catar": "Lusail", "qatar": "Lusail", "lusail": "Lusail", "abudhabi": "Yas Marina Circuit", "yasmarina": "Yas Marina Circuit",
+}
+# nome da sessão em PT/EN → session_name do OpenF1 (a classificação da sprint chamava "Sprint Shootout" em 2023)
+NOMES_SESSAO = {"classificacao": "Qualifying", "quali": "Qualifying", "qualifying": "Qualifying",
+                "corrida": "Race", "race": "Race", "sprint": "Sprint",
+                "classificacaosprint": "Sprint Qualifying", "classificacaodasprint": "Sprint Qualifying",
+                "sprintqualifying": "Sprint Qualifying", "sprintshootout": "Sprint Qualifying",
+                "treinolivre1": "Practice 1", "tl1": "Practice 1", "fp1": "Practice 1", "practice1": "Practice 1",
+                "treinolivre2": "Practice 2", "tl2": "Practice 2", "fp2": "Practice 2", "practice2": "Practice 2",
+                "treinolivre3": "Practice 3", "tl3": "Practice 3", "fp3": "Practice 3", "practice3": "Practice 3"}
 
 _cliente = None
 
@@ -54,8 +87,59 @@ class SemDados(Exception):
     pass
 
 
-def sessao(pedido: dict) -> dict:
-    """Sessão do OpenF1 pelo session_key ou por ano + local (circuito/cidade/país) + nome da sessão."""
+def nome_sessao(nome) -> str:
+    """"Classificação", "quali", "Qualifying" → "Qualifying" (o que não reconhece volta como veio)."""
+    return NOMES_SESSAO.get(_normal(nome), str(nome or ""))
+
+
+def _mesma_sessao(pedida, do_openf1) -> bool:
+    alvo = {_normal(nome_sessao(pedida))}
+    if alvo & {"sprintqualifying", "sprintshootout"}:
+        alvo = {"sprintqualifying", "sprintshootout"}
+    return _normal(do_openf1) in alvo
+
+
+def sessao_do_texto(texto: str) -> dict:
+    """Ano, local (circuit_short_name) e sessão citados no texto ("na classificação do GP do México de 2026" →
+    {"ano": 2026, "local": "Mexico City", "sessao": "Qualifying"}). Só o que achar: pode vir parcial ou vazio.
+    Regra: o 1º GP/país/circuito citado; ano e sessão da mesma frase (senão os primeiros do texto)."""
+    import re
+
+    t = unicodedata.normalize("NFKD", str(texto or "")).encode("ascii", "ignore").decode().lower()
+    achado: dict = {}
+    frase = t
+    for f in re.split(r"(?<=[.!?])\s+|\n+", t):
+        ws = re.findall(r"[a-z]+", f)
+        # 1 a 3 palavras seguidas formam a chave ("cidade do mexico", "las vegas", "gra bretanha")
+        local = next((LOCAIS["".join(ws[k:k + n])] for k in range(len(ws)) for n in (3, 2, 1)
+                      if "".join(ws[k:k + n]) in LOCAIS), None)
+        if local:
+            achado["local"], frase = local, f
+            break
+    ano = re.search(r"\b(20[2-4]\d)\b", frase) or re.search(r"\b(20[2-4]\d)\b", t)
+    if ano:
+        achado["ano"] = int(ano.group(1))
+    for rx, nome in ((r"classificacao (?:da |de )?sprint|sprint shootout|sprint qualifying", "Sprint Qualifying"),
+                     (r"treino livre ?([123])|\b(?:tl|fp)([123])\b", "Practice"),
+                     (r"classificacao|\bquali\b|qualifying|\bpole\b", "Qualifying"),
+                     (r"\bsprint\b", "Sprint"), (r"\bcorrida\b|\brace\b", "Race")):
+        m = re.search(rx, frase) or re.search(rx, t)
+        if m:
+            achado["sessao"] = f"Practice {next(g for g in m.groups() if g)}" if nome == "Practice" else nome
+            break
+    return achado
+
+
+def sessao(pedido: dict, contexto: dict | None = None) -> dict:
+    """Sessão do OpenF1 pelo session_key ou por ano + local (circuito/cidade/país, em PT ou EN) + nome da sessão.
+    `contexto` = a sessão citada no roteiro (`sessao_do_texto`): preenche SÓ o que o pedido não traz (o trecho
+    conferido raramente repete "classificação do GP de X de 2026"); ano/local/sessão ditos no pedido valem."""
+    if pedido.get("session_key") or not contexto:
+        return _sessao(pedido)
+    return _sessao({**pedido, **{k: v for k, v in contexto.items() if pedido.get(k) in (None, "")}})
+
+
+def _sessao(pedido: dict) -> dict:
     if pedido.get("session_key"):
         s = _obter("sessions", session_key=int(pedido["session_key"]))
         if not s:
@@ -64,15 +148,21 @@ def sessao(pedido: dict) -> dict:
     ano = pedido.get("ano")
     if not isinstance(ano, int) or ano < PRIMEIRO_ANO:
         raise SemDados(f"o OpenF1 só tem dados a partir de {PRIMEIRO_ANO} (ano: {ano})")
-    nome = pedido.get("sessao") or "Race"
+    nome = nome_sessao(pedido.get("sessao") or "Race")
     alvo = _normal(pedido.get("local"))
     if not alvo:
         raise SemDados("falta o local (circuito ou cidade) da sessão")
-    todas = [s for s in _obter("sessions", year=ano) if _normal(s.get("session_name")) == _normal(nome)]
-    achadas = [s for s in todas if any(alvo in _normal(s.get(k)) or (_normal(s.get(k)) and _normal(s.get(k)) in alvo)
-                                       for k in ("circuit_short_name", "location"))]
+    todas = [s for s in _obter("sessions", year=ano) if _mesma_sessao(nome, s.get("session_name"))]
+
+    def no_local(a: str) -> list[dict]:
+        return [s for s in todas if any(a in _normal(s.get(k)) or (_normal(s.get(k)) and _normal(s.get(k)) in a)
+                                        for k in ("circuit_short_name", "location"))]
+
+    achadas = no_local(alvo)
     if not achadas:
         achadas = [s for s in todas if alvo == _normal(s.get("country_name"))]
+    if len(achadas) != 1 and alvo in LOCAIS:   # "México", "Hermanos Rodríguez", "Grã-Bretanha" → circuito do OpenF1
+        achadas = no_local(_normal(LOCAIS[alvo])) or achadas
     if len(achadas) != 1:
         raise SemDados(f"{'nenhuma' if not achadas else f'{len(achadas)} sessões'} '{nome}' em '{pedido.get('local')}' {ano} no OpenF1")
     return achadas[0]
@@ -93,29 +183,41 @@ def _voltas(sk: int, num: int) -> list[dict]:
     return [v for v in _obter("laps", session_key=sk, driver_number=num) if v.get("lap_duration")]
 
 
-def _tempo(sk: int, num: int, volta) -> tuple[float, str]:
+def _volta(sk: int, num: int, volta) -> dict:
     vs = _voltas(sk, num)
     if not vs:
         raise SemDados(f"sem voltas cronometradas do carro {num} na sessão {sk}")
-    if volta in (None, "melhor", "best"):
-        v = min(vs, key=lambda x: x["lap_duration"])
-    else:
-        v = next((x for x in vs if x["lap_number"] == int(volta)), None)
-        if v is None:
-            raise SemDados(f"carro {num} sem tempo na volta {volta} da sessão {sk}")
+    if volta in (None, "", "melhor", "best"):
+        return min(vs, key=lambda x: x["lap_duration"])
+    v = next((x for x in vs if x["lap_number"] == int(volta)), None)
+    if v is None:
+        raise SemDados(f"carro {num} sem tempo na volta {volta} da sessão {sk}")
+    return v
+
+
+def _tempo(sk: int, num: int, volta) -> tuple[float, str]:
+    v = _volta(sk, num, volta)
     return float(v["lap_duration"]), f"volta {v['lap_number']}"
+
+
+def _setor(sk: int, num: int, volta, setor: int) -> tuple[float, str]:
+    v = _volta(sk, num, volta)
+    t = v.get(f"duration_sector_{setor}")
+    if not isinstance(t, (int, float)):
+        raise SemDados(f"carro {num} sem o setor {setor} na volta {v['lap_number']}")
+    return float(t), f"volta {v['lap_number']} setor {setor}"
 
 
 def _resultado(sk: int, num: int | None = None) -> list[dict]:
     return _obter("session_result", session_key=sk, **({"driver_number": num} if num is not None else {}))
 
 
-def calcular(pedido: dict) -> tuple[float, str, str]:
+def calcular(pedido: dict, contexto: dict | None = None) -> tuple[float, str, str]:
     """(valor, unidade, de onde veio) recalculado do OpenF1 para o pedido."""
     tipo = pedido.get("tipo")
     if tipo not in TIPOS:
         raise SemDados(f"tipo '{tipo}' não é conferido pelo OpenF1")
-    s = sessao(pedido)
+    s = sessao(pedido, contexto)
     sk = s["session_key"]
     rot = f"OpenF1 · {s.get('circuit_short_name')} {s.get('year')} {s.get('session_name')} (session_key {sk})"
     num = _piloto(sk, pedido["piloto"]) if pedido.get("piloto") not in (None, "") else None
@@ -129,6 +231,16 @@ def calcular(pedido: dict) -> tuple[float, str, str]:
             raise SemDados("diferença precisa de piloto2")
         n2 = _piloto(sk, pedido["piloto2"])
         t2, q2 = _tempo(sk, n2, pedido.get("volta2", pedido.get("volta")))
+        return round(abs(t1 - t2), 3), "s", f"{rot} /laps carro {num} {q1} × carro {n2} {q2}"
+    if tipo == "setor":
+        if num is None or str(pedido.get("setor")) not in ("1", "2", "3"):
+            raise SemDados("setor precisa de piloto e setor (1, 2 ou 3)")
+        st = int(pedido["setor"])
+        t1, q1 = _setor(sk, num, pedido.get("volta"), st)
+        if pedido.get("piloto2") in (None, ""):
+            return round(t1, 3), "s", f"{rot} /laps carro {num} {q1}"
+        n2 = _piloto(sk, pedido["piloto2"])
+        t2, q2 = _setor(sk, n2, pedido.get("volta2", pedido.get("volta")), st)
         return round(abs(t1 - t2), 3), "s", f"{rot} /laps carro {num} {q1} × carro {n2} {q2}"
     if tipo == "posicao_final":
         r = _resultado(sk, num)
@@ -190,10 +302,10 @@ def _fmt(v: float, unidade: str) -> str:
     return (f"{v:.3f}".rstrip("0").rstrip(".") if unidade == "s" else f"{v:g}").replace(".", ",") + f" {unidade}"
 
 
-def conferir(pedido: dict) -> dict:
-    """Valor dito no roteiro × valor recalculado do OpenF1."""
+def conferir(pedido: dict, contexto: dict | None = None) -> dict:
+    """Valor dito no roteiro × valor recalculado do OpenF1. `contexto` = sessão citada no roteiro (ver `sessao`)."""
     try:
-        certo, unidade, fonte = calcular(pedido)
+        certo, unidade, fonte = calcular(pedido, contexto)
     except SemDados as e:
         return {"status": "sem_dados", "explicacao": f"OpenF1: {e}", "fonte": None, "valor_openf1": None}
     except Exception as e:   # rede/limite do OpenF1: não decide nada
@@ -208,11 +320,11 @@ def conferir(pedido: dict) -> dict:
             "explicacao": f"OpenF1: {_fmt(certo, unidade)}" + ("" if ok else f" (o roteiro diz {_fmt(float(dito), unidade)})")}
 
 
-def fatos_da_sessao(pedido: dict) -> list[tuple[str, str]]:
+def fatos_da_sessao(pedido: dict, contexto: dict | None = None) -> list[tuple[str, str]]:
     """(fonte, texto) com os números da sessão para a pesquisa: resultado (top 10 + pilotos pedidos), melhor volta e
-    pit stops dos pilotos pedidos. Sem dados (ano < 2023, sessão não achada): lista vazia."""
+    pit stops dos pilotos pedidos. Sem dados (ano < 2023, sessão não achada): lista vazia. `contexto` = ver `sessao`."""
     try:
-        s = sessao(pedido)
+        s = sessao(pedido, contexto)
     except SemDados:
         return []
     except Exception:

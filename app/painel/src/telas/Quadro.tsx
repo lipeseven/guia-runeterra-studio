@@ -85,7 +85,7 @@ export function Quadro() {
   )
 }
 
-type Canal = { chave: string; nome: string; porta: number; formatos?: string[]; rotulos?: Record<string, string>; canais: { chave: string; nome: string; porta: number }[] }
+type Canal = { chave: string; nome: string; porta: number; formatos?: string[]; rotulos?: Record<string, string>; canais: { chave: string; nome: string; porta: number }[]; codigo?: { aviso: string | null } }
 
 /** Nome do canal deste servidor; os outros canais abrem no servidor deles (os canais não se misturam). */
 function SeletorDeCanal() {
@@ -117,6 +117,11 @@ function SeletorDeCanal() {
             </a>
           ))}
         </div>
+      )}
+      {canal?.codigo?.aviso && (
+        <p className="mt-1 max-w-2xl rounded border border-atencao/50 bg-atencao/10 px-2 py-1 text-xs text-atencao" title="app/servidor/versao.py">
+          {canal.codigo.aviso}
+        </p>
       )}
     </div>
   )

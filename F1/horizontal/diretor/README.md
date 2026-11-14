@@ -88,7 +88,8 @@ graficos ou imagens), `VALOR_NAO_BATE` (valor dito × tempos oficiais na compara
 0,5 ms no tempo e 1,5 ms na diferença), `IMAGEM_SEM_AFIRMACAO`. Imagens: `IMAGEM_NAO_VALIDADA` (não validada sem
 `aceitar_nao_validado`, ou aceita sem "imagem ilustrativa"/"não validada" escrito na tela), `ATIVO_REPROVADO`,
 `ATIVO_NAO_ENCONTRADO`. Tela e som: `NUMERO_NA_TELA` (número que a fala da cena não diz nem está numa afirmação dela;
-rodapé técnico "acelerado…", "Dados:…", "em tempo real" é livre), `SFX_PERTO` (< 0,5 s), `SFX_CATEGORIA`.
+rodapé técnico "acelerado…", "Dados:…", "em tempo real" é livre; "PARTE 02"/"Capítulo 3" também; tempo de cronômetro
+"1:16.514" ou "1 min 16 s 514" = 76.514 s, como o `valor` da afirmação; "9 milésimos" na fala = 0.009), `SFX_PERTO` (< 0,5 s), `SFX_CATEGORIA`.
 Pendência (não é erro): `ATIVO_FALTA` (com o comando), `ATIVOS_NAO_RESOLVIDOS`.
 Avisos: `DURACAO_LONGA`, `MOTOR_PREFERIDO`, `CAPITULO_TROCADO`, `TRANSICAO_FORA_DO_PADRAO`, `SFX_DENSIDADE`
 (mais de 1 a cada 8 s), `AFIRMACAO_SEM_CENA`, `VALOR_NAO_CONFERIDO`, `IMAGEM_NAO_VALIDADA_ACEITA`.

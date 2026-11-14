@@ -229,28 +229,47 @@ SISTEMA = f"Você confere roteiros do canal \"{CANAL['nome']}\" ({CANAL['assunto
 REGRAS = "4"  # 4 = obra mais recente vale mais, eventos/LoR/Riftbound na busca, fatos do canal (2026-10-31)
 F1 = CANAL.get("fatos", "lol") == "f1"
 if F1:
-    REGRAS += "-of1"  # F1 (2026-11-14): números conferidos contra o OpenF1 (Runeterra não muda nem reconfere)
+    REGRAS += "-of2"  # F1 (2026-11-14): números conferidos contra o OpenF1 (Runeterra não muda nem reconfere);
+    # of2 = sessão lida do roteiro (GP/ano/sessão em PT), tipo setor: o que saiu "sem fonte" no of1 é conferido de novo
 
 
-def _pedido_openf1() -> str:
+def contexto_sessao(roteiro: str) -> dict:
+    """F1: a sessão que o roteiro cita (ano, local, sessão), lida do TEXTO sem modelo. Vale para os trechos que não
+    repetem a sessão ("No primeiro setor, Hamilton foi 25 milésimos mais rápido")."""
+    from .openf1 import sessao_do_texto
+
+    return sessao_do_texto(roteiro) if F1 else {}
+
+
+def _pedido_openf1(contexto: dict | None = None) -> str:
     """F1: o que pedir ao modelo para cada afirmação com número (o cálculo é local, no OpenF1)."""
     from .openf1 import SESSOES, TIPOS
 
-    return ("Afirmação com NÚMERO de uma sessão de F1 (tempo de volta, diferença, posição, voltas, pit stop, velocidade) "
-            "ganha também `openf1` para conferir o número nos dados oficiais: {\"tipo\": um de " + ", ".join(TIPOS)
-            + ", \"ano\": 2025, \"local\": \"circuito ou cidade em inglês (Monza, Interlagos)\", \"sessao\": um de "
-            + ", ".join(SESSOES) + ", \"piloto\": número ou sigla (LEC), \"piloto2\": (só na diferença), \"volta\": número "
-            "ou \"melhor\", \"valor\": o número dito no roteiro em segundos/km/h/posição (1:19,007 = 79.007), \"casas\": "
-            "casas decimais ditas}. Sem número ou fora de uma sessão: sem `openf1`.\n\n")
+    ctx = contexto or {}
+    if {"ano", "local", "sessao"} <= set(ctx):
+        sobre = (f"Sessão do vídeo (lida do roteiro): ano {ctx['ano']}, local \"{ctx['local']}\", sessão \"{ctx['sessao']}\". "
+                 "Use-a no `openf1` de todo trecho que não cite outra sessão.\n")
+    else:   # o texto não diz a sessão inteira: quem responde (orquestrador) resolve, se puder, pelo session_key
+        sobre = ("O roteiro não deixa clara a sessão de F1 (lido do texto: "
+                 + (", ".join(f"{k} {v}" for k, v in ctx.items()) or "nada") + "). Se você souber qual é, ponha "
+                 "\"session_key\" no `openf1` (lista em https://api.openf1.org/v1/sessions?year=ANO); se não souber, "
+                 "preencha ano/local/sessao como estiverem no roteiro.\n")
+    return ("Afirmação com NÚMERO de uma sessão de F1 (tempo de volta, diferença, setor, posição, voltas, pit stop, "
+            "velocidade) ganha também `openf1` para conferir o número nos dados oficiais: {\"tipo\": um de " + ", ".join(TIPOS)
+            + ", \"ano\": 2025, \"local\": \"circuito ou cidade em inglês (Monza, Interlagos, Mexico City)\", \"sessao\": um de "
+            + ", ".join(SESSOES) + ", \"piloto\": número ou sigla (LEC), \"piloto2\": (diferença; setor entre dois), "
+            "\"setor\": 1|2|3 (só no tipo setor), \"volta\": número ou \"melhor\", \"valor\": o número dito no roteiro em "
+            "segundos/km/h/posição (1:19,007 = 79.007; 9 milésimos = 0.009), \"casas\": casas decimais ditas}. "
+            "Sem número ou fora de uma sessão: sem `openf1`.\n" + sobre + "\n")
 
 
-def _aplicar_openf1(a: dict, item: dict) -> None:
+def _aplicar_openf1(a: dict, item: dict, contexto: dict | None = None) -> None:
     """Número de F1 recalculado no OpenF1: ele decide o veredito (vale acima da Wikipedia para números)."""
     from .openf1 import conferir
 
     if not isinstance(a.get("openf1"), dict):
         return
-    r = conferir(a["openf1"])
+    r = conferir(a["openf1"], contexto)
     item["openf1"] = {**r, "pedido": a["openf1"]}
     if r["status"] in ("confere", "diverge"):
         item["veredito"] = r["status"]
@@ -307,7 +326,7 @@ def _migrar(pars: list[str], cache: dict) -> None:
 
 
 def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], cache: dict, aviso,
-            do_video: list[str] = ()) -> None:
+            do_video: list[str] = (), contexto: dict | None = None) -> None:
     from claude_cli import chamar_json
 
     if novos:
@@ -318,7 +337,7 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
             "Liste todas, no máximo 6 por trecho. Para cada uma, dê termos de busca em INGLÊS para a wiki "
             f"({FONTE['nome']}), começando pelo nome de quem aparece, e os {FONTE['quem']} de que o trecho fala, "
             "mesmo quando o fato é sobre um coadjuvante.\n\n"
-            + (_pedido_openf1() if F1 else "")
+            + (_pedido_openf1(contexto) if F1 else "")
             + "\n\n".join(f"[{i}] {p}" for i, p in novos)
             + '\n\nJSON: {"afirmacoes": [{"p": 0, "trecho": "palavras do roteiro", "afirmacao": "o fato, curto", '
               '"busca": "english search terms", "campeoes": ["Mordekaiser"]'
@@ -385,7 +404,7 @@ def _checar(pars: list[str], chaves: list[str], novos: list[tuple[int, str]], ca
                     "fonte": t, "fontes": x.get("fontes") if isinstance(x.get("fontes"), int) else None,
                     "fontes_divergem": bool(x.get("fontes_divergem"))}
             if F1:
-                _aplicar_openf1(a, item)
+                _aplicar_openf1(a, item, contexto)
             por_par[a["p"]].append(item)
         for i, lista in por_par.items():
             cache[chaves[i]] = lista
@@ -399,9 +418,10 @@ def fatos(roteiro: str, cache: dict, aviso=lambda m: None, info: dict | None = N
     novos = [(k, t) for k, (t, c) in enumerate(zip(textos, chaves)) if c not in cache]
     if info is not None:
         info.update(refeitos=len(novos), total=len(chaves))
+    contexto = contexto_sessao(roteiro)
     for ini in range(0, len(novos), LOTE):
         aviso(f"conferindo trechos {ini + 1} a {min(ini + LOTE, len(novos))} de {len(novos)}")
-        _checar(textos, chaves, novos[ini:ini + LOTE], cache, aviso, do_video)
+        _checar(textos, chaves, novos[ini:ini + LOTE], cache, aviso, do_video, contexto)
     # trecho de outra versão fica guardado: voltar uma versão ou desfazer uma alteração não confere de novo
     for k in [k for k in cache if not k.startswith(f"{REGRAS}:")]:
         del cache[k]

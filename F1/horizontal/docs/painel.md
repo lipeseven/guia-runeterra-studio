@@ -150,6 +150,42 @@ Etapas do card: … Gravação → Ressincronização → **Render final** → P
   (`saida/miniatura_base.jpg`); o texto sugerido vai por cima no editor do Felipe (nada é desenhado). VidIQ: não (decisão
   do Felipe depois). “Marcar como publicado” é o do Runeterra.
 
+## Correções do 1º uso real (2026-11-14, card 20 "Nove milésimos")
+- **Card novo com "Narração" e sem voz guia**: o código da 7a estava certo (`banco.criar_video` → `etapas_do_formato`
+  sem `chaves` = `ETAPAS_HORIZONTAL_DOC`; `aprovar_roteiro` só pede a gravação quando o card tem `voz_ia`). A causa: a
+  pasta principal estava no commit do PR #108 (antes da 7a) com #109–#111 já mesclados no GitHub, e o painel 8766 subiu
+  desse código. Card criado assim fica no fluxo antigo (`ETAPAS_HORIZONTAL_DOC_V1`, de propósito: não muda card antigo).
+  Proteção nova: `app/servidor/versao.py` guarda o commit carregado; `/api/canal` traz `codigo` e o quadro mostra o aviso
+  quando a pasta (no `main`) está atrás do `origin/main` conhecido localmente (último fetch/pull, sem rede) ou quando o
+  código mudou depois que o painel subiu (reinicie). Ao subir com aviso, também vai para a atividade (alerta).
+- **Markdown no roteiro** (`**negrito**` ia para roteiro.txt, palavras, âncoras e prompts): `tools/direcao/notas.separar`
+  tira `**x**`, `__x__`, `*x*`, `_x_`, `# título`, `> citação`, crase e asterisco solto na borda de palavra, ANTES de
+  contar as palavras das notas. Decisão: vale para **todos os formatos** (Runeterra, vertical, animado, documentário): a
+  voz guia leria os asteriscos em qualquer canal, e roteiro sem Markdown sai idêntico (testado; nenhum roteiro do
+  Runeterra tinha essas marcas). `roteiro_fonte.txt` guarda como veio. `_` dentro de palavra e `2*3` ficam.
+  `comum.frases`: ponto seguido de fecho (`.**`, `.”`) termina a frase, e a última frase sempre tem tempo final.
+- **Conferência F1 (OpenF1)**: o card 20 rodou com o código antigo (conferência sem OpenF1: 16/16 "sem fonte"). Mesmo
+  no código da 7a a sessão não resolvia: o modelo manda `local: "México"`/`"Hermanos Rodríguez"`, `sessao:
+  "Classificação"`, e os trechos sem a sessão ("No primeiro setor…") vinham sem ano/local. Agora:
+  `openf1.sessao_do_texto` lê GP/país/circuito (PT/EN), ano e sessão do roteiro inteiro; o prompt das afirmações diz a
+  sessão lida ("Sessão do vídeo (lida do roteiro): ano 2026, local "Mexico City", sessão "Qualifying"") ou, se não deu
+  para ler, pede o `session_key` ao orquestrador; a sessão lida preenche SÓ o que o pedido não traz; `LOCAIS` e
+  `NOMES_SESSAO` traduzem nomes (país com mais de um GP — Itália, Espanha, EUA — fica ambíguo de propósito); tipo novo
+  `setor` (tempo ou diferença entre dois no setor). A pesquisa usa o tema/orientações como contexto e pede o
+  `session_key` também. `REGRAS` do F1 = `4-of2` (o que saiu sem fonte é conferido de novo uma vez; Runeterra fica `4`).
+- **"Sem fonte" não é conferido**: card do Roteiro "conferido: 0 ⚠️ fato(s) · 3 não conferido(s)" ou, se nenhum tem
+  fonte, "não conferido: N fato(s) sem fonte"; atividade "Roteiro conferido: X de N fato(s) com fonte…, N NÃO
+  conferido(s)" (alerta se nenhum tem fonte); painel: grupo "NÃO conferidas" e aviso "Nenhum fato foi conferido…". Vale
+  para todos os canais (só muda o texto).
+- **Verificação** (`verificar.py`): número de cronômetro na tela ("1:16.514", "1 min 16 s 514") conta como os segundos
+  (76.514) da afirmação; na fala, "1 minuto, 16 segundos e 514 milésimos" e "9 milésimos" (0.009) também contam;
+  "PARTE 02"/"Capítulo 3" é número de capítulo livre (o resto do texto continua conferido).
+- Teste: `testes/painel/testar_uso_real.py` (34 checagens, ~10 s, sem rede: OpenF1 fictício com os números reais da
+  sessão 11400); casos no `testes/diretor/testar.py` (88). Visto no navegador (porta 8799, `servidor.py`): conferência do
+  card "Fluxo 7a" com o OpenF1 REAL (prompt com a sessão lida, setores 2 e 3 conferidos sem ano/local no pedido, sessão
+  9908), "NÃO conferidas" e o aviso de nenhum conferido. O card 20 real não foi mexido: o roteiro dele continua com `**`
+  até ser reenviado, e ele segue no fluxo antigo (`voz_ia`).
+
 ## Observações gerais do Felipe
 O painel "Observações gerais" do card (voz ou texto, `docs/observacoes.md` na raiz) grava `<projeto>/observacoes.json`;
 a ponte (`sincronizar_observacoes`, em `resumo`/`passo`) copia para `horizontal/observacoes.txt`, e `comum.observacoes`
