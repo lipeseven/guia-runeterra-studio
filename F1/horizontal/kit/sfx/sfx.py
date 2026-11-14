@@ -8,7 +8,11 @@
 #   mixar(evs, 20.0, "trilho.wav")               # numpy;  mixar_ffmpeg(...) faz o mesmo pelo ffmpeg
 #   para_hyperframes(evs) / para_json(evs)        # <audio data-start> do HyperFrames / lista para o Remotion (sfx.ts)
 #
+# Categorias (catalogo.json): impacto, riser, whoosh, sino, alerta, pop, clique, tecla e, para F1 documental, motor,
+# pneu, radio, cronometro, grafico, obturador, whoosh_grave, boom, box, multidao (as mesmas em sfx.ts: CATEGORIAS).
+#
 # Regras:
+# - categoria de ambiente (ancora="inicio" no catálogo, hoje só multidao): pico_s = 0, o som começa na palavra.
 # - a âncora é o PICO do som (pico_s do catálogo): o início real = t - pico_s (riser termina na palavra, whoosh
 #   passa no meio dela, impacto/clique batem nela). Se o início ficar antes de 0, o começo do arquivo é pulado.
 # - intensidade 0..1 → ganho de -9 dB a 0 dB, somado ao volume_db da categoria. Duração cortada em dur_max da

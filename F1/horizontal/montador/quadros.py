@@ -24,7 +24,9 @@ import mixagem as M
 FPS = 60
 SR = 48000
 PSNR_MIN = 32.0           # dB entre o quadro final e o esperado (duas codificações H.264 de alta qualidade)
-TOL_SFX_MS = {"impacto": 12, "pop": 12, "clique": 12, "tecla": 12, "alerta": 15, "sino": 15, "whoosh": 150, "riser": 150}
+TOL_SFX_MS = {"impacto": 12, "pop": 12, "clique": 12, "tecla": 12, "alerta": 15, "sino": 15, "whoosh": 150, "riser": 150,
+              "cronometro": 12, "obturador": 12, "boom": 20, "radio": 30, "grafico": 50, "pneu": 150, "box": 150,
+              "motor": 250, "whoosh_grave": 150, "multidao": 150}
 
 
 def _probe(mp4: Path) -> dict:

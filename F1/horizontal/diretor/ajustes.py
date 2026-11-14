@@ -23,7 +23,8 @@ from comum import TRANSICOES, categorias_sfx
 from esquema import validar
 
 MOVIMENTOS = ("parado", "aproximar", "afastar", "pan_esq", "pan_dir", "subir", "descer")   # = montador/movimento.js
-SFX_CATEGORIAS = ("impacto", "riser", "whoosh", "sino", "alerta", "pop", "clique", "tecla", "capitulo")
+SFX_CATEGORIAS = ("impacto", "riser", "whoosh", "sino", "alerta", "pop", "clique", "tecla", "motor", "pneu", "radio",
+                  "cronometro", "grafico", "obturador", "whoosh_grave", "boom", "box", "multidao", "capitulo")   # = kit/sfx
 PARAMS_DIRETOS = {"gps": {"camera_gps": ("perseguicao", "fixa", "alta")}, "graficos": {"minimapa": (True, False)}}
 ACOES = ("movimento", "transicao", "corte", "fim", "sfx", "kit")
 ANCORA_PALAVRAS = 3   # `em` gravado = 3 palavras a partir do índice (literal do roteiro, menos ambíguo que 1 palavra)

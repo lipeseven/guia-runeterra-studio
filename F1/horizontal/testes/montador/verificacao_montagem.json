@@ -46,21 +46,21 @@
           {
             "quadro": 192,
             "local": 24,
-            "psnr": 53.93,
+            "psnr": 46.37,
             "melhor_desloc": 0,
             "parado": false
           },
           {
             "quadro": 271,
             "local": 103,
-            "psnr": 54.91,
+            "psnr": 51.22,
             "melhor_desloc": 0,
             "parado": false
           },
           {
             "quadro": 350,
             "local": 182,
-            "psnr": 55.78,
+            "psnr": 51.33,
             "melhor_desloc": 0,
             "parado": false
           }
@@ -87,7 +87,7 @@
           {
             "quadro": 539,
             "local": 188,
-            "psnr": 55.58,
+            "psnr": 55.47,
             "melhor_desloc": -2,
             "parado": true
           }
@@ -102,7 +102,7 @@
         "n": 24,
         "q0": 168,
         "corte": 180,
-        "pior_psnr": 38.18,
+        "pior_psnr": 38.21,
         "pretos": [],
         "repetidos": []
       },
@@ -113,7 +113,7 @@
         "n": 18,
         "q0": 351,
         "corte": 360,
-        "pior_psnr": 42.33,
+        "pior_psnr": 42.46,
         "pretos": [],
         "repetidos": []
       }
@@ -121,36 +121,39 @@
     "sfx": [
       {
         "categoria": "sino",
-        "id": "sino_suave",
+        "id": "sino_fs611111",
         "t": 0.55,
-        "pico_medido": 0.5456,
-        "erro_ms": -4.4,
+        "pico_medido": 0.5501,
+        "erro_ms": 0.0,
+        "pico_catalogo_ms": 0.1,
         "isolado": true,
         "palavra": "Leclerc"
       },
       {
         "categoria": "whoosh",
-        "id": "whoosh_sint_largo",
+        "id": "whoosh_fs786514",
         "t": 3.0,
-        "pico_medido": 2.9987,
-        "erro_ms": -1.3,
-        "isolado": true,
+        "pico_medido": 3.0002,
+        "erro_ms": 0.0,
+        "pico_catalogo_ms": 0.2,
+        "isolado": false,
         "palavra": "transição wipe"
       },
       {
         "categoria": "pop",
-        "id": "pop_remotion",
+        "id": "pop_fs369952",
         "t": 8.062,
-        "pico_medido": 8.0688,
-        "erro_ms": 6.8,
+        "pico_medido": 8.0624,
+        "erro_ms": 0.0,
+        "pico_catalogo_ms": 0.4,
         "isolado": true,
         "palavra": "0,117"
       }
     ],
     "audio_alinhamento_ms": 0.0,
     "loudness_mp4": {
-      "lufs": -14.0,
-      "pico_dbtp": -2.5
+      "lufs": -14.1,
+      "pico_dbtp": -1.6
     }
   }
 }

@@ -324,6 +324,20 @@ def main() -> int:
     checa(r["ok"] and r["ajuste"]["afetadas"] == [c2], "movimento na c2 (HyperFrames): só a c2 afetada", str(r)[:300])
     r = ponte(cmd="ajustar", cena=c3, acao={"acao": "transicao", "tipo": "fade"}, previa=False)
     checa(r["ok"] and set(r["ajuste"]["afetadas"]) == {c2, c3}, "entrada da c3 vira fade: c2 (saída) e c3 afetadas", str(r)[:300])
+    # categorias de F1 documental do kit/sfx (motor, cronometro, ...): o ajuste direto aceita; a mixagem trata todas
+    r = ponte(cmd="ajustar", cena=c1, acao={"acao": "sfx", "j": 0, "categoria": "cronometro"}, previa=False)
+    checa(r["ok"] and r["ajuste"]["afetadas"] == [], "SFX de categoria nova (cronometro) aceito no ajuste direto", str(r)[:300])
+    import mixagem as MX
+    cats_kit = set(json.loads((HORIZ / "kit" / "sfx" / "catalogo.json").read_text(encoding="utf-8"))["categorias"])
+    sem_regra = cats_kit - MX.COM_DUCK - set(MX.REFORCO_DB)
+    checa(not sem_regra, "toda categoria do kit/sfx tem regra na mixagem (ducking ou reforço)", f"(sem regra: {sorted(sem_regra)})")
+    bk = MX.SFX.Banco(MX.pasta_banco() / "catalogo.json")
+    r_suave = MX.reforco(bk.para("sino", 5.0, 1.0, variacao="sino_suave"), bk.itens["sino_suave"])
+    e_alto = bk.para("sino", 5.0, 1.0, variacao="sino_hf_ping_final")
+    r_alto = MX.reforco(e_alto, bk.itens["sino_hf_ping_final"])
+    checa(r_suave == MX.REFORCO_DB["sino"] and r_alto < MX.REFORCO_DB["sino"]
+          and bk.itens["sino_hf_ping_final"]["pico_verdadeiro_dbtp"] + e_alto.ganho_db + r_alto <= MX.PICO_REFORCO_MAX_DBTP + 1e-9,
+          "reforço do sino: +22 dB no sino_suave (calibrado) e limitado no sino de pico alto", f"({r_suave}, {r_alto:.1f})")
     r = ponte(cmd="ajustar", cena=c1, acao={"acao": "sfx", "j": 0, "categoria": "sino"}, previa=False)
     checa(r["ok"] and r["ajuste"]["afetadas"] == [], "trocar o SFX: nenhuma cena renderiza (só o áudio muda)", str(r)[:300])
     r = ponte(cmd="ajustar", cena=c1, acao={"acao": "kit", "kit": "graficos", "param": "tipo", "valor": "delta"}, previa=False)
