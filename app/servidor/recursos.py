@@ -26,9 +26,10 @@ def gpu() -> dict:
         s = subprocess.run(["nvidia-smi", "--query-gpu=name,utilization.gpu,memory.used,memory.total,temperature.gpu",
                             "--format=csv,noheader,nounits"], capture_output=True, text=True, timeout=5).stdout
         nome, uso, usada, total, temp = [x.strip() for x in s.strip().split(",")]
-        uso = int(uso)
-        return {"ok": True, "nome": nome, "uso": uso, "vram_usada": int(usada), "vram_total": int(total),
-                "temperatura": int(temp), "estado": "ocupada" if uso > 30 else "ociosa"}
+        # o nvidia-smi de drivers novos devolve decimais ("58.72"): int() direto derrubava a leitura e o painel mostrava "GPU —"
+        uso = int(float(uso))
+        return {"ok": True, "nome": nome, "uso": uso, "vram_usada": int(float(usada)), "vram_total": int(float(total)),
+                "temperatura": int(float(temp)), "estado": "ocupada" if uso > 30 else "ociosa"}
     except Exception as e:  # sem driver / sem nvidia-smi
         return {"ok": False, "erro": str(e)}
 

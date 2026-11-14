@@ -53,9 +53,24 @@ def _embed(textos: list[str]):
             import torch
             from sentence_transformers import SentenceTransformer
 
-            _modelo = SentenceTransformer("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-                                          device="cuda" if torch.cuda.is_available() else "cpu")
-    return _modelo.encode(textos, normalize_embeddings=True, batch_size=64, show_progress_bar=False)
+            nome = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+            try:
+                _modelo = SentenceTransformer(nome, device="cuda" if torch.cuda.is_available() else "cpu")
+            except Exception as e:  # VRAM cheia (render/Whisper/Blender no mesmo momento): o modelo é pequeno, a CPU dá conta
+                if "out of memory" not in str(e).lower():
+                    raise
+                torch.cuda.empty_cache()
+                _modelo = SentenceTransformer(nome, device="cpu")
+    try:
+        return _modelo.encode(textos, normalize_embeddings=True, batch_size=64, show_progress_bar=False)
+    except Exception as e:  # a GPU encheu depois de o modelo carregar: volta para a CPU e segue
+        if "out of memory" not in str(e).lower():
+            raise
+        import torch
+
+        torch.cuda.empty_cache()
+        _modelo = _modelo.to("cpu")
+        return _modelo.encode(textos, normalize_embeddings=True, batch_size=16, show_progress_bar=False)
 
 
 def limpar_base(texto: str) -> str:
