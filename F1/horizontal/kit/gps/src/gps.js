@@ -90,7 +90,21 @@ export function criarAmostrador(volta) {
     if (sb > sa) ponto(sb);
     return { pontos: pts, cor: volta.cor, s0: sa, s1: sb };
   }
+  /** Posição lateral no tempo t (só voltas com volta.lateral.borda_esq: pistas com malha de zebra, ex. mods do AC):
+   *  { bordaEsq, bordaDir (m do centro do carro à borda do asfalto; < 0 = passou), zebra, foraAsfalto (0..1 da
+   *  largura do carro), medida (false = traçado inferido, não medido pelo GPS) } ou null. */
+  const LAT = volta.lateral && volta.lateral.borda_esq ? volta.lateral : null;
+  const LE = LAT && Float64Array.from(LAT.borda_esq, (v) => (v == null ? NaN : v));
+  const LD = LAT && Float64Array.from(LAT.borda_dir, (v) => (v == null ? NaN : v));
+  const LZ = LAT && Float64Array.from(LAT.zebra), LF = LAT && Float64Array.from(LAT.fora_asfalto);
+  function lateral(t) {
+    if (!LAT) return null;
+    const sv = s(t);
+    return { bordaEsq: noCaminho(sv, LE), bordaDir: noCaminho(sv, LD), zebra: noCaminho(sv, LZ),
+             foraAsfalto: noCaminho(sv, LF), medida: !!LAT.medida, fonte: LAT.fonte };
+  }
   return {
+    lateral,
     info: {
       sessao: volta.sessao, sessaoNome: volta.sessao_nome, piloto: volta.piloto, sigla: volta.sigla, nome: volta.nome,
       equipe: volta.equipe, cor: volta.cor, cor2: volta.cor2, volta: volta.volta, duracao: volta.duracao,

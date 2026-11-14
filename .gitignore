@@ -22,3 +22,7 @@ F1/horizontal/remotion/public/
 F1/horizontal/hyperframes/assets/
 F1/horizontal/hyperframes/renders/
 F1/horizontal/hyperframes/.hyperframes/
+F1/horizontal/hyperframes/*/assets/
+F1/horizontal/hyperframes/*/.hyperframes/
+F1/horizontal/testes/vhe/snap*/
+F1/horizontal/testes/vhe/*.log

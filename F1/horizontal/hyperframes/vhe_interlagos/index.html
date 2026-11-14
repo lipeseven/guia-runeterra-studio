@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=1920, height=1080" />
+<!-- Teste do kit/gps com mod do Assetto Corsa (vhe_interlagos): melhor volta do Hamilton na classificação do GP de
+     São Paulo 2026 (OpenF1 11408). Rode "python preparar.py" antes (monta assets/ e a decupagem em assets/cfg.js).
+     O carro anda no traçado ideal do MOD (posição lateral inferida) no ritmo medido do Hamilton (GPS + telemetria);
+     a linha cinza é a do GPS do OpenF1, que não tem informação lateral (ver F1/horizontal/docs/teste_vhe_interlagos.md). -->
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.15.0/dist/gsap.min.js"></script>
+<script src="assets/cfg.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: #ecebe6; }
+  #root { width: 100%; height: 100%; position: relative; background: #ecebe6; overflow: hidden; }
+  #tela { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; }
+  .caixa { position: absolute; background: rgba(255,255,255,0.94); border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.14);
+           font-family: "Bahnschrift", "Segoe UI", sans-serif; color: #141414; font-kerning: none; }
+  #titulo { left: 80px; top: 300px; padding: 36px 48px 34px 0; display: flex; gap: 34px; }
+  #titulo .barra { width: 12px; border-radius: 10px 0 0 10px; }
+  #titulo .nome { font-size: 76px; font-weight: 700; line-height: 1; }
+  #titulo .equipe { font-size: 40px; color: #555; margin-top: 10px; }
+  #titulo .sessao { font-size: 38px; margin-top: 28px; }
+  #titulo .tempo { font-size: 64px; font-weight: 700; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  #titulo .nota { font-size: 26px; color: #444; margin-top: 22px; max-width: 900px; line-height: 1.35; }
+  #rotulo { left: 56px; top: 48px; padding: 14px 26px; }
+  #rotulo .curva { font-size: 48px; font-weight: 700; }
+  #rotulo .ritmo { font-size: 28px; color: #555; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  #vel { right: 56px; top: 48px; padding: 14px 26px; display: flex; align-items: baseline; gap: 10px; }
+  #vel .n { font-size: 56px; font-weight: 700; width: 120px; text-align: right; font-variant-numeric: tabular-nums; }
+  #vel .u { font-size: 28px; color: #555; }
+  #lat { left: 50%; transform: translateX(-50%); bottom: 64px; width: 1180px; padding: 18px 30px 16px; }
+  #lat .topo { display: flex; justify-content: space-between; font-size: 30px; font-variant-numeric: tabular-nums; }
+  #lat .topo b { font-weight: 700; }
+  #lat .faixa { position: relative; height: 64px; margin: 14px 0 10px; background: #b9c4a6; border-radius: 6px; overflow: hidden; }
+  #lat .asf { position: absolute; top: 0; bottom: 0; background: #5d6066; }
+  #lat .borda { position: absolute; top: 0; bottom: 0; width: 4px; background: #fff; }
+  #lat .carro { position: absolute; top: 10px; bottom: 10px; border-radius: 6px; border: 3px solid #fff; }
+  #lat .gps { position: absolute; top: 0; bottom: 0; width: 10px; margin-left: -5px; background: #8fd3ff; border: 2px solid #11324a; border-radius: 3px; }
+  #lat .leg { display: flex; gap: 34px; font-size: 22px; color: #333; }
+  #lat .leg span.q { display: inline-block; width: 18px; height: 18px; vertical-align: -2px; margin-right: 8px; border-radius: 3px; }
+  #zebra { right: 56px; bottom: 236px; padding: 10px 22px; font-size: 40px; font-weight: 800; color: #fff; display: none;
+           background: repeating-linear-gradient(135deg, #d8262b 0 22px, #ffffff 22px 44px); text-shadow: 0 0 6px #000, 0 0 2px #000; }
+  #fora { left: 56px; bottom: 236px; padding: 10px 22px; font-size: 32px; font-weight: 700; display: none; }
+  #fonte { right: 56px; bottom: 18px; font-family: "Segoe UI", sans-serif; font-size: 20px; color: #444; background: rgba(255,255,255,0.8);
+           padding: 4px 12px; border-radius: 6px; position: absolute; }
+</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-duration="52.959" data-fps="60" data-width="1920" data-height="1080">
+  <canvas id="tela" width="1920" height="1080"></canvas>
+  <div id="titulo" class="caixa"><div class="barra"></div><div>
+    <div class="nome"></div><div class="equipe"></div><div class="sessao"></div><div class="tempo"></div>
+    <div class="nota">Ao longo da pista: posição e ritmo MEDIDOS (GPS + telemetria do OpenF1).<br>
+      Posição lateral: traçado ideal do mod de Assetto Corsa (INFERIDA — o GPS do OpenF1 não mede a posição lateral).<br>Sessão com chuva: o traçado de piso molhado costuma fugir do traçado seco do mod.</div>
+  </div></div>
+  <div id="rotulo" class="caixa"><div class="curva"></div><div class="ritmo"></div></div>
+  <div id="vel" class="caixa"><div class="n">0</div><div class="u">km/h</div></div>
+  <div id="lat" class="caixa">
+    <div class="topo"><div class="e"></div><div class="m"></div><div class="d"></div></div>
+    <div class="faixa"><div class="asf"></div><div class="borda be"></div><div class="borda bd"></div><div class="gps"></div><div class="carro"></div></div>
+    <div class="leg"><div><span class="q cq"></span>carro no traçado ideal do mod (lateral inferida)</div>
+      <div><span class="q" style="background:#8fd3ff;border:2px solid #11324a"></span>linha do GPS OpenF1 (igual para todos os pilotos)</div></div>
+  </div>
+  <div id="zebra" class="caixa">ZEBRA</div>
+  <div id="fora" class="caixa"></div>
+  <div id="fonte">Dados: OpenF1 (classificação 11408, volta 12) · pista: mod Assetto Corsa vhe_interlagos (Automobilista/Reiza)</div>
+</div>
+<script>
+  (function () {
+    var cfg = window.__CFG, relogio = { t: 0 };
+    var host = { relogio: relogio, desenhar: null };
+    window.__cena = host;
+    window.__hf = window.__hf || {};
+    window.__hf.buildReady = window.__hf.buildReady || {};
+    window.__hf.buildReady["main"] = new Promise(function (r) { host.pronto = r; });
+    window.__timelines = window.__timelines || {};
+    var tl = gsap.timeline({ paused: true });
+    tl.to(relogio, { t: cfg.duracao, duration: cfg.duracao, ease: "none", onUpdate: function () { if (host.desenhar) host.desenhar(relogio.t); } }, 0);
+    window.__timelines["main"] = tl;
+  })();
+</script>
+<script type="module">
+  import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.169.0/+esm";
+  import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/loaders/GLTFLoader.js/+esm";
+  import { montar } from "./cena.js";
+  const cfg = window.__CFG, host = window.__cena;
+  const [ideal, livre] = await Promise.all([cfg.voltas.ideal, cfg.voltas.livre].map((v) => fetch(`assets/${v}`).then((r) => r.json())));
+  const ld = new GLTFLoader();
+  const [pista, carro] = await Promise.all([ld.loadAsync(`assets/${cfg.pista}`), ld.loadAsync(`assets/${cfg.carro}`)]);
+  host.desenhar = montar(THREE, { cfg, ideal, livre, pista: pista.scene, carro: carro.scene, canvas: document.getElementById("tela") });
+  host.desenhar(host.relogio.t);
+  host.pronto();
+</script>
+</body>
+</html>

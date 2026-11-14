@@ -11,6 +11,7 @@
 #   vertical); p.mascara (área pilotável, para puxar o centro do carro de volta); p.render (o que o motor carrega).
 import json
 from datetime import datetime
+from fnmatch import fnmatch
 from pathlib import Path
 
 import cv2
@@ -63,15 +64,29 @@ def tem_modelo(circuito):
     return bool(g and _achar_glb(g["arquivo"]))
 
 
+def selecionar(T, padroes):
+    """Triângulos das chaves de T que casam com 'padroes' (nome exato ou curinga fnmatch, ex. '1road_*'; str ou lista)."""
+    padroes = [padroes] if isinstance(padroes, str) else list(padroes or [])
+    ks = [k for k in T if any(k == p or fnmatch(k, p) for p in padroes)]
+    if not ks:
+        raise KeyError(f"nenhuma malha casa com {padroes}")
+    return np.concatenate([T[k] for k in ks])
+
+
 def triangulos_glb(circuito):
-    """Triângulos do .glb do circuito (sub-árvore g['no'] se houver), com cache em npz."""
+    """Triângulos do .glb do circuito (sub-árvore g['no'] se houver), com cache em npz.
+    g['agrupar'] = 'no' agrupa por nome de nó (mods do Assetto Corsa); padrão: por material."""
     g = parametros(circuito)["glb"]
     glb = _achar_glb(g["arquivo"])
     if glb is None:
         raise FileNotFoundError(f"não achei F1/dados/modelos3d/{g['arquivo']}")
-    arq = AQUI / "cache" / f"pista_{Path(g['arquivo']).stem}_{g.get('no') or 'tudo'}.npz"
+    agrupar = g.get("agrupar", "material")
+    sufixo = "" if agrupar == "material" else f"_{agrupar}"
+    arq = AQUI / "cache" / f"pista_{Path(g['arquivo']).stem}_{g.get('no') or 'tudo'}{sufixo}.npz"
+    if arq.exists() and arq.stat().st_mtime < glb.stat().st_mtime:
+        arq.unlink()  # o .glb mudou depois do cache
     if not arq.exists():
-        T = triangulos(glb, g.get("no"))
+        T = triangulos(glb, g.get("no"), agrupar)
         arq.parent.mkdir(parents=True, exist_ok=True)
         np.savez_compressed(arq, **{str(k): v.astype(np.float32) for k, v in T.items()})
     z = np.load(arq)
@@ -97,12 +112,13 @@ def _mascara(tri_pilotavel):
 
 
 class Pista:
-    def __init__(self, circuito, modo, al, T_chao, T_asf, T_pilot, render, info):
+    def __init__(self, circuito, modo, al, T_chao, T_asf, T_pilot, render, info, T_zebra=None):
         self.circuito, self.modo, self.al, self.render, self.info = circuito, modo, al, render, info
         self.chao = Superficie(T_chao)
         self.asf = Superficie(T_asf)
         self.pilot = Superficie(T_pilot)
         self._T_pilot = T_pilot
+        self._T_asf, self._T_zebra = T_asf, T_zebra   # para medir bordas/zebra (py/lateral.py)
         self._mask = None
 
     def aplicar(self, xy):
@@ -122,11 +138,12 @@ def _carregar_glb(circuito):
     if not al:
         raise ValueError(f"pista/{circuito}.json sem 'alinhamento': rode py/alinhar.py {circuito} <sessao> <pilotos>")
     T = triangulos_glb(circuito)
-    fundo = set(g.get("fundo", []))
-    chao = np.concatenate([v for k, v in T.items() if k not in fundo])
-    pil = np.concatenate([T[k] for k in g["pilotavel"]])
-    return Pista(circuito, "glb", al, chao, T[g["asfalto"]], pil, g["arquivo"],
-                 dict(arquivo=g["arquivo"], erro_mediano_m=al.get("erro_mediano_m")))
+    fundo = [g["fundo"]] if isinstance(g.get("fundo"), str) else g.get("fundo", [])
+    chao = np.concatenate([v for k, v in T.items() if not any(k == p or fnmatch(k, p) for p in fundo)])
+    pil = selecionar(T, g["pilotavel"])
+    zeb = selecionar(T, g["zebra"]) if g.get("zebra") else None
+    return Pista(circuito, "glb", al, chao, selecionar(T, g["asfalto"]), pil, g["arquivo"],
+                 dict(arquivo=g["arquivo"], erro_mediano_m=al.get("erro_mediano_m")), T_zebra=zeb)
 
 
 # ------------------------------------------------------------------------------------------------ modo plano

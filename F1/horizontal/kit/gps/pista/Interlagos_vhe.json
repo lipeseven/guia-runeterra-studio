@@ -1,0 +1,75 @@
+{
+ "_nota": "Interlagos pelo mod do Assetto Corsa 'vhe_interlagos' (VheEth, conversão do Automobilista/Reiza; F1/dados/modelos3d, fora do Git). Superfícies de física exportadas por py/assetto.py (ou pelo Blender + KN5 Tools: mesmo resultado, ±0,1 mm), um nó por objeto: o nome diz a superfície (1road = asfalto, 1kerb_001/1curb = zebras, 1kerb_002/003 = dreno/concreto que o AC trata como zebra, 1grass, 1sand, 1outer = escape). Usar com --circuito Interlagos_vhe. 'linha_ideal' = traçado ideal do próprio mod (gp/data/ideal_line.ai), em coordenadas do modelo.",
+ "circuito": "Interlagos_vhe",
+ "glb": {
+  "arquivo": "interlagos_vhe_superficies.glb",
+  "visual": "interlagos_vhe_visual.glb",
+  "no": null,
+  "agrupar": "no",
+  "asfalto": [
+   "1road_*"
+  ],
+  "zebra": [
+   "1kerb_001",
+   "1curb_*"
+  ],
+  "pilotavel": [
+   "1road_*",
+   "1kerb_*",
+   "1curb_*"
+  ],
+  "alinhar_em": [
+   "1road_*",
+   "1kerb_*",
+   "1curb_*"
+  ],
+  "fundo": [],
+  "refinar_dentro": true
+ },
+ "linha_ideal": "C:/Users/Felipe/Downloads/vhe_interlagos/gp/data/ideal_line.ai",
+ "alinhamento": {
+  "escala": 0.10012031187156317,
+  "R": [
+   [
+    0.9998915426497464,
+    -0.014727624978603122
+   ],
+   [
+    0.014727624978603089,
+    0.9998915426497464
+   ]
+  ],
+  "t": [
+   -59.41109333407971,
+   -368.3273717675561
+  ],
+  "refletir": true,
+  "metodo": "ICP + refino 'dentro' (todo o GPS sobre asfalto + zebra)",
+  "fracao_fora_pilotavel": 0.0,
+  "fracao_fora_pilotavel_so_icp": 0.0909,
+  "refino_x_icp_m": {
+   "mediana": 5.36,
+   "max": 12.97
+  },
+  "folga_translacao_m": {
+   "+x": 1.6,
+   "-x": 0.8,
+   "+z": 6.6,
+   "-z": 1.0
+  },
+  "fonte": "interlagos_vhe_superficies.glb (asfalto ['1road_*']) alinhado ao OpenF1 por ICP de similaridade 2D",
+  "sessao_usada": 11408,
+  "pilotos_usados": [
+   44,
+   63,
+   16,
+   1,
+   30,
+   12
+  ],
+  "convencao": "glb_x, glb_z = escala * R @ (x_openf1, ±y_openf1) + t   (x,y do OpenF1 em decímetros; refletir = inverter y antes)",
+  "erro_mediano_m": 0.378,
+  "fracao_sobre_asfalto": 0.9687,
+  "n_pontos": 12351
+ }
+}

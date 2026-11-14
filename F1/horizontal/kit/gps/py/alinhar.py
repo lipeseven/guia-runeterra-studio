@@ -73,13 +73,57 @@ def icp(gps, alvo, refletir, ang0):
     return al, float(np.median(d))
 
 
+def _fora(M, q):
+    """Distância (m) de cada ponto até a área pilotável (0 = dentro), pela transformada de distância da máscara."""
+    ij = np.round((q - M["lo"]) / M["r"]).astype(int)
+    ij[:, 0] = ij[:, 0].clip(0, M["m"].shape[1] - 1)
+    ij[:, 1] = ij[:, 1].clip(0, M["m"].shape[0] - 1)
+    return M["dist"][ij[:, 1], ij[:, 0]] * M["r"]
+
+
+def refinar_dentro(al, gps, M):
+    """Refino do ICP: o ICP contra uma ÁREA (asfalto de 10–16 m de largura) é fraco na direção lateral (duas escolhas
+    de malha-alvo em Interlagos/VHE deram alinhamentos 4,5 m (mediana) diferentes). Critério mais firme: o GPS do
+    OpenF1 de várias voltas/pilotos tem de cair DENTRO de asfalto + zebra. Minimiza a distância quadrática para fora
+    (Nelder–Mead em escala, rotação e translação), partindo do ICP. Devolve (al, folga), folga = quanto a translação
+    pode andar em ±x/±z mantendo ≥ 99,9% dos pontos dentro (mede a incerteza que sobra)."""
+    from scipy.optimize import minimize
+    R0, t0, s0 = np.array(al["R"]), np.array(al["t"]), al["escala"]
+
+    def par(x):
+        c, s = np.cos(x[1]), np.sin(x[1])
+        return dict(escala=float(s0 * np.exp(x[0])), R=(np.array([[c, -s], [s, c]]) @ R0).tolist(),
+                    t=(t0 + x[2:4]).tolist(), refletir=al["refletir"])
+
+    def obj(x):
+        d = _fora(M, aplicar(par(x), gps))
+        return np.mean(d ** 2) + 0.1 * np.mean(d > 0)
+
+    simplex = np.array([[0, 0, 0, 0], [0.005, 0, 0, 0], [0, 0.005, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1.0]])
+    r = minimize(obj, np.zeros(4), method="Nelder-Mead",
+                 options=dict(xatol=1e-5, fatol=1e-7, maxiter=4000, initial_simplex=simplex))
+    novo = par(r.x)
+    folga = {}
+    for nome, v in (("+x", [1, 0]), ("-x", [-1, 0]), ("+z", [0, 1]), ("-z", [0, -1])):
+        passo = 0.0
+        while passo < 20:
+            t = dict(novo, t=(np.array(novo["t"]) + np.array(v) * (passo + 0.1)).tolist())
+            if np.mean(_fora(M, aplicar(t, gps)) > 0) > 0.001:
+                break
+            passo += 0.1
+        folga[nome] = round(passo, 1)
+    return novo, folga
+
+
 def alinhar(circuito, sessao, pilotos, gravar=True):
     par = P.parametros(circuito)
     if not par.get("glb"):
         raise ValueError(f"pista/{circuito}.json sem bloco 'glb' (arquivo, no, asfalto, pilotavel, fundo)")
     T = P.triangulos_glb(circuito)
-    asf = T[par["glb"]["asfalto"]]
-    alvo = np.concatenate([asf.mean(1), asf.reshape(-1, 3)])[:, [0, 2]]
+    asf = P.selecionar(T, par["glb"]["asfalto"])
+    # alvo do ICP: o asfalto ou, se houver, "alinhar_em" (ex.: asfalto + zebras de um mod do Assetto Corsa)
+    alv = P.selecionar(T, par["glb"]["alinhar_em"]) if par["glb"].get("alinhar_em") else asf
+    alvo = np.concatenate([alv.mean(1), alv.reshape(-1, 3)])[:, [0, 2]]
     gps = np.concatenate([pontos_gps(sessao, p) for p in pilotos])
     melhor = None
     for refletir in (False, True):
@@ -88,11 +132,24 @@ def alinhar(circuito, sessao, pilotos, gravar=True):
             if melhor is None or med < melhor[1]:
                 melhor = (al, med)
     al, med = melhor
+    extra = {}
+    if par["glb"].get("refinar_dentro"):
+        M = P._mascara(P.selecionar(T, par["glb"]["pilotavel"]))
+        icp_al = al
+        al, folga = refinar_dentro(al, gps, M)
+        d_icp = np.linalg.norm(aplicar(al, gps) - aplicar(icp_al, gps), axis=1)
+        med = float(np.median(cKDTree(alvo).query(aplicar(al, gps))[0]))
+        extra = dict(metodo="ICP + refino 'dentro' (todo o GPS sobre asfalto + zebra)",
+                     fracao_fora_pilotavel=round(float(np.mean(_fora(M, aplicar(al, gps)) > 0)), 4),
+                     fracao_fora_pilotavel_so_icp=round(float(np.mean(_fora(M, aplicar(icp_al, gps)) > 0)), 4),
+                     refino_x_icp_m=dict(mediana=round(float(np.median(d_icp)), 2), max=round(float(d_icp.max()), 2)),
+                     folga_translacao_m=folga)
     sup = Superficie(asf)  # quantos pontos GPS caem sobre o asfalto (raio vertical)
     q = aplicar(al, gps)
     dentro = np.mean([bool(sup.alturas(x, z)) for x, z in q])
+    al.update(extra)
     al.update(
-        fonte=f"{par['glb']['arquivo']} (asfalto, material {par['glb']['asfalto']}) alinhado ao OpenF1 por ICP de similaridade 2D",
+        fonte=f"{par['glb']['arquivo']} (asfalto {par['glb']['asfalto']}) alinhado ao OpenF1 por ICP de similaridade 2D",
         sessao_usada=sessao, pilotos_usados=list(pilotos),
         convencao="glb_x, glb_z = escala * R @ (x_openf1, ±y_openf1) + t   (x,y do OpenF1 em decímetros; refletir = inverter y antes)",
         erro_mediano_m=round(med, 3), fracao_sobre_asfalto=round(float(dentro), 4), n_pontos=int(len(gps)),
