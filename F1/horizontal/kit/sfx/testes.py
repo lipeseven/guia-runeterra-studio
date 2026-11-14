@@ -1,6 +1,7 @@
 # Testes automáticos do kit de SFX (sem pytest: roda direto e sai com código 1 se algo falhar).
 #   .venv\Scripts\python.exe F1\horizontal\kit\sfx\testes.py
-# Confere: catálogo (8 categorias, >= 5 variações, campos, arquivos), cada WAV (48 kHz, estéreo, 16 bits, loudness
+# Confere: catálogo (18 categorias: >= 15 variações nas 8 originais, >= 8 nas 10 de F1; campos, arquivos), sons da
+# API do Freesound (licença CC0/CC BY conferida pela url, nunca NC; crédito; freesound.json = catálogo), cada WAV (48 kHz, estéreo, 16 bits, loudness
 # dentro da faixa da categoria, pico verdadeiro <= -1 dBTP, sem clipping, os dois canais com som e equilibrados,
 # duração), medida própria BS.1770 × ebur128 do ffmpeg, som excluído (asa do Remotion), API (âncora no pico, riser
 # terminando na palavra, sem repetir, determinismo, paridade Python × TS) e a mixagem de exemplo (numpy × ffmpeg).
@@ -18,6 +19,7 @@ import numpy as np
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI))
 sys.path.insert(0, str(AQUI / "exemplo"))
+import gerar  # noqa: E402
 import medir  # noqa: E402
 import sfx  # noqa: E402
 
@@ -39,12 +41,18 @@ def ebur128_ffmpeg(caminho: Path) -> float:
     return float(re.findall(r"I:\s+(-?[\d.]+) LUFS", r.stderr)[-1])
 
 
+ORIGINAIS = {"impacto", "riser", "clique", "tecla", "sino", "whoosh", "pop", "alerta"}
+NOVAS = {"motor", "pneu", "radio", "cronometro", "grafico", "obturador", "whoosh_grave", "boom", "box", "multidao"}
+MIN_ORIGINAIS, MIN_NOVAS = 15, 8
+
+
 def teste_catalogo(cat: dict) -> None:
     cats = cat["categorias"]
-    checar(set(cats) == {"impacto", "riser", "clique", "tecla", "sino", "whoosh", "pop", "alerta"}, "categorias erradas")
+    checar(set(cats) == ORIGINAIS | NOVAS, f"categorias erradas: {sorted(set(cats) ^ (ORIGINAIS | NOVAS))}")
     for c in cats:
         n = sum(1 for i in cat["itens"] if i["categoria"] == c)
-        checar(n >= 5, f"{c}: só {n} variações (mínimo 5)")
+        minimo = MIN_ORIGINAIS if c in ORIGINAIS else MIN_NOVAS
+        checar(n >= minimo, f"{c}: só {n} variações (mínimo {minimo})")
     ids = [i["id"] for i in cat["itens"]]
     checar(len(ids) == len(set(ids)), "ids repetidos no catálogo")
     for i in cat["itens"]:
@@ -55,6 +63,48 @@ def teste_catalogo(cat: dict) -> None:
         if i.get("credito_obrigatorio"):
             checar(bool(i.get("autor")) and bool(i.get("url")), f"{i['id']}: CC BY sem autor/url para crédito")
     checar(not cat.get("faltando"), f"fontes faltando na geração: {cat.get('faltando')}")
+    # os 12 pico_s corrigidos no uso real (PR #113) têm de sair iguais da geração (±2 ms)
+    pico113 = {"impacto_fs748752": 0.182, "impacto_fs804681": 0.722, "impacto_remotion_14s": 0.199,
+               "sino_carrilhao_duplo": 0.128, "sino_hf_brilho": 0.021, "alerta_dois_tons": 0.307, "alerta_fs634089": 0.097,
+               "alerta_hf_erro": 0.141, "alerta_radio_duplo": 0.07, "pop_fs849841": 0.057, "clique_hf_suave": 0.013,
+               "tecla_hf_digitando_3": 0.012}
+    por_id = {i["id"]: i for i in cat["itens"]}
+    for k, v in pico113.items():
+        checar(k in por_id and abs(por_id[k]["pico_s"] - v) <= 0.002,
+               f"{k}: pico_s {por_id.get(k, {}).get('pico_s')} ≠ {v} corrigido no uso real")
+
+
+def teste_freesound(cat: dict) -> None:
+    """Sons da API do Freesound: licença permitida (CC0/CC BY, nunca NC), crédito completo, lista de regeneração
+    (freesound.json) igual ao catálogo, sem id repetido, e a licença conferida pela URL que a API deu."""
+    import freesound as fsapi
+    lista = json.loads((AQUI / "freesound.json").read_text(encoding="utf-8"))["itens"]
+    por_id = {i["id"]: i for i in cat["itens"]}
+    checar(len(lista) >= 1, "freesound.json vazio")
+    for it in lista:
+        checar(it["id"] in por_id, f"{it['id']}: está em freesound.json mas não no catálogo (rode gerar.py)")
+        checar(it.get("previa", "").startswith("https://cdn.freesound.org/previews/"), f"{it['id']}: sem url de prévia")
+        checar(fsapi.licenca(it["licenca_url"]) == it["licenca"], f"{it['id']}: licença {it['licenca']} × url {it['licenca_url']}")
+    ids_fs = []
+    for i in cat["itens"]:
+        if i["origem"] != "freesound":
+            continue
+        lic = i["licenca"]
+        checar(lic == "CC0" or re.fullmatch(r"CC BY \d\.\d", lic) is not None, f"{i['id']}: licença não permitida {lic!r}")
+        checar("NC" not in lic and "nc" not in i.get("licenca_url", ""), f"{i['id']}: licença NC")
+        checar(i.get("credito_obrigatorio") == lic.startswith("CC BY"), f"{i['id']}: credito_obrigatorio errado para {lic}")
+        checar(bool(i.get("autor")) and str(i.get("url", "")).startswith("https://freesound.org/people/"), f"{i['id']}: sem autor/url")
+        if "freesound_id" in i:
+            ids_fs.append(i["freesound_id"])
+            checar(str(i["freesound_id"]) in i["url"], f"{i['id']}: url não é do som {i['freesound_id']}")
+    checar(len(ids_fs) == len(set(ids_fs)), "o mesmo som do Freesound aparece duas vezes no banco")
+    checar(len(ids_fs) == len(lista), f"catálogo tem {len(ids_fs)} sons da API, freesound.json tem {len(lista)}")
+    # créditos: todo CC BY usado gera linha com autor, url e licença; CC0 não gera
+    b = sfx.Banco()
+    evs = [b.para(i["categoria"], 5.0, variacao=i["id"]) for i in cat["itens"] if i["origem"] == "freesound"]
+    linhas = b.creditos(evs)
+    cc_by = {i["url"] for i in cat["itens"] if i["origem"] == "freesound" and i["licenca"].startswith("CC BY")}
+    checar(len(linhas) == len(cc_by) and all(any(u in l for l in linhas) for u in cc_by), "créditos CC BY incompletos")
 
 
 def teste_arquivos(cat: dict) -> None:
@@ -103,7 +153,7 @@ def teste_api() -> None:
         for _ in range(3):
             e = b.para(catg, 3.0, 1.0)
             x = sfx.mixar([e], 7.0, limitar=False)
-            t_pico = float(np.argmax(medir.envelope(x))) * 0.01
+            t_pico = float(np.argmax(gerar.envelope_deslizante(x.mean(1)))) / medir.SR
             checar(abs(t_pico - 3.0) <= tol, f"âncora {catg}/{e.id}: pico em {t_pico:.3f} s, esperado 3,000")
     for _ in range(5):
         e = b.para("riser", 6.0, 1.0)
@@ -130,6 +180,48 @@ def teste_api() -> None:
         checar(igual, f"Python × TS diferentes na semente {sem}")
 
 
+def teste_api_novas() -> None:
+    """Categorias novas: âncora no pico (ou no início para ambiente), todas as variações alcançáveis e paridade
+    Python × TS (escolha, início, duração, ganho e créditos) em todas as 18 categorias."""
+    b = sfx.Banco()
+    tol = {"cronometro": 0.02, "obturador": 0.02, "boom": 0.03, "radio": 0.05, "grafico": 0.05, "pneu": 0.15,
+           "box": 0.15, "motor": 0.25, "whoosh_grave": 0.15}
+    for catg, t in tol.items():
+        for _ in range(3):
+            e = b.para(catg, 4.0, 1.0)
+            x = sfx.mixar([e], 9.0, limitar=False)
+            t_pico = float(np.argmax(gerar.envelope_deslizante(x.mean(1)))) / medir.SR
+            checar(abs(t_pico - 4.0) <= t, f"âncora {catg}/{e.id}: pico em {t_pico:.3f} s, esperado 4,000 (±{t})")
+    for _ in range(3):
+        e = b.para("multidao", 2.0, 1.0)
+        checar(e.inicio == 2.0 and e.corte_ini == 0.0, f"multidao/{e.id}: ambiente deveria começar na âncora")
+    vistos = {c: {b.escolher(c) for _ in range(200)} for c in sfx.Banco().por_cat}
+    for c, ids in sfx.Banco().por_cat.items():
+        checar(vistos[c] == set(ids), f"{c}: variações nunca escolhidas: {sorted(set(ids) - vistos[c])}")
+    import tempfile
+    cats = sorted(sfx.Banco().categorias)
+    pedidos = [{"categoria": c, "t": 1.0 + 0.37 * k + 0.05 * j, "intensidade": (k % 5) / 4}
+               for j in range(4) for k, c in enumerate(cats)] + [{"categoria": "capitulo", "t": 9.0}]
+    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as fh:
+        json.dump(pedidos, fh)
+    for sem in (0, 5):
+        bp = sfx.Banco(semente=sem)
+        evs = bp.de_pedidos(pedidos)
+        py = sfx.para_json(evs)
+        r = subprocess.run(["node", str(AQUI / "exemplo" / "eventos.ts"), str(sem), fh.name], capture_output=True,
+                           text=True, encoding="utf-8")
+        checar(r.returncode == 0, f"eventos.ts falhou: {r.stderr[-300:]}")
+        if r.returncode:
+            continue
+        ts = json.loads(r.stdout)
+        igual = len(py) == len(ts["eventos"]) and all(
+            a["id"] == c["id"] and abs(a["inicio"] - c["inicio"]) < 1e-3 and abs(a["dur"] - c["dur"]) < 1e-3
+            and abs(a["ganho_db"] - c["ganho_db"]) < 1e-2 for a, c in zip(py, ts["eventos"]))
+        checar(igual, f"Python × TS diferentes (18 categorias) na semente {sem}")
+        checar(bp.creditos(evs) == ts["creditos"], f"créditos Python × TS diferentes na semente {sem}")
+    Path(fh.name).unlink(missing_ok=True)
+
+
 def teste_mixagem() -> None:
     import exemplo_20s as ex
     ex.SAIDA.mkdir(exist_ok=True)
@@ -150,9 +242,10 @@ def teste_mixagem() -> None:
 
 if __name__ == "__main__":
     cat = json.loads((AQUI / "catalogo.json").read_text(encoding="utf-8"))
-    for f in (teste_catalogo, teste_arquivos, teste_medida):
+    for f in (teste_catalogo, teste_freesound, teste_arquivos, teste_medida):
         f(cat)
     teste_api()
+    teste_api_novas()
     teste_mixagem()
     print(f"{OK} checagens ok, {len(FALHAS)} falhas")
     for m in FALHAS:

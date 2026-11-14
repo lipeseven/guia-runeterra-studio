@@ -10,6 +10,8 @@ na palavra e entrega o mesmo resultado para numpy, ffmpeg, Remotion e HyperFrame
 |---|---|
 | `gerar.py` | gera/regera `banco/<categoria>/<id>.wav` e `catalogo.json` (cortes, normalização, medidas) |
 | `sintese.py` | síntese procedural (numpy) dos 23 sons próprios, com sementes fixas |
+| `freesound.py` | amplia o banco pela API do Freesound: `buscar` (busca, filtra, mede, escolhe → `freesound.json`), `baixar`, `folhas` (espectrogramas) |
+| `freesound.json` | sons escolhidos da API: id, autor, licença (+url da licença), url, url da prévia, medidas e relatório de rejeições; `gerar.py` regera por ele **sem busca e sem chave** |
 | `medir.py` | leitura/gravação, BS.1770-4 (LUFS integrado e momentâneo máx.), pico verdadeiro 4x, limitador |
 | `sfx.py` | API Python: `Banco.para`, `para_palavra`, `capitulo`, `de_pedidos`, `creditos`; `mixar` (numpy), `mixar_ffmpeg`, `para_hyperframes`, `para_json` |
 | `sfx.ts` | a mesma API em TypeScript sem dependências (Remotion, scripts Node) — mesmas escolhas que o Python |
@@ -17,8 +19,9 @@ na palavra e entrega o mesmo resultado para numpy, ffmpeg, Remotion e HyperFrame
 | `testes.py` | teste automático (loudness, clipping, estéreo, formato, âncora, paridade Python×TS, mixagem) |
 | `exemplo/` | trilho de 20 s (`palavras.json` + `pedidos.json`), runner `exemplo_20s.py`, `eventos.ts`, `remotion/` |
 
-O **banco (≈15 MB de WAV) fica fora do Git** (`.gitignore`): passa do limite de 5 MB e a licença Pixabay não permite
-redistribuir os arquivos soltos. Para recriar (≈15 s):
+O **banco (≈72 MB de WAV, 236 sons) fica fora do Git** (`.gitignore`): passa do limite de 5 MB e a licença Pixabay não permite
+redistribuir os arquivos soltos. Para recriar (≈40 s; na 1ª vez baixa as 170 prévias do Freesound para
+`dados/comum/freesound_cache/`, sem chave):
 
 ```
 .venv\Scripts\python.exe F1\horizontal\kit\sfx\gerar.py
@@ -36,19 +39,29 @@ integrado. Todos com pico verdadeiro ≤ −1 dBTP.
 
 | Categoria | Variações | Alvo | Faixa aceita | Dur. máx | volume_db | Uso |
 |---|---|---|---|---|---|---|
-| impacto | 9 | −12 | −13 a −11 | 2,5 s | 0 | peso de revelação: número grande, frase-tese |
-| riser | 10 | −15 | −16 a −14 | 3,2 s | −2 | crescendo antes de capítulo/algo grandioso (o pico/fim cai na palavra) |
-| whoosh | 10 | −16 | −17 a −15 | 3,0 s | −3 | troca de cena, câmera voando, cartão atravessando |
-| sino | 7 | −18 | −19 a −17 | 2,6 s | −4 | fecho, nome do canal, confirmação |
-| alerta | 8 | −18 | −19 a −17 | 1,8 s | −5 | erro, penalidade, bandeira, rádio |
-| pop | 7 | −20 | −25 a −19 | 0,8 s | −5 | etiqueta/tag aparecendo |
-| clique | 8 | −22 | −27 a −21 | 0,45 s | −6 | informação entrando ("clique, clique") |
-| tecla | 7 | −24 | −30 a −23 | 0,35 s | −7 | tecla antes do texto; em sequência = digitação |
+| impacto | 17 | −12 | −13 a −11 | 2,5 s | 0 | peso de revelação: número grande, frase-tese |
+| riser | 17 | −15 | −16 a −14 | 3,2 s | −2 | crescendo antes de capítulo/algo grandioso (o pico/fim cai na palavra) |
+| whoosh | 17 | −16 | −17 a −15 | 3,0 s | −3 | troca de cena, câmera voando, cartão atravessando |
+| sino | 17 | −18 | −19 a −17 | 2,6 s | −4 | fecho, nome do canal, confirmação |
+| alerta | 17 | −18 | −19 a −17 | 1,8 s | −5 | erro, penalidade, bandeira, rádio |
+| pop | 17 | −20 | −25 a −19 | 0,8 s | −5 | etiqueta/tag aparecendo |
+| clique | 17 | −22 | −27 a −21 | 0,45 s | −6 | informação entrando ("clique, clique") |
+| tecla | 17 | −24 | −30 a −23 | 0,35 s | −7 | tecla antes do texto; em sequência = digitação |
+| motor | 10 | −16 | −17 a −15 | 4,0 s | −6 | carro passando/acelerando ao longe (o pico = passagem) |
+| pneu | 10 | −16 | −17 a −15 | 2,5 s | −5 | freada, pneu cantando, travada, saída de pista |
+| radio | 10 | −20 | −21 a −19 | 1,5 s | −6 | estática/chiado/bipe de rádio da equipe (sem voz) |
+| cronometro | 10 | −24 | −30 a −23 | 0,6 s | −7 | tique de relógio/cronômetro: tempo de volta, contagem |
+| grafico | 10 | −18 | −19 a −17 | 1,2 s | −5 | swoosh curto de interface: linha/barra do gráfico entrando |
+| obturador | 10 | −22 | −27 a −21 | 0,6 s | −6 | câmera fotográfica: foto entrando, quadro congelado |
+| whoosh_grave | 10 | −15 | −16 a −14 | 3,0 s | −3 | whoosh grave de cinema: virada de capítulo |
+| boom | 10 | −14 | −15 a −13 | 3,0 s | −2 | boom subgrave por baixo de uma revelação |
+| box | 10 | −20 | −21 a −19 | 4,0 s | −8 | pit/box: pistola de roda, ferramentas |
+| multidao | 10 | −24 | −25 a −23 | 6,0 s | −10 | torcida ao longe (ambiente: âncora no INÍCIO, entra suave) |
 
 Faixas largas em pop/clique/tecla: são sons de 20–150 ms; o LUFS-M deles só sobe esmagando o ataque, então o
 limitador corta no máximo 6 dB e o resto fica abaixo do alvo (o que soa natural para um clique).
 
-### De onde veio cada som (66 no total)
+### De onde veio cada som (236 no total: 66 locais + 170 do Freesound pela API)
 - **Elogiados nos testes** (anotados em `nota` no catálogo): `impacto_remotion_14s` (impacto de ~14 s do Remotion),
   `whoosh_capitulo_remotion` + `riser_trilha_remotion` (o "crescente + impacto" de ~16–17 s e ~47–48 s do Remotion era
   esse whoosh épico sobre o riser de ruído da trilha sintetizada; o riser foi refeito em `sintese.py` igual ao de
@@ -62,7 +75,15 @@ limitador corta no máximo 6 dB e o resto fica abaixo do alvo (o que soa natural
   mecânicas, sinos FM, pops, whooshes de banda estreita, bipes de rádio/alerta.
 - **Excluído de propósito**: `seletor/fs669142.wav` (= `mecanico.wav`, o som da asa abrindo do Remotion, reprovado).
   `gerar.py` recusa o arquivo e o teste confere.
-- Freesound pela internet **não** foi usado: a API exige chave/cadastro. Os sons livres vieram do que já estava em `dados/comum/sfx`.
+- **Freesound pela API** (170, 2026-11-14; 104 CC0, 62 CC BY 4.0, 4 CC BY 3.0; nunca NC/Sampling+): `freesound.py buscar`
+  (chave `FREESOUND_API_KEY` do `.env`, ~1 requisição/1,1 s) busca por categoria, baixa a prévia hq para
+  `dados/comum/freesound_cache/` (fora do Git), corta/normaliza como o resto e rejeita automaticamente: texto com
+  voz/música/marca, clipping, silêncio demais, ruído de fundo, banda estreita (espectro), loudness inalcançável, estéreo
+  torto, riser sem crescendo, e o CLAP local (fala/canto/música) + Whisper (fala). Entre os aprovados ganha o mais
+  parecido com a descrição da categoria (CLAP), no máximo 3 por autor. A lista fica em `freesound.json` (no Git, com o
+  relatório de rejeições); `gerar.py` regera por ela sem chave. Os CC BY entram com `credito_obrigatorio` e saem em
+  `Banco.creditos` / `creditos_sfx` do montador. **Ninguém ouviu os 170 um a um**: a escolha é automática (medidas,
+  CLAP, Whisper, nome); reprovar um som = pôr o id em `REVISAO` no `freesound.py` e rodar `buscar` de novo.
 
 ## API
 ```python

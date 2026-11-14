@@ -3,14 +3,23 @@
 //   import { Banco } from "./sfx.ts";  const b = new Banco(catalogoJson);  b.para("impacto", 13.0, 0.8)
 // Regras e campos: ver README.md e o cabeçalho de sfx.py. Paridade com o Python conferida por testes.py.
 
-export type Categoria = "impacto" | "riser" | "whoosh" | "sino" | "alerta" | "pop" | "clique" | "tecla";
+export const CATEGORIAS = [
+  "impacto", "riser", "whoosh", "sino", "alerta", "pop", "clique", "tecla",
+  // F1 documental (Freesound pela API, 2026-11-14)
+  "motor", "pneu", "radio", "cronometro", "grafico", "obturador", "whoosh_grave", "boom", "box", "multidao",
+] as const;
+export type Categoria = (typeof CATEGORIAS)[number];
 
 export interface ItemCatalogo {
   id: string; categoria: Categoria; arquivo: string; duracao_s: number; pico_s: number;
   lufs_m_max: number; lufs_integrado: number; pico_verdadeiro_dbtp: number; origem: string; licenca: string;
   autor?: string; url?: string; credito_obrigatorio?: boolean; descricao?: string; nota?: string;
+  freesound_id?: number; licenca_url?: string;
 }
-export interface ConfCategoria { alvo_lufs_m: number; faixa_lufs_m: [number, number]; dur_max: number; volume_db: number; uso: string }
+export interface ConfCategoria {
+  alvo_lufs_m: number; faixa_lufs_m: [number, number]; dur_max: number; volume_db: number; uso: string;
+  ancora?: "inicio";  // ambiente (multidao): pico_s = 0, o som começa na palavra
+}
 export interface Catalogo { versao: number; categorias: Record<Categoria, ConfCategoria>; itens: ItemCatalogo[] }
 
 export interface Evento {
@@ -98,6 +107,20 @@ export class Banco {
   paraPalavra(categoria: Categoria, palavras: Palavra[], alvo: string | number, intensidade = 0.7, ocorrencia = 1, ponto: "i" | "f" = "i"): Evento {
     const p = acharPalavra(palavras, alvo, ocorrencia);
     return this.para(categoria, p[ponto], intensidade, undefined, undefined, p.t ?? p.p ?? null);
+  }
+
+  /** Linhas de crédito (descrição do vídeo) dos sons CC BY usados nos eventos — igual a Banco.creditos do Python. */
+  creditos(eventos: Evento[]): string[] {
+    const vistos = new Set<string>();
+    const out: string[] = [];
+    for (const e of eventos) {
+      const it = this.itens[e.id];
+      if (it.credito_obrigatorio && it.url && !vistos.has(it.url)) {
+        vistos.add(it.url);
+        out.push(`"${it.descricao}" de ${it.autor} (${it.url}), ${it.licenca}`);
+      }
+    }
+    return out;
   }
 
   capitulo(t: number, intensidade = 0.9): Evento[] {

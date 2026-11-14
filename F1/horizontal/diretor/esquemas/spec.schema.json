@@ -76,7 +76,7 @@
       "required": ["categoria", "em", "i"],
       "additionalProperties": false,
       "properties": {
-        "categoria": {"enum": ["impacto", "riser", "whoosh", "sino", "alerta", "pop", "clique", "tecla", "capitulo"]},
+        "categoria": {"enum": ["impacto", "riser", "whoosh", "sino", "alerta", "pop", "clique", "tecla", "motor", "pneu", "radio", "cronometro", "grafico", "obturador", "whoosh_grave", "boom", "box", "multidao", "capitulo"]},
         "em": {"type": "string", "minLength": 1},
         "i": {"type": "integer", "minimum": 0},
         "ponto": {"enum": ["i", "f"]},

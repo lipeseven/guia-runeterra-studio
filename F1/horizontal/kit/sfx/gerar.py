@@ -26,7 +26,18 @@ import sintese  # noqa: E402
 RAIZ = AQUI.parents[3]                       # raiz do repositório
 BANCO = AQUI / "banco"
 CATALOGO = AQUI / "catalogo.json"
-COMUM = RAIZ / "dados" / "comum" / "sfx"
+
+
+def _dados() -> Path:
+    """dados/ do repositório; num worktree (.claude/worktrees/<nome>) ele só existe no repositório principal."""
+    for base in (RAIZ, *RAIZ.parents):
+        if (base / "dados" / "comum").is_dir():
+            return base / "dados"
+    return RAIZ / "dados"
+
+
+DADOS = _dados()
+COMUM = DADOS / "comum" / "sfx"
 CASA = Path.home()
 # A biblioteca de SFX do HyperFrames (Pixabay) aparece em mais de um lugar; usa o primeiro que tiver o arquivo.
 PASTAS_HF = [CASA / "teste-motores/hyperframes/assets/audio",
@@ -55,6 +66,28 @@ CATEGORIAS = {
                "uso": "informação entrando na tela (clique, clique), item de lista, ponto no gráfico"},
     "tecla": {"alvo_lufs_m": -24.0, "faixa_lufs_m": [-30.0, -23.0], "dur_max": 0.35, "volume_db": -7.0,
               "uso": "uma tecla antes de um texto entrar; em sequência para texto digitado"},
+    # --- categorias de F1 documental (2026-11-14, sons do Freesound pela API; ver freesound.py)
+    "motor": {"alvo_lufs_m": -16.0, "faixa_lufs_m": [-17.0, -15.0], "dur_max": 4.0, "volume_db": -6.0,
+              "uso": "carro passando/acelerando ao longe; o pico (passagem) cai na palavra; sob a narração, baixo"},
+    "pneu": {"alvo_lufs_m": -16.0, "faixa_lufs_m": [-17.0, -15.0], "dur_max": 2.5, "volume_db": -5.0,
+             "uso": "freada forte, pneu cantando, travada de roda, saída de pista"},
+    "radio": {"alvo_lufs_m": -20.0, "faixa_lufs_m": [-21.0, -19.0], "dur_max": 1.5, "volume_db": -6.0,
+              "uso": "rádio da equipe: estática/chiado/bipe antes ou depois de uma fala de rádio citada (sem voz)"},
+    "cronometro": {"alvo_lufs_m": -24.0, "faixa_lufs_m": [-30.0, -23.0], "dur_max": 0.6, "volume_db": -7.0,
+                   "uso": "tique de relógio/cronômetro: tempo de volta aparecendo, contagem, décimos"},
+    "grafico": {"alvo_lufs_m": -18.0, "faixa_lufs_m": [-19.0, -17.0], "dur_max": 1.2, "volume_db": -5.0,
+                "uso": "swoosh curto e leve de interface: linha do gráfico/barra entrando, painel deslizando"},
+    "obturador": {"alvo_lufs_m": -22.0, "faixa_lufs_m": [-27.0, -21.0], "dur_max": 0.6, "volume_db": -6.0,
+                  "uso": "foto entrando/congelando (câmera fotográfica), quadro parado da transmissão"},
+    "whoosh_grave": {"alvo_lufs_m": -15.0, "faixa_lufs_m": [-16.0, -14.0], "dur_max": 3.0, "volume_db": -3.0,
+                     "uso": "whoosh grave e pesado de cinema: virada de capítulo, câmera grande voando"},
+    "boom": {"alvo_lufs_m": -14.0, "faixa_lufs_m": [-15.0, -13.0], "dur_max": 3.0, "volume_db": -2.0,
+             "uso": "boom subgrave: peso por baixo de uma revelação (pode somar com impacto)"},
+    "box": {"alvo_lufs_m": -20.0, "faixa_lufs_m": [-21.0, -19.0], "dur_max": 4.0, "volume_db": -8.0,
+            "uso": "box/pit: pistola de roda (chave de impacto), ferramentas, pit stop"},
+    "multidao": {"alvo_lufs_m": -24.0, "faixa_lufs_m": [-25.0, -23.0], "dur_max": 6.0, "volume_db": -10.0,
+                 "ancora": "inicio",
+                 "uso": "ambiente: torcida/arquibancada ao longe; começa na palavra (âncora no início, não no pico)"},
 }
 
 PIXABAY = {"licenca": "Pixabay Content License", "credito_obrigatorio": False,
@@ -138,7 +171,8 @@ EXTERNOS: dict[str, tuple] = {
 }
 
 # NÃO reaproveitar: o "som da asa abrindo" do teste Remotion (mecanico.wav = seletor/fs669142.wav), reprovado pelo Felipe.
-TRANSIENTES = {"clique", "tecla", "pop"}
+TRANSIENTES = {"clique", "tecla", "pop", "cronometro", "obturador"}
+FREESOUND = AQUI / "freesound.json"          # sons escolhidos por freesound.py (ids + url da prévia: regera sem buscar)
 EXCLUIDOS = {"seletor/fs669142.wav": "mecanico.wav do teste Remotion: 'SFX do movimento da asa ficou muito ruim'"}
 
 
@@ -186,8 +220,12 @@ def _preparar(x: np.ndarray, cat: str, recorte) -> np.ndarray:
         x = _sem_silencio_inicial(x)
         if len(x) > dmax:
             x = x[:dmax].copy()
-            n = int(0.08 * sr)
+            n = int((0.6 if CATEGORIAS[cat].get("ancora") == "inicio" else 0.08) * sr)
             x[-n:] *= np.linspace(1, 0, n)[:, None]
+        if CATEGORIAS[cat].get("ancora") == "inicio":   # ambiente: entra suave (150 ms)
+            x = x.copy()
+            n = min(len(x), int(0.15 * sr))
+            x[:n] *= np.linspace(0, 1, n)[:, None]
     # corta cauda abaixo de -60 dB do pico
     a = np.abs(x).max(1)
     vivo = np.nonzero(a > a.max() * 10 ** (-60 / 20))[0]
@@ -216,10 +254,25 @@ def _lim(y: np.ndarray, teto: float) -> np.ndarray:
 def _pico_s(x: np.ndarray, cat: str) -> float:
     """Ponto que cai na palavra: máximo do envelope de 10 ms. No riser, o ÚLTIMO instante a 1 dB do máximo (fim do
     crescendo, ou a batida no caso dos 'riser hit')."""
+    if CATEGORIAS[cat].get("ancora") == "inicio":
+        return 0.0
     env = 20 * np.log10(medir.envelope(x) + 1e-12)
     if cat == "riser":
         return round(float(np.nonzero(env >= env.max() - 1.0)[0][-1]) * 0.01, 3)
-    return round(float(np.argmax(env)) * 0.01, 3)
+    # demais: máximo do RMS DESLIZANTE de 10 ms (centrado, resolução de 1 amostra) do som em mono, a mesma medida
+    # do montador (montador/quadros.py _envelope). Os blocos fixos de 10 ms erravam em som com dois golpes
+    # parecidos (uso real 2026-11-14: 12 pico_s corrigidos à mão no PR #113; esta conta reproduz os 12).
+    return round(float(np.argmax(envelope_deslizante(x.mean(1)))) / medir.SR, 3)
+
+
+def envelope_deslizante(m: np.ndarray, janela_s: float = 0.01) -> np.ndarray:
+    m = np.asarray(m, dtype=np.float64)
+    w = max(1, int(janela_s * medir.SR))
+    if len(m) <= w:
+        return np.abs(m)
+    c = np.concatenate([[0.0], np.cumsum(m * m)])
+    e = np.sqrt(np.maximum(0, (c[w:] - c[:-w]) / w))
+    return np.concatenate([np.zeros(w // 2), e, np.zeros(len(m) - len(e) - w // 2)])
 
 
 def gerar() -> dict:
@@ -239,6 +292,21 @@ def gerar() -> dict:
             continue
         origem = "pixabay-hyperframes" if tipo == "hf" else ("stable-audio" if "gerado_" in rel else "freesound")
         fontes.append((nome, cat, None, {**meta, "origem": origem, "fonte_local": str(p), "recorte": recorte, "_x": p}))
+    # Freesound pela API: a lista (no Git) traz id, autor, licença e a URL pública da prévia; baixa só o que falta no
+    # cache (dados/comum/freesound_cache, fora do Git), sem busca e sem chave.
+    if FREESOUND.is_file():
+        import freesound as fsapi
+        for it in json.loads(FREESOUND.read_text(encoding="utf-8"))["itens"]:
+            try:
+                p = fsapi.baixar_previa(it["freesound_id"], it["previa"])
+            except Exception as e:  # sem internet e sem cache: aparece em "faltando" e o teste acusa
+                faltando.append(f"{it['id']}: prévia {it['previa']} ({e})")
+                continue
+            meta = {**fs(it["freesound_id"], it["autor"], it["licenca"], it["nome"]), "url": it["url"],
+                    "freesound_id": it["freesound_id"], "licenca_url": it["licenca_url"]}
+            rec = tuple(it["recorte"]) if it.get("recorte") else None
+            fontes.append((it["id"], it["categoria"], None,
+                           {**meta, "origem": "freesound", "fonte_local": str(p), "recorte": rec, "_x": p}))
 
     for nome, cat, x, meta in fontes:
         p = meta.pop("_x", None)

@@ -30,8 +30,24 @@ DUCK = "threshold=0.03:ratio=6:attack=40:release=450:makeup=1"
 DUCK_SFX = "threshold=0.05:ratio=3:attack=15:release=300:makeup=1"
 # rodada 2 do placar: com o ducking em tudo, cliques/pops ficaram 23–28 dB abaixo da voz e o sino a 33 dB (inaudíveis).
 # Só os sons longos abaixam sob a voz; os curtos ganham reforço (com narração) para ficar ~12–15 dB abaixo dela.
-COM_DUCK = {"impacto", "riser", "whoosh"}
-REFORCO_DB = {"clique": 10.0, "tecla": 10.0, "pop": 8.0, "alerta": 4.0, "sino": 22.0}   # medido: sino_suave ainda 19 dB abaixo com +14
+COM_DUCK = {"impacto", "riser", "whoosh",
+            # categorias de F1 documental (kit/sfx, 2026-11-14): sons longos/contínuos e de fundo (motor, pneu, box,
+            # multidão) ficam baixos e abaixam sob a voz; a estática do rádio também (ruído largo mascara a fala)
+            "whoosh_grave", "boom", "motor", "pneu", "box", "multidao", "radio"}
+REFORCO_DB = {"clique": 10.0, "tecla": 10.0, "pop": 8.0, "alerta": 4.0, "sino": 22.0,   # medido: sino_suave ainda 19 dB abaixo com +14
+              # novas, por analogia (não medidas ainda no placar): tique/obturador = clique; swoosh de interface = alerta
+              "cronometro": 10.0, "obturador": 10.0, "grafico": 4.0}
+# teto do reforço: o pico verdadeiro do som reforçado não passa de +2 dBTP na mix bruta (antes do ganho do master). É
+# onde chega o sino_suave calibrado no placar (+22 dB, intensidade 1); um sino de pico mais alto do banco ampliado
+# (ex.: sino_fs611111, +8,9 dBTP com +22) seria esmagado pelo limitador do master e derrubava o loudness do vídeo curto.
+PICO_REFORCO_MAX_DBTP = 2.0
+
+
+def reforco(e: SFX.Evento, item: dict | None) -> float:
+    r = REFORCO_DB.get(e.categoria, 0.0)
+    if r and item and item.get("pico_verdadeiro_dbtp") is not None:
+        r = max(0.0, min(r, PICO_REFORCO_MAX_DBTP - (item["pico_verdadeiro_dbtp"] + e.ganho_db)))
+    return r
 
 
 def pasta_banco() -> Path:
@@ -96,6 +112,7 @@ def mixar(evs: list[SFX.Evento], dur: float, saida: Path, narracao: Path | None,
     saida = Path(saida)
     saida.mkdir(parents=True, exist_ok=True)
     banco = pasta_banco()
+    itens = SFX.Banco(banco / "catalogo.json").itens if evs else {}
     n = int(round(dur * SR))
     entradas, filtros, mix = [], [], []
     fmt = f"aresample={SR},aformat=sample_fmts=fltp:channel_layouts=stereo"
@@ -123,7 +140,7 @@ def mixar(evs: list[SFX.Evento], dur: float, saida: Path, narracao: Path | None,
     for e in evs:
         entradas += ["-i", banco / e.arquivo]
         atraso = int(round(e.inicio * SR))
-        ganho = e.ganho_db + (REFORCO_DB.get(e.categoria, 0.0) if narracao else 0.0)
+        ganho = e.ganho_db + (reforco(e, itens.get(e.id)) if narracao else 0.0)
         filtros.append(f"[{k}:a]{fmt},atrim=start_sample={int(round(e.corte_ini * SR))}:end_sample={int(round((e.corte_ini + e.dur) * SR))},"
                        f"asetpts=PTS-STARTPTS,afade=t=out:st={max(0.0, e.dur - SFX.SAIDA_S):.5f}:d={SFX.SAIDA_S},"
                        f"volume={ganho:.2f}dB,adelay={atraso}S|{atraso}S,asplit=2[s{k}][t{k}]")
