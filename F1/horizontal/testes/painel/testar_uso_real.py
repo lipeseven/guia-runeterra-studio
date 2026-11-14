@@ -67,9 +67,9 @@ OF1 = {   # números reais (OpenF1, sessão 11400), copiados em 2026-11-14
     ("drivers", (("session_key", 11400),)): [{"driver_number": 44, "name_acronym": "HAM", "last_name": "Hamilton", "full_name": "Lewis HAMILTON"},
                                              {"driver_number": 63, "name_acronym": "RUS", "last_name": "Russell", "full_name": "George RUSSELL"}],
     ("laps", (("driver_number", 44), ("session_key", 11400))): [
-        {"lap_number": 19, "lap_duration": 76.514, "duration_sector_1": 26.852, "duration_sector_2": 30.03, "duration_sector_3": 19.632}],
+        {"lap_number": 19, "lap_duration": 76.514, "duration_sector_1": 26.852, "duration_sector_2": 30.03, "duration_sector_3": 19.632, "st_speed": 347}],
     ("laps", (("driver_number", 63), ("session_key", 11400))): [
-        {"lap_number": 21, "lap_duration": 76.523, "duration_sector_1": 26.877, "duration_sector_2": 30.008, "duration_sector_3": 19.638}],
+        {"lap_number": 21, "lap_duration": 76.523, "duration_sector_1": 26.877, "duration_sector_2": 30.008, "duration_sector_3": 19.638, "st_speed": 350}],
     ("session_result", (("driver_number", 44), ("session_key", 11400))): [{"position": 1, "driver_number": 44, "number_of_laps": 20}],
 }
 
@@ -140,6 +140,12 @@ def principal() -> int:
     CF._wiki = lambda busca: []
     CF._pagina_do_personagem = lambda nome: []
     CF._embed = lambda textos: __import__("numpy").ones((len(textos), 4)) / 2
+
+    # rodada 1 (placar): o "347" do roteiro é o speed trap (st_speed do /laps), não a máxima da telemetria
+    ped = {"ano": 2026, "local": "Mexico City", "sessao": "Qualifying", "volta": "melhor"}
+    checa(OFM.calcular({**ped, "tipo": "speed_trap", "piloto": "HAM"})[0] == 347.0
+          and OFM.calcular({**ped, "tipo": "speed_trap", "piloto": "RUS"})[0] == 350.0
+          and "speed_trap" in OFM.TIPOS, "OpenF1: tipo speed_trap (st_speed) HAM 347 × RUS 350")
 
     print("5. card documental novo: etapas da 7a")
     vid = cli.post("/api/videos", json={"titulo": "Nove milésimos (teste)", "formato": "horizontal_doc"}).json()["id"]

@@ -22,7 +22,9 @@ type Camada =
   | { kit: "graficos"; specs: Spec[]; dados: Dados; larguras: Larguras }
   | { kit: "anotacao"; cena: CenaAnotacao; linhas: Linha[]; fonte: Fonte }
   | { kit: "cartoes"; cena: CenaCartoes }
-  | { kit: "foco"; cena: CenaFoco };
+  | { kit: "foco"; cena: CenaFoco }
+  | { kit: "duelo"; titulo: string; unidade: string; rodape: string; destaque?: number | null; destaqueEm: number;
+      lados: { sigla: string; nome: string; equipe: string; cor: string; valor: string; em: number }[] };
 type Movimento = { tipo: string; intensidade?: number; foco?: [number, number] };
 // movimento/L: câmera da cena inteira (ação direta do storyboard) ao longo dos L quadros puros da cena
 type Props = { quadros: number; pre: number; largura: number; altura: number; camadas: Camada[]; movimento?: Movimento | null; L?: number };
@@ -62,6 +64,37 @@ const Foco: React.FC<{ c: Extract<Camada, { kit: "foco" }> }> = ({ c }) => {
   return <CamadaFoco montada={m} />;
 };
 
+// Duelo: dois cartões lado a lado (piloto, equipe, número grande) na cor da equipe; os cartões entram no início e cada
+// NÚMERO entra seco na própria palavra
+// (opacidade em 0,15 s, sem animação de texto); o lado `destaque` ganha contorno na cor dele depois que os dois entram.
+const Duelo: React.FC<{ c: Extract<Camada, { kit: "duelo" }> }> = ({ c }) => {
+  const t = useCurrentFrame() / 60;
+  const ent = (em: number) => Math.min(1, Math.max(0, (t - em) / 0.15));
+  return (
+    <AbsoluteFill>
+      <svg width="100%" height="100%" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+        <text x={960} y={190} textAnchor="middle" fontFamily='"Arial Black"' fontWeight={900} fontSize={76} fill={TINTA}>{c.titulo}</text>
+        {c.lados.map((l, k) => {
+          const x = k === 0 ? 260 : 1020, y = 300, w = 640, h = 520;
+          const marcado = c.destaque === k && t >= c.destaqueEm;
+          return (
+            <g key={k} opacity={ent(Math.min(l.em, 0.1 + 0.1 * k))}>
+              <rect x={x} y={y} width={w} height={h} rx={18} fill="#ffffff" stroke={marcado ? l.cor : "#d9d7d0"} strokeWidth={marcado ? 10 : 2} />
+              <rect x={x} y={y} width={w} height={22} rx={10} fill={l.cor} />
+              <text x={x + 48} y={y + 120} fontFamily='"Arial"' fontWeight={700} fontSize={64} fill={TINTA}>{l.sigla}</text>
+              <text x={x + 48} y={y + 172} fontFamily='"Arial"' fontWeight={400} fontSize={38} fill="#555">{`${l.nome} · ${l.equipe}`}</text>
+              <text x={x + w / 2} y={y + 380} textAnchor="middle" fontFamily='"Arial Black"' fontWeight={900} fill={TINTA} opacity={ent(l.em)}
+                fontSize={Math.min(150, 560 / [...l.valor].reduce((s, ch) => s + (/[0-9]/.test(ch) ? 0.667 : 0.34), 0))}>{l.valor}</text>
+              {c.unidade ? <text x={x + w / 2} y={y + 450} textAnchor="middle" fontFamily='"Arial"' fontWeight={700} fontSize={40} fill="#555" opacity={ent(l.em)}>{c.unidade}</text> : null}
+            </g>
+          );
+        })}
+        {c.rodape ? <text x={1872} y={1036} textAnchor="end" fontFamily='"Segoe UI"' fontSize={28} fill="#666">{c.rodape}</text> : null}
+      </svg>
+    </AbsoluteFill>
+  );
+};
+
 const CenaDoc: React.FC<Props> = ({ quadros, pre, camadas, movimento: mov, L }) => {
   const frame = useCurrentFrame();
   const tau = Math.max(0, frame - pre);
@@ -71,6 +104,7 @@ const CenaDoc: React.FC<Props> = ({ quadros, pre, camadas, movimento: mov, L }) 
     <Freeze frame={tau}>
       {de("graficos").map((c, i) => <Graficos key={`g${i}`} c={c} />)}
       {de("cartoes").map((c, i) => <Cartoes key={`c${i}`} c={c} />)}
+      {de("duelo").map((c, i) => <Duelo key={`d${i}`} c={c} />)}
       {de("anotacao").map((c, i) => <Textos key={`t${i}`} c={c} />)}
       {de("foco").map((c, i) => <Foco key={`f${i}`} c={c} />)}
       {de("anotacao").map((c, i) => <Tracos key={`a${i}`} c={c} />)}

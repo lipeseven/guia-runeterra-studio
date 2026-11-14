@@ -27,6 +27,7 @@ TIPOS = {
     "pit_tempo": "tempo parado no box (s) no pit stop da volta pedida (ou o mais rápido, sem volta)",
     "velocidade_max": "velocidade máxima do piloto na sessão (km/h) pela telemetria",
     "setor": "tempo do setor (1, 2 ou 3) na volta pedida (s); com piloto2 = diferença entre os dois nesse setor",
+    "speed_trap": "velocidade no speed trap (km/h, st_speed do /laps) na volta pedida",
 }
 SESSOES = ("Race", "Qualifying", "Sprint", "Sprint Qualifying", "Sprint Shootout", "Practice 1", "Practice 2", "Practice 3")
 PRIMEIRO_ANO = 2023   # o OpenF1 começa em 2023: antes disso, sem dados (a conferência cai na Wikipedia)
@@ -242,6 +243,13 @@ def calcular(pedido: dict, contexto: dict | None = None) -> tuple[float, str, st
         n2 = _piloto(sk, pedido["piloto2"])
         t2, q2 = _setor(sk, n2, pedido.get("volta2", pedido.get("volta")), st)
         return round(abs(t1 - t2), 3), "s", f"{rot} /laps carro {num} {q1} × carro {n2} {q2}"
+    if tipo == "speed_trap":   # rodada 1 do "Nove milésimos": 350 × 347 é o st_speed, não a máxima da telemetria
+        if num is None:
+            raise SemDados("falta o piloto")
+        v = _volta(sk, num, pedido.get("volta"))
+        if not isinstance(v.get("st_speed"), (int, float)):
+            raise SemDados(f"carro {num} sem speed trap na volta {v['lap_number']}")
+        return float(v["st_speed"]), "km/h", f"{rot} /laps carro {num} volta {v['lap_number']} st_speed"
     if tipo == "posicao_final":
         r = _resultado(sk, num)
         if not r or r[0].get("position") is None:

@@ -197,7 +197,12 @@ def verificar(rel: dict, saida_dir: Path) -> dict:
         med["sfx"] = []
         for e in evs:
             outros = [o["t"] for o in evs if o is not e]
-            isolado = all(abs(o - e["t"]) > 0.35 for o in outros)
+            # isolado = nenhum outro som TOCANDO na janela de medida (±0,25 s); só a distância entre âncoras não basta:
+            # a cauda de um impacto 1 s antes cobria o sino do fecho (uso real, rodada 1)
+            outros_ev = [o for o in evs if o is not e]
+            isolado = all(abs(o - e["t"]) > 0.35 for o in outros) and all(
+                o.get("inicio") is None or o.get("dur") is None
+                or o["inicio"] > e["t"] + 0.25 or o["inicio"] + o["dur"] < e["t"] - 0.25 for o in outros_ev)
             i0, i1 = int(max(0, e["t"] - 0.25) * SR), int(min(len(env) / SR, e["t"] + 0.25) * SR)
             pico = (i0 + int(np.argmax(env[i0:i1]))) / SR if i1 > i0 else float("nan")
             tol = TOL_SFX_MS.get(e["categoria"], 15)

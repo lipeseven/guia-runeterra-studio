@@ -25,6 +25,9 @@ ALVO_LUFS = -14.0       # mesma referência da voz limpa do painel (tools/audio/
 TETO_DBTP = -1.5
 TRILHA_LUFS = -26.0
 DUCK = "threshold=0.03:ratio=6:attack=40:release=450:makeup=1"
+# SFX sob a voz (rodada 1 do placar: impacto do fecho 1,7 dB acima da voz, capítulos a 2–3 dB dela): compressão leve
+# do barramento de SFX pela voz; o golpe continua a passar (ataque de 15 ms), a cauda abaixa ~3–5 dB enquanto ela fala
+DUCK_SFX = "threshold=0.05:ratio=3:attack=15:release=300:makeup=1"
 
 
 def pasta_banco() -> Path:
@@ -95,7 +98,7 @@ def mixar(evs: list[SFX.Evento], dur: float, saida: Path, narracao: Path | None,
     k = 0
     if narracao:
         entradas += ["-i", narracao]
-        filtros.append(f"[{k}:a]{fmt},apad=whole_len={n},atrim=end_sample={n},asplit=2[voz][vozsc]")
+        filtros.append(f"[{k}:a]{fmt},apad=whole_len={n},atrim=end_sample={n},asplit=3[voz][vozsc][vozsfx]")
         mix.append("[voz]")
         k += 1
     rel = {"narracao": str(narracao) if narracao else None, "trilha": str(trilha) if trilha else None, "avisos": []}
@@ -122,11 +125,17 @@ def mixar(evs: list[SFX.Evento], dur: float, saida: Path, narracao: Path | None,
         rot.append(f"[s{k}]")
         k += 1
     if rot:
-        filtros.append(f"{''.join(rot)}amix=inputs={len(rot)}:normalize=0:duration=longest,apad=whole_len={n},atrim=end_sample={n},asplit=2[sfx][sfxstem]")
+        filtros.append(f"{''.join(rot)}amix=inputs={len(rot)}:normalize=0:duration=longest,apad=whole_len={n},atrim=end_sample={n},asplit=2[sfx0][sfxstem]")
+        if narracao:   # sfx.wav (stem) fica SEM o ducking: a verificação mede o pico de cada som nele
+            filtros.append(f"[sfx0][vozsfx]sidechaincompress={DUCK_SFX}[sfx]")
+        else:
+            filtros.append("[sfx0]anull[sfx]")
         mix.append("[sfx]")
     else:
         filtros.append(f"anullsrc=r={SR}:cl=stereo,atrim=end_sample={n},asplit=2[sfx][sfxstem]")
         mix.append("[sfx]")
+        if narracao:
+            filtros.append("[vozsfx]anullsink")
     filtros.append(f"{''.join(mix)}amix=inputs={len(mix)}:normalize=0:duration=longest,atrim=end_sample={n}[mix]" if len(mix) > 1
                    else f"{mix[0]}anull[mix]")
     script = saida / "filtro_audio.txt"

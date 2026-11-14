@@ -4,6 +4,7 @@
 // plana traçada pelo GPS (o.pistaPlana = JSON de kit/gps/pista/<circuito>_plana.json).
 import { cameraSeguindo, criarAmostrador, relogioComparacao } from "../src/gps.js";
 import { ajustarPista, aplicarPose, criarPistaPlana, criarRastro, prepararCarro } from "../src/gps_three.js";
+import { criarMundoPlano, opacidadeCarro } from "../src/gps_mundo.js";
 
 /** Parâmetros padrão do exemplo: Leclerc (volta 51) x Antonelli (volta 55), corrida do GP de São Paulo 2026,
  *  freada do S do Senna em tempo real. */
@@ -35,8 +36,18 @@ export function montarCena(THREE, o) {
   const sol = new THREE.DirectionalLight(0xfff2e0, 2.0);
   sol.position.set(-300, 700, 300);
   cena.add(sol);
-  if (p.pistaPlana) cena.add(criarPistaPlana(THREE, p.pistaPlana));
-  else {
+  if (p.pistaPlana) {
+    const pista = criarPistaPlana(THREE, p.pistaPlana);
+    cena.add(pista);
+    if (p.mundo) {
+      // o mundo (chão em ladrilhos, zebras, arquibancadas, prédios, placa da curva) substitui o chão liso da pista plana;
+      // céu claro levemente azul e névoa mais perto: a borda do chão não aparece no horizonte
+      pista.children[0].visible = false;
+      cena.add(criarMundoPlano(THREE, p.pistaPlana, { curvas: p.curvas ?? [] }));
+      cena.background = new THREE.Color(0xe3ecf2);
+      cena.fog = new THREE.Fog(0xe3ecf2, 450, 1500);
+    }
+  } else {
     ajustarPista(p.pista);
     cena.add(p.pista);
   }
@@ -71,10 +82,22 @@ export function montarCena(THREE, o) {
 
   function desenhar(tCena) {
     const t = relogio(tCena);
-    for (const it of itens) {
-      aplicarPose(it.carro, it.am.pose(t));
+    const poses = itens.map((it) => it.am.pose(t));
+    for (const [k, it] of itens.entries()) {
+      aplicarPose(it.carro, poses[k]);
       it.rastro.visible = p.rastro > 0;
       if (p.rastro > 0) it.rastro.atualizar(it.am.rastro(t - p.rastro * p.fator, t, { passo: 1, elev: 0.08 }));
+    }
+    // carros colados (o GPS real põe um dentro do outro): o de TRÁS vira fantasma (Felipe aceita um sobre o outro,
+    // mas precisa ler quem está na frente). Suave: opacidade cai de 1 a 0,4 entre 9 m e 5 m de distância.
+    if (p.fantasma !== false && itens.length === 2) {
+      const [a, b] = poses;
+      const d = Math.hypot(a.x - b.x, a.z - b.z);
+      const bFrente = (b.x - a.x) * a.frente[0] + (b.z - a.z) * a.frente[2] > 0;
+      const atras = bFrente ? 0 : 1;
+      const op = d >= 9 ? 1 : d <= 5 ? 0.4 : 0.4 + (0.6 * (d - 5)) / 4;
+      opacidadeCarro(itens[atras].carro, Math.round(op * 20) / 20);
+      opacidadeCarro(itens[1 - atras].carro, 1);
     }
     // "alta" = panorâmica alta acompanhando os carros de longe (regra do Felipe: "levantar e ficar panorâmica");
     // janela longa na média do rumo para a câmera não virar junto com cada curva
@@ -83,7 +106,8 @@ export function montarCena(THREE, o) {
     cam.position.set(...v.pos);
     cam.lookAt(...v.alvo);
     renderer.render(cena, cam);
-    return itens.map((i) => ({ sigla: i.am.info.sigla, cor: i.am.info.cor, kmh: Math.round(i.am.vel(t) * 3.6), t }));
+    return itens.map((i, k) => ({ sigla: i.am.info.sigla, cor: i.am.info.cor, kmh: Math.round(i.am.vel(t) * 3.6), t,
+                                  pos: [poses[k].x, poses[k].y, poses[k].z] }));
   }
-  return { desenhar, renderer, itens };
+  return { desenhar, renderer, itens, cam };
 }
