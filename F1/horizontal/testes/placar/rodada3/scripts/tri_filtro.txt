@@ -1,0 +1,4 @@
+[0:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,apad=whole_len=4343200,atrim=end_sample=4343200,asplit=2[voz][vozsc];
+[1:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,atrim=end_sample=4343200,volume=-10.20dB[tri0];
+[tri0][vozsc]sidechaincompress=threshold=0.03:ratio=6:attack=40:release=450:makeup=1[tri];
+[voz]anullsink
