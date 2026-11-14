@@ -45,3 +45,19 @@ Relógio da máquina (America/Sao_Paulo).
 - Próximas: hash do código sem depender de fim de linha (CRLF×LF) para reaproveitar o cache entre worktree e pasta
   principal; HyperFrames com várias cenas GPS numa página (1 custo fixo); conferência pular Wikipedia quando o OpenF1
   decide; o painel retomar o orquestrador sozinho quando aparece o arquivo de resposta.
+
+## Rodada 1 de correções (placar 73,8 → meta ≥ 80)
+| etapa | início | fim | duração | executor | gargalo / ideia |
+|---|---|---|---|---|---|
+| leitura do placar + plano | 04:14 | 04:17 | ~3 min | produtor | — |
+| código: mundo do GPS, etiquetas, minimapa, rótulos, fantasma, duelo, speed_trap, ducking de SFX | 04:17 | 04:31 | ~14 min | produtor | — |
+| trilha local (Stable Audio Open, 95 s) | 04:20 | 04:22 | 83 s | GPU (em paralelo com o código) | — |
+| SPEC nova (20 cenas; cena 9 dividida; 4 duelos; SFX 25 → 13) + verificação | 04:24 | 04:26 | ~2 min | produtor | — |
+| rascunho de revisão (worktree, 20 cenas) | 04:23:50 | 04:29:20 | 5 min 31 s | montador | — |
+| ajustes (duelo com cartões desde o início, cena 9a vira velocidade com faixa "22 m") + 5 cenas | 04:30 | 04:33 | ~3 min | produtor + montador | — |
+| testes (montador 81/81 ~10 min, painel 163/35/34, receitas) + PR #117 | 04:30 | 04:41 | ~11 min | produtor | o teste do montador continua o mais caro |
+| pull + reinício do 8766 (coordenador) | 04:41 | 04:42 | ~1 min | coordenador | — |
+| Ativos/Verificação/Rascunho no painel (20 cenas) | 04:42:30 | 04:47:55 | 5 min 25 s | painel | cache perdido de novo (CRLF × LF) |
+| prévias + ★ de 20 cenas + ★ Rascunho | 04:48 | 04:49:39 | ~1,5 min | painel (API) | — |
+| RENDER FINAL v3 1080p60 (20 cenas, tudo renderizado de novo) | 04:49:41 | 04:57:30 | ~7 min 50 s (montador 466,7 s) | motor do painel | MP4 às 04:55:04; ~2,5 min de verificação por quadro |
+| revisão do v3 (quadros) + relatório | 04:57 | 05:02 | ~5 min | produtor | — |
