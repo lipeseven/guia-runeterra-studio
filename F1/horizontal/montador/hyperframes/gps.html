@@ -16,15 +16,15 @@
   #root { overflow: hidden; }
   /* HUD (cfg.hud): uma etiqueta por carro (cor da equipe, sigla, km/h do GPS/telemetria) e o rodapé com o relógio
      ("tempo real" / "acelerado N×" / "câmera lenta") e a fonte. Texto seco, sem animação; fora do canvas (não move). */
-  #hud { position: absolute; left: 48px; top: 44px; display: flex; flex-direction: column; gap: 12px; }
+  #hud { position: absolute; left: 56px; top: 52px; display: flex; flex-direction: column; gap: 14px; }
   .chip { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.94); border-radius: 8px;
-          padding: 10px 18px 10px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.12); font-family: "Bahnschrift", "Segoe UI", sans-serif;
+          padding: 12px 22px 12px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.12); font-family: "Bahnschrift", "Segoe UI", sans-serif;
           font-kerning: none; }
   .chip .barra { width: 8px; align-self: stretch; border-radius: 8px 0 0 8px; }
-  .chip .sig { font-weight: 700; font-size: 34px; color: #141414; width: 74px; }
-  .chip .kmh { font-weight: 600; font-size: 34px; color: #141414; width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
-  .chip .un { font-size: 22px; color: #555; }
-  #nota { position: absolute; right: 48px; bottom: 36px; font-family: "Segoe UI", sans-serif; font-size: 24px; color: #4a4a4a;
+  .chip .sig { font-weight: 700; font-size: 46px; color: #141414; width: 100px; }
+  .chip .kmh { font-weight: 600; font-size: 46px; color: #141414; width: 124px; text-align: right; font-variant-numeric: tabular-nums; }
+  .chip .un { font-size: 28px; color: #555; }
+  #nota { position: absolute; right: 56px; bottom: 44px; font-family: "Segoe UI", sans-serif; font-size: 30px; color: #4a4a4a;
           background: rgba(255,255,255,0.85); padding: 6px 14px; border-radius: 6px; }
 </style>
 </head>
@@ -76,6 +76,9 @@
   const cena = montarCena(THREE, o);
   // HUD: as etiquetas ficam por cima do canvas (o movimento de câmera da ação direta não as move nem escala)
   const hud = document.getElementById("hud"), nota = document.getElementById("nota");
+  // tamanhos do CSS valem para 1920 px de largura: o rascunho (1280) e o final (1920) mostram o HUD do mesmo tamanho
+  // relativo (uso real: no final 1080p o HUD saía 1,5× menor que no rascunho que foi aprovado)
+  hud.style.zoom = nota.style.zoom = String(__W__ / 1920);
   const chips = [];
   if (cfg.hud) {
     for (const it of cena.itens) {
