@@ -61,3 +61,16 @@ Relógio da máquina (America/Sao_Paulo).
 | prévias + ★ de 20 cenas + ★ Rascunho | 04:48 | 04:49:39 | ~1,5 min | painel (API) | — |
 | RENDER FINAL v3 1080p60 (20 cenas, tudo renderizado de novo) | 04:49:41 | 04:57:30 | ~7 min 50 s (montador 466,7 s) | motor do painel | MP4 às 04:55:04; ~2,5 min de verificação por quadro |
 | revisão do v3 (quadros) + relatório | 04:57 | 05:02 | ~5 min | produtor | — |
+
+## Rodada 2 de correções (placar 79,8)
+(O agente ficou parado ~2,5 h esperando cota entre 05:10 e 07:42.)
+| etapa | início | fim | duração | executor | gargalo / ideia |
+|---|---|---|---|---|---|
+| leitura do placar r2 + código (etiquetas, ducking por categoria, barras, arquibancadas, hash CRLF) | 07:42 | 07:44 | ~2 min de código já planejado | produtor | — |
+| SPEC r2 + verificação | 07:44 | 07:45 | ~1 min | produtor | — |
+| 4 cenas de conferência (worktree, paralelo) | 07:45 | 07:46:30 | 83 s | montador | — |
+| rascunho completo na worktree (16 renderizadas) + teste do montador 81/81 ao mesmo tempo | 07:47 | 07:57 | ~10 min | montador | os dois juntos disputam GPU/CPU, mas cabem |
+| medida SFX × voz no rascunho (cliques/pops 9–15 dB abaixo; sino ainda −19 → +22 dB) | 07:53 | 07:55 | ~2 min | produtor | — |
+| PR #120 + pull (coordenador) | 07:56 | 07:57:25 | ~1,5 min | produtor + coordenador | — |
+| Ativos/Verificação/Rascunho no painel | 07:57:33 | 08:02:47 | 5 min 14 s | painel | **cache valeu**: 15 de 20 cenas do cache (hash sem CRLF) |
+| prévias + ★ + Render final v4 | 08:03 | 08:13:20 | ~10 min (montador 532 s) | motor do painel | 1080p sempre renderiza do zero (o cache 1080 só existe depois do 1º final) |
