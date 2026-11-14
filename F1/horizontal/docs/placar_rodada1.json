@@ -1,0 +1,394 @@
+{
+ "video": "F1/dados/projetos/nove-milesimos-teste-do-fluxo-completo/saida/final_v2.mp4",
+ "rodada": 1,
+ "data": "2026-11-14",
+ "pesos": {
+  "a_dados": 25,
+  "b_sincronia": 15,
+  "c_clareza": 20,
+  "d_movimento": 15,
+  "e_estetica": 15,
+  "f_sfx": 10
+ },
+ "cenas": {
+  "c01_c8b897f1": {
+   "q0": 0,
+   "q1": 98,
+   "s": 1.63,
+   "nota": 84,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 13,
+    "c_clareza": 18,
+    "d_movimento": 14,
+    "e_estetica": 7,
+    "f_sfx": 8
+   },
+   "defeitos": [
+    "e: só texto preto em fundo claro, sem elemento visual"
+   ],
+   "correcao": "aceitável como abertura; se quiser vida, número sobre faixa vermelha/cor da equipe"
+  },
+  "c02_447ab02a": {
+   "q0": 98,
+   "q1": 472,
+   "s": 6.23,
+   "nota": 66,
+   "criterios": {
+    "a_dados": 20,
+    "b_sincronia": 10,
+    "c_clareza": 12,
+    "d_movimento": 13,
+    "e_estetica": 5,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "a/b: objetivo 'chegando juntos à linha' não cumprido (q469 ainda antes da linha); fala é sobre nomes/GP",
+    "c: carros interpenetrados (q311, c02_carros_sobrepostos_q311.jpg)",
+    "e: plano cinza vazio; rodapé 'Mexico City 2026 classificação' mistura idiomas",
+    "f: sem SFX"
+   ],
+   "correcao": "inicio do GPS para cruzar a linha dentro da cena; carro de trás fantasma + etiqueta HAM/RUS (kit/gps); cenário (gps.html)"
+  },
+  "c03_747ede00": {
+   "q0": 472,
+   "q1": 776,
+   "s": 5.07,
+   "nota": 82,
+   "criterios": {
+    "a_dados": 23,
+    "b_sincronia": 12,
+    "c_clareza": 15,
+    "d_movimento": 14,
+    "e_estetica": 11,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "c: linhas sobrepostas, a 'diferença construída' não se vê",
+    "a/c: subtítulo '76,514' x '1:16.514' nas outras cenas; rodapé 'Qualifying Mexico City 2026' em inglês"
+   ],
+   "correcao": "delta só com distância por GPS (preparar.py:191); padronizar formato de tempo e rodapé em PT-BR"
+  },
+  "c04_abbcf455": {
+   "q0": 776,
+   "q1": 1056,
+   "s": 4.67,
+   "nota": 85,
+   "criterios": {
+    "a_dados": 25,
+    "b_sincronia": 14,
+    "c_clareza": 17,
+    "d_movimento": 14,
+    "e_estetica": 7,
+    "f_sfx": 8
+   },
+   "defeitos": [
+    "c: começo do traço do oval passa sobre '1:' (q1053)",
+    "e: só texto"
+   ],
+   "correcao": "começar o traço aberto fora da caixa do texto (kit/anotacao formaOval)"
+  },
+  "c05_791bf924": {
+   "q0": 1056,
+   "q1": 1223,
+   "s": 2.78,
+   "nota": 82,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 14,
+    "c_clareza": 18,
+    "d_movimento": 14,
+    "e_estetica": 6,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "e: mesmo layout da cena 4 logo em seguida",
+    "a: '+0,009 s' (vírgula) x '1:16.514' (ponto)",
+    "f: sem SFX"
+   ],
+   "correcao": "variar layout (comparação lado a lado HAM x RUS); padronizar separador"
+  },
+  "c06_f7de54d4": {
+   "q0": 1223,
+   "q1": 1422,
+   "s": 3.32,
+   "nota": 87,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 13,
+    "c_clareza": 19,
+    "d_movimento": 14,
+    "e_estetica": 11,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "f: whoosh+riser+impacto em 0,6 s, RMS -15/-16 dB x voz -13 dB, sob a fala 'setores'"
+   ],
+   "correcao": "ducking da voz/sidechain (mixagem.py: [vozsc] vai para anullsink) ou -4 dB nos sons de capítulo"
+  },
+  "c07_a68a79fb": {
+   "q0": 1422,
+   "q1": 1627,
+   "s": 3.42,
+   "nota": 82,
+   "criterios": {
+    "a_dados": 25,
+    "b_sincronia": 9,
+    "c_clareza": 17,
+    "d_movimento": 14,
+    "e_estetica": 12,
+    "f_sfx": 5
+   },
+   "defeitos": [
+    "b: 3,4 s para gráfico denso; S2/S3/Volta entram antes de serem ditos; completo só ~1 s antes do zoom",
+    "c: eixo ±0,06 s deixa barras pequenas",
+    "f: sem clique na entrada das barras"
+   ],
+   "correcao": "cena mais longa ou barras ancoradas nas falas de cada setor; eixo ±0,03 s; clique por barra"
+  },
+  "c08_e0df513b": {
+   "q0": 1627,
+   "q1": 2096,
+   "s": 7.82,
+   "nota": 61,
+   "criterios": {
+    "a_dados": 21,
+    "b_sincronia": 7,
+    "c_clareza": 11,
+    "d_movimento": 10,
+    "e_estetica": 5,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "b: 349x345 no HUD só ~10 quadros (q1834), some antes do '345' (32,9 s HUD ~150)",
+    "d/e: reta parada: fundo anda ~0,1 px/q a 349 km/h (medido), mundo vazio",
+    "c: carros fundidos; HUD muda todo quadro, ilegível",
+    "a: frenagem 22 m depois não mostrada"
+   ],
+   "correcao": "HUD com 'segurar valor' na palavra-âncora; textura/zebras/marcas de distância na pista; fantasma no carro de trás"
+  },
+  "c09_dd4ffd33": {
+   "q0": 2096,
+   "q1": 2621,
+   "s": 8.75,
+   "nota": 81,
+   "criterios": {
+    "a_dados": 19,
+    "b_sincronia": 13,
+    "c_clareza": 16,
+    "d_movimento": 14,
+    "e_estetica": 12,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "a: '104 contra 100' não aparece (sem linha de velocidade)",
+    "c: sem cota dos 22 m",
+    "a: distância pela integral da velocidade (preparar.py:191)",
+    "f: riser do capítulo 2 começa 41,3 s sob 'contra 100'"
+   ],
+   "correcao": "faixa de velocidade mínima na Curva 1 com 104/100; cota entre inícios de freio; riser mais curto"
+  },
+  "c10_c247ab85": {
+   "q0": 2621,
+   "q1": 2771,
+   "s": 2.5,
+   "nota": 86,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 13,
+    "c_clareza": 19,
+    "d_movimento": 14,
+    "e_estetica": 10,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "f: três sons empilhados; riser começa 2,8 s antes, na cena 9"
+   ],
+   "correcao": "igual cena 6"
+  },
+  "c11_528c1e00": {
+   "q0": 2771,
+   "q1": 3080,
+   "s": 5.15,
+   "nota": 71,
+   "criterios": {
+    "a_dados": 17,
+    "b_sincronia": 12,
+    "c_clareza": 12,
+    "d_movimento": 14,
+    "e_estetica": 10,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "a/c: nada mostra onde Russell ganhou 22 ms; minimapa cinza sem destaque de setor nem ponto (q3054)",
+    "c: linhas sobrepostas",
+    "f: sem SFX"
+   ],
+   "correcao": "minimapa com o setor 2 colorido e as curvas rápidas marcadas; destaque só com distância por GPS"
+  },
+  "c12_a37e2524": {
+   "q0": 3080,
+   "q1": 3401,
+   "s": 5.35,
+   "nota": 65,
+   "criterios": {
+    "a_dados": 19,
+    "b_sincronia": 10,
+    "c_clareza": 12,
+    "d_movimento": 13,
+    "e_estetica": 5,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "a: 'acelerar a 100%' não aparece (HUD só km/h); 'Russell mais rápido no setor' não aparece",
+    "c: carros fundidos",
+    "e: mundo vazio",
+    "f: sem SFX"
+   ],
+   "correcao": "HUD com acelerador (%) ou barra de acelerador por carro; etiqueta no momento da fala"
+  },
+  "c13_d96a46d3": {
+   "q0": 3401,
+   "q1": 3548,
+   "s": 2.45,
+   "nota": 79,
+   "criterios": {
+    "a_dados": 23,
+    "b_sincronia": 13,
+    "c_clareza": 15,
+    "d_movimento": 14,
+    "e_estetica": 6,
+    "f_sfx": 8
+   },
+   "defeitos": [
+    "c: '30.008 contra 30.030' sem dizer de quem é cada tempo",
+    "c: traço do oval sobre o '3'"
+   ],
+   "correcao": "texto 'Russell 30.008 · Hamilton 30.030' (SPEC)"
+  },
+  "c14_d5a93934": {
+   "q0": 3548,
+   "q1": 3823,
+   "s": 4.58,
+   "nota": 64,
+   "criterios": {
+    "a_dados": 19,
+    "b_sincronia": 9,
+    "c_clareza": 12,
+    "d_movimento": 13,
+    "e_estetica": 5,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "a/e: 'o estádio' prometido não existe na cena",
+    "c: faixa fina da pista no topo parece defeito (q3744)",
+    "a: 6 ms não aparece",
+    "f: sem SFX"
+   ],
+   "correcao": "contorno do Foro Sol/arquibancadas no gps.html; rótulo 'Setor 3 · HAM +0,006'"
+  },
+  "c15_f6d5a7f0": {
+   "q0": 3823,
+   "q1": 4201,
+   "s": 6.3,
+   "nota": 71,
+   "criterios": {
+    "a_dados": 25,
+    "b_sincronia": 7,
+    "c_clareza": 14,
+    "d_movimento": 13,
+    "e_estetica": 6,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "b: desfoque cobre 'contra 1:16.523' em 66,4 s, antes de ser dito (67,34 s)",
+    "c/e: caixa clara recortada sobre véu cinza; 6,3 s parado",
+    "f: só clique de 45 ms no 'resultado final'"
+   ],
+   "correcao": "foco entra depois da última palavra do texto desfocado (receitas.py:222 / SPEC i=184); impacto leve no resultado"
+  },
+  "c16_760ea8f0": {
+   "q0": 4201,
+   "q1": 4686,
+   "s": 8.08,
+   "nota": 65,
+   "criterios": {
+    "a_dados": 12,
+    "b_sincronia": 10,
+    "c_clareza": 13,
+    "d_movimento": 14,
+    "e_estetica": 10,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "a: fala '350 x 347 no speed trap'; gráfico mostra os dois em ~350 e nenhuma marca do speed trap (q4590)",
+    "a: 'RUS sempre um pouco acima' não se vê",
+    "e: 3º gráfico de velocidade igual; 3,5 s parado",
+    "f: sem SFX"
+   ],
+   "correcao": "elemento speed trap com st_speed do /laps em kit/graficos (e tipo speed_trap em app/servidor/openf1.py:20)"
+  },
+  "c17_408641ec": {
+   "q0": 4686,
+   "q1": 4860,
+   "s": 2.9,
+   "nota": 83,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 14,
+    "c_clareza": 18,
+    "d_movimento": 14,
+    "e_estetica": 6,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "e: só texto"
+   ],
+   "correcao": "ok"
+  },
+  "c18_76c5a688": {
+   "q0": 4860,
+   "q1": 5158,
+   "s": 4.97,
+   "nota": 70,
+   "criterios": {
+    "a_dados": 22,
+    "b_sincronia": 11,
+    "c_clareza": 11,
+    "d_movimento": 13,
+    "e_estetica": 6,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "c: Ferrari atravessa a Mercedes (q5002-5013)",
+    "e: borda do plano no horizonte; mundo vazio"
+   ],
+   "correcao": "fantasma/deslocamento visual; fundo com horizonte (céu, prédios simples)"
+  },
+  "c19_e9aa5677": {
+   "q0": 5158,
+   "q1": 5429,
+   "s": 4.52,
+   "nota": 80,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 14,
+    "c_clareza": 18,
+    "d_movimento": 14,
+    "e_estetica": 7,
+    "f_sfx": 3
+   },
+   "defeitos": [
+    "f: sino começa 89,88 s, vídeo acaba 90,48 s: toca 0,6 s, pico -39 dBFS (inaudível) — mixagem.py:125 corta em end_sample",
+    "f: impacto 1,7 dB acima da voz em RMS na janela (-15,1 x -16,8)"
+   ],
+   "correcao": "cauda de vídeo até o fim do sino ou sino ancorado antes; impacto -4 dB"
+  }
+ },
+ "nota_global": 73.8,
+ "nao_avaliado": [
+  "áudio não ouvido (só medido)",
+  "vídeo não assistido corrido",
+  "velocidades do HUD não reconferidas na API"
+ ]
+}
