@@ -1,0 +1,1535 @@
+{
+ "video": "F1/dados/projetos/nove-milesimos-teste-do-fluxo-completo/saida/final_v3.mp4",
+ "rodada": 2,
+ "data": "2026-11-14",
+ "pesos": {
+  "a_dados": 25,
+  "b_sincronia": 15,
+  "c_clareza": 20,
+  "d_movimento": 15,
+  "e_estetica": 15,
+  "f_sfx": 10
+ },
+ "global": 79.8,
+ "global_rodada1": 73.8,
+ "por_criterio_pct": {
+  "a_dados": 92,
+  "b_sincronia": 85,
+  "c_clareza": 81,
+  "d_movimento": 88,
+  "e_estetica": 60,
+  "f_sfx": 58
+ },
+ "meta_atingida": false,
+ "cenas_abaixo_de_80": [
+  "c02_447ab02a",
+  "c11_528c1e00",
+  "c12_a37e2524",
+  "c14_d5a93934",
+  "c16_760ea8f0",
+  "c18_76c5a688"
+ ],
+ "mapa_rodada1": "cena 9 (dd4ffd33) da rodada 1 virou 9a (dd4ffd33, nova receita) + 9b (712d73a7, nova); demais ids iguais",
+ "cenas": {
+  "c01_c8b897f1": {
+   "q0": 0,
+   "q1": 98,
+   "s": 1.63,
+   "nota": 84,
+   "rodada1": 84,
+   "delta": 0,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 13,
+    "c_clareza": 18,
+    "d_movimento": 14,
+    "e_estetica": 7,
+    "f_sfx": 8
+   },
+   "defeitos": [
+    "e: só texto em fundo claro (igual à rodada 1)"
+   ],
+   "causa": "",
+   "correcao": "aceitável como abertura"
+  },
+  "c02_447ab02a": {
+   "q0": 98,
+   "q1": 472,
+   "s": 6.23,
+   "nota": 79,
+   "rodada1": 66,
+   "delta": 13,
+   "criterios": {
+    "a_dados": 23,
+    "b_sincronia": 12,
+    "c_clareza": 15,
+    "d_movimento": 13,
+    "e_estetica": 10,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "c: carros fundidos; etiquetas HAM/RUS coladas (q311, q418)",
+    "e: mundo ainda ralo (ladrilhos + 2-3 caixas), sem arquibancada perto da linha",
+    "f: nenhum SFX em 6,2 s (buraco 2,2–15,9 s)"
+   ],
+   "causa": "montador/hyperframes/gps.html:166 (deslocamento fixo de 46 px entre etiquetas); kit/gps (carro de trás translúcido não separa os modelos)",
+   "correcao": "separar etiquetas pela ordem na tela (quem está atrás embaixo) e com linha-guia até o carro; whoosh/passagem leve ao cruzar a linha"
+  },
+  "c03_747ede00": {
+   "q0": 472,
+   "q1": 776,
+   "s": 5.07,
+   "nota": 82,
+   "rodada1": 82,
+   "delta": 0,
+   "criterios": {
+    "a_dados": 23,
+    "b_sincronia": 12,
+    "c_clareza": 15,
+    "d_movimento": 14,
+    "e_estetica": 11,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "subtítulo '76,514' (formato diferente); rodapé em inglês; linhas sobrepostas a volta inteira (igual à rodada 1)"
+   ],
+   "causa": "",
+   "correcao": ""
+  },
+  "c04_abbcf455": {
+   "q0": 776,
+   "q1": 1056,
+   "s": 4.67,
+   "nota": 84,
+   "rodada1": 85,
+   "delta": -1,
+   "criterios": {
+    "a_dados": 25,
+    "b_sincronia": 14,
+    "c_clareza": 17,
+    "d_movimento": 14,
+    "e_estetica": 7,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "oval passa por cima do '1:' (q1016); pop 15 dB abaixo da voz (provavelmente mascarado)"
+   ],
+   "causa": "",
+   "correcao": ""
+  },
+  "c05_791bf924": {
+   "q0": 1056,
+   "q1": 1223,
+   "s": 2.78,
+   "nota": 83,
+   "rodada1": 82,
+   "delta": 1,
+   "criterios": {
+    "a_dados": 25,
+    "b_sincronia": 14,
+    "c_clareza": 18,
+    "d_movimento": 14,
+    "e_estetica": 6,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "layout idêntico ao da cena 4"
+   ],
+   "causa": "",
+   "correcao": ""
+  },
+  "c06_f7de54d4": {
+   "q0": 1223,
+   "q1": 1422,
+   "s": 3.32,
+   "nota": 88,
+   "rodada1": 87,
+   "delta": 1,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 13,
+    "c_clareza": 19,
+    "d_movimento": 14,
+    "e_estetica": 11,
+    "f_sfx": 7
+   },
+   "defeitos": [],
+   "causa": "",
+   "correcao": ""
+  },
+  "c07_a68a79fb": {
+   "q0": 1422,
+   "q1": 1627,
+   "s": 3.42,
+   "nota": 83,
+   "rodada1": 82,
+   "delta": 1,
+   "criterios": {
+    "a_dados": 25,
+    "b_sincronia": 9,
+    "c_clareza": 17,
+    "d_movimento": 14,
+    "e_estetica": 12,
+    "f_sfx": 6
+   },
+   "defeitos": [
+    "S2/S3/Volta entram antes de ditos; clique do '25' 15,6 dB abaixo da voz (RMS)"
+   ],
+   "causa": "",
+   "correcao": ""
+  },
+  "c08_e0df513b": {
+   "q0": 1627,
+   "q1": 2096,
+   "s": 7.82,
+   "nota": 80,
+   "rodada1": 61,
+   "delta": 19,
+   "criterios": {
+    "a_dados": 23,
+    "b_sincronia": 12,
+    "c_clareza": 15,
+    "d_movimento": 13,
+    "e_estetica": 10,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "c: na Curva 1 só um carro visível, etiquetas RUS/HAM empilhadas (q1996–q2093)",
+    "c: rótulo '349 · 345' continua na tela com o HUD a 100 km/h (q2093) — ok, mas a placa '1' gigante cobre o rodapé (q2093)"
+   ],
+   "causa": "gps.html:166; posição da placa da curva em kit/gps",
+   "correcao": ""
+  },
+  "c09a_dd4ffd33": {
+   "q0": 2096,
+   "q1": 2346,
+   "s": 4.17,
+   "nota": 80,
+   "rodada1": 81,
+   "delta": -1,
+   "criterios": {
+    "a_dados": 21,
+    "b_sincronia": 13,
+    "c_clareza": 16,
+    "d_movimento": 14,
+    "e_estetica": 11,
+    "f_sfx": 5
+   },
+   "defeitos": [
+    "a: faixa '22 m' sobre distância integrada (preparar.py:191, ±15 m) sem aviso na tela",
+    "f: sem SFX"
+   ],
+   "causa": "kit/graficos/py/preparar.py:191",
+   "correcao": "rodapé 'distância aproximada' e/ou distância pelo GPS"
+  },
+  "c09b_712d73a7": {
+   "q0": 2346,
+   "q1": 2621,
+   "s": 4.58,
+   "nota": 80,
+   "rodada1": 81,
+   "delta": -1,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 13,
+    "c_clareza": 18,
+    "d_movimento": 12,
+    "e_estetica": 8,
+    "f_sfx": 5
+   },
+   "defeitos": [
+    "d/e: cartões vazios 1,6 s (q2385–q2463); riser do capítulo 2 começa em 41,33 s sob '104 contra 100'"
+   ],
+   "causa": "montador/receitas.py:219 (_duelo: cartões entram vazios)",
+   "correcao": "entrar o cartão junto com o número"
+  },
+  "c10_c247ab85": {
+   "q0": 2621,
+   "q1": 2771,
+   "s": 2.5,
+   "nota": 87,
+   "rodada1": 86,
+   "delta": 1,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 13,
+    "c_clareza": 19,
+    "d_movimento": 14,
+    "e_estetica": 10,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "riser começa 2,3 s antes (41,33 s, ainda na 9b)"
+   ],
+   "causa": "",
+   "correcao": ""
+  },
+  "c11_528c1e00": {
+   "q0": 2771,
+   "q1": 3080,
+   "s": 5.15,
+   "nota": 77,
+   "rodada1": 71,
+   "delta": 6,
+   "criterios": {
+    "a_dados": 19,
+    "b_sincronia": 13,
+    "c_clareza": 15,
+    "d_movimento": 14,
+    "e_estetica": 11,
+    "f_sfx": 5
+   },
+   "defeitos": [
+    "a/c: a faixa 'curvas rápidas' (2.520–3.020 m) mostra as duas linhas iguais — não se vê RUS ganhar nada; '22 milésimos' não aparece",
+    "f: tecla do '22' 28 dB abaixo da voz (inaudível)"
+   ],
+   "causa": "SPEC (destaque d0/d1 sem fonte) + kit/graficos sem delta confiável (preparar.py:191)",
+   "correcao": "mostrar o número 30.030 × 30.008 / '−0,022 s' na faixa ou ampliar a diferença; SFX acima de −15 dB relativos"
+  },
+  "c12_a37e2524": {
+   "q0": 3080,
+   "q1": 3401,
+   "s": 5.35,
+   "nota": 75,
+   "rodada1": 65,
+   "delta": 10,
+   "criterios": {
+    "a_dados": 22,
+    "b_sincronia": 13,
+    "c_clareza": 13,
+    "d_movimento": 13,
+    "e_estetica": 10,
+    "f_sfx": 4
+   },
+   "defeitos": [
+    "c: etiqueta RUS cobre a HAM (q3355, q3398, `q3355_cheio.jpg`), carros um dentro do outro",
+    "a: '100% de acelerador' só em texto, sem dado na tela",
+    "f: sem SFX (buraco 47,2–56,7 s)"
+   ],
+   "causa": "montador/hyperframes/gps.html:161-166",
+   "correcao": "etiquetas lado a lado/ordem por profundidade; HUD 'marcado' com acelerador"
+  },
+  "c13_d96a46d3": {
+   "q0": 3401,
+   "q1": 3548,
+   "s": 2.45,
+   "nota": 84,
+   "rodada1": 79,
+   "delta": 5,
+   "criterios": {
+    "a_dados": 25,
+    "b_sincronia": 14,
+    "c_clareza": 19,
+    "d_movimento": 13,
+    "e_estetica": 8,
+    "f_sfx": 5
+   },
+   "defeitos": [
+    "clique do '30.008' 28 dB abaixo da voz (inaudível)"
+   ],
+   "causa": "montador/mixagem.py:30 (DUCK_SFX)",
+   "correcao": ""
+  },
+  "c14_d5a93934": {
+   "q0": 3548,
+   "q1": 3823,
+   "s": 4.58,
+   "nota": 77,
+   "rodada1": 64,
+   "delta": 13,
+   "criterios": {
+    "a_dados": 23,
+    "b_sincronia": 13,
+    "c_clareza": 14,
+    "d_movimento": 13,
+    "e_estetica": 10,
+    "f_sfx": 4
+   },
+   "defeitos": [
+    "c: etiquetas sobrepostas / RUS sem carro visível embaixo (q3602–q3613, q3744)",
+    "f: sem SFX"
+   ],
+   "causa": "gps.html:161-166",
+   "correcao": ""
+  },
+  "c15_f6d5a7f0": {
+   "q0": 3823,
+   "q1": 4201,
+   "s": 6.3,
+   "nota": 80,
+   "rodada1": 71,
+   "delta": 9,
+   "criterios": {
+    "a_dados": 25,
+    "b_sincronia": 13,
+    "c_clareza": 18,
+    "d_movimento": 12,
+    "e_estetica": 7,
+    "f_sfx": 5
+   },
+   "defeitos": [
+    "d/e: cartões vazios 2 s (63,7–65,7 s) e 2 s parados no fim; 4º duelo igual em 35 s (9b, 13, 15, 16)",
+    "clique 23 dB abaixo da voz"
+   ],
+   "causa": "SPEC: mesmo kit 'duelo' 4×",
+   "correcao": "variar (um como barra, outro com foto/cor cheia)"
+  },
+  "c16_760ea8f0": {
+   "q0": 4201,
+   "q1": 4686,
+   "s": 8.08,
+   "nota": 76,
+   "rodada1": 65,
+   "delta": 11,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 12,
+    "c_clareza": 18,
+    "d_movimento": 11,
+    "e_estetica": 6,
+    "f_sfx": 5
+   },
+   "defeitos": [
+    "d/e: 8,1 s quase parados: 1,2 s de cartões vazios, cartão HAM vazio 3,5 s (72,3–75,8 s); mesmo layout do 15",
+    "pop do '350' 26 dB abaixo da voz"
+   ],
+   "causa": "receitas.py:219 + SPEC",
+   "correcao": "mostrar o speed trap na pista/minimapa (onde fica a armadilha) ou barras crescendo; menos tempo vazio"
+  },
+  "c17_408641ec": {
+   "q0": 4686,
+   "q1": 4860,
+   "s": 2.9,
+   "nota": 83,
+   "rodada1": 83,
+   "delta": 0,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 14,
+    "c_clareza": 18,
+    "d_movimento": 14,
+    "e_estetica": 6,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "só texto"
+   ],
+   "causa": "",
+   "correcao": ""
+  },
+  "c18_76c5a688": {
+   "q0": 4860,
+   "q1": 5158,
+   "s": 4.97,
+   "nota": 71,
+   "rodada1": 70,
+   "delta": 1,
+   "criterios": {
+    "a_dados": 18,
+    "b_sincronia": 13,
+    "c_clareza": 9,
+    "d_movimento": 13,
+    "e_estetica": 11,
+    "f_sfx": 7
+   },
+   "defeitos": [
+    "a/c: etiqueta 'HAM' aparece em cima do carro da frente (Mercedes) e 'RUS' flutua sobre pista vazia (q4945, `q4945_cheio.jpg`) — o espectador lê o carro errado",
+    "c: carro de trás (HAM) translúcido com o rastro ciano visível através dele"
+   ],
+   "causa": "montador/hyperframes/gps.html:161 (+2,2 m acima do carro projetado na câmera de perseguição cai sobre o carro da frente) e :166 (−46 px fixo)",
+   "correcao": "na perseguição, ancorar a etiqueta no próprio carro (abaixo/ao lado) ou desligar etiquetas e usar só as cores; esconder o rastro dentro do carro translúcido"
+  },
+  "c19_e9aa5677": {
+   "q0": 5158,
+   "q1": 5429,
+   "s": 4.52,
+   "nota": 82,
+   "rodada1": 80,
+   "delta": 2,
+   "criterios": {
+    "a_dados": 24,
+    "b_sincronia": 14,
+    "c_clareza": 18,
+    "d_movimento": 14,
+    "e_estetica": 7,
+    "f_sfx": 5
+   },
+   "defeitos": [
+    "f: sino agora inteiro mas inaudível: RMS −51 dBFS, 33 dB abaixo da voz (cai sob 'E uma diferença...' com sidechain −6,8 dB)"
+   ],
+   "causa": "SPEC (sino em 'Uma' sob fala contínua) + montador/mixagem.py:30 (DUCK_SFX)",
+   "correcao": "sino depois de 'cronômetro.' com cauda estendida, ou sino fora do sidechain"
+  }
+ },
+ "medidas": {
+  "gps": {
+   "447ab02a": {
+    "quadros": 334,
+    "vel_med_px": 0.099,
+    "vel_p95": 0.488,
+    "salto_p99_px": 0.148,
+    "salto_max_px": 0.214,
+    "q_salto_max": 123,
+    "reversoes": 0,
+    "paradas_isoladas": 0,
+    "resposta_med": 0.859
+   },
+   "e0df513b": {
+    "quadros": 429,
+    "vel_med_px": 0.105,
+    "vel_p95": 0.712,
+    "salto_p99_px": 0.173,
+    "salto_max_px": 0.253,
+    "q_salto_max": 1899,
+    "reversoes": 0,
+    "paradas_isoladas": 0,
+    "resposta_med": 0.835
+   },
+   "a37e2524": {
+    "quadros": 281,
+    "vel_med_px": 0.377,
+    "vel_p95": 0.944,
+    "salto_p99_px": 0.133,
+    "salto_max_px": 0.182,
+    "q_salto_max": 3122,
+    "reversoes": 0,
+    "paradas_isoladas": 0,
+    "resposta_med": 0.811
+   },
+   "d5a93934": {
+    "quadros": 235,
+    "vel_med_px": 0.401,
+    "vel_p95": 0.989,
+    "salto_p99_px": 1.329,
+    "salto_max_px": 2.238,
+    "q_salto_max": 3613,
+    "reversoes": 3,
+    "paradas_isoladas": 0,
+    "resposta_med": 0.621
+   },
+   "76c5a688": {
+    "quadros": 258,
+    "vel_med_px": 0.077,
+    "vel_p95": 0.244,
+    "salto_p99_px": 0.094,
+    "salto_max_px": 0.121,
+    "q_salto_max": 4912,
+    "reversoes": 0,
+    "paradas_isoladas": 0,
+    "resposta_med": 0.914
+   }
+  },
+  "gps_chao": {
+   "447ab02a": {
+    "recorte0": {
+     "vel_med_px960": 0.76,
+     "vel_p90": 11.3,
+     "pct_quadros_confiaveis": 59.0,
+     "reversoes": 2,
+     "salto_p99": 29.54
+    },
+    "recorte1": {
+     "vel_med_px960": 2.45,
+     "vel_p90": 5.72,
+     "pct_quadros_confiaveis": 86.0,
+     "reversoes": 12,
+     "salto_p99": 13.21
+    }
+   },
+   "e0df513b": {
+    "recorte0": {
+     "vel_med_px960": 2.72,
+     "vel_p90": 11.04,
+     "pct_quadros_confiaveis": 48.0,
+     "reversoes": 4,
+     "salto_p99": 82.96
+    },
+    "recorte1": {
+     "vel_med_px960": 3.56,
+     "vel_p90": 10.33,
+     "pct_quadros_confiaveis": 87.0,
+     "reversoes": 9,
+     "salto_p99": 18.93
+    }
+   },
+   "a37e2524": {
+    "recorte0": {
+     "vel_med_px960": 2.32,
+     "vel_p90": 6.84,
+     "pct_quadros_confiaveis": 72.0,
+     "reversoes": 1,
+     "salto_p99": 63.79
+    },
+    "recorte1": {
+     "vel_med_px960": 2.92,
+     "vel_p90": 5.18,
+     "pct_quadros_confiaveis": 89.0,
+     "reversoes": 3,
+     "salto_p99": 63.5
+    }
+   },
+   "d5a93934": {
+    "recorte0": {
+     "vel_med_px960": 2.58,
+     "vel_p90": 19.32,
+     "pct_quadros_confiaveis": 67.0,
+     "reversoes": 7,
+     "salto_p99": 56.02
+    },
+    "recorte1": {
+     "vel_med_px960": 8.47,
+     "vel_p90": 19.38,
+     "pct_quadros_confiaveis": 72.0,
+     "reversoes": 0,
+     "salto_p99": 25.79
+    }
+   },
+   "76c5a688": {
+    "recorte0": {
+     "vel_med_px960": 0.84,
+     "vel_p90": 4.54,
+     "pct_quadros_confiaveis": 74.0,
+     "reversoes": 8,
+     "salto_p99": 23.7
+    },
+    "recorte1": {
+     "vel_med_px960": 4.47,
+     "vel_p90": 10.39,
+     "pct_quadros_confiaveis": 99.0,
+     "reversoes": 0,
+     "salto_p99": 10.97
+    }
+   }
+  },
+  "anot": {
+   "c8b897f1": {
+    "quadros": 37,
+    "com_traco": 37,
+    "var_bbox_px": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "var_area_px": 8
+   },
+   "abbcf455": {
+    "quadros": 32,
+    "com_traco": 32,
+    "var_bbox_px": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "var_area_px": 4
+   },
+   "791bf924": {
+    "quadros": 45,
+    "var_bbox_px": [
+     0,
+     453,
+     7,
+     0
+    ],
+    "obs": "janela 1150-1194 (antes do wipe da cena 6)"
+   },
+   "408641ec": {
+    "quadros": 40,
+    "com_traco": 40,
+    "var_bbox_px": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "var_area_px": 10
+   },
+   "e9aa5677": {
+    "quadros": 200,
+    "com_traco": 200,
+    "var_bbox_px": [
+     0,
+     0,
+     0,
+     0
+    ],
+    "var_area_px": 28
+   }
+  },
+  "regioes": {
+   "rotulo_447ab02a": [
+    [
+     258,
+     4.3
+    ]
+   ],
+   "rotulo_e0df513b": [
+    [
+     1721,
+     28.68
+    ]
+   ],
+   "rotulo_a37e2524": [
+    [
+     3173,
+     52.88
+    ]
+   ],
+   "rotulo_d5a93934": [
+    [
+     3719,
+     61.98
+    ]
+   ],
+   "rotulo_76c5a688": [
+    [
+     5014,
+     83.57
+    ]
+   ],
+   "duelo_712d73a7": {
+    "esq_q": 2469,
+    "esq_s": 41.15,
+    "dir_q": 2567,
+    "dir_s": 42.78
+   },
+   "duelo_d96a46d3": {
+    "esq_q": 3409,
+    "esq_s": 56.82,
+    "dir_q": 3478,
+    "dir_s": 57.97
+   },
+   "duelo_f6d5a7f0": {
+    "esq_q": 3947,
+    "esq_s": 65.78,
+    "dir_q": 4078,
+    "dir_s": 67.97
+   },
+   "duelo_760ea8f0": {
+    "esq_q": 4335,
+    "esq_s": 72.25,
+    "dir_q": 4549,
+    "dir_s": 75.82
+   }
+  },
+  "hud_resumo": {
+   "n": 86,
+   "erro_abs_med": 0.8,
+   "erro_abs_max": 6,
+   "p90": 2.0
+  },
+  "hud": [
+   {
+    "cena": "447ab02a",
+    "q": 100,
+    "t_volta": 70.28,
+    "HAM_hud": 115,
+    "HAM_openf1": 116,
+    "RUS_hud": 118,
+    "RUS_openf1": 118,
+    "dH": -1,
+    "dR": 0
+   },
+   {
+    "cena": "447ab02a",
+    "q": 151,
+    "t_volta": 71.13,
+    "HAM_hud": 103,
+    "HAM_openf1": 103,
+    "RUS_hud": 105,
+    "RUS_openf1": 109,
+    "dH": 0,
+    "dR": -4
+   },
+   {
+    "cena": "447ab02a",
+    "q": 204,
+    "t_volta": 72.02,
+    "HAM_hud": 122,
+    "HAM_openf1": 123,
+    "RUS_hud": 120,
+    "RUS_openf1": 122,
+    "dH": -1,
+    "dR": -2
+   },
+   {
+    "cena": "447ab02a",
+    "q": 258,
+    "t_volta": 72.92,
+    "HAM_hud": 157,
+    "HAM_openf1": 158,
+    "RUS_hud": 159,
+    "RUS_openf1": 160,
+    "dH": -1,
+    "dR": -1
+   },
+   {
+    "cena": "447ab02a",
+    "q": 279,
+    "t_volta": 73.27,
+    "HAM_hud": 174,
+    "HAM_openf1": 175,
+    "RUS_hud": 178,
+    "RUS_openf1": 178,
+    "dH": -1,
+    "dR": 0
+   },
+   {
+    "cena": "447ab02a",
+    "q": 290,
+    "t_volta": 73.45,
+    "HAM_hud": 183,
+    "HAM_openf1": 184,
+    "RUS_hud": 185,
+    "RUS_openf1": 186,
+    "dH": -1,
+    "dR": -1
+   },
+   {
+    "cena": "447ab02a",
+    "q": 311,
+    "t_volta": 73.8,
+    "HAM_hud": 198,
+    "HAM_openf1": 199,
+    "RUS_hud": 199,
+    "RUS_openf1": 200,
+    "dH": -1,
+    "dR": -1
+   },
+   {
+    "cena": "447ab02a",
+    "q": 365,
+    "t_volta": 74.7,
+    "HAM_hud": 227,
+    "HAM_openf1": 228,
+    "RUS_hud": 230,
+    "RUS_openf1": 230,
+    "dH": -1,
+    "dR": 0
+   },
+   {
+    "cena": "447ab02a",
+    "q": 418,
+    "t_volta": 75.58,
+    "HAM_hud": 251,
+    "HAM_openf1": 252,
+    "RUS_hud": 252,
+    "RUS_openf1": 253,
+    "dH": -1,
+    "dR": -1
+   },
+   {
+    "cena": "447ab02a",
+    "q": 469,
+    "t_volta": 76.43,
+    "HAM_hud": 271,
+    "HAM_openf1": 272,
+    "RUS_hud": 269,
+    "RUS_openf1": 271,
+    "dH": -1,
+    "dR": -2
+   },
+   {
+    "cena": "e0df513b",
+    "q": 1694,
+    "t_volta": 8.32,
+    "HAM_hud": 349,
+    "HAM_openf1": 349,
+    "RUS_hud": 349,
+    "RUS_openf1": 350,
+    "dH": 0,
+    "dR": -1
+   },
+   {
+    "cena": "e0df513b",
+    "q": 1761,
+    "t_volta": 9.43,
+    "HAM_hud": 350,
+    "HAM_openf1": 350,
+    "RUS_hud": 349,
+    "RUS_openf1": 350,
+    "dH": 0,
+    "dR": -1
+   },
+   {
+    "cena": "e0df513b",
+    "q": 1828,
+    "t_volta": 10.55,
+    "HAM_hud": 346,
+    "HAM_openf1": 346,
+    "RUS_hud": 349,
+    "RUS_openf1": 349,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "e0df513b",
+    "q": 1855,
+    "t_volta": 11.0,
+    "HAM_hud": 341,
+    "HAM_openf1": 341,
+    "RUS_hud": 341,
+    "RUS_openf1": 343,
+    "dH": 0,
+    "dR": -2
+   },
+   {
+    "cena": "e0df513b",
+    "q": 1866,
+    "t_volta": 11.18,
+    "HAM_hud": 330,
+    "HAM_openf1": 329,
+    "RUS_hud": 319,
+    "RUS_openf1": 319,
+    "dH": 1,
+    "dR": 0
+   },
+   {
+    "cena": "e0df513b",
+    "q": 1895,
+    "t_volta": 11.67,
+    "HAM_hud": 268,
+    "HAM_openf1": 268,
+    "RUS_hud": 247,
+    "RUS_openf1": 248,
+    "dH": 0,
+    "dR": -1
+   },
+   {
+    "cena": "e0df513b",
+    "q": 1962,
+    "t_volta": 12.78,
+    "HAM_hud": 157,
+    "HAM_openf1": 162,
+    "RUS_hud": 147,
+    "RUS_openf1": 147,
+    "dH": -5,
+    "dR": 0
+   },
+   {
+    "cena": "e0df513b",
+    "q": 1996,
+    "t_volta": 13.35,
+    "HAM_hud": 128,
+    "HAM_openf1": 128,
+    "RUS_hud": 127,
+    "RUS_openf1": 128,
+    "dH": 0,
+    "dR": -1
+   },
+   {
+    "cena": "e0df513b",
+    "q": 2007,
+    "t_volta": 13.53,
+    "HAM_hud": 122,
+    "HAM_openf1": 122,
+    "RUS_hud": 121,
+    "RUS_openf1": 121,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "e0df513b",
+    "q": 2029,
+    "t_volta": 13.9,
+    "HAM_hud": 113,
+    "HAM_openf1": 113,
+    "RUS_hud": 114,
+    "RUS_openf1": 114,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "e0df513b",
+    "q": 2093,
+    "t_volta": 14.97,
+    "HAM_hud": 108,
+    "HAM_openf1": 107,
+    "RUS_hud": 100,
+    "RUS_openf1": 100,
+    "dH": 1,
+    "dR": 0
+   },
+   {
+    "cena": "a37e2524",
+    "q": 3125,
+    "t_volta": 31.75,
+    "HAM_hud": 83,
+    "HAM_openf1": 83,
+    "RUS_hud": 81,
+    "RUS_openf1": 81,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "a37e2524",
+    "q": 3171,
+    "t_volta": 32.52,
+    "HAM_hud": 72,
+    "HAM_openf1": 72,
+    "RUS_hud": 70,
+    "RUS_openf1": 70,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "a37e2524",
+    "q": 3217,
+    "t_volta": 33.28,
+    "HAM_hud": 79,
+    "HAM_openf1": 78,
+    "RUS_hud": 77,
+    "RUS_openf1": 76,
+    "dH": 1,
+    "dR": 1
+   },
+   {
+    "cena": "a37e2524",
+    "q": 3263,
+    "t_volta": 34.05,
+    "HAM_hud": 106,
+    "HAM_openf1": 106,
+    "RUS_hud": 101,
+    "RUS_openf1": 100,
+    "dH": 0,
+    "dR": 1
+   },
+   {
+    "cena": "a37e2524",
+    "q": 3309,
+    "t_volta": 34.82,
+    "HAM_hud": 142,
+    "HAM_openf1": 142,
+    "RUS_hud": 135,
+    "RUS_openf1": 134,
+    "dH": 0,
+    "dR": 1
+   },
+   {
+    "cena": "a37e2524",
+    "q": 3355,
+    "t_volta": 35.58,
+    "HAM_hud": 133,
+    "HAM_openf1": 132,
+    "RUS_hud": 137,
+    "RUS_openf1": 136,
+    "dH": 1,
+    "dR": 1
+   },
+   {
+    "cena": "a37e2524",
+    "q": 3398,
+    "t_volta": 36.3,
+    "HAM_hud": 101,
+    "HAM_openf1": 101,
+    "RUS_hud": 106,
+    "RUS_openf1": 105,
+    "dH": 0,
+    "dR": 1
+   },
+   {
+    "cena": "d5a93934",
+    "q": 3550,
+    "t_volta": 57.57,
+    "HAM_hud": 319,
+    "HAM_openf1": 319,
+    "RUS_hud": 327,
+    "RUS_openf1": 327,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "d5a93934",
+    "q": 3587,
+    "t_volta": 58.8,
+    "HAM_hud": 219,
+    "HAM_openf1": 220,
+    "RUS_hud": 215,
+    "RUS_openf1": 215,
+    "dH": -1,
+    "dR": 0
+   },
+   {
+    "cena": "d5a93934",
+    "q": 3626,
+    "t_volta": 60.1,
+    "HAM_hud": 141,
+    "HAM_openf1": 141,
+    "RUS_hud": 142,
+    "RUS_openf1": 145,
+    "dH": 0,
+    "dR": -3
+   },
+   {
+    "cena": "d5a93934",
+    "q": 3665,
+    "t_volta": 61.4,
+    "HAM_hud": 153,
+    "HAM_openf1": 154,
+    "RUS_hud": 146,
+    "RUS_openf1": 146,
+    "dH": -1,
+    "dR": 0
+   },
+   {
+    "cena": "d5a93934",
+    "q": 3705,
+    "t_volta": 62.73,
+    "HAM_hud": 176,
+    "HAM_openf1": 173,
+    "RUS_hud": 166,
+    "RUS_openf1": 166,
+    "dH": 3,
+    "dR": 0
+   },
+   {
+    "cena": "d5a93934",
+    "q": 3744,
+    "t_volta": 64.03,
+    "HAM_hud": 100,
+    "HAM_openf1": 101,
+    "RUS_hud": 98,
+    "RUS_openf1": 98,
+    "dH": -1,
+    "dR": 0
+   },
+   {
+    "cena": "d5a93934",
+    "q": 3783,
+    "t_volta": 65.33,
+    "HAM_hud": 67,
+    "HAM_openf1": 67,
+    "RUS_hud": 71,
+    "RUS_openf1": 71,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "d5a93934",
+    "q": 3820,
+    "t_volta": 66.57,
+    "HAM_hud": 85,
+    "HAM_openf1": 85,
+    "RUS_hud": 87,
+    "RUS_openf1": 88,
+    "dH": 0,
+    "dR": -1
+   },
+   {
+    "cena": "76c5a688",
+    "q": 4902,
+    "t_volta": 10.55,
+    "HAM_hud": 346,
+    "HAM_openf1": 346,
+    "RUS_hud": 349,
+    "RUS_openf1": 349,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "76c5a688",
+    "q": 4945,
+    "t_volta": 10.91,
+    "HAM_hud": 344,
+    "HAM_openf1": 344,
+    "RUS_hud": 345,
+    "RUS_openf1": 345,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "76c5a688",
+    "q": 4987,
+    "t_volta": 11.26,
+    "HAM_hud": 324,
+    "HAM_openf1": 324,
+    "RUS_hud": 306,
+    "RUS_openf1": 306,
+    "dH": 0,
+    "dR": 0
+   },
+   {
+    "cena": "76c5a688",
+    "q": 5030,
+    "t_volta": 11.62,
+    "HAM_hud": 276,
+    "HAM_openf1": 276,
+    "RUS_hud": 253,
+    "RUS_openf1": 254,
+    "dH": 0,
+    "dR": -1
+   },
+   {
+    "cena": "76c5a688",
+    "q": 5072,
+    "t_volta": 11.97,
+    "HAM_hud": 226,
+    "HAM_openf1": 227,
+    "RUS_hud": 209,
+    "RUS_openf1": 207,
+    "dH": -1,
+    "dR": 2
+   },
+   {
+    "cena": "76c5a688",
+    "q": 5115,
+    "t_volta": 12.32,
+    "HAM_hud": 190,
+    "HAM_openf1": 194,
+    "RUS_hud": 180,
+    "RUS_openf1": 180,
+    "dH": -4,
+    "dR": 0
+   },
+   {
+    "cena": "76c5a688",
+    "q": 5155,
+    "t_volta": 12.66,
+    "HAM_hud": 165,
+    "HAM_openf1": 171,
+    "RUS_hud": 153,
+    "RUS_openf1": 153,
+    "dH": -6,
+    "dR": 0
+   }
+  ],
+  "trilha": {
+   "trilha_rms_db": -36.3,
+   "voz_rms_db": -17.8,
+   "janelas_fala_400ms": 223,
+   "margem_voz_sobre_trilha_mediana_db": 22.0,
+   "margem_p10_db": 9.3,
+   "margem_min_db": -9.3,
+   "t_margem_min_s": 7.6,
+   "pct_fala_margem_<10dB": 10.8,
+   "pct_fala_margem_<6dB": 6.3,
+   "janelas_margem_<6dB_s": [
+    1.2,
+    7.6,
+    10.0,
+    12.8,
+    17.2,
+    20.0,
+    26.8,
+    34.8,
+    36.4,
+    38.8,
+    63.2,
+    74.4,
+    78.0,
+    85.6
+   ],
+   "trilha_nas_pausas_mediana_db": null,
+   "n_pausas": 0,
+   "trilha_ultimo_som_s": 89.81
+  },
+  "sfx": [
+   {
+    "evento": "impacto Nove",
+    "t": 0.0,
+    "dur": 2.23,
+    "ancora_s": 0.0,
+    "pico_s": 0.004,
+    "pico_menos_ancora_ms": 4,
+    "sfx_rms_db": -30.3,
+    "sfx_pico_db": -6.5,
+    "voz_rms_db": -15.0,
+    "trilha_rms_db": -38.4,
+    "sfx_menos_voz_db": -15.3,
+    "duck_db": 0.3,
+    "reducao_sidechain_db": -8.1,
+    "pico_sfx_menos_pico_voz_150ms_db": -2.0
+   },
+   {
+    "evento": "pop 514",
+    "t": 15.88,
+    "dur": 0.8,
+    "ancora_s": 16.04,
+    "pico_s": 16.002,
+    "pico_menos_ancora_ms": -38,
+    "sfx_rms_db": -36.8,
+    "sfx_pico_db": -27.3,
+    "voz_rms_db": -21.4,
+    "trilha_rms_db": -37.8,
+    "sfx_menos_voz_db": -15.4,
+    "duck_db": 1.3,
+    "reducao_sidechain_db": -7.1,
+    "pico_sfx_menos_pico_voz_150ms_db": -20.0
+   },
+   {
+    "evento": "wipe/capitulo a",
+    "t": 19.89,
+    "dur": 1.11,
+    "ancora_s": 21.02,
+    "pico_s": 20.377,
+    "pico_menos_ancora_ms": -643,
+    "sfx_rms_db": -30.8,
+    "sfx_pico_db": -14.6,
+    "voz_rms_db": -17.0,
+    "trilha_rms_db": -30.0,
+    "sfx_menos_voz_db": -13.8,
+    "duck_db": 0.7,
+    "reducao_sidechain_db": -6.4,
+    "pico_sfx_menos_pico_voz_150ms_db": 225.4
+   },
+   {
+    "evento": "capitulo b",
+    "t": 20.36,
+    "dur": 1.56,
+    "ancora_s": 21.02,
+    "pico_s": 21.625,
+    "pico_menos_ancora_ms": 605,
+    "sfx_rms_db": -25.1,
+    "sfx_pico_db": -11.4,
+    "voz_rms_db": -16.1,
+    "trilha_rms_db": -34.0,
+    "sfx_menos_voz_db": -9.1,
+    "duck_db": -3.4,
+    "reducao_sidechain_db": -7.1,
+    "pico_sfx_menos_pico_voz_150ms_db": 24.9
+   },
+   {
+    "evento": "capitulo c",
+    "t": 20.84,
+    "dur": 2.5,
+    "ancora_s": 21.02,
+    "pico_s": 21.625,
+    "pico_menos_ancora_ms": 605,
+    "sfx_rms_db": -26.9,
+    "sfx_pico_db": -11.4,
+    "voz_rms_db": -16.2,
+    "trilha_rms_db": -41.3,
+    "sfx_menos_voz_db": -10.7,
+    "duck_db": -3.1,
+    "reducao_sidechain_db": -7.9,
+    "pico_sfx_menos_pico_voz_150ms_db": 24.9
+   },
+   {
+    "evento": "clique 25",
+    "t": 25.4,
+    "dur": 0.045,
+    "ancora_s": 25.4,
+    "pico_s": 25.401,
+    "pico_menos_ancora_ms": 1,
+    "sfx_rms_db": -41.0,
+    "sfx_pico_db": -22.0,
+    "voz_rms_db": -25.4,
+    "trilha_rms_db": -39.5,
+    "sfx_menos_voz_db": -15.6,
+    "duck_db": -0.8,
+    "reducao_sidechain_db": -9.5,
+    "pico_sfx_menos_pico_voz_150ms_db": -13.7
+   },
+   {
+    "evento": "zoom cena 8",
+    "t": 26.69,
+    "dur": 2.75,
+    "ancora_s": 27.12,
+    "pico_s": 27.125,
+    "pico_menos_ancora_ms": 5,
+    "sfx_rms_db": -31.6,
+    "sfx_pico_db": -13.7,
+    "voz_rms_db": -19.1,
+    "trilha_rms_db": -37.7,
+    "sfx_menos_voz_db": -12.5,
+    "duck_db": 3.4,
+    "reducao_sidechain_db": -2.7,
+    "pico_sfx_menos_pico_voz_150ms_db": 11.7
+   },
+   {
+    "evento": "pop 349",
+    "t": 30.74,
+    "dur": 0.27,
+    "ancora_s": 30.8,
+    "pico_s": 30.765,
+    "pico_menos_ancora_ms": -35,
+    "sfx_rms_db": -38.5,
+    "sfx_pico_db": -25.1,
+    "voz_rms_db": -19.8,
+    "trilha_rms_db": -36.7,
+    "sfx_menos_voz_db": -18.7,
+    "duck_db": 2.7,
+    "reducao_sidechain_db": -8.7,
+    "pico_sfx_menos_pico_voz_150ms_db": -16.3
+   },
+   {
+    "evento": "riser cap 2",
+    "t": 41.33,
+    "dur": 3.1,
+    "ancora_s": 44.08,
+    "pico_s": 43.723,
+    "pico_menos_ancora_ms": -357,
+    "sfx_rms_db": -29.7,
+    "sfx_pico_db": -11.3,
+    "voz_rms_db": -18.8,
+    "trilha_rms_db": -35.0,
+    "sfx_menos_voz_db": -11.0,
+    "duck_db": -1.7,
+    "reducao_sidechain_db": -6.7,
+    "pico_sfx_menos_pico_voz_150ms_db": -0.9
+   },
+   {
+    "evento": "cap 2 b",
+    "t": 43.26,
+    "dur": 3.0,
+    "ancora_s": 44.08,
+    "pico_s": 43.723,
+    "pico_menos_ancora_ms": -357,
+    "sfx_rms_db": -29.4,
+    "sfx_pico_db": -11.3,
+    "voz_rms_db": -17.9,
+    "trilha_rms_db": -33.9,
+    "sfx_menos_voz_db": -11.5,
+    "duck_db": -1.5,
+    "reducao_sidechain_db": -6.9,
+    "pico_sfx_menos_pico_voz_150ms_db": -0.9
+   },
+   {
+    "evento": "cap 2 c",
+    "t": 44.05,
+    "dur": 1.0,
+    "ancora_s": 44.08,
+    "pico_s": 44.051,
+    "pico_menos_ancora_ms": -29,
+    "sfx_rms_db": -28.9,
+    "sfx_pico_db": -16.2,
+    "voz_rms_db": -16.6,
+    "trilha_rms_db": -42.1,
+    "sfx_menos_voz_db": -12.3,
+    "duck_db": -4.2,
+    "reducao_sidechain_db": -10.1,
+    "pico_sfx_menos_pico_voz_150ms_db": -9.3
+   },
+   {
+    "evento": "tecla 22",
+    "t": 47.04,
+    "dur": 0.165,
+    "ancora_s": 47.04,
+    "pico_s": 47.041,
+    "pico_menos_ancora_ms": 1,
+    "sfx_rms_db": -44.0,
+    "sfx_pico_db": -23.5,
+    "voz_rms_db": -15.7,
+    "trilha_rms_db": -37.4,
+    "sfx_menos_voz_db": -28.2,
+    "duck_db": 11.6,
+    "reducao_sidechain_db": -9.0,
+    "pico_sfx_menos_pico_voz_150ms_db": -16.7
+   },
+   {
+    "evento": "clique 30.008",
+    "t": 56.68,
+    "dur": 0.38,
+    "ancora_s": 56.68,
+    "pico_s": 56.689,
+    "pico_menos_ancora_ms": 9,
+    "sfx_rms_db": -45.4,
+    "sfx_pico_db": -13.4,
+    "voz_rms_db": -17.1,
+    "trilha_rms_db": -38.3,
+    "sfx_menos_voz_db": -28.3,
+    "duck_db": 17.4,
+    "reducao_sidechain_db": -3.3,
+    "pico_sfx_menos_pico_voz_150ms_db": -5.2
+   },
+   {
+    "evento": "clique 1:16.514",
+    "t": 65.63,
+    "dur": 0.27,
+    "ancora_s": 65.66,
+    "pico_s": 65.668,
+    "pico_menos_ancora_ms": 8,
+    "sfx_rms_db": -38.2,
+    "sfx_pico_db": -12.1,
+    "voz_rms_db": -15.3,
+    "trilha_rms_db": -30.8,
+    "sfx_menos_voz_db": -22.9,
+    "duck_db": 15.3,
+    "reducao_sidechain_db": -0.1,
+    "pico_sfx_menos_pico_voz_150ms_db": 35.9
+   },
+   {
+    "evento": "pop 350",
+    "t": 72.11,
+    "dur": 0.19,
+    "ancora_s": 72.12,
+    "pico_s": 72.12,
+    "pico_menos_ancora_ms": 0,
+    "sfx_rms_db": -42.0,
+    "sfx_pico_db": -19.4,
+    "voz_rms_db": -15.7,
+    "trilha_rms_db": -39.0,
+    "sfx_menos_voz_db": -26.3,
+    "duck_db": 10.4,
+    "reducao_sidechain_db": -8.3,
+    "pico_sfx_menos_pico_voz_150ms_db": -14.9
+   },
+   {
+    "evento": "alerta nao",
+    "t": 79.1,
+    "dur": 0.34,
+    "ancora_s": 79.24,
+    "pico_s": 79.279,
+    "pico_menos_ancora_ms": 39,
+    "sfx_rms_db": -35.7,
+    "sfx_pico_db": -26.8,
+    "voz_rms_db": -22.9,
+    "trilha_rms_db": -34.9,
+    "sfx_menos_voz_db": -12.8,
+    "duck_db": 0.2,
+    "reducao_sidechain_db": -6.0,
+    "pico_sfx_menos_pico_voz_150ms_db": -17.6
+   },
+   {
+    "evento": "zoom cena 18",
+    "t": 80.75,
+    "dur": 0.56,
+    "ancora_s": 81.0,
+    "pico_s": 81.01,
+    "pico_menos_ancora_ms": 10,
+    "sfx_rms_db": -29.5,
+    "sfx_pico_db": -13.3,
+    "voz_rms_db": -28.8,
+    "trilha_rms_db": -27.3,
+    "sfx_menos_voz_db": -0.6,
+    "duck_db": 0.7,
+    "reducao_sidechain_db": -0.0,
+    "pico_sfx_menos_pico_voz_150ms_db": 51.4
+   },
+   {
+    "evento": "impacto Nove",
+    "t": 85.92,
+    "dur": 1.78,
+    "ancora_s": 85.96,
+    "pico_s": 85.922,
+    "pico_menos_ancora_ms": -38,
+    "sfx_rms_db": -21.0,
+    "sfx_pico_db": -6.6,
+    "voz_rms_db": -17.6,
+    "trilha_rms_db": -32.4,
+    "sfx_menos_voz_db": -3.4,
+    "duck_db": 0.5,
+    "reducao_sidechain_db": -0.9,
+    "pico_sfx_menos_pico_voz_150ms_db": 27.9
+   },
+   {
+    "evento": "sino Uma",
+    "t": 86.97,
+    "dur": 2.48,
+    "ancora_s": 86.98,
+    "pico_s": 87.014,
+    "pico_menos_ancora_ms": 34,
+    "sfx_rms_db": -51.2,
+    "sfx_pico_db": -38.8,
+    "voz_rms_db": -18.2,
+    "trilha_rms_db": -39.0,
+    "sfx_menos_voz_db": -33.0,
+    "duck_db": 18.5,
+    "reducao_sidechain_db": -6.8,
+    "pico_sfx_menos_pico_voz_150ms_db": -32.4
+   }
+  ],
+  "mix_rms_db": -17.6
+ }
+}
