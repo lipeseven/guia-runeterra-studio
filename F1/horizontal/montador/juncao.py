@@ -12,6 +12,7 @@ lido pelo `transicoes.mjs`. O resto do vídeo é o próprio trecho (trim por qua
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -124,6 +125,8 @@ def parametros_codec(cod: str, rascunho: bool) -> list[str]:
     """Parâmetros fixos por codificador: todos os blocos de um vídeo saem iguais (concat sem recodificar). Sem quadros B
     (`-bf 0`): cada bloco começa e termina limpo no relógio de 60 q/s."""
     if cod == "h264_nvenc":
+        if os.environ.get("F1_SEM_NVENC"):   # testes: máquina "sem NVENC" (preset inexistente = o ffmpeg recusa de verdade)
+            return ["h264_nvenc", "-preset", "sem_nvenc", "-bf", "0"]
         return ["h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "19" if rascunho else "16", "-b:v", "0", "-bf", "0"]
     return ["libx264", "-preset", "veryfast" if rascunho else "slow", "-crf", "18" if rascunho else "15", "-bf", "0"]
 

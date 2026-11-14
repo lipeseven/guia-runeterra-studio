@@ -170,6 +170,175 @@ def gerar_textos(pasta: Path, titulo_card: str, duracao: float) -> dict:
             "midias_usadas": len(ids)}
 
 
+# ---------------------------------------------------------------- documentário do F1 (fase 7c)
+# Os mesmos textos (títulos, descrição, tags, comentário fixado), mas: capítulos tirados da SPEC (cena de abertura de
+# cada capítulo da História, nos tempos da sua gravação), miniatura = sugestão de texto/enquadramento + um quadro do
+# vídeo final na cena escolhida, créditos dos ativos (OpenF1, imagens validadas, SFX CC BY) e, se houver chave da YouTube
+# Data API no .env (YOUTUBE_API_KEY), os vídeos parecidos que já existem entram no prompt. Sem chave: pula, sem erro.
+# O prompt vai pelo orquestrador (o motor roda esta tarefa dentro de `pelo_orquestrador`: nada de `claude -p`).
+YOUTUBE_API = "https://www.googleapis.com/youtube/v3/"
+
+
+def capitulos_doc(pasta: Path) -> list[dict]:
+    """Um capítulo por capítulo da História, no início da 1ª cena dele na SPEC (tempos da narração que vale). Regras do
+    YouTube: 1º em 0:00, ≥ 3 capítulos, cada um ≥ 10 s: capítulo curto junta com o anterior; menos de 3 = nenhum."""
+    h = pasta / "horizontal"
+    try:
+        hist = json.loads((h / "historia.json").read_text(encoding="utf-8"))
+        spec = json.loads((h / "spec.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    titulos = {c["id"]: c["titulo"] for c in hist.get("capitulos", [])}
+    caps: list[dict] = []
+    for c in spec.get("cenas", []):
+        if not caps or caps[-1]["id"] != c.get("capitulo"):
+            caps.append({"id": c.get("capitulo"), "titulo": titulos.get(c.get("capitulo"), "Capítulo"), "inicio": float(c["t0"])})
+    if not caps:
+        return []
+    caps[0]["inicio"] = 0.0
+    fim = float(spec["cenas"][-1]["t1"])
+    ok = list(caps)
+
+    def dur(k: int) -> float:
+        return (ok[k + 1]["inicio"] if k + 1 < len(ok) else fim) - ok[k]["inicio"]
+
+    while len(ok) > 1:   # capítulo curto some e o tempo dele fica com o anterior (o 1º fica: 0:00 é obrigatório)
+        curtos = [k for k in range(len(ok)) if dur(k) < 10]
+        if not curtos:
+            break
+        ok.pop(curtos[0] if curtos[0] > 0 else 1)
+    if len(ok) < 3:
+        return []
+    return [{"titulo": c["titulo"], "inicio": round(c["inicio"], 1), "tempo": _mmss(c["inicio"]), "capitulo": c["id"]} for c in ok]
+
+
+def _chave_youtube() -> str | None:
+    import os
+
+    from dotenv import dotenv_values
+
+    return os.environ.get("YOUTUBE_API_KEY") or dotenv_values(RAIZ / ".env").get("YOUTUBE_API_KEY") or None
+
+
+def _youtube(recurso: str, params: dict) -> dict:
+    import urllib.parse
+    import urllib.request
+
+    with urllib.request.urlopen(YOUTUBE_API + recurso + "?" + urllib.parse.urlencode(params), timeout=20) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def concorrentes(pasta: Path, consulta: str) -> dict:
+    """Vídeos que já existem sobre o tema (título, canal, visualizações), pela YouTube Data API v3, só com a chave
+    configurada. Cache em direcao/concorrentes.json (o prompt fica igual entre retomadas do orquestrador)."""
+    arq = pasta / "direcao" / "concorrentes.json"
+    if arq.exists():
+        guardado = json.loads(arq.read_text(encoding="utf-8"))
+        if guardado.get("consulta") == consulta and guardado.get("status") != "erro":
+            return guardado
+    chave = _chave_youtube()
+    if not chave:
+        return {"consulta": consulta, "status": "sem_chave", "itens": [],
+                "aviso": "pesquisa de concorrentes pulada: sem YOUTUBE_API_KEY no .env"}
+    try:
+        busca = _youtube("search", {"part": "snippet", "type": "video", "maxResults": 10, "q": consulta,
+                                    "relevanceLanguage": "pt", "regionCode": "BR", "key": chave})
+        ids = [i["id"]["videoId"] for i in busca.get("items", []) if i.get("id", {}).get("videoId")]
+        stats = {v["id"]: v for v in _youtube("videos", {"part": "statistics,contentDetails", "id": ",".join(ids), "key": chave}
+                                              ).get("items", [])} if ids else {}
+        itens = [{"titulo": i["snippet"]["title"], "canal": i["snippet"]["channelTitle"],
+                  "publicado": i["snippet"].get("publishedAt", "")[:10],
+                  "views": int(stats.get(i["id"]["videoId"], {}).get("statistics", {}).get("viewCount", 0) or 0),
+                  "url": f"https://www.youtube.com/watch?v={i['id']['videoId']}"}
+                 for i in busca.get("items", []) if i.get("id", {}).get("videoId")]
+        r = {"consulta": consulta, "status": "ok", "itens": sorted(itens, key=lambda x: -x["views"])}
+    except Exception as e:   # noqa: BLE001 — rede/cota/chave inválida: a publicação segue sem a pesquisa
+        return {"consulta": consulta, "status": "erro", "itens": [], "aviso": f"pesquisa de concorrentes falhou: {str(e)[:200]}"}
+    arq.parent.mkdir(parents=True, exist_ok=True)
+    arq.write_text(json.dumps(r, ensure_ascii=False, indent=1), encoding="utf-8")
+    return r
+
+
+def _creditos_doc(pasta: Path) -> list[str]:
+    h = pasta / "horizontal"
+    linhas = ["Dados de cronometragem e telemetria: OpenF1 (openf1.org), projeto aberto e não oficial."]
+    try:
+        ativos = json.loads((h / "ativos.json").read_text(encoding="utf-8"))
+        linhas += sorted({str(i["dados"]["credito"]) for i in ativos.get("itens", []) if (i.get("dados") or {}).get("credito")})
+    except (OSError, json.JSONDecodeError, TypeError):
+        pass
+    try:
+        linhas += json.loads((h / "final" / "final.json").read_text(encoding="utf-8")).get("creditos_sfx") or []
+    except (OSError, json.JSONDecodeError):
+        pass
+    return linhas
+
+
+def quadro_miniatura(pasta: Path, final: Path | None, t: float) -> Path | None:
+    """Quadro do vídeo final no tempo t → saida/miniatura_base.jpg (1280×720): a base da miniatura (o texto sugerido vai
+    por cima no editor do Felipe; nada é desenhado aqui)."""
+    import subprocess
+
+    if not final or not final.exists():
+        return None
+    destino = pasta / "saida" / "miniatura_base.jpg"
+    dur = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(final)],
+                         capture_output=True, text=True).stdout.strip()
+    if dur:   # nunca depois do fim (ex.: SPEC mais longa que o final antigo)
+        t = min(t, max(0.0, float(dur) - 0.1))
+    r = subprocess.run(["ffmpeg", "-y", "-v", "error", "-ss", f"{max(0.0, t):.3f}", "-i", str(final), "-frames:v", "1",
+                        "-vf", "scale=1280:720", "-q:v", "2", str(destino)], capture_output=True)
+    return destino if r.returncode == 0 and destino.exists() else None
+
+
+SISTEMA_DOC = SISTEMA + """
+Documentário de F1 com gráficos e dados (OpenF1). A miniatura: texto curto (até 4 palavras), uma ideia só; enquadramento
+diz o que aparece e onde (ex.: "gráfico de velocidade à direita, texto grande à esquerda"); escolha a CENA do vídeo cujo
+quadro serve de base."""
+
+
+def gerar_textos_doc(pasta: Path, titulo_card: str, duracao: float, final: Path | None) -> dict:
+    from claude_cli import chamar_json
+
+    h = pasta / "horizontal"
+    roteiro = (pasta / "direcao" / "roteiro.txt").read_text(encoding="utf-8")
+    spec = json.loads((h / "spec.json").read_text(encoding="utf-8"))
+    hist = json.loads((h / "historia.json").read_text(encoding="utf-8")) if (h / "historia.json").exists() else {}
+    caps = capitulos_doc(pasta)
+    conc = concorrentes(pasta, titulo_card)
+    cenas = "\n".join(f"- {c['id']} ({_mmss(c['t0'])}): {c.get('objetivo', '')}" + (f" | na tela: {' / '.join(c['texto'])}" if c.get("texto") else "")
+                      for c in spec["cenas"][:80])
+    viz = ("\n\nVÍDEOS QUE JÁ EXISTEM SOBRE O TEMA (YouTube, mais vistos primeiro; NÃO copie títulos, diferencie-se):\n"
+           + "\n".join(f"- {i['titulo']} · {i['canal']} · {i['views']:,} views".replace(",", ".") for i in conc["itens"][:10])
+           if conc["status"] == "ok" and conc["itens"] else "")
+    prompt = (f"Título provisório do Felipe: {titulo_card}\nDuração: {_mmss(duracao)} ({round(duracao / 60)} minutos)\n"
+              f"Tese da história: {hist.get('tese', '')}\n"
+              f"Capítulos: {', '.join(c['titulo'] for c in caps) or 'sem capítulos (vídeo curto)'}\n\n"
+              f"CENAS (id, início, o que mostra):\n{cenas}{viz}\n\nROTEIRO:\n{roteiro[:9000]}\n\n"
+              'Responda: {"titulos": [6 opções], "gancho": "2 a 3 frases para abrir a descrição, sem spoiler do final", '
+              '"tags": [10 a 15 tags], "comentario_fixado": "uma pergunta para a comunidade comentar", '
+              '"miniatura": {"texto": "até 4 palavras", "enquadramento": "o que aparece e onde", "cena": "id de uma cena acima"}}')
+    r = chamar_json(prompt, SISTEMA_DOC, modelo="sonnet", etiqueta="publicacao-doc")
+    partes = [str(r["gancho"]).strip()]
+    if caps:
+        partes.append("Capítulos:\n" + "\n".join(f"{c['tempo']} {c['titulo']}" for c in caps))
+    cred = _creditos_doc(pasta)
+    if cred:
+        partes.append("Créditos:\n" + "\n".join(f"• {c}" for c in cred))
+    if AVISO_LEGAL:
+        partes.append(AVISO_LEGAL)
+    mini = r.get("miniatura") or {}
+    por_id = {c["id"]: c for c in spec["cenas"]}
+    cena = por_id.get(str(mini.get("cena"))) or max(spec["cenas"], key=lambda c: len(c.get("kits", [])))
+    t = round((cena["t0"] + cena["t1"]) / 2, 2)
+    return {"titulos": r["titulos"], "titulo": r["titulos"][0], "descricao": "\n\n".join(partes), "tags": r["tags"],
+            "comentario_fixado": r.get("comentario_fixado", ""), "capitulos": caps, "midias_usadas": 0,
+            "miniatura": {"texto": str(mini.get("texto", "")), "enquadramento": str(mini.get("enquadramento", "")),
+                          "cena": cena["id"], "tempo": _mmss(t), "t": t,
+                          "cena_trocada": str(mini.get("cena")) not in por_id},
+            "concorrentes": conc, "_quadro": quadro_miniatura(pasta, final, t)}
+
+
 def exportar_thumbnail(pasta: Path) -> Path | None:
     """A capa do Felipe no tamanho do YouTube (1280x720, recorte central se a proporção for diferente)."""
     from PIL import Image, ImageOps

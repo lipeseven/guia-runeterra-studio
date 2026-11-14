@@ -66,6 +66,22 @@ Decisões tiradas da medição:
 - Codificar um bloco/junção do mini-spec (1280×720, NVENC): ver os tempos `codificado em … s` no log da montagem
   (`relatorio.json` → `blocos.segmentos[].segundos_codificar`).
 
+## Vídeo final (fase 7c; `--final`)
+`montar.py <pasta> --final --registrar --progresso` (o motor do painel roda; ver `../docs/painel.md` "Fase 7c"):
+- 1920×1080, 60 q/s, o MESMO caminho do rascunho (trechos por cena com cache por hash em `trechos/<cena>_<hash>_1920x1080.mp4`,
+  blocos `blocos/final_<hash>.mp4`, concat sem recodificar, mixagem única). Trechos intermediários x264 CRF 10; blocos
+  NVENC CQ 16 (x264 `slow` CRF 15 sem NVENC). Áudio AAC 320k.
+- Narração: SÓ a gravação limpa do card (`<projeto>/trabalho/gravacao/limpa.wav`); sem ela, `NaoMonta` (a
+  `narracao.wav`/voz guia nunca entra no final). Loudness: −14 LUFS e limitador −1,5 dBFS, medida de novo no MP4.
+- Codificador: sonda do NVENC (`blocos.codec`); falhou → x264. NVENC que passa na sonda e cai num bloco
+  (`blocos.TrocaCodec`) → o vídeo inteiro é refeito em x264 (concat sem recodificar exige um codificador só), com aviso.
+  `F1_SEM_NVENC=1` faz o ffmpeg recusar o NVENC de verdade (preset inexistente), para testar a máquina sem NVENC.
+- `--progresso`: `PROG <fração> <texto>` (cenas até 55 %, mixagem, "bloco k de N" até 92 %, junção, verificação).
+- `--registrar` no final grava `<pasta>/final/final.json` (resumo, loudness do master e do MP4, codificador, blocos
+  refeitos/do cache, créditos dos SFX CC BY, `spec_hash`) ou `final/falhou.json`; NÃO mexe no estado.json (o render é
+  a etapa "Render" do card). O vídeo sai em `<pasta>/final/final.mp4` e o motor move para `saida/final_vN.mp4`.
+- Cena mudou depois do final → só o trecho dela, o bloco dela e as junções vizinhas são refeitos (ver teste).
+
 ## Storyboard (fase 7b; `storyboard.py`)
 Prévia de uma cena = o PRÓPRIO trecho dela (mesmo cache por hash do rascunho, 1280×720) + quadros JPG (480 px) nos
 momentos-chave: início, âncoras dos kits (`ritmo`, anotação…), SFX e fim (`storyboard/<cena>_<hash>_q<N>.jpg`).
@@ -127,11 +143,24 @@ fade → c2 e c3, trocar SFX → nenhuma, ação fora da lista e corte inválido
 o zoom aparece no quadro, montagem depois das ações aprovada na verificação por quadro (movimento nos 2 motores + fade),
 SFX trocado na mixagem, pedido por voz vira prompt só da c2.
 
+### Fase 7c (2026-11-13): 81/81 (55 + 26 da seção 7)
+Vídeo final DE VERDADE do mini-spec, com a "gravação limpa" = a narração sintética copiada para
+`trabalho/gravacao/limpa.wav` (o caminho e a regra são os do final; a voz é de teste): final barrado sem a gravação, com
+a voz guia valendo, sem todas as cenas ★, com a verificação reprovada (o mini-spec à mão tinha história sem esquema,
+hashes velhos e um "2025" na tela que não é dito: o portão pegou) e com o texto da c3 mudado (★ de novo). Comando do
+motor (`--final --registrar --progresso`): **9 s de 1080p60 em 76–78 s** (3 cenas renderizadas em 1920×1080, 1 bloco
+NVENC), ffprobe 1920×1080 60/1 540 quadros, áudio 9,0 s, verificação por quadro aprovada, **−14,0 LUFS e pico −2,5 dBTP
+medidos no MP4**, PROG crescente cena a cena/bloco a bloco até 1,0. `F1_SEM_NVENC=1`: sonda recusada pelo ffmpeg →
+todos os blocos em x264 (SEI `x264 - core` no MP4), aprovado; NVENC aceito na sonda e recusado no 1º bloco → aviso
+"NVENC falhou no segmento 0… refazendo em x264" e vídeo inteiro em x264, aprovado. Correção pós-final (movimento na
+c3): ponte acusa final desatualizado, final barrado até o ★ da c3, depois só a c3 renderizada em 1080p e só a junção
+c2→c3 + o bloco da c3 recodificados. Folhas: `testes/montador/final_folha_*.jpg` (olhada a de cenas).
+
 ## O que NÃO foi verificado
 - **Nenhum vídeo real** nem SPEC escrita pelo diretor/modelo; só o mini-spec à mão. Narração real (limpa.wav) e trilha real não usadas.
 - **Ninguém assistiu/ouviu** o MP4 com atenção de editor: conferi as folhas e alguns quadros soltos. A trilha
   sintética e a voz sintética não dizem nada sobre o equilíbrio real voz × trilha × SFX.
-- `--final` (1920×1080) não foi rodado; o vídeo final do teste saiu em h264_nvenc (x264 é a alternativa automática se o NVENC falhar; não exercitada).
+- (até a 7b) `--final` não tinha sido rodado; na 7c rodou no mini-spec (ver "Fase 7c" no Teste), NVENC e x264 exercitados.
 - Desempenho em 20 min (≈ 70 cenas): não medido. A mixagem abre um arquivo por SFX no ffmpeg (OK para ~200).
 - No GPS de Monza os dois carros ficam quase sobrepostos na perseguição (o kit anda cada um no próprio GPS): visto, não mexido.
 - Receitas só para graficos/anotacao (Remotion) e gps (HyperFrames); o resto recusa.

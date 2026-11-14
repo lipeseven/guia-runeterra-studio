@@ -6,9 +6,14 @@
 - `--cenas`: renderiza (ou acha no cache) só os trechos dessas cenas, sem juntar (cena por demanda).
 - `--final`: 1920×1080 e codificação mais lenta; o padrão é o RASCUNHO (1280×720, rápido).
 - `--livre`: não exige SPEC aprovada/verificação no estado.json (testes do montador).
-- `--registrar`: grava o resultado no estado.json (etapa `rascunho`: `gerado` ou `falhou`), como o painel faz.
-Saída: `<pasta>/rascunho/rascunho.mp4` + `relatorio.json` (tudo) + `verificacao/` (medidas e folhas); com
+- `--registrar`: grava o resultado no estado.json (etapa `rascunho`: `gerado` ou `falhou`), como o painel faz. Com
+  `--final` (fase 7c) grava `<pasta>/final/final.json` (resumo, loudness, codificador, créditos dos SFX) e NÃO mexe no
+  estado.json: o render final é a etapa "Render" do card (motor do painel), não uma etapa do diretor.
+- `--progresso`: linhas `PROG <fração> <texto>` (cena a cena, bloco a bloco) para a barra do painel.
+- `--teto S`: teto do bloco de saída em segundos (testes; padrão `blocos.TETO_BLOCO_S`).
+Saída: `<pasta>/<modo>/<modo>.mp4` + `relatorio.json` (tudo) + `verificacao/` (medidas e folhas); com
 `--registrar`, `rascunho.json` (resumo) é o arquivo da etapa no estado.json.
+O FINAL só sai com a narração gravada e limpa do card (`<projeto>/trabalho/gravacao/limpa.wav`), nunca com a voz guia.
 """
 from __future__ import annotations
 
@@ -44,8 +49,12 @@ def _diretor():
     return comum, etapas
 
 
-def narracao(pasta: Path) -> Path | None:
-    for c in (pasta / "narracao.wav", pasta.parent / "trabalho" / "gravacao" / "limpa.wav"):
+def narracao(pasta: Path, modo: str = "rascunho") -> Path | None:
+    """Rascunho: `narracao.wav` da pasta (voz guia/teste) ou a gravação limpa. Final: SÓ a gravação limpa do card."""
+    gravada = pasta.parent / "trabalho" / "gravacao" / "limpa.wav"
+    if modo == "final":
+        return gravada if gravada.exists() else None
+    for c in (pasta / "narracao.wav", gravada):
         if c.exists():
             return c
     return None
@@ -64,7 +73,7 @@ def _transicoes(cenas: list[dict]) -> list[dict | None]:
     return out
 
 
-def planejar(pasta: Path, exigir_estado: bool = True, por_cena: bool = False) -> dict:
+def planejar(pasta: Path, exigir_estado: bool = True, por_cena: bool = False, modo: str = "rascunho") -> dict:
     """Lê SPEC, palavras e estado; monta as receitas de todas as cenas. NaoMonta com TUDO o que falta.
     `por_cena` (storyboard): o que falta numa cena não barra as outras; vai em `problemas_cena` {id: motivo}."""
     comum, etapas = _diretor()
@@ -118,8 +127,10 @@ def planejar(pasta: Path, exigir_estado: bool = True, por_cena: bool = False) ->
     if por_cena:   # storyboard: só o que é da cena; estado/banco de SFX não barram a prévia
         return {"spec": spec, "palavras": palavras, "tempos": tempos, "jobs": jobs, "transicoes": est_por_cena,
                 "problemas_cena": por_id, "avisos": avisos + [p for p in problemas if not p.startswith("cena ")]}
-    narr = narracao(pasta)
-    if not narr:
+    narr = narracao(pasta, modo)
+    if not narr and modo == "final":
+        problemas.append("o vídeo final precisa da sua narração gravada e limpa (trabalho/gravacao/limpa.wav): grave e aprove a gravação")
+    elif not narr:
         avisos.append("sem narração (narracao.wav ou trabalho/gravacao/limpa.wav): rascunho sem voz")
     if not trilha(pasta):
         avisos.append("sem trilha (trilha.wav/.mp3 na pasta): rascunho sem música")
@@ -136,23 +147,28 @@ def _tmp(pasta: Path) -> Path:
 
 
 def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, exigir_estado: bool = True,
-           forcar: bool = False, log=print, teto_bloco: float | None = None) -> dict:
+           forcar: bool = False, log=print, teto_bloco: float | None = None, progresso=None) -> dict:
+    """`progresso(fração, texto)`: cenas renderizadas (até 55 %), mixagem, blocos codificados um a um (até 92 %),
+    junção e verificação (a barra do painel no render final)."""
     teto_bloco = B.TETO_BLOCO_S if teto_bloco is None else teto_bloco
+    prog = progresso or (lambda f, t: None)
     pasta = Path(pasta)
     W, H = RESOLUCAO[modo]
     t_ini = time.time()
-    plano = planejar(pasta, exigir_estado)
+    plano = planejar(pasta, exigir_estado, modo=modo)
     spec, jobs = plano["spec"], plano["jobs"]
     alvo = [j for j in jobs if not cenas or j["cena"] in cenas]
     if cenas and len(alvo) != len(set(cenas)):
         raise NaoMonta(f"cena(s) não existem na SPEC: {sorted(set(cenas) - {j['cena'] for j in jobs})}")
     trechos = {}
     # Remotion: as cenas que faltam vão em lotes (o motor abre uma vez por lote); HyperFrames: uma a uma
+    prog(0.0, f"renderizando {len(alvo)} cena(s) em {W}×{H}")
     lote = S.renderizar_lote([j for j in alvo if j["motor"] == "remotion"], pasta, W, H, rascunho=modo == "rascunho", forcar=forcar)
-    for j in alvo:
+    for k, j in enumerate(alvo):
         r = lote.get(j["cena"]) or S.renderizar(j, pasta, W, H, rascunho=modo == "rascunho", forcar=forcar)
         log(f"  cena {j['cena']} {j['motor']:11} {r['quadros']:5} q  {'cache' if r['do_cache'] else 'renderizada'}")
         trechos[j["cena"]] = r
+        prog(0.55 * (k + 1) / max(1, len(alvo)), f"cena {k + 1} de {len(alvo)} ({j['motor']}{', cache' if r['do_cache'] else ''})")
     if cenas:
         return {"cenas": trechos}
     # transições nas coordenadas da saída (a barra do wipe e o desfoque dependem da largura)
@@ -169,6 +185,7 @@ def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, 
     saida_dir.mkdir(parents=True, exist_ok=True)
     evs = M.eventos(spec["cenas"], plano["palavras"], [e for e in est if e])
     log(f"  mixagem: {len(evs)} SFX, narração {'sim' if plano['narracao'] else 'não'}, trilha {'sim' if plano['trilha'] else 'não'}")
+    prog(0.57, "mixagem (narração + trilha + SFX, loudness medida)")
     mix = M.mixar(evs, total / FPS, saida_dir / "audio", plano["narracao"], plano["trilha"])
     mp4 = saida_dir / f"{modo}.mp4"
     # blocos de cenas inteiras (≤ teto), cada um codificado à parte e com cache; junção final sem recodificar o vídeo
@@ -177,13 +194,30 @@ def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, 
     th = {c["id"]: {"hash": trechos[c["id"]]["hash"], "quadros": trechos[c["id"]]["quadros"]} for c in cenas_s}
     tr_info = {c["id"]: {"hash_estado": _diretor()[0].hash_dados(est[k]["quadros"]), "a": th[cenas_s[k - 1]["id"]]["hash"],
                          "b": th[c["id"]]["hash"]} for k, c in enumerate(cenas_s) if est[k]}
-    segs = B.codificar(B.segmentos(pcs, cenas_s, grupos), th, tr_info, pasta, modo, W, H, tmp, forcar=forcar, log=log)
+    lista_segs = B.segmentos(pcs, cenas_s, grupos)
+    feitos = [0]
+
+    def log_bloco(msg: str) -> None:   # o codificador loga uma linha por segmento (bloco ou junção)
+        feitos[0] += 1
+        log(msg)
+        prog(0.6 + 0.32 * feitos[0] / len(lista_segs),
+             f"bloco {feitos[0]} de {len(lista_segs)}" + (" (cache)" if msg.rstrip().endswith("cache") else ""))
+
+    avisos_cod = []
+    try:
+        segs = B.codificar(lista_segs, th, tr_info, pasta, modo, W, H, tmp, forcar=forcar, log=log_bloco)
+    except B.TrocaCodec as e:   # NVENC caiu no meio: o vídeo inteiro em x264 (concat sem recodificar exige um codificador só)
+        log(f"  {e}")
+        avisos_cod.append(str(e))
+        feitos[0] = 0
+        segs = B.codificar(lista_segs, th, tr_info, pasta, modo, W, H, tmp, forcar=forcar, log=log_bloco)
+    prog(0.93, "juntando os blocos (sem recodificar) + áudio")
     B.concatenar(segs, Path(mix["arquivos"]["master"]), mp4, modo == "rascunho", tmp)
     B.limpar(pasta, modo, segs, manter=len(segs))   # guarda uma versão anterior de cada bloco (desfazer barato)
     cod = segs[0]["codec"]
     rel = {"versao": 1, "modo": modo, "arquivo": str(mp4), "largura": W, "altura": H, "fps": FPS, "quadros": total,
            "duracao": round(total / FPS, 4), "codificador": cod, "spec_hash": _diretor()[0].hash_dados(spec),
-           "tempos": plano["tempos"], "avisos": plano["avisos"] + mix["avisos"] + av_blocos,
+           "tempos": plano["tempos"], "avisos": plano["avisos"] + mix["avisos"] + av_blocos + avisos_cod,
            "blocos": {"teto_s": teto_bloco, "segmentos": segs,
                       "codificados": sum(1 for s in segs if not s["do_cache"]), "do_cache": sum(1 for s in segs if s["do_cache"])},
            "cenas": [{"id": c["id"], "em": c["em"], "motor": c["motor"], "kits": j["kits"], "Q0": int(round(c["t0"] * FPS)),
@@ -191,12 +225,27 @@ def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, 
                       "n_entrada": est[k]["n"] if est[k] else 0, "hash": j["hash"], "trecho": trechos[c["id"]]["arquivo"],
                       "trecho_quadros": trechos[c["id"]]["quadros"], "do_cache": trechos[c["id"]]["do_cache"]}
                      for k, (c, j) in enumerate(zip(spec["cenas"], jobs))],
-           "pecas": pcs, "audio": mix}
+           "pecas": pcs, "audio": mix, "creditos_sfx": M.creditos(evs)}
+    prog(0.95, "verificando quadros, junções, sincronia e loudness")
     log("  verificando quadros, junções e sincronia…")
     rel["verificacao"] = Q.verificar(rel, saida_dir / "verificacao")
     rel["segundos"] = round(time.time() - t_ini, 1)
     (saida_dir / "relatorio.json").write_text(json.dumps(rel, ensure_ascii=False, indent=2), encoding="utf-8")
+    prog(1.0, f"pronto: verificação {rel['verificacao']['status']}")
     return rel
+
+
+def resumo_final(rel: dict) -> dict:
+    """`final/final.json` (fase 7c): o que o card mostra e a publicação usa (sem o relatório inteiro)."""
+    v = rel["verificacao"]
+    return {**{k: rel[k] for k in ("versao", "modo", "arquivo", "largura", "altura", "fps", "quadros", "duracao", "codificador",
+                                    "spec_hash", "tempos", "avisos", "segundos", "creditos_sfx")},
+            "narracao": rel["audio"].get("narracao"), "loudness": rel["audio"]["master"],
+            "loudness_mp4": v.get("medidas", {}).get("loudness_mp4"),
+            "blocos": {k: rel["blocos"][k] for k in ("teto_s", "codificados", "do_cache")},
+            "segmentos": [{k: s[k] for k in ("tipo", "cenas", "quadros", "hash", "do_cache", "codec")} for s in rel["blocos"]["segmentos"]],
+            "cenas": [{k: c[k] for k in ("id", "Q0", "Q1", "hash", "do_cache")} for c in rel["cenas"]],
+            "verificacao": {k: v[k] for k in ("status", "erros", "avisos")}, "resumo": resumo(rel)}
 
 
 def resumo(rel: dict) -> str:
@@ -230,21 +279,32 @@ def _main(argv: list[str]) -> int:
         for a in p["avisos"]:
             print("  aviso:", a)
         return 0
+    teto = float(argv[argv.index("--teto") + 1]) if "--teto" in argv else None
+
+    def prog(f: float, texto: str) -> None:
+        print(f"PROG {f:.4f} {texto}", flush=True)
+
     try:
-        rel = montar(pasta, modo, cenas, exigir, "--forcar" in argv)
+        rel = montar(pasta, modo, cenas, exigir, "--forcar" in argv, teto_bloco=teto,
+                     progresso=prog if "--progresso" in argv else None)
     except Exception as e:   # noqa: BLE001 — o painel precisa do motivo de qualquer falha
         msg = str(e) if isinstance(e, NaoMonta) else f"{type(e).__name__}: {str(e)[:600]}"
         print("FALHOU:", msg)
         if not isinstance(e, NaoMonta):
             traceback.print_exc()
-        if registrar:
-            _diretor()[1].marcar(pasta, modo if modo == "rascunho" else "rascunho", "falhou", msg[:300])
+        if registrar and modo == "rascunho":
+            _diretor()[1].marcar(pasta, "rascunho", "falhou", msg[:300])
+        elif registrar:   # final: o motor do painel lê o motivo daqui (o estado.json não tem etapa de render)
+            _diretor()[0].gravar_json(pasta / "final" / "falhou.json", {"erro": msg[:600], "quando": time.time()})
         return 1
     if cenas:
         return 0
     print(resumo(rel))
     for e in rel["verificacao"]["erros"]:
         print("  ERRO", e)
+    if registrar and modo == "final":
+        (pasta / "final" / "falhou.json").unlink(missing_ok=True)
+        _diretor()[0].gravar_json(pasta / "final" / "final.json", resumo_final(rel))
     if registrar and modo == "rascunho":
         _, etapas = _diretor()
         spec = json.loads((pasta / "spec.json").read_text(encoding="utf-8"))

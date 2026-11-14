@@ -53,14 +53,14 @@
           {
             "quadro": 271,
             "local": 103,
-            "psnr": 54.84,
+            "psnr": 54.91,
             "melhor_desloc": 0,
             "parado": false
           },
           {
             "quadro": 350,
             "local": 182,
-            "psnr": 55.66,
+            "psnr": 55.78,
             "melhor_desloc": 0,
             "parado": false
           }

@@ -289,7 +289,8 @@ def principal() -> int:
     hist = json.loads((pasta / "estado.json").read_text(encoding="utf-8"))["historico"]
     checa(any("aprovado" in h["evento"] for h in hist), "histórico do estado.json registra as aprovações")
 
-    fase_7a()
+    vid7, proj7 = fase_7a()
+    fase_7c(vid7, proj7)
     print(f"\n{n_ok} checagens, {len(falhas)} falhas")
     return 1 if falhas else 0
 
@@ -537,7 +538,7 @@ def fase_7a() -> None:
     checa(r.status_code == 200, "7a: upload da gravação (como no Runeterra)", r.text)
     checa(_drenar(vid) == ["gravacao"], "7a: gravação limpa na fila")
     _, et, pend = card(vid)
-    checa(et["gravacao"]["status"] == "atencao" and "aprovar_gravacao" in pend and "fase 7c" in next(
+    checa(et["gravacao"]["status"] == "atencao" and "aprovar_gravacao" in pend and "vídeo final 1920×1080" in next(
         p["texto"] for p in card(vid)[0]["pendencias"] if p["chave"] == "aprovar_gravacao"), "7a: ponto de controle: confira a gravação limpa")
     checa(doc(vid)["narracao"] == "guia" and not (proj / "direcao" / "tempos_gravacao.json").exists(),
           "7a: nada é ressincronizado antes de aprovar a gravação")
@@ -566,6 +567,206 @@ def fase_7a() -> None:
     checa(r.status_code == 200 and "TEMPO" not in codigos, "7a: verificação nos tempos novos sem erro de TEMPO", str(codigos))
     checa(et["gravacao"]["status"] == "concluido" and v["coluna"] != "revisao", "7a: sem render do Runeterra no documentário (fase 7c)")
     checa(claude_cli.EXE.name == "claude.exe" and not claude_cli.EXE.exists(), "7a: nenhuma etapa dependeu do Claude Code local")
+    return vid, proj
+
+
+# ================================================================ fase 7c: Render final + Publicação
+# O render final de verdade (1080p60, NVENC/x264, mixagem com a gravação) é testado em testes/montador/testar.py com o
+# mini-spec; aqui a SPEC de exemplo tem cenas sem receita no montador, então o motor roda um MONTADOR FICTÍCIO (mesmo
+# protocolo: linhas PROG + final/final.json + final.mp4 1080p60 real de 2 s) para exercitar o card: progresso por
+# bloco, versões final_vN, "Assista o vídeo final", desatualizado depois de mexer na SPEC, falha visível e a Publicação
+# pelo orquestrador (capítulos da SPEC, miniatura de um quadro do final, concorrentes só com chave).
+MONTADOR_FICTICIO = r"""
+import json, subprocess, sys
+from pathlib import Path
+pasta, modo, spec_hash = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
+(pasta / "final").mkdir(parents=True, exist_ok=True)
+if modo == "falha":
+    (pasta / "final" / "falhou.json").write_text(json.dumps({"erro": "cena c9 sem receita (fictício)"}), encoding="utf-8")
+    print("FALHOU: cena c9"); sys.exit(1)
+print("PROG 0.0000 renderizando 2 cena(s) em 1920×1080", flush=True)
+print("PROG 0.2750 cena 1 de 2 (remotion)", flush=True)
+print("PROG 0.5500 cena 2 de 2 (hyperframes, cache)", flush=True)
+mp4 = pasta / "final" / "final.mp4"
+subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i", "testsrc2=s=1920x1080:r=60:d=2", "-f", "lavfi", "-i",
+                "sine=f=440:d=2", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", str(mp4)], check=True)
+print("PROG 0.7600 bloco 1 de 2", flush=True)
+print("PROG 0.9200 bloco 2 de 2 (cache)", flush=True)
+print("PROG 1.0000 pronto: verificação aprovado", flush=True)
+lf = {"lufs": -14.0, "pico_dbtp": -2.1}
+(pasta / "final" / "final.json").write_text(json.dumps({"arquivo": str(mp4), "duracao": 2.0, "largura": 1920, "altura": 1080,
+    "fps": 60, "codificador": "h264_nvenc", "spec_hash": spec_hash, "loudness": lf, "loudness_mp4": lf, "segundos": 1.0,
+    "verificacao": {"status": "aprovado", "erros": [], "avisos": []}, "blocos": {"teto_s": 45, "codificados": 1, "do_cache": 1},
+    "avisos": [], "creditos_sfx": ['"whoosh 3" de Fulano (https://freesound.org/x), CC BY 4.0'], "resumo": "2 cenas"}), encoding="utf-8")
+"""
+
+
+def fase_7c(vid: int, proj: Path) -> None:
+    from PIL import Image
+
+    sys.path.insert(0, str(ambiente.RAIZ / "tools" / "direcao"))
+    import claude_cli
+
+    from app.servidor import horizontal_doc as HD
+    from app.servidor import publicacao as PB
+
+    print("— fase 7c")
+    pasta = proj / "horizontal"
+    v, et, pend = card(vid)
+    checa(list(et)[-3:] == ["ressincronizacao", "render", "publicacao"], "7c: card com Render final entre Ressincronização e Publicação", str(list(et)))
+    checa(et["render"]["status"] == "atencao" and "aprove ★ no storyboard" in (et["render"]["detalhe"] or "") and "final_doc" in pend,
+          "7c: gravação ressincronizada sem todas as cenas ★: Render diz o que falta (sem erro, sem render)", str(et["render"]))
+    r = cli.post(f"/api/videos/{vid}/doc/final")
+    checa(r.status_code == 409 and "aprove ★ no storyboard" in r.json()["detail"] and "cena" in r.json()["detail"],
+          "7c: “Renderizar o vídeo final” recusado com as cenas sem ★", r.text[:300])
+    outro = cli.post("/api/videos", json={"titulo": "Card sem gravação", "formato": "horizontal_doc"}).json()["id"]
+    po = motor.PASTA_PROJETOS / card(outro)[0]["slug"]
+    (po / "direcao").mkdir(parents=True, exist_ok=True)
+    (po / "direcao" / "roteiro.txt").write_text((ambiente.EXEMPLO / "roteiro.txt").read_text(encoding="utf-8"), encoding="utf-8")
+    r = cli.post(f"/api/videos/{outro}/doc/final")
+    checa(r.status_code == 409 and "sua gravação" in r.json()["detail"], "7c: sem a sua gravação, nada de vídeo final", r.text[:300])
+    with conectar() as con:   # card da 7a/7b (antes da etapa Render): ganha a linha na 1ª leitura
+        con.execute("DELETE FROM etapas WHERE video_id=? AND chave='render'", (outro,))
+        con.commit()
+    doc(outro)
+    with conectar() as con:
+        linha = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='render'", (outro,)).fetchone()
+    checa(linha is not None and linha[0] == "pendente", "7c: card documental antigo ganha a linha Render na 1ª leitura")
+
+    # ---- render pelo motor (montador fictício, mesmo protocolo), barra por bloco, versões, Assista o vídeo final
+    progresso: list[tuple] = []
+    original = motor.definir_progresso
+    motor.definir_progresso = lambda t, x, f=None, i=None: (progresso.append((x, f)), original(t, x, f, i))
+    modo = {"m": "ok"}
+    motor._plano_final = lambda slug: ({"cenas": 2, "avisos": [], "pasta_montador": str(pasta),
+                                        "comando": [str(pasta), modo["m"], doc(vid)["spec_hash"]]}, None)
+    motor._comando_final = lambda args: [sys.executable, "-c", MONTADOR_FICTICIO, *args]
+    motor.executar(vid, "render_doc")
+    v, et, pend = card(vid)
+    ren = et["render"]
+    arq = ambiente.RAIZ / ren["dados"].get("video", "x")
+    checa(ren["status"] == "atencao" and arq.name == "final_v1.mp4" and arq.exists() and not (pasta / "final" / "final.mp4").exists(),
+          "7c: final em saida/final_v1.mp4 (movido do montador)", str(ren))
+    checa("1920×1080 60 q/s" in ren["detalhe"] and "-14.0 LUFS" in ren["detalhe"] and "NVENC" in ren["detalhe"]
+          and "1 bloco(s) refeito(s), 1 do cache" in ren["detalhe"], "7c: card mostra resolução, loudness, codificador e blocos", ren["detalhe"])
+    fr = [f for _, f in progresso if f is not None]
+    checa(any(x == "bloco 2 de 2 (cache)" for x, _ in progresso) and fr == sorted(fr) and fr[-1] == 1.0,
+          "7c: barra de progresso bloco a bloco, crescente", str(progresso)[:300])
+    checa("ver_final" in pend and "final_doc" not in pend and v["coluna"] == "revisao", "7c: pendência “Assista o vídeo final” e card em Revisão")
+    motor.executar(vid, "render_doc")
+    v, et, _ = card(vid)
+    checa(et["render"]["dados"]["video"].endswith("final_v2.mp4") and arq.exists(), "7c: render de novo = final_v2 (o v1 fica intacto)")
+
+    # ---- mexeu na SPEC depois do final → desatualizado; render de novo → em dia
+    c0 = doc(vid)["spec"]["cenas"][0]["id"]
+    r = cli.post(f"/api/videos/{vid}/doc/cena/{c0}/ajuste", json={"acao": {"acao": "movimento", "tipo": "pan_dir"}, "previa": False})
+    checa(r.status_code == 200, "7c: correção pós-final no storyboard (ação direta)", r.text[:200])
+    doc(vid)
+    _, et, pend = card(vid)
+    checa(et["render"]["status"] == "atencao" and "SPEC mudou" in (et["render"]["detalhe"] or "") and "ver_final" not in pend
+          and "doc_final" in pend, "7c: final desatualizado: “Assista” sai e o card pede outro render", str(et["render"]["detalhe"]))
+    motor.executar(vid, "render_doc")
+    doc(vid)
+    _, et, pend = card(vid)
+    checa(et["render"]["dados"]["video"].endswith("final_v3.mp4") and "ver_final" in pend and "doc_final" not in pend
+          and not et["render"]["dados"].get("desatualizado"), "7c: render depois da correção volta a pedir “Assista”")
+    modo["m"] = "falha"
+    motor.executar(vid, "render_doc")
+    _, et, pend = card(vid)
+    erro = next((p["texto"] for p in card(vid)[0]["pendencias"] if p["chave"] == "erro_render_doc"), "")
+    checa("cena c9 sem receita" in erro and et["render"]["status"] == "atencao", "7c: render que falha vira pendência com o motivo", erro)
+    with conectar() as con:
+        con.execute("UPDATE pendencias SET resolvida=1 WHERE video_id=? AND chave='erro_render_doc'", (vid,))
+        con.commit()
+    modo["m"] = "ok"
+    motor.executar(vid, "render_doc")
+    motor.definir_progresso = original
+
+    # ---- “Vídeo aprovado” → Publicação pelo orquestrador (sem `claude -p`), sem chave do YouTube
+    PB._chave_youtube = lambda: None
+    chamadas_yt: list[str] = []
+    pid = next(p["id"] for p in card(vid)[0]["pendencias"] if p["chave"] == "ver_final")
+    checa(cli.post(f"/api/pendencias/{pid}/resolver").status_code == 200, "7c: “Vídeo aprovado”")
+    _, et, _ = card(vid)
+    checa(et["render"]["status"] == "concluido" and et["publicacao"]["status"] == "andamento", "7c: render concluído, publicação na fila")
+    checa(_drenar(vid) == ["publicacao"], "7c: tarefa da publicação rodou")
+    agu = json.loads((proj / "orquestrador" / "aguardando.json").read_text(encoding="utf-8"))
+    _, et, pend = card(vid)
+    pr = Path(agu.get("publicacao", {}).get("prompt", "x"))
+    texto = pr.read_text(encoding="utf-8") if pr.exists() else ""
+    checa("publicacao-doc" in pr.name and "orq_publicacao" in pend and "CENAS (id, início" in texto and '"miniatura"' in texto
+          and "VÍDEOS QUE JÁ EXISTEM" not in texto, "7c: prompt da publicação para o orquestrador (cenas, miniatura; sem concorrentes sem chave)",
+          pr.name)
+    cenas = doc(vid)["spec"]["cenas"]
+    alvo = cenas[1]
+    _responder(proj, "publicacao", json.dumps({"titulos": [f"Título {k}" for k in range(6)], "gancho": "Leclerc e Hamilton em Monza.",
+                                               "tags": ["F1", "Monza", "Leclerc", "Hamilton", "Ferrari", "classificação", "telemetria",
+                                                        "OpenF1", "Fórmula 1", "2025"], "comentario_fixado": "Quem foi melhor?",
+                                               "miniatura": {"texto": "0,117 s", "enquadramento": "gráfico à direita", "cena": alvo["id"]}},
+                                              ensure_ascii=False))
+    doc(vid)
+    checa(_drenar(vid) == ["publicacao"], "7c: resposta gravada → publicação continua")
+    pub = cli.get(f"/api/videos/{vid}/publicacao").json()
+    t = pub["textos"] or {}
+    _, et, pend = card(vid)
+    checa(len(t.get("titulos", [])) == 6 and t["titulo"] == "Título 0" and len(t["tags"]) == 10 and t["comentario_fixado"],
+          "7c: títulos (6 opções), tags e comentário fixado", str(t)[:200])
+    checa("OpenF1" in t["descricao"] and "Formula One Licensing" in t["descricao"] and '"whoosh 3" de Fulano' in t["descricao"],
+          "7c: descrição com créditos (OpenF1, SFX CC BY) e aviso legal do F1", t["descricao"][-300:])
+    caps = t["capitulos"]
+    fim = cenas[-1]["t1"]
+    checa((not caps) or (caps[0]["tempo"] == "0:00" and len(caps) >= 3 and all(
+        (b["inicio"] if b else fim) - a["inicio"] >= 10 for a, b in zip(caps, caps[1:] + [None]))),
+        "7c: capítulos da SPEC seguem as regras do YouTube (0:00, ≥ 3, ≥ 10 s)", str(caps))
+    m = t.get("miniatura") or {}
+    quadro = ambiente.RAIZ / (t.get("thumbnail") or "x")
+    checa(m.get("cena") == alvo["id"] and m.get("texto") == "0,117 s" and quadro.exists() and Image.open(quadro).size == (1280, 720),
+          "7c: miniatura = texto/enquadramento sugeridos + quadro 1280×720 do final na cena escolhida", str(m))
+    checa(t["concorrentes"]["status"] == "sem_chave" and t["video_publicar"].endswith("final_v4.mp4"),
+          "7c: sem YOUTUBE_API_KEY a pesquisa de concorrentes é pulada (sem erro); vídeo para subir = último final", str(t.get("video_publicar")))
+    checa(et["publicacao"]["status"] == "atencao" and "publicar" in pend and "orq_publicacao" not in pend, "7c: “Revise os textos e publique”")
+
+    # ---- capítulos (regra), concorrentes com chave (YouTube Data API fictícia), erro da API não quebra
+    tmp = BASE / "caps" / "horizontal"
+    tmp.mkdir(parents=True, exist_ok=True)
+    (tmp / "historia.json").write_text(json.dumps({"capitulos": [{"id": f"c{k}", "titulo": f"Parte {k}"} for k in range(1, 5)]}), encoding="utf-8")
+    (tmp / "spec.json").write_text(json.dumps({"cenas": [{"id": "a", "capitulo": "c1", "t0": 0.4, "t1": 12}, {"id": "b", "capitulo": "c2", "t0": 12, "t1": 15},
+                                                         {"id": "c", "capitulo": "c3", "t0": 15, "t1": 30}, {"id": "d", "capitulo": "c4", "t0": 30, "t1": 50}]}),
+                                   encoding="utf-8")
+    caps = PB.capitulos_doc(tmp.parent)
+    checa([(c["titulo"], c["tempo"]) for c in caps] == [("Parte 1", "0:00"), ("Parte 3", "0:15"), ("Parte 4", "0:30")],
+          "7c: capítulo de 3 s junta com o anterior; 1º em 0:00", str(caps))
+
+    def yt(recurso, params):
+        chamadas_yt.append(recurso)
+        assert params["key"] == "CHAVE_FICTICIA"
+        if recurso == "search":
+            return {"items": [{"id": {"videoId": "a1"}, "snippet": {"title": "Monza 2025 explicado", "channelTitle": "Canal A", "publishedAt": "2025-09-07"}},
+                              {"id": {"videoId": "b2"}, "snippet": {"title": "Leclerc x Hamilton", "channelTitle": "Canal B", "publishedAt": "2025-09-08"}}]}
+        return {"items": [{"id": "a1", "statistics": {"viewCount": "1200"}}, {"id": "b2", "statistics": {"viewCount": "56000"}}]}
+
+    PB._chave_youtube, PB._youtube = (lambda: "CHAVE_FICTICIA"), yt
+    c = PB.concorrentes(proj, "Monza 2025: Leclerc × Hamilton")
+    c2 = PB.concorrentes(proj, "Monza 2025: Leclerc × Hamilton")
+    checa(c["status"] == "ok" and [i["views"] for i in c["itens"]] == [56000, 1200] and chamadas_yt == ["search", "videos"] and c2 == c,
+          "7c: com chave: concorrentes (título, canal, views) pela YouTube Data API, com cache", str(c)[:200])
+    try:
+        with claude_cli.pelo_orquestrador(BASE / "orq_teste"):
+            PB.gerar_textos_doc(proj, "Monza 2025: Leclerc × Hamilton", 40.0, None)
+        prompt_c = ""
+    except claude_cli.PrecisaOrquestrador as e:
+        prompt_c = e.prompt.read_text(encoding="utf-8")
+    checa("VÍDEOS QUE JÁ EXISTEM" in prompt_c and "Leclerc x Hamilton · Canal B · 56.000 views" in prompt_c,
+          "7c: os concorrentes entram no prompt da publicação", prompt_c[-400:])
+
+    def yt_erro(recurso, params):
+        raise OSError("HTTP 403 quotaExceeded")
+
+    PB._youtube = yt_erro
+    e = PB.concorrentes(proj, "outro tema")
+    checa(e["status"] == "erro" and "quotaExceeded" in e["aviso"] and not e["itens"], "7c: erro da API (cota) não quebra a publicação", str(e))
+    checa(not claude_cli.EXE.exists(), "7c: nada dependeu do Claude Code local")
+    checa(HD.FORMATO == "horizontal_doc", "7c: formato do card documental")
 
 
 if __name__ == "__main__":
