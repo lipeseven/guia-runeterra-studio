@@ -134,3 +134,33 @@ Abertos (não corrigidos):
   correções de HUD e oval). 1920×1080, 60 q/s, 5.429 quadros, 90,5 s, H.264 NVENC + AAC; −14,0 LUFS, pico −1,2 dBTP
   medidos no MP4; verificação por quadro, junções e SFX aprovada (0 erros, 0 avisos). **Voz Fish provisória.**
 - Card 21 no painel 8766. Tempos de cada etapa: `tempos_nove_milesimos.md`.
+
+## Rodada 1 de correções (placar 73,8) → `final_v3.mp4`
+`F1/dados/projetos/nove-milesimos-teste-do-fluxo-completo/saida/final_v3.mp4`: 1920×1080, 60 q/s, 5.429 quadros, 90,5 s,
+NVENC; −14,0 LUFS e pico −2,3 dBTP no MP4; verificação por quadro/junção/SFX aprovada (0 erros, 0 avisos). Agora com
+**trilha local** (Stable Audio Open, gerada no PC, −26 LUFS e abaixada sob a voz). Voz continua a Fish provisória.
+
+O que mudou por cena (ids estáveis; a cena 9 virou duas):
+| # | cena | mudança |
+|---|---|---|
+| 2, 8, 12, 14, 18 (GPS) | todas | mundo em volta da pista (chão em ladrilhos de 20 m que dá sensação de velocidade, zebras nas curvas, arquibancadas e prédios em tons suaves, céu claro), placa "1" na Curva 1, minimapa com o ponto de cada carro, etiqueta HAM/RUS presa a cada carro, carro de trás translúcido quando colados, rótulo ancorado na fala |
+| 2 | fim da volta | começa em 70,25 s da volta: os carros cruzam a linha; rótulo "Classificação · GP do México 2026" |
+| 8 | Curva 1 | rótulos "Antes da frenagem da Curva 1" e "RUS 349 km/h · HAM 345 km/h" na palavra, pop no "349" |
+| 9a | frenagem (nova divisão) | telemetria → velocidade 900–1350 m com faixa "HAM freia ~22 m depois" (a linha de Hamilton cai depois) |
+| 9b | mínima na Curva 1 (nova) | duelo HAM 104 × RUS 100 km/h, cada número na palavra |
+| 6, 10 | capítulos | SFX de capítulo com intensidade 0,8 → 0,5 |
+| 7 | setores | clique no "25" |
+| 11 | velocidade S2 | faixa "curvas rápidas do setor 2" (2.520–3.020 m, sem número) + minimapa com o trecho; tecla no "22" |
+| 12 | saída do grampo | rótulos "HAM: 100% de acelerador na saída" e "Setor 2: RUS mais rápido" |
+| 13 | 30.008 × 30.030 | duelo RUS × HAM (quem é quem), clique no "30.008" |
+| 14 | setor 3 | rótulo "Setor 3: HAM 6 milésimos mais rápido" |
+| 15 | resultado | foco → duelo HAM 1:16.514 × RUS 1:16.523 (o desfoque cobria o número antes da fala) |
+| 16 | speed trap | gráfico (que contradizia a fala) → duelo RUS 350 × HAM 347 km/h com fonte `/laps st_speed`; `speed_trap` novo na conferência (`app/servidor/openf1.py`) |
+| 19 | fecho | sino ancorado em "Uma" (cabe inteiro antes do fim), impacto 0,8 → 0,5 |
+| 5 | +0.009 s | vírgula → ponto (mesmo formato dos outros tempos) |
+SFX: 25 pedidos → 13 (regra do Felipe "~9 em 2 min 20 s" × buracos apontados pelo placar: agora há som em 44–56 s e
+66–79 s); barramento de SFX abaixado sob a voz (sidechain); a verificação só chama de "isolado" o som sem outro tocando junto.
+
+Não feito nesta rodada: imagens reais (kit/imagens), estádio de verdade na cena 14 (a pista plana não sabe onde fica o
+estádio), "HUD segurado na palavra" (`marcar`) foi implementado mas não usado (o rótulo com os números ditos é mais claro);
+ninguém ouviu a trilha/mixagem.
