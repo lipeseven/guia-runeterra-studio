@@ -179,7 +179,7 @@ def _renderizar_paralelo(alvo: list[dict], pasta: Path, W: int, H: int, rascunho
         for r in as_completed(futuros):
             out.update(r.result())
             if prog:
-                prog(0.55 * len(out) / max(1, len(alvo)), f"{len(out)} de {len(alvo)} cena(s) renderizada(s)")
+                prog(0.55 * len(out) / max(1, len(alvo)), f"cena {len(out)} de {len(alvo)} (render em paralelo)")
     return out
 
 
