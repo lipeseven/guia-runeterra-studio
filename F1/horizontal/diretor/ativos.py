@@ -85,6 +85,14 @@ class Resolvedor:
                                             f"{Path(PY).name} py/preparar_volta.py {s} {pil} {v}"})
 
     def pista(self, cena: str, glb: str) -> None:
+        if not str(glb).lower().endswith(".glb"):
+            # pista PLANA traçada pelo GPS (kit/gps/pista/<circuito>_plana.json): não tem modelo nem alinhamento.
+            # Uso real (México 2026, 2026-11-14): era cobrada como .glb ("falta alinhar.py") e barrava o rascunho.
+            arq = KIT / "gps" / "pista" / str(glb)
+            self._add(cena, {"id": f"pista:{glb}", "tipo": "pista", "descricao": f"pista plana {glb} traçada pelo GPS",
+                             "status": "pronto" if arq.exists() else "falta", "arquivo": str(arq) if arq.exists() else None,
+                             **({} if arq.exists() else {"comando": f"cd F1/horizontal/kit/gps && {Path(PY).name} py/preparar_volta.py <sessao> <piloto> <volta> --modo plana"})})
+            return
         modelo = dados_f1() / "modelos3d" / glb
         ali = _alinhamento(glb)
         ok = modelo.exists() and ali is not None

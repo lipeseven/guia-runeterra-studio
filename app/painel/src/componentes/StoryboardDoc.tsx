@@ -241,6 +241,7 @@ function LinhaCena({ c, ant, prox, palavras, ocupado, bloqueado, pedidos, videoI
             <select aria-label="Câmera do GPS" disabled={dis} value={String(gps.params.camera_gps ?? 'perseguicao')} onChange={(e) => ajustar({ acao: 'kit', kit: 'gps', param: 'camera_gps', valor: e.target.value })} className={sel}>
               <option value="perseguicao">perseguindo</option>
               <option value="fixa">fixa</option>
+              <option value="alta">panorâmica alta</option>
             </select>
           </label>
         )}

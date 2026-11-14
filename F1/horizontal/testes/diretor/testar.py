@@ -252,6 +252,23 @@ def _testes(raiz: Path) -> int:
     checa(E.ler(pasta5)["etapas"]["verificacao"]["status"] == "falhou", "estado: verificação falhou")
     rh["afirmacoes"][3]["valor"] = 0.146
     barra("setor com valor errado", verif(*_pipeline(raiz, rh)), "VALOR_NAO_BATE")
+    # uso real (2026-11-14, "30.008 contra 30.030"): setor com 2 carros e o TEMPO do 1º carro no setor (HAM S1 26.219
+    # em Monza) não é diferença errada; 26.300 continua barrado
+    rh = resp("resposta_historia.json")
+    rh["afirmacoes"][3]["valor"] = 26.219
+    v6 = verif(*_pipeline(raiz, rh))
+    checa("VALOR_NAO_BATE" not in {x["codigo"] for x in v6["erros"]}, "setor com 2 carros: tempo do 1º carro aceito",
+          f"({[x['msg'] for x in v6['erros']]})")
+    rh["afirmacoes"][3]["valor"] = 26.300
+    barra("setor com 2 carros: tempo que não é de nenhum", verif(*_pipeline(raiz, rh)), "VALOR_NAO_BATE")
+    rh["afirmacoes"][3]["valor"] = 0.046
+
+    # uso real (2026-11-14, México): volta com pista PLANA (sem .glb) não cobra modelo nem alinhamento
+    res = A.Resolvedor(pasta, hist)
+    res.pista("c0", "Monza_plana.json")
+    res.pista("c0", "Inexistente_plana.json")
+    checa(res.itens["pista:Monza_plana.json"]["status"] == "pronto" and res.itens["pista:Inexistente_plana.json"]["status"] == "falta"
+          and "preparar_volta" in res.itens["pista:Inexistente_plana.json"]["comando"], "ativos: pista plana pronta/falta sem pedir .glb")
 
     # imagem reprovada pelo kit/imagens
     reprov = copy.deepcopy(at)

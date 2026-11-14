@@ -148,5 +148,5 @@ def mixar(evs: list[SFX.Evento], dur: float, saida: Path, narracao: Path | None,
     rel.update({"antes": antes, "ganho_db": round(ganho, 2), "master": depois, "alvo_lufs": ALVO_LUFS if narracao else None,
                 "teto_dbtp": TETO_DBTP, "arquivos": {"bruta": str(bruta), "sfx": str(stem), "master": str(master)},
                 "eventos": [{"categoria": e.categoria, "id": e.id, "t": e.t, "inicio": e.inicio, "dur": e.dur, "ganho_db": e.ganho_db,
-                             "palavra": e.palavra} for e in evs]})
+                             "palavra": e.palavra, "arquivo": str(banco / e.arquivo), "corte_ini": e.corte_ini} for e in evs]})
     return rel

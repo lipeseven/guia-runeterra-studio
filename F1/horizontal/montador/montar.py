@@ -18,6 +18,7 @@ O FINAL só sai com a narração gravada e limpa do card (`<projeto>/trabalho/gr
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import time
@@ -50,11 +51,13 @@ def _diretor():
 
 
 def narracao(pasta: Path, modo: str = "rascunho") -> Path | None:
-    """Rascunho: `narracao.wav` da pasta (voz guia/teste) ou a gravação limpa. Final: SÓ a gravação limpa do card."""
+    """Rascunho: `narracao.wav` da pasta (teste), a gravação limpa ou a voz guia do card. Final: SÓ a gravação limpa."""
     gravada = pasta.parent / "trabalho" / "gravacao" / "limpa.wav"
     if modo == "final":
         return gravada if gravada.exists() else None
-    for c in (pasta / "narracao.wav", gravada):
+    # voz guia (Fish) por último: os tempos do card vêm dela enquanto não há gravação (uso real, 2026-11-14: o
+    # rascunho saía mudo com a voz guia pronta). Nunca vale no final (acima).
+    for c in (pasta / "narracao.wav", gravada, pasta.parent / "trabalho" / "voz_guia.wav"):
         if c.exists():
             return c
     return None
@@ -146,6 +149,34 @@ def _tmp(pasta: Path) -> Path:
     return t
 
 
+def _renderizar_paralelo(alvo: list[dict], pasta: Path, W: int, H: int, rascunho: bool, forcar: bool) -> dict:
+    """Lotes do Remotion e cenas do HyperFrames ao mesmo tempo (`F1_RENDER_PARALELO` processos, padrão 3; 1 = em série).
+    Cada trabalho tem a própria pasta temporária e grava o próprio trecho (cache por hash), então não há disputa.
+    Uso real (2026-11-14, 19 cenas): em série a GPU/CPU ficavam ociosas boa parte do tempo (um motor de cada vez)."""
+    from concurrent.futures import ThreadPoolExecutor
+    n = max(1, int(os.environ.get("F1_RENDER_PARALELO", "3")))
+    rem = [j for j in alvo if j["motor"] == "remotion"]
+    hf = [j for j in alvo if j["motor"] != "remotion"]
+    trechos = Path(pasta) / "trechos"
+    falta_rem = [j for j in rem if forcar or not S._do_cache(j, trechos, W, H)]
+    tarefas = [("lote", l) for l in S.lotes(falta_rem, S.TETO_LOTE_S)] + [("hf", j) for j in hf]
+    out = {j["cena"]: c for j in rem if j not in falta_rem and (c := S._do_cache(j, trechos, W, H))}
+    if n == 1 or len(tarefas) <= 1:
+        out.update(S.renderizar_lote(rem, pasta, W, H, rascunho=rascunho, forcar=forcar))
+        return out
+
+    def faz(t):
+        tipo, x = t
+        if tipo == "lote":
+            return S.renderizar_lote(x, pasta, W, H, rascunho=rascunho, forcar=True)
+        return {x["cena"]: S.renderizar(x, pasta, W, H, rascunho=rascunho, forcar=forcar)}
+
+    with ThreadPoolExecutor(max_workers=n) as ex:
+        for r in ex.map(faz, tarefas):
+            out.update(r)
+    return out
+
+
 def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, exigir_estado: bool = True,
            forcar: bool = False, log=print, teto_bloco: float | None = None, progresso=None) -> dict:
     """`progresso(fração, texto)`: cenas renderizadas (até 55 %), mixagem, blocos codificados um a um (até 92 %),
@@ -163,7 +194,7 @@ def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, 
     trechos = {}
     # Remotion: as cenas que faltam vão em lotes (o motor abre uma vez por lote); HyperFrames: uma a uma
     prog(0.0, f"renderizando {len(alvo)} cena(s) em {W}×{H}")
-    lote = S.renderizar_lote([j for j in alvo if j["motor"] == "remotion"], pasta, W, H, rascunho=modo == "rascunho", forcar=forcar)
+    lote = _renderizar_paralelo(alvo, pasta, W, H, modo == "rascunho", forcar)
     for k, j in enumerate(alvo):
         r = lote.get(j["cena"]) or S.renderizar(j, pasta, W, H, rascunho=modo == "rascunho", forcar=forcar)
         log(f"  cena {j['cena']} {j['motor']:11} {r['quadros']:5} q  {'cache' if r['do_cache'] else 'renderizada'}")

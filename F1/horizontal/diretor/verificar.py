@@ -177,7 +177,8 @@ def _valor(r: Relatorio, a: dict, comparacoes: list[dict]) -> None:
         if d.get("sessao") != a.get("sessao") or not all(p in d["pilotos"] for p in pils):
             continue
         tp = d["pilotos"]
-        if a["tipo"] == "tempo_volta" and len(pils) == 1:
+        if a["tipo"] == "tempo_volta" and pils:
+            # com 2 carros ("1:16.514 contra 1:16.523"), o valor é o tempo do 1º carro (uso real, 2026-11-14)
             ok, certo = abs(a["valor"] - tp[pils[0]]["tempo"]) <= TOL_TEMPO, tp[pils[0]]["tempo"]
         elif a["tipo"] == "diferenca" and len(pils) == 2:
             certo = round(abs(tp[pils[0]]["tempo"] - tp[pils[1]]["tempo"]), 3)
@@ -188,8 +189,12 @@ def _valor(r: Relatorio, a: dict, comparacoes: list[dict]) -> None:
                 certo = tp[pils[0]]["setores"][s]
                 ok = abs(a["valor"] - certo) <= TOL_TEMPO
             else:
+                # 2 carros: o valor é a diferença no setor OU o tempo do 1º carro no setor ("30.008 contra 30.030";
+                # uso real, 2026-11-14: o tempo absoluto era cobrado como diferença e reprovava a SPEC)
                 certo = round(abs(tp[pils[0]]["setores"][s] - tp[pils[1]]["setores"][s]), 3)
-                ok = abs(abs(a["valor"]) - certo) <= TOL_DIF
+                ok = abs(abs(a["valor"]) - certo) <= TOL_DIF or abs(a["valor"] - tp[pils[0]]["setores"][s]) <= TOL_TEMPO
+                if not ok:
+                    certo = f"{certo} (diferença) ou {tp[pils[0]]['setores'][s]} (tempo do 1º carro)"
         else:
             continue
         if not ok:

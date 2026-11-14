@@ -13,7 +13,7 @@ export const EXEMPLO = {
   duracao: 4,    // duração da cena (s)
   fator: 1,      // 1 = tempo real; 2.2 = acelerado 2,2x
   rastro: 2.5,   // segundos de rastro atrás do carro
-  camera: "fixa", // "fixa" (câmera parada no alto, o carro atravessa o quadro) ou "perseguicao"
+  camera: "fixa", // "fixa" (câmera parada no alto, o carro atravessa o quadro), "perseguicao" ou "alta" (panorâmica de longe)
 };
 
 /**
@@ -53,7 +53,7 @@ export function montarCena(THREE, o) {
     cena.add(carro, rastro);
     return { am, carro, rastro };
   });
-  const cam = new THREE.PerspectiveCamera(p.camera === "fixa" ? 30 : 45, p.largura / p.altura, 0.3, 6000);
+  const cam = new THREE.PerspectiveCamera(p.camera === "perseguicao" ? 45 : 30, p.largura / p.altura, 0.3, 6000);
 
   // câmera fixa: no alto, ao lado do trecho percorrido pelo 1º carro na cena, mirando o centro do trecho
   let fixa = null;
@@ -76,7 +76,10 @@ export function montarCena(THREE, o) {
       it.rastro.visible = p.rastro > 0;
       if (p.rastro > 0) it.rastro.atualizar(it.am.rastro(t - p.rastro * p.fator, t, { passo: 1, elev: 0.08 }));
     }
-    const v = fixa ?? cameraSeguindo(itens.map((i) => i.am), t, { atras: 16, altura: 6 });
+    // "alta" = panorâmica alta acompanhando os carros de longe (regra do Felipe: "levantar e ficar panorâmica");
+    // janela longa na média do rumo para a câmera não virar junto com cada curva
+    const v = fixa ?? cameraSeguindo(itens.map((i) => i.am), t,
+      p.camera === "alta" ? { atras: 52, altura: 26, adiante: 8, janela: 1.6 } : { atras: 16, altura: 6 });
     cam.position.set(...v.pos);
     cam.lookAt(...v.alvo);
     renderer.render(cena, cam);

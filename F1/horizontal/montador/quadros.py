@@ -200,13 +200,28 @@ def verificar(rel: dict, saida_dir: Path) -> dict:
             isolado = all(abs(o - e["t"]) > 0.35 for o in outros)
             i0, i1 = int(max(0, e["t"] - 0.25) * SR), int(min(len(env) / SR, e["t"] + 0.25) * SR)
             pico = (i0 + int(np.argmax(env[i0:i1]))) / SR if i1 > i0 else float("nan")
-            d = (pico - e["t"]) * 1000
             tol = TOL_SFX_MS.get(e["categoria"], 15)
+            # referência: o pico do PRÓPRIO som (mesmo envelope deslizante) onde a mixagem o colocou. O `pico_s` do
+            # catálogo (blocos de 10 ms) erra em som com dois golpes parecidos (uso real, 2026-11-14: alerta_hf_erro
+            # 0,05 × 0,14 s): isso vira AVISO do catálogo; ERRO fica para som fora do lugar na mixagem.
+            ref, d_cat = e["t"], None
+            if e.get("arquivo") and Path(e["arquivo"]).exists() and e.get("inicio") is not None:
+                s = _audio_mono(Path(e["arquivo"]))
+                a0 = int(round(float(e.get("corte_ini") or 0) * SR))
+                seg = s[a0:a0 + int(round(float(e["dur"]) * SR))] if e.get("dur") else s[a0:]
+                if len(seg) > SR // 100:
+                    ref = float(e["inicio"]) + int(np.argmax(_envelope(seg))) / SR
+                    d_cat = (ref - e["t"]) * 1000
+            d = (pico - ref) * 1000
             med["sfx"].append({"categoria": e["categoria"], "id": e["id"], "t": e["t"], "pico_medido": round(pico, 4),
-                               "erro_ms": round(d, 1), "isolado": isolado, "palavra": e.get("palavra")})
+                               "erro_ms": round(d, 1), "pico_catalogo_ms": None if d_cat is None else round(d_cat, 1),
+                               "isolado": isolado, "palavra": e.get("palavra")})
             if isolado and abs(d) > tol:
                 (erros if tol <= 15 else avisos).append(
-                    f"SFX {e['categoria']} ({e['id']}) em {e['t']:.3f} s: pico medido {d:+.1f} ms (tolerância {tol} ms)")
+                    f"SFX {e['categoria']} ({e['id']}) em {e['t']:.3f} s: pico medido {d:+.1f} ms do pico do som (tolerância {tol} ms)")
+            if d_cat is not None and abs(d_cat) > tol and tol <= 15:
+                avisos.append(f"SFX {e['categoria']} ({e['id']}): o pico do som fica {d_cat:+.1f} ms da palavra "
+                              f"(pico_s do catálogo do kit/sfx diferente do envelope de 10 ms; refazer o catálogo)")
         master = _audio_mono(Path(mix["arquivos"]["master"]))
         final = _audio_mono(mp4)
         atraso = _atraso_ms(master, final)
