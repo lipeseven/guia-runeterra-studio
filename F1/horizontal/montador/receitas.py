@@ -206,6 +206,39 @@ def _cartoes(cena: dict, usos: list[dict], palavras: list[dict], dur: float) -> 
                                        "margem": 48, "cartoes": cartoes}}, arquivos
 
 
+# ---------------------------------------------------------------- Remotion: duelo (cartoes tipo "duelo")
+def _pilotos_sessao(sessao) -> dict:
+    """{numero: {sigla, nome, equipe, cor}} das comparações do kit/graficos da sessão (cores já no padrão do kit)."""
+    out = {}
+    for arq in sorted((KIT / "graficos" / "comparacoes").glob(f"{sessao}_*.json")):
+        for p in json.loads(arq.read_text(encoding="utf-8")).get("pilotos", []):
+            out[str(p["numero"])] = {k: p.get(k) for k in ("sigla", "nome", "equipe", "cor")}
+    return out
+
+
+def _duelo(cena: dict, p: dict, palavras: list[dict], dur: float) -> tuple[dict, list[Path]]:
+    """Dois números lado a lado, um cartão por piloto na cor da equipe ("30.008 contra 30.030" com QUEM é quem).
+    params: {tipo: duelo, titulo, sessao, unidade?, lados: [{piloto, valor, em}, {piloto, valor, em}], destaque: 0|1|None,
+    rodape?}. Cada lado entra seco na própria palavra (`em` → `i`). Uso real (rodada 1): números ditos que não ficavam na
+    tela, 6 cenas de texto preto iguais e "30.008 contra 30.030" sem dizer quem é quem."""
+    lados = p.get("lados") or []
+    if len(lados) != 2 or not p.get("titulo"):
+        raise SemReceita("duelo precisa de `titulo` e de 2 `lados` [{piloto, valor, em}]")
+    pil = _pilotos_sessao(p.get("sessao"))
+    out = []
+    for k, l in enumerate(lados):
+        info = pil.get(str(l.get("piloto")), {})
+        if not info:
+            raise FaltaAtivo(f"duelo: piloto {l.get('piloto')} sem comparação da sessão {p.get('sessao')} (kit/graficos/py/preparar.py)")
+        out.append({"sigla": info.get("sigla"), "nome": (info.get("nome") or "").title(), "equipe": info.get("equipe"),
+                    "cor": l.get("cor") or info.get("cor"), "valor": str(l["valor"]),
+                    "em": round(_t_palavra(palavras, l.get("i"), cena["t0"], 0.25 + 0.6 * k), 4)})
+    camada = {"kit": "duelo", "titulo": str(p["titulo"]), "unidade": str(p.get("unidade", "")), "lados": out,
+              "destaque": p.get("destaque"), "rodape": str(p.get("rodape", "")),
+              "destaqueEm": round(_t_palavra(palavras, p.get("i"), cena["t0"], max(x["em"] for x in out) + 0.4), 4)}
+    return camada, sorted((KIT / "graficos" / "comparacoes").glob(f"{p.get('sessao')}_*.json"))
+
+
 # ---------------------------------------------------------------- Remotion: foco (num texto da cena)
 def _foco(cena: dict, usos: list[dict], palavras: list[dict], alvos: dict, dur: float) -> dict:
     """Desfoca tudo menos o alvo. Alvo = índice de um `texto` da cena (caixa medida na fonte, estável) ou caixa
@@ -227,7 +260,8 @@ def _foco(cena: dict, usos: list[dict], palavras: list[dict], alvos: dict, dur: 
 
 
 # ---------------------------------------------------------------- HyperFrames: gps
-def _gps(cena: dict, p: dict, dur: float) -> tuple[dict, dict, list[Path]]:
+def _gps(cena: dict, p: dict, dur: float, palavras: list[dict] | None = None) -> tuple[dict, dict, list[Path]]:
+    palavras = palavras or []
     s = p.get("sessao")
     carros = p.get("carros") or []
     if not carros:
@@ -267,13 +301,37 @@ def _gps(cena: dict, p: dict, dur: float) -> tuple[dict, dict, list[Path]]:
         arquivos.append(pp)
     cfg = {"voltas": voltas, "pista": cfg_pista, "inicio": float(p.get("inicio", 0.0)), "fator": float(p.get("fator", 1.0)),
            "rastro": float(p.get("rastro", 2.5)), "camera": p.get("camera_gps", "perseguicao"), "distancia": float(p.get("distancia", 0.5)),
-           "duracao": round(dur, 4), "hud": bool(p.get("hud", True)), "nota": _nota_gps(p, voltas_json)}
+           "duracao": round(dur, 4), "hud": bool(p.get("hud", True)), "nota": _nota_gps(p, voltas_json),
+           # rodada 1 (placar 73,8): mundo em volta da pista plana, etiqueta por carro, minimapa, número da curva,
+           # velocidade segurada na palavra (marcar) e rótulo ancorado na fala (rotulos)
+           "mundo": bool(p.get("mundo", True)), "minimapa": bool(p.get("minimapa", True)),
+           "etiquetas": bool(p.get("etiquetas", True)), "curvas": _curvas_gps(voltas_json, p),
+           "marcas": [{"t": round(_t_palavra(palavras, m.get("i"), cena["t0"], 0.0), 4), "dur": float(m.get("dur", 1.6))}
+                      for m in p.get("marcar") or []],
+           "rotulos": [{"t": round(_t_palavra(palavras, r.get("i"), cena["t0"], 0.0), 4), "texto": str(r["texto"])}
+                       for r in p.get("rotulos") or [] if r.get("texto")]}
+    arquivos += [x for x in [KIT / "graficos" / "pista" / f"{voltas_json[0].get('circuito')}.json"] if x.exists()]
     if cfg["camera"] not in CAMERAS_GPS:
         raise SemReceita(f"gps: camera_gps '{cfg['camera']}' (há: {', '.join(CAMERAS_GPS)})")
     return cfg, assets, arquivos
 
 
 CAMERAS_GPS = ("perseguicao", "fixa", "alta")
+
+
+def _curvas_gps(voltas: list[dict], p: dict) -> list[dict]:
+    """Placas de número de curva na pista: as curvas NUMERADAS de kit/graficos/pista/<circuito>.json (as mesmas dos
+    gráficos, conferidas na telemetria), como fração da volta. `curvas: false` na SPEC tira; lista de números filtra."""
+    pedido = p.get("curvas", True)
+    if not voltas or pedido is False:
+        return []
+    arq = KIT / "graficos" / "pista" / f"{voltas[0].get('circuito')}.json"
+    if not arq.exists():
+        return []
+    d = json.loads(arq.read_text(encoding="utf-8"))
+    L = float(d.get("comprimento_m") or 0)
+    return [{"n": c["n"], "frac": round(float(c["d"]) / L, 5)} for c in d.get("curvas", [])
+            if L and (pedido is True or c["n"] in pedido)]
 SESSAO_PT = {"Qualifying": "classificação", "Race": "corrida", "Sprint": "sprint", "Sprint Qualifying": "classificação sprint",
              "Practice 1": "TL1", "Practice 2": "TL2", "Practice 3": "TL3"}
 
@@ -301,7 +359,7 @@ FONTES_CODIGO = {
                               KIT / "cartoes" / "cartoes.ts", KIT / "cartoes" / "larguras.ts"],
     ("remotion", "foco"): [HORIZ / "remotion" / "cena" / "index.tsx", HORIZ / "remotion" / "foco" / "CamadaFoco.tsx",
                            KIT / "foco" / "foco.ts", HORIZ / "remotion" / "anotacao" / "CamadaAnotacao.tsx"],
-    ("hyperframes", "gps"): [AQUI / "hyperframes" / "gps.html", KIT / "gps" / "src" / "gps.js", KIT / "gps" / "src" / "gps_three.js",
+    ("hyperframes", "gps"): [AQUI / "hyperframes" / "gps.html", KIT / "gps" / "src" / "gps.js", KIT / "gps" / "src" / "gps_three.js", KIT / "gps" / "src" / "gps_mundo.js",
                              KIT / "gps" / "exemplo" / "cena_exemplo.js"],
 }
 
@@ -321,8 +379,15 @@ def receita(cena: dict, palavras: list[dict], pre: int, pos: int) -> dict:
         camadas = []
         graf = [u["params"] for u in usos if u["kit"] == "graficos"]
         anot = [u["params"] for u in usos if u["kit"] == "anotacao"]
-        cart = [u["params"] for u in usos if u["kit"] == "cartoes"]
+        cart = [u["params"] for u in usos if u["kit"] == "cartoes" and u["params"].get("tipo") != "duelo"]
+        duelo = [u["params"] for u in usos if u["kit"] == "cartoes" and u["params"].get("tipo") == "duelo"]
         foco = [u["params"] for u in usos if u["kit"] == "foco"]
+        if duelo:
+            if len(duelo) > 1 or graf or cart or anot or foco:
+                raise SemReceita("duelo ocupa a tela: uma por cena, sem gráfico/cartão/anotação/foco")
+            c, a = _duelo(cena, duelo[0], palavras, dur)
+            camadas.append(c)
+            arquivos += a
         outros = [k for k in kits if k not in ("graficos", "anotacao", "cartoes", "foco")]
         if outros:
             raise SemReceita(f"kit {', '.join(outros)} ainda sem receita no Remotion (há: graficos, anotacao, cartoes, foco)")
@@ -355,7 +420,7 @@ def receita(cena: dict, palavras: list[dict], pre: int, pos: int) -> dict:
             raise SemReceita(f"kit {', '.join(outros)} ainda sem receita no HyperFrames (há: gps)")
         if len(usos) > 1:
             raise SemReceita("mais de um uso de gps na mesma cena: junte os carros em um só")
-        cfg, assets, a = _gps(cena, usos[0]["params"], dur)
+        cfg, assets, a = _gps(cena, usos[0]["params"], dur, palavras)
         cfg.update({"quadros": quadros, "pre": pre})
         if cena.get("movimento"):
             cfg.update(movimento=cena["movimento"], L=quadros - pre - pos)

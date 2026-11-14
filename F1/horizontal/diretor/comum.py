@@ -158,8 +158,9 @@ KITS: dict[str, dict] = {
                 "faz": "trecho real da corrida VALIDADO contra a afirmação (sessão/piloto/volta/evento)"},
     "anotacao": {"requer": ["tipo"], "tipos": ["oval", "seta", "sublinhado", "chave", "riscado", "nota", "corrigido"],
                  "motores": MOTORES, "faz": "anotação à mão ancorada em caixa estável"},
-    "cartoes": {"requer": ["tipo"], "tipos": ["pessoa", "capitulo", "tag"], "motores": MOTORES, "prefere": "remotion",
-                "faz": "cartão de pessoa, de capítulo ou tag com perninha"},
+    "cartoes": {"requer": ["tipo"], "tipos": ["pessoa", "capitulo", "tag", "duelo"], "motores": MOTORES, "prefere": "remotion",
+                "faz": "cartão de pessoa, de capítulo, tag com perninha ou duelo (dois números lado a lado na cor de cada "
+                       "equipe: {titulo, sessao, unidade, destaque: 0|1, lados: [{piloto, valor, em}, {piloto, valor, em}]})"},
     "foco": {"requer": ["alvo"], "motores": MOTORES, "faz": "desfoca o que não é destaque"},
     "modelo3d": {"requer": ["arquivo"], "motores": MOTORES, "prefere": "hyperframes",
                  "faz": "modelo .glb de F1/dados/modelos3d (carro, pista, peça)"},

@@ -81,6 +81,37 @@ def main() -> int:
         checa(False, "GPS de Monza (kit/gps/voltas 9908 + modelos 3D)", str(e))
     recusa(cena([{"kit": "gps", "params": {**gps, "camera_gps": "drone"}}], motor="hyperframes"), "alta", "câmera desconhecida recusada")
 
+    print("3b. GPS: rótulos na fala, velocidade segurada, mundo, minimapa, etiquetas e curvas")
+    try:
+        j = R.receita(cena([{"kit": "gps", "params": {**gps, "rotulos": [{"i": 2, "texto": "Antes da frenagem"}, {"i": 9, "texto": "x"}],
+                                                       "marcar": [{"i": 4}]}}], motor="hyperframes"), PAL, 0, 0)
+        cfg = j["cfg"]
+        checa(cfg["rotulos"] == [{"t": 1.0, "texto": "Antes da frenagem"}, {"t": 0.0, "texto": "x"}] and cfg["marcas"] == [{"t": 2.0, "dur": 1.6}],
+              "rótulo e marca no tempo da palavra (palavra fora da lista = 0)", str(cfg["rotulos"]))
+        checa(cfg["mundo"] and cfg["minimapa"] and cfg["etiquetas"], "mundo, minimapa e etiquetas ligados por padrão")
+        checa(isinstance(cfg["curvas"], list), "curvas: lista (Monza sem curvas numeradas = vazia)", str(cfg["curvas"]))
+        cv = R._curvas_gps([{"circuito": "Mexico City"}], {})
+        checa(cv == [{"n": 1, "frac": round(1222 / 4304, 5)}], "Mexico City: placa da Curva 1 na fração certa", str(cv))
+        checa(R._curvas_gps([{"circuito": "Mexico City"}], {"curvas": False}) == [], "curvas: false tira as placas")
+    except R.FaltaAtivo as e:
+        checa(False, "GPS de Monza", str(e))
+
+    print("3c. duelo (cartoes tipo duelo)")
+    pal = PAL + [{"t": "30.008", "i": 4.5, "f": 4.9}, {"t": "30.030.", "i": 5.2, "f": 5.8}]
+    d = {"kit": "cartoes", "params": {"tipo": "duelo", "titulo": "Setor 2", "sessao": 9908, "unidade": "s", "destaque": 0,
+                                      "lados": [{"piloto": 16, "valor": "26.582", "i": 8}, {"piloto": 44, "valor": "26.686", "i": 9}]}}
+    j = R.receita({**cena([d]), "t1": 6.0}, pal, 0, 0)
+    c = j["props"]["camadas"][0]
+    checa(c["kit"] == "duelo" and [l["sigla"] for l in c["lados"]] == ["LEC", "HAM"] and c["lados"][0]["cor"],
+          "duelo: sigla e cor da equipe vêm da comparação da sessão", str(c["lados"]))
+    checa([l["em"] for l in c["lados"]] == [4.5, 5.2] and c["destaqueEm"] > 5.2, "cada lado entra na própria palavra; destaque depois")
+    recusa(cena([d, {"kit": "anotacao", "params": {"tipo": "oval", "alvo": 0}}], ["x"]), "duelo", "duelo + anotação recusado")
+    try:
+        R.receita(cena([{"kit": "cartoes", "params": {**d["params"], "lados": [{"piloto": 99, "valor": "1"}, {"piloto": 44, "valor": "2"}]}}]), PAL, 0, 0)
+        checa(False, "piloto fora da sessão recusado")
+    except R.FaltaAtivo:
+        checa(True, "piloto fora da sessão recusado")
+
     print("4. narração do rascunho")
     with tempfile.TemporaryDirectory() as td:
         proj = Path(td)

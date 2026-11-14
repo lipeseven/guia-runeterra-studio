@@ -136,7 +136,7 @@ def planejar(pasta: Path, exigir_estado: bool = True, por_cena: bool = False, mo
     elif not narr:
         avisos.append("sem narração (narracao.wav ou trabalho/gravacao/limpa.wav): rascunho sem voz")
     if not trilha(pasta):
-        avisos.append("sem trilha (trilha.wav/.mp3 na pasta): rascunho sem música")
+        avisos.append("sem trilha (trilha.wav/.mp3 na pasta): " + ("vídeo final sem música" if modo == "final" else "rascunho sem música"))
     if problemas:
         raise NaoMonta("não dá para montar: " + " | ".join(problemas))
     return {"spec": spec, "palavras": palavras, "tempos": tempos, "jobs": jobs, "transicoes": est_por_cena,
