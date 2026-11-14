@@ -56,6 +56,7 @@ def dados_f1() -> Path:
     return HORIZ.parent / "dados"
 
 
+TEXTO_CODIGO = {".py", ".js", ".mjs", ".ts", ".tsx", ".html", ".json", ".txt", ".md"}
 _MEMO_HASH = Path(tempfile.gettempdir()) / "f1_horizontal_hash_arquivos.json"   # o storyboard planeja a cada leitura
 
 
@@ -64,7 +65,10 @@ def hash_arquivo(p: Path) -> str:
     p = Path(p)
     st = p.stat()
     if st.st_size < 2_000_000:
-        return hashlib.sha1(p.read_bytes()).hexdigest()[:16]
+        b = p.read_bytes()
+        if p.suffix.lower() in TEXTO_CODIGO:   # CRLF (pasta principal) × LF (worktree): mesmo código = mesmo hash = cache vale
+            b = b.replace(b"\r\n", b"\n")
+        return hashlib.sha1(b).hexdigest()[:16]
     chave = f"{p.resolve()}|{st.st_size}|{st.st_mtime_ns}"
     try:
         memo = json.loads(_MEMO_HASH.read_text(encoding="utf-8"))
@@ -235,7 +239,10 @@ def _duelo(cena: dict, p: dict, palavras: list[dict], dur: float) -> tuple[dict,
                     "em": round(_t_palavra(palavras, l.get("i"), cena["t0"], 0.25 + 0.6 * k), 4)})
     camada = {"kit": "duelo", "titulo": str(p["titulo"]), "unidade": str(p.get("unidade", "")), "lados": out,
               "destaque": p.get("destaque"), "rodape": str(p.get("rodape", "")),
-              "destaqueEm": round(_t_palavra(palavras, p.get("i"), cena["t0"], max(x["em"] for x in out) + 0.4), 4)}
+              "destaqueEm": round(_t_palavra(palavras, p.get("i"), cena["t0"], max(x["em"] for x in out) + 0.4), 4),
+              "forma": p.get("forma", "cartoes"), "escala": p.get("escala")}
+    if camada["forma"] not in ("cartoes", "barras"):
+        raise SemReceita(f"duelo: forma '{camada['forma']}' (há: cartoes, barras)")
     return camada, sorted((KIT / "graficos" / "comparacoes").glob(f"{p.get('sessao')}_*.json"))
 
 
@@ -306,6 +313,7 @@ def _gps(cena: dict, p: dict, dur: float, palavras: list[dict] | None = None) ->
            # velocidade segurada na palavra (marcar) e rótulo ancorado na fala (rotulos)
            "mundo": bool(p.get("mundo", True)), "minimapa": bool(p.get("minimapa", True)),
            "etiquetas": bool(p.get("etiquetas", True)), "curvas": _curvas_gps(voltas_json, p),
+           "arquibancadas": _arquibancadas_gps(voltas_json),
            "marcas": [{"t": round(_t_palavra(palavras, m.get("i"), cena["t0"], 0.0), 4), "dur": float(m.get("dur", 1.6))}
                       for m in p.get("marcar") or []],
            "rotulos": [{"t": round(_t_palavra(palavras, r.get("i"), cena["t0"], 0.0), 4), "texto": str(r["texto"])}
@@ -317,6 +325,18 @@ def _gps(cena: dict, p: dict, dur: float, palavras: list[dict] | None = None) ->
 
 
 CAMERAS_GPS = ("perseguicao", "fixa", "alta")
+
+
+def _arquibancadas_gps(voltas: list[dict]) -> list[dict]:
+    """Trechos com arquibancada grande (reta dos boxes, estádio) de kit/graficos/pista/<circuito>.json, em fração da volta."""
+    if not voltas:
+        return []
+    arq = KIT / "graficos" / "pista" / f"{voltas[0].get('circuito')}.json"
+    if not arq.exists():
+        return []
+    d = json.loads(arq.read_text(encoding="utf-8"))
+    L = float(d.get("comprimento_m") or 0)
+    return [{"f0": round(a["d0"] / L, 5), "f1": round(a["d1"] / L, 5)} for a in d.get("arquibancadas", []) if L]
 
 
 def _curvas_gps(voltas: list[dict], p: dict) -> list[dict]:

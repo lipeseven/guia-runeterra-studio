@@ -28,6 +28,10 @@ DUCK = "threshold=0.03:ratio=6:attack=40:release=450:makeup=1"
 # SFX sob a voz (rodada 1 do placar: impacto do fecho 1,7 dB acima da voz, capítulos a 2–3 dB dela): compressão leve
 # do barramento de SFX pela voz; o golpe continua a passar (ataque de 15 ms), a cauda abaixa ~3–5 dB enquanto ela fala
 DUCK_SFX = "threshold=0.05:ratio=3:attack=15:release=300:makeup=1"
+# rodada 2 do placar: com o ducking em tudo, cliques/pops ficaram 23–28 dB abaixo da voz e o sino a 33 dB (inaudíveis).
+# Só os sons longos abaixam sob a voz; os curtos ganham reforço (com narração) para ficar ~12–15 dB abaixo dela.
+COM_DUCK = {"impacto", "riser", "whoosh"}
+REFORCO_DB = {"clique": 10.0, "tecla": 10.0, "pop": 8.0, "alerta": 4.0, "sino": 14.0}
 
 
 def pasta_banco() -> Path:
@@ -115,21 +119,32 @@ def mixar(evs: list[SFX.Evento], dur: float, saida: Path, narracao: Path | None,
         k += 1
     elif narracao:
         filtros.append("[vozsc]anullsink")
-    rot = []
+    rot, rot_d, rot_s = [], [], []
     for e in evs:
         entradas += ["-i", banco / e.arquivo]
         atraso = int(round(e.inicio * SR))
+        ganho = e.ganho_db + (REFORCO_DB.get(e.categoria, 0.0) if narracao else 0.0)
         filtros.append(f"[{k}:a]{fmt},atrim=start_sample={int(round(e.corte_ini * SR))}:end_sample={int(round((e.corte_ini + e.dur) * SR))},"
                        f"asetpts=PTS-STARTPTS,afade=t=out:st={max(0.0, e.dur - SFX.SAIDA_S):.5f}:d={SFX.SAIDA_S},"
-                       f"volume={e.ganho_db}dB,adelay={atraso}S|{atraso}S[s{k}]")
+                       f"volume={ganho:.2f}dB,adelay={atraso}S|{atraso}S,asplit=2[s{k}][t{k}]")
         rot.append(f"[s{k}]")
+        (rot_d if e.categoria in COM_DUCK else rot_s).append(f"[t{k}]")
         k += 1
     if rot:
-        filtros.append(f"{''.join(rot)}amix=inputs={len(rot)}:normalize=0:duration=longest,apad=whole_len={n},atrim=end_sample={n},asplit=2[sfx0][sfxstem]")
-        if narracao:   # sfx.wav (stem) fica SEM o ducking: a verificação mede o pico de cada som nele
-            filtros.append(f"[sfx0][vozsfx]sidechaincompress={DUCK_SFX}[sfx]")
-        else:
-            filtros.append("[sfx0]anull[sfx]")
+        # sfx.wav (stem) = todos os sons SEM ducking: a verificação mede o pico de cada som nele
+        filtros.append(f"{''.join(rot)}amix=inputs={len(rot)}:normalize=0:duration=longest,apad=whole_len={n},atrim=end_sample={n}[sfxstem]")
+        partes = []
+        for nome, lst in (("d", rot_d), ("s", rot_s)):
+            if lst:
+                filtros.append(f"{''.join(lst)}amix=inputs={len(lst)}:normalize=0:duration=longest,apad=whole_len={n},atrim=end_sample={n}[bus{nome}]")
+                partes.append(nome)
+        # rodada 2: só os sons longos (impacto/riser/whoosh) abaixam sob a voz; clique/pop/tecla/sino/alerta passam secos
+        if "d" in partes and narracao:
+            filtros.append(f"[busd][vozsfx]sidechaincompress={DUCK_SFX}[busdd]")
+        elif narracao:
+            filtros.append("[vozsfx]anullsink")
+        fim = [f"[busdd]" if (p == "d" and narracao) else f"[bus{p}]" for p in partes]
+        filtros.append(f"{''.join(fim)}amix=inputs={len(fim)}:normalize=0:duration=longest[sfx]" if len(fim) > 1 else f"{fim[0]}anull[sfx]")
         mix.append("[sfx]")
     else:
         filtros.append(f"anullsrc=r={SR}:cl=stereo,atrim=end_sample={n},asplit=2[sfx][sfxstem]")

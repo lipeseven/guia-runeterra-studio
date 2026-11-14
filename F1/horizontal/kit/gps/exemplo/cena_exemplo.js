@@ -43,7 +43,7 @@ export function montarCena(THREE, o) {
       // o mundo (chão em ladrilhos, zebras, arquibancadas, prédios, placa da curva) substitui o chão liso da pista plana;
       // céu claro levemente azul e névoa mais perto: a borda do chão não aparece no horizonte
       pista.children[0].visible = false;
-      cena.add(criarMundoPlano(THREE, p.pistaPlana, { curvas: p.curvas ?? [] }));
+      cena.add(criarMundoPlano(THREE, p.pistaPlana, { curvas: p.curvas ?? [], trechos: p.arquibancadas ?? [] }));
       cena.background = new THREE.Color(0xe3ecf2);
       cena.fog = new THREE.Fog(0xe3ecf2, 450, 1500);
     }
@@ -89,13 +89,13 @@ export function montarCena(THREE, o) {
       if (p.rastro > 0) it.rastro.atualizar(it.am.rastro(t - p.rastro * p.fator, t, { passo: 1, elev: 0.08 }));
     }
     // carros colados (o GPS real põe um dentro do outro): o de TRÁS vira fantasma (Felipe aceita um sobre o outro,
-    // mas precisa ler quem está na frente). Suave: opacidade cai de 1 a 0,4 entre 9 m e 5 m de distância.
+    // mas precisa ler quem está na frente). Suave: opacidade cai de 1 a 0,6 entre 9 m e 5 m de distância.
     if (p.fantasma !== false && itens.length === 2) {
       const [a, b] = poses;
       const d = Math.hypot(a.x - b.x, a.z - b.z);
       const bFrente = (b.x - a.x) * a.frente[0] + (b.z - a.z) * a.frente[2] > 0;
       const atras = bFrente ? 0 : 1;
-      const op = d >= 9 ? 1 : d <= 5 ? 0.4 : 0.4 + (0.6 * (d - 5)) / 4;
+      const op = d >= 9 ? 1 : d <= 5 ? 0.6 : 0.6 + (0.4 * (d - 5)) / 4;   // rodada 2: 0,4 deixava ver o rastro através
       opacidadeCarro(itens[atras].carro, Math.round(op * 20) / 20);
       opacidadeCarro(itens[1 - atras].carro, 1);
     }

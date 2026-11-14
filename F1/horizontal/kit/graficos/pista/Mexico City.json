@@ -4,5 +4,10 @@
   "sentido": "horário",
   "curvas": [
     {"n": 1, "nome": "Curva 1", "d": 1222}
+  ],
+  "_nota_arquibancadas": "Só cenário do kit/gps (mundo da pista plana), posições APROXIMADAS: o trecho lento do setor 3 (estádio Foro Sol) e a reta dos boxes. Não são dado; nenhum gráfico usa.",
+  "arquibancadas": [
+    {"d0": 3560, "d1": 4080, "nome": "estádio Foro Sol"},
+    {"d0": 4180, "d1": 260, "nome": "reta dos boxes"}
   ]
 }
