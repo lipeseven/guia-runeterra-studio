@@ -25,7 +25,7 @@ import etapas as E          # noqa: E402
 import historia as H        # noqa: E402
 import spec as S            # noqa: E402
 import verificar as V       # noqa: E402
-from comum import estimar_tempos, gravar_json, hash_dados, ler_json  # noqa: E402
+from comum import estimar_tempos, frases, gravar_json, hash_dados, ler_json  # noqa: E402
 from esquema import validar  # noqa: E402
 
 VERBOSO = "-v" in sys.argv
@@ -179,6 +179,28 @@ def _testes(raiz: Path) -> int:
     mut(lambda s, h: cena(s, 5).update(texto=["Setor 2: LEC −0,104 s"]), "não validada aceita sem aviso na tela", "IMAGEM_NAO_VALIDADA")
     mut(lambda s, h: cena(s, 5)["kits"][0]["params"].update(afirmacao="a7"), "imagem sem afirmação verificável", "IMAGEM_SEM_AFIRMACAO")
     mut(lambda s, h: cena(s, 3).update(texto=["0,3 s"]), "número na tela que a fala não diz", "NUMERO_NA_TELA")
+    mut(lambda s, h: cena(s, 3).update(texto=["PARTE 02 · 0,3 s"]), "número não dito ao lado do capítulo", "NUMERO_NA_TELA")
+
+    # uso real (2026-11-14): cronômetro na tela × valor em segundos da afirmação; cartão de capítulo "PARTE 02"
+    def nao_barra(nome, f, codigo="NUMERO_NA_TELA"):
+        s, h = copy.deepcopy(spec), copy.deepcopy(hist)
+        f(s, h)
+        cods = {x["codigo"] for x in verif(s, h, pal, roteiro, pasta)["erros"]}
+        checa(codigo not in cods, f"não barra: {nome}", f"(veio {sorted(cods)})")
+
+    def crono(s, h):
+        next(a for a in h["afirmacoes"] if a["id"] == "a3")["valor"] = 79.124   # afirmação da cena 3 em segundos
+        cena(s, 3).update(texto=["1:19.124", "1:19,124"])
+    nao_barra("cronômetro 1:19.124 na tela = valor 79.124 da afirmação", crono)
+    nao_barra("cartão de capítulo PARTE 02 (número de capítulo livre)", lambda s, h: cena(s, 3).update(texto=["PARTE 02", "0,117 s"]))
+    nao_barra("Capítulo 3 · título", lambda s, h: cena(s, 4).update(texto=["Capítulo 3", "Setor 1: HAM +0,046 s"]))
+    checa(V._numeros("1 min 16 s 514", tela=True) == {"76.514"} and "76.514" in V._numeros("com 1 minuto, 16 segundos e 514 milésimos")
+          and "0.009" in V._numeros("só 9 milésimos atrás") and V._numeros("1:16.514", tela=True) == {"76.514"},
+          "_numeros: cronômetro e por extenso viram segundos; 9 milésimos = 0.009")
+    fr = frases(estimar_tempos("Uma frase. Nove milésimos. Uma diferença no cronômetro.**"))
+    fr2 = frases(estimar_tempos("Uma frase. E termina sem ponto"))
+    checa(all("→" in x for x in fr.splitlines()) and all("→" in x for x in fr2.splitlines()) and len(fr.splitlines()) == 3,
+          "frases: a última frase tem tempo final (com ** depois do ponto ou sem ponto)", fr + " | " + fr2)
     mut(lambda s, h: cena(s, 3)["kits"][0]["params"].update(tipo="pizza"), "tipo de gráfico inexistente", "KIT_PARAMETRO")
     mut(lambda s, h: cena(s, 1)["kits"][0]["params"].pop("carros"), "GPS sem carros", "KIT_PARAMETRO")
     mut(lambda s, h: cena(s, 3)["kits"][0]["params"]["ritmo"][1].update(i=cena(s, 6)["i0"], em=cena(s, 6)["em"]),

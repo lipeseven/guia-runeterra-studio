@@ -123,11 +123,12 @@ def frases(palavras: list[dict]) -> str:
         if not atual:
             ini = p["i"]
         atual.append(p["t"])
-        if re.search(r"[.!?:]$|\.\.\.$", p["t"]):
+        # fim de frase mesmo com fecho depois do ponto ("cronômetro.**", "fim.”", "(sim.)")
+        if re.search(r"[.!?:…][\"'”’»)\]*_]*$", p["t"]):
             linhas.append(f"[{ini:6.1f}s → {p['f']:6.1f}s] {' '.join(atual)}")
             atual = []
-    if atual:
-        linhas.append(f"[{ini:6.1f}s] {' '.join(atual)}")
+    if atual:   # roteiro que termina sem ponto: a última frase também tem fim
+        linhas.append(f"[{ini:6.1f}s → {palavras[-1]['f']:6.1f}s] {' '.join(atual)}")
     return "\n".join(linhas)
 
 

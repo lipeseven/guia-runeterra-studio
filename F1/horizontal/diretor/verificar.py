@@ -67,9 +67,48 @@ def _ancora(r: Relatorio, codigo, palavras, i, trecho, onde, cena=None, faixa=No
     return True
 
 
-def _numeros(t: str) -> set[str]:
-    return {n.replace(",", ".").rstrip("0").rstrip(".") if "." in n.replace(",", ".") else n
-            for n in re.findall(r"\d+(?:[.,]\d+)?", t)}
+def _norm(n: str) -> str:
+    n = n.replace(",", ".")
+    return n.rstrip("0").rstrip(".") if "." in n else n
+
+
+def _segundos(m: str, s: str, casas: int) -> str:
+    return _norm(f"{int(m) * 60 + float(s.replace(',', '.')):.{casas}f}")
+
+
+# tempo em formato de cronômetro na tela ("1:16.514", "1:16,514") ou por extenso na fala / na tela
+# ("1 minuto, 16 segundos e 514 milésimos", "1 min 16 s 514") = o mesmo número em segundos (76.514) das afirmações
+CRONOMETRO = re.compile(r"(?<![\d:])(\d{1,2}):(\d{2}(?:[.,]\d+)?)(?![\d:])")
+POR_EXTENSO = re.compile(r"(\d{1,2})\s*(?:minutos?|min)\b[\s,]*(\d{1,2})\s*(?:segundos?|seg|s)\b[\s,]*(?:e\s+)?(\d{1,3})"
+                         r"(?:\s*(?:milésimos?|milesimos?|ms)\b)?", re.I)
+FRACAO = re.compile(r"(\d{1,3})\s+(milésimos?|milesimos?|centésimos?|centesimos?|décimos?|decimos?)\b", re.I)
+CASAS_FRACAO = {"mil": 3, "cen": 2, "dec": 1, "déc": 1}
+# cartão/título de capítulo ("PARTE 02", "Capítulo 3"): o número do capítulo é livre, como o rodapé técnico
+CAPITULO = re.compile(r"\b(?:parte|cap[ií]tulo|cap\.|part|chapter|ato)\s*0*\d{1,2}\b", re.I)
+
+
+def _numeros(t: str, tela: bool = False) -> set[str]:
+    """Números de um texto, normalizados (vírgula = ponto, sem zeros à direita). Tempo de cronômetro ("1:16.514") e
+    por extenso ("1 minuto, 16 segundos e 514 milésimos") entram em segundos (76.514); "9 milésimos" entra também como
+    0.009. Na fala os números soltos continuam valendo (ela os diz); na tela (`tela=True`) o tempo conta como UM número."""
+    saida: set[str] = set()
+
+    def crono(m):
+        dec = re.split(r"[.,]", m.group(2))
+        saida.add(_segundos(m.group(1), m.group(2), len(dec[1]) if len(dec) > 1 else 0))
+        return " "
+
+    def extenso(m):
+        saida.add(_segundos(m.group(1), f"{m.group(2)}.{m.group(3).zfill(3)}", 3))
+        return " " if tela else m.group(0)
+
+    def fracao(m):
+        casas = CASAS_FRACAO[m.group(2).lower()[:3]]
+        saida.add(_norm(f"{int(m.group(1)) / 10 ** casas:.{casas}f}"))
+        return " " if tela else m.group(0)
+
+    t = FRACAO.sub(fracao, POR_EXTENSO.sub(extenso, CRONOMETRO.sub(crono, t)))
+    return saida | {_norm(n) for n in re.findall(r"\d+(?:[.,]\d+)?", t)}
 
 
 def _historia(r: Relatorio, h: dict, palavras: list[dict]) -> None:
@@ -248,7 +287,7 @@ def verificar(spec: dict, historia: dict, palavras: list[dict], roteiro: str, at
         for t in c.get("texto", []):
             if DISCLAIMER.search(t):
                 continue
-            for num in _numeros(t) - falados:
+            for num in _numeros(CAPITULO.sub(" ", t), tela=True) - falados:
                 r.e("NUMERO_NA_TELA", f"\"{t}\": o número {num} não é dito nesta cena nem está numa afirmação dela", cid)
         # SFX
         for s in c.get("sfx", []):

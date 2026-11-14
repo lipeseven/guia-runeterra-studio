@@ -43,7 +43,7 @@ const CRIVO = {
   sem_fonte: ['text-suave', 'sem fonte (ficaram de fora)'],
   confirmada: ['text-ok', 'confirmadas'],
 } as const
-const NOMES = { diverge: 'a fonte diz diferente', parcial: 'conferem em parte (um pedaço sem fonte)', sem_fonte: 'sem fonte encontrada (confira se quiser)', confere: 'conferem com as fontes' }
+const NOMES = { diverge: 'a fonte diz diferente', parcial: 'conferem em parte (um pedaço sem fonte)', sem_fonte: 'NÃO conferidas: sem fonte encontrada (confira você)', confere: 'conferem com as fontes' }
 
 const chaveFato = (f: Fato) => `${f.paragrafo}|${f.afirmacao}`
 const chaveMantida = (f: Fato) => (f.bloco ? `${f.bloco}|${f.afirmacao}` : f.afirmacao)
@@ -305,6 +305,11 @@ export function ConferenciaRoteiro({ videoId, versao, aoCorrigir }: { videoId: n
 
       {c?.erro_fatos && <p className="text-atencao">Checagem de fatos falhou: {c.erro_fatos}</p>}
       {c && !c.erro_fatos && fatos.length === 0 && d.atual && <p className="text-apagado">Nenhuma afirmação de lore para checar.</p>}
+      {fatos.length > 0 && fatos.every((f) => f.veredito === 'sem_fonte') && (
+        <p className="mb-1.5 text-atencao">
+          Nenhum fato foi conferido: os {fatos.length} ficaram sem fonte. Isso não é “0 divergentes”: confira os números você mesmo.
+        </p>
+      )}
       {grupos.map(([v, lista]) =>
         lista.length === 0 ? null : (
           <div key={v} className="mb-1.5">

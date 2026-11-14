@@ -8,13 +8,29 @@ from __future__ import annotations
 import re
 
 NOTA = re.compile(r"\[([^\[\]]*)\]")
+# Marcas simples de Markdown (roteiro escrito/colado de um editor ou do chat): nunca são faladas. Saem da narração
+# (roteiro.txt → voz guia, alinhamento, limpeza, diretor, âncoras); o roteiro_fonte.txt guarda como veio.
+_MD_LINHA = re.compile(r"^[ \t]*(?:#{1,6}[ \t]+|>[ \t]?)", re.M)         # título "## …" e citação "> …"
+_MD_ENFASE = (re.compile(r"\*\*(.+?)\*\*", re.S), re.compile(r"__(.+?)__", re.S),
+              re.compile(r"(?<![\w*])\*(?=\S)(.+?)(?<=\S)\*(?![\w*])", re.S),
+              re.compile(r"(?<![\w_])_(?=\S)(.+?)(?<=\S)_(?![\w_])", re.S))
+_MD_SOLTO = re.compile(r"(?:(?<=\s)|^)\*+|\*+(?=\s|$)", re.M)   # asterisco que sobrou na borda de palavra (2*3 fica)
+
+
+def limpar_markdown(texto: str) -> str:
+    """Tira negrito/itálico (`**x**`, `__x__`, `*x*`, `_x_`), título (`# `), citação (`> `), código (`) e asterisco
+    solto na borda de uma palavra. Mantém o resto como está (palavras com _ no meio, como nome_de_arquivo, não mudam)."""
+    t = _MD_LINHA.sub("", texto)
+    for rx in _MD_ENFASE:
+        t = rx.sub(lambda m: m.group(1), t)
+    return _MD_SOLTO.sub("", t).replace("`", "")
 
 
 def separar(fonte: str) -> tuple[str, list[dict]]:
-    """Texto com notas → (narração sem notas, [{"palavra": índice do token da narração onde a nota está,
-    "texto": "..."}]). Parágrafos são preservados; uma nota sozinha numa linha não deixa linha vazia a mais."""
+    """Texto com notas → (narração sem notas e sem marcas de Markdown, [{"palavra": índice do token da narração onde
+    a nota está, "texto": "..."}]). Parágrafos são preservados; uma nota sozinha numa linha não deixa linha vazia a mais."""
     narracao_pars, notas, tokens = [], [], 0
-    for par in re.split(r"\n\s*\n", fonte.strip()):
+    for par in re.split(r"\n\s*\n", limpar_markdown(fonte).strip()):
         pedacos, ultimo = [], 0
         for m in NOTA.finditer(par):
             antes = par[ultimo:m.start()]

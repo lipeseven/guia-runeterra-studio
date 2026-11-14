@@ -24,3 +24,11 @@ em pontos de 2 em 2 a partir do ponto do carro (degrau na câmera baixa). Agora 
 mudando a cada quadro saltava (distância TOTAL × V_RODA/v): acima de V_RODA o giro vem do tempo do vídeo
 (`definirTempo`, posto pelo Vertical.tsx a cada quadro; estado do quadro anterior não serve porque o Remotion desenha fora
 de ordem, em 3 abas). Pedais/piloto no cockpit: `poePedais`, `poePilotoNoCarro`, `linhaDoFreio` (freio_cena.ts).
+
+## Documentário: correções do 1º uso real (2026-11-14, card 20 "Nove milésimos")
+Detalhes em `F1/horizontal/docs/painel.md` ("Correções do 1º uso real"). Card novo saindo com "Narração" (`voz_ia`) e
+sem voz guia NÃO era bug do código: a pasta principal estava no PR #108 (antes da 7a) com #109–#111 já no GitHub, e o
+painel tinha subido desse código. Agora `app/servidor/versao.py` avisa no quadro (pasta atrás do origin/main ou código
+mudado sem reiniciar). Markdown (`**`, `#`, `_x_`) sai da narração ao receber o roteiro (todos os canais; roteiro sem
+Markdown sai idêntico); conferência F1 lê a sessão do texto (GP/ano/sessão em PT) e confere setor; "sem fonte" nunca
+aparece como conferido; verificação aceita cronômetro na tela (1:16.514 = 76.514) e cartão "PARTE 02".
