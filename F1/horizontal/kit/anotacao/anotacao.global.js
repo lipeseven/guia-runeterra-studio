@@ -171,12 +171,18 @@ var Anotacao = (() => {
     const r = aleatorio(semente);
     const hw = c.w / 2, hh = c.h / 2;
     let rx = hw + folga, ry = hh + folga;
-    const q = Math.sqrt((hw / rx) ** 2 + (hh / ry) ** 2) / 0.97;
+    const gMax = Math.asin(Math.min(1, 0.35 * hh / Math.max(hw, 1))) * 180 / Math.PI;
+    const tilt = (giro != null ? giro : -Math.min(1 + 3 * r(), Math.max(0.5, gMax))) * Math.PI / 180;
+    const cg = Math.cos(tilt), sg = Math.sin(tilt);
+    let q = 0;
+    for (const [x, y] of [[hw, hh], [hw, -hh], [-hw, hh], [-hw, -hh]]) {
+      const u = x * cg + y * sg, v = -x * sg + y * cg;
+      q = Math.max(q, Math.sqrt((u / rx) ** 2 + (v / ry) ** 2) / 0.97);
+    }
     if (q > 1) {
       rx *= q;
       ry *= q;
     }
-    const tilt = (giro != null ? giro : -1 - 3 * r()) * Math.PI / 180;
     const a0 = -2.75 + 0.5 * r();
     const over = 0.38 + 0.12 * r();
     const harm = [2, 3, 5].map((k, j) => ({ k, A: [0.012, 8e-3, 4e-3][j] * (0.6 + 0.8 * r()), f: r() * Math.PI * 2 }));

@@ -149,7 +149,7 @@ def _tmp(pasta: Path) -> Path:
     return t
 
 
-def _renderizar_paralelo(alvo: list[dict], pasta: Path, W: int, H: int, rascunho: bool, forcar: bool) -> dict:
+def _renderizar_paralelo(alvo: list[dict], pasta: Path, W: int, H: int, rascunho: bool, forcar: bool, prog=None) -> dict:
     """Lotes do Remotion e cenas do HyperFrames ao mesmo tempo (`F1_RENDER_PARALELO` processos, padrão 3; 1 = em série).
     Cada trabalho tem a própria pasta temporária e grava o próprio trecho (cache por hash), então não há disputa.
     Uso real (2026-11-14, 19 cenas): em série a GPU/CPU ficavam ociosas boa parte do tempo (um motor de cada vez)."""
@@ -159,7 +159,8 @@ def _renderizar_paralelo(alvo: list[dict], pasta: Path, W: int, H: int, rascunho
     hf = [j for j in alvo if j["motor"] != "remotion"]
     trechos = Path(pasta) / "trechos"
     falta_rem = [j for j in rem if forcar or not S._do_cache(j, trechos, W, H)]
-    tarefas = [("lote", l) for l in S.lotes(falta_rem, S.TETO_LOTE_S)] + [("hf", j) for j in hf]
+    # HyperFrames primeiro: são as cenas mais demoradas (~14 s fixos + ~2,4 s/s) e não paralelizam bem entre si
+    tarefas = [("hf", j) for j in hf] + [("lote", l) for l in S.lotes(falta_rem, S.TETO_LOTE_S)]
     out = {j["cena"]: c for j in rem if j not in falta_rem and (c := S._do_cache(j, trechos, W, H))}
     if n == 1 or len(tarefas) <= 1:
         out.update(S.renderizar_lote(rem, pasta, W, H, rascunho=rascunho, forcar=forcar))
@@ -171,9 +172,14 @@ def _renderizar_paralelo(alvo: list[dict], pasta: Path, W: int, H: int, rascunho
             return S.renderizar_lote(x, pasta, W, H, rascunho=rascunho, forcar=True)
         return {x["cena"]: S.renderizar(x, pasta, W, H, rascunho=rascunho, forcar=forcar)}
 
+    # barra do painel a cada trabalho que termina (uso real: com o paralelo, a barra ficava em 0 % até o fim das cenas)
+    from concurrent.futures import as_completed
     with ThreadPoolExecutor(max_workers=n) as ex:
-        for r in ex.map(faz, tarefas):
-            out.update(r)
+        futuros = [ex.submit(faz, t) for t in tarefas]
+        for r in as_completed(futuros):
+            out.update(r.result())
+            if prog:
+                prog(0.55 * len(out) / max(1, len(alvo)), f"{len(out)} de {len(alvo)} cena(s) renderizada(s)")
     return out
 
 
@@ -194,12 +200,13 @@ def montar(pasta: Path, modo: str = "rascunho", cenas: list[str] | None = None, 
     trechos = {}
     # Remotion: as cenas que faltam vão em lotes (o motor abre uma vez por lote); HyperFrames: uma a uma
     prog(0.0, f"renderizando {len(alvo)} cena(s) em {W}×{H}")
-    lote = _renderizar_paralelo(alvo, pasta, W, H, modo == "rascunho", forcar)
+    lote = _renderizar_paralelo(alvo, pasta, W, H, modo == "rascunho", forcar, prog)
     for k, j in enumerate(alvo):
         r = lote.get(j["cena"]) or S.renderizar(j, pasta, W, H, rascunho=modo == "rascunho", forcar=forcar)
         log(f"  cena {j['cena']} {j['motor']:11} {r['quadros']:5} q  {'cache' if r['do_cache'] else 'renderizada'}")
         trechos[j["cena"]] = r
-        prog(0.55 * (k + 1) / max(1, len(alvo)), f"cena {k + 1} de {len(alvo)} ({j['motor']}{', cache' if r['do_cache'] else ''})")
+        if j["cena"] not in lote:   # as do paralelo já avançaram a barra
+            prog(0.55 * (k + 1) / max(1, len(alvo)), f"cena {k + 1} de {len(alvo)} ({j['motor']}{', cache' if r['do_cache'] else ''})")
     if cenas:
         return {"cenas": trechos}
     # transições nas coordenadas da saída (a barra do wipe e o desfoque dependem da largura)
