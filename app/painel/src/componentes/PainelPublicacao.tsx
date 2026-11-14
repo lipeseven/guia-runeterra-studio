@@ -11,6 +11,9 @@ type Textos = {
   capitulos: { titulo: string; tempo: string }[]
   thumbnail: string | null
   midias_usadas: number
+  // documentário do F1 (fase 7c): sugestão de miniatura (o quadro do final vai em `thumbnail`) e concorrentes
+  miniatura?: { texto: string; enquadramento: string; cena: string; tempo: string; cena_trocada?: boolean }
+  concorrentes?: { status: 'ok' | 'sem_chave' | 'erro'; itens: { titulo: string; canal: string; views: number; url: string }[]; aviso?: string }
 }
 type Dados = {
   textos: Textos | null
@@ -120,7 +123,7 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
           {/* descrição */}
           <div>
             <div className="mb-1.5 flex items-center justify-between">
-              <span className="text-xs font-medium text-suave">Descrição (com capítulos, créditos e aviso da Riot)</span>
+              <span className="text-xs font-medium text-suave">Descrição (com capítulos, créditos e aviso legal)</span>
               <BotaoCopiar texto={t.descricao} />
             </div>
             <textarea
@@ -157,13 +160,48 @@ export function PainelPublicacao({ videoId, etapa, publicado, aoMudar }: { video
             </div>
           </div>
 
+          {/* miniatura sugerida (documentário): texto + enquadramento; o quadro do final é a base */}
+          {t.miniatura && (
+            <div className="rounded-lg border border-borda bg-painel-2 p-3">
+              <div className="mb-1.5 flex items-center justify-between">
+                <span className="text-xs font-medium text-suave">Miniatura sugerida</span>
+                <BotaoCopiar texto={t.miniatura.texto} />
+              </div>
+              <p className="font-titulo text-xl leading-tight">{t.miniatura.texto || '—'}</p>
+              <p className="mt-1 text-xs text-texto/85">{t.miniatura.enquadramento}</p>
+              <p className="mt-1 font-mono text-[11px] text-apagado">
+                base: quadro do vídeo final na cena {t.miniatura.cena} ({t.miniatura.tempo})
+                {t.miniatura.cena_trocada ? ' · a cena sugerida não existia: usei a cena com mais elementos' : ''} · o texto vai por cima no seu editor
+              </p>
+            </div>
+          )}
+          {t.concorrentes && (
+            <details className="rounded-lg border border-borda bg-painel-2 p-3 text-xs">
+              <summary className="cursor-pointer text-suave">
+                Concorrentes no YouTube{' '}
+                {t.concorrentes.status === 'ok' ? `(${t.concorrentes.itens.length} vídeos, só para diferenciar o título)` : `· ${t.concorrentes.aviso ?? t.concorrentes.status}`}
+              </summary>
+              {t.concorrentes.status === 'ok' && (
+                <ul className="mt-2 flex flex-col gap-1">
+                  {t.concorrentes.itens.map((c) => (
+                    <li key={c.url} className="flex gap-2">
+                      <span className="w-20 shrink-0 text-right font-mono text-apagado">{c.views.toLocaleString('pt-BR')}</span>
+                      <a href={c.url} target="_blank" rel="noreferrer" className="min-w-0 truncate hover:underline">{c.titulo}</a>
+                      <span className="shrink-0 text-apagado">{c.canal}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
+          )}
+
           {/* arquivos */}
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-borda bg-painel-2 p-3">
             {t.thumbnail && <img src={arquivo(t.thumbnail)} alt="Thumbnail" className="h-20 rounded border border-borda" />}
             <div className="min-w-0 flex-1 text-xs text-suave">
               <p>
                 {t.thumbnail || d?.video_final
-                  ? 'Thumbnail 1280×720 (a sua capa) e o vídeo final ficam na pasta de saída.'
+                  ? `Thumbnail 1280×720 (${t.miniatura ? 'quadro do vídeo final, sem texto' : 'a sua capa'}) e o vídeo final ficam na pasta de saída.`
                   : 'Vídeo final e thumbnail foram para a Lixeira na limpeza.'}
               </p>
               {d?.video_final && (

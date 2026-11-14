@@ -1,4 +1,4 @@
-"""Painel do F1 numa porta TEMPORÁRIA com dados fictícios, para ver as telas do documentário de verdade no navegador.
+r"""Painel do F1 numa porta TEMPORÁRIA com dados fictícios, para ver as telas do documentário de verdade no navegador.
 
 Não toca os painéis 8765/8766 nem os dados reais (ver ambiente.py). Semeia um card documental com o roteiro de
 exemplo do diretor (Monza 2025), roteiro aprovado e a História já respondida pelo "orquestrador" (aguardando ★),
@@ -12,7 +12,9 @@ medida pelo Whisper real; `gravacao_exemplo.wav` (mais lenta, com uma frase repe
 copiar em entrada/ e usar "Já coloquei na pasta". Opção: `--voz-windows`.
 
     .venv\Scripts\python.exe F1\horizontal\testes\painel\servidor.py [--porta 8799] [--manter] [--voz-windows] [--storyboard]
-(--storyboard: mais um card no Rascunho com o mini-spec e os trechos do teste do montador, para ver o storyboard)
+(--storyboard: mais um card no Rascunho com o mini-spec e os trechos do teste do montador, para ver o storyboard;
+ --final (fase 7c, junto com --storyboard): esse card já com a "gravação" (narração sintética do teste) aprovada e
+ ressincronizada, para renderizar o vídeo final 1080p60 de verdade pelo painel e seguir para a Publicação)
 (precisa de app/painel/dist compilado: npm run build em app/painel)
 """
 from __future__ import annotations
@@ -119,7 +121,7 @@ def semear_storyboard(cli) -> None:
     slug = cli.get(f"/api/videos/{vid}").json()["slug"]
     proj = motor.PASTA_PROJETOS / slug
     pasta = proj / "horizontal"
-    shutil.copytree(origem, pasta, ignore=shutil.ignore_patterns("rascunho", "blocos", "prompts", "resposta_*", "_*"))
+    shutil.copytree(origem, pasta, ignore=shutil.ignore_patterns("rascunho", "blocos", "prompts", "resposta_*", "_*", "final"))
     (proj / "direcao").mkdir(parents=True, exist_ok=True)
     shutil.copy2(pasta / "roteiro.txt", proj / "direcao" / "roteiro.txt")
     shutil.copy2(pasta / "palavras.json", proj / "direcao" / "tempos_voz.json")
@@ -133,8 +135,9 @@ def semear_storyboard(cli) -> None:
         est["etapas"][n]["status"] = st
     est["etapas"]["spec"]["hash"] = hash_dados(spec)
     est["pedidos"] = []
-    gravar_json(pasta / "historia.json", {"titulo": "Leclerc × Hamilton em Monza", "tese": "mini-spec do teste do montador",
-                                          "tempos": "medidos", "capitulos": [], "afirmacoes": []})
+    if not (origem / "historia.json").exists():   # a 7c do teste do montador deixa uma história válida (presa à SPEC)
+        gravar_json(pasta / "historia.json", {"titulo": "Leclerc × Hamilton em Monza", "tese": "mini-spec do teste do montador",
+                                              "tempos": "medidos", "capitulos": [], "afirmacoes": []})
     gravar_json(pasta / "verificacao" / "verificacao.json", {"status": "aprovado", "contagem": {"erros": 0, "pendencias": 0, "avisos": 0},
                                                             "erros": [], "pendencias": [], "avisos": []})
     E.gravar(pasta, est)
@@ -142,6 +145,14 @@ def semear_storyboard(cli) -> None:
         con.execute("UPDATE etapas SET status='concluido', resumo='roteiro do teste do montador' WHERE video_id=? AND chave='roteiro'", (vid,))
         con.execute("UPDATE videos SET coluna='montagem' WHERE id=?", (vid,))
         con.commit()
+    if "--final" in sys.argv:   # fase 7c: a narração sintética do teste no papel da sua gravação limpa (já aprovada)
+        (proj / "trabalho" / "gravacao").mkdir(parents=True, exist_ok=True)
+        shutil.copy2(pasta / "narracao.wav", proj / "trabalho" / "gravacao" / "limpa.wav")
+        shutil.copy2(pasta / "palavras.json", proj / "direcao" / "tempos_gravacao.json")
+        with conectar() as con:
+            for ch in ("voz_guia", "gravacao", "ressincronizacao"):
+                con.execute("UPDATE etapas SET status='concluido', resumo='fictício (teste do montador)' WHERE video_id=? AND chave=?", (vid, ch))
+            con.commit()
     cli.get(f"/api/videos/{vid}/doc")
     print(json.dumps({"storyboard": vid, "url": f"http://127.0.0.1:{PORTA}/#/video/{vid}"}, ensure_ascii=False))
 

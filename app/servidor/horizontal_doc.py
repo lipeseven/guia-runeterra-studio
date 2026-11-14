@@ -143,6 +143,7 @@ def sincronizar(con, vid: int, r: dict) -> None:
             _abrir(con, vid, f"doc_aprovar_{nome}", CHAVE[nome], f"Aprove a {TITULO[nome]} ★",
                    f"Confira a {TITULO[nome]} no painel “Documentário” e aprove, ou peça mudança"
                    + (" por cena." if nome == "spec" else "."))
+    _sincronizar_final(con, vid, r, manter)
     v = r.get("verificacao")
     if v and estado["etapas"]["verificacao"]["status"] in ("gerado", "falhou") and v["status"] != "aprovado":
         manter.add("doc_verificacao")
@@ -152,10 +153,42 @@ def sincronizar(con, vid: int, r: dict) -> None:
     _fechar_doc(con, vid, manter)
 
 
+def _sincronizar_final(con, vid: int, r: dict, manter: set[str]) -> None:
+    """Fase 7c: o vídeo final foi feito sobre uma SPEC (hash). A SPEC mudou depois (ação direta, pedido atendido, nova
+    narração): o final ficou desatualizado; "Assista" deixa de valer e o card pede outro render (só os blocos afetados)."""
+    reg = con.execute("SELECT status, dados FROM etapas WHERE video_id=? AND chave='render'", (vid,)).fetchone()
+    if not reg or reg["status"] not in ("atencao", "concluido"):
+        return
+    dados = json.loads(reg["dados"] or "{}")
+    if not dados.get("spec_hash") or not r.get("spec_hash") or dados["spec_hash"] == r["spec_hash"]:
+        return
+    if not dados.get("desatualizado"):
+        from .motor import fechar_pendencia
+
+        fechar_pendencia(con, vid, "ver_final")
+        atualizar_etapa(con, vid, "render", "atencao", f"v{dados.get('versao')} desatualizado",
+                        "a SPEC mudou depois do vídeo final: aprove ★ as cenas mexidas e renderize de novo", {**dados, "desatualizado": True})
+        registrar(con, vid, f"Vídeo final v{dados.get('versao')} desatualizado: a SPEC mudou depois do render", "alerta")
+    manter.add("doc_final")
+    _abrir(con, vid, "doc_final", "render", "Vídeo final desatualizado",
+           "Cenas mudaram depois do vídeo final. No storyboard (aba Rascunho), confira e aprove ★ as cenas mexidas e clique em "
+           "“Renderizar o vídeo final”: só as cenas e os blocos que mudaram são refeitos.")
+
+
+def _linha_render(con, vid: int) -> None:
+    """Card documental da 7a/7b (sem a etapa Render): ganha a linha na 1ª leitura (a lista de etapas já mostra)."""
+    tem = {x["chave"] for x in con.execute("SELECT chave FROM etapas WHERE video_id=?", (vid,))}
+    if "voz_guia" in tem and "render" not in tem:
+        from .banco import agora
+
+        con.execute("INSERT INTO etapas (video_id, chave, status, atualizado_em) VALUES (?,?,?,?)", (vid, "render", "pendente", agora()))
+
+
 def ler(con, vid: int) -> dict:
     from .motor import retomar_orquestrador
 
     v = _card(con, vid)
+    _linha_render(con, vid)
     retomar_orquestrador(con, vid, v["slug"])   # resposta do chat já gravada: roteiro/conferência pausados continuam
     base = _base(v["slug"])
     r = chamar({"cmd": "resumo", **base})
@@ -205,6 +238,28 @@ def rodar_passo(vid: int, passo: str):
             registrar(con, vid, f"{TITULO[passo]}: " + (f"{r['status']}" if "status" in r else
                                                       ", ".join(f"{n} {k}" for k, n in r.get("resumo", {}).items() if n)), "info")
         return {"passo": r, **ler(con, vid)}
+
+
+@rota.post("/api/videos/{vid}/doc/final")
+def renderizar_final(vid: int):
+    """Fase 7c: confere tudo (narração gravada, SPEC ★, todas as cenas ★, verificação) e põe o render final na fila do
+    motor (processo à parte, barra por bloco). Faltando algo: 409 com o motivo."""
+    from . import motor
+
+    with conectar() as con:
+        v = _card(con, vid)
+        st = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='render'", (vid,)).fetchone()
+        if (st and st["status"] == "andamento") or any(x == (vid, "render_doc") for x in list(motor.FILA.queue)):
+            raise HTTPException(409, "o vídeo final já está na fila ou renderizando")
+        plano = chamar({"cmd": "final_checar", **_base(v["slug"])}, tempo=900)["final"]
+        _linha_render(con, vid)
+        atualizar_etapa(con, vid, "render", "andamento", "na fila", f"{plano['cenas']} cenas · 1920×1080 60 q/s")
+        motor.fechar_pendencia(con, vid, "final_doc")
+        registrar(con, vid, "Vídeo final pedido (1920×1080, 60 q/s; só o que mudou é refeito)", "info")
+        con.commit()
+    motor.FILA.put((vid, "render_doc"))
+    with conectar() as con:
+        return {**ler(con, vid), "plano_final": plano}
 
 
 @rota.post("/api/videos/{vid}/doc/orquestrador/continuar")

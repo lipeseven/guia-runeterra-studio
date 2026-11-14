@@ -38,6 +38,10 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
   História ★/SPEC ★/Ativos/Verificação/Rascunho ★ espelhadas do `estado.json` do diretor (`app/servidor/horizontal_doc.py`,
   `PainelDocumental.tsx`); detalhes em `F1/horizontal/docs/painel.md`. Vertical e horizontal animado não mudam.
   Fase 7a: Voz guia, Gravação e Ressincronização do Runeterra no card (SPEC retemporizada por palavra); tarefas que precisam do modelo pausam num prompt para o orquestrador (`motor.executar`/`aguardar_orquestrador`, pendência `orq_*`).
+  Fase 7c: etapa Render final (`motor.tarefa_render_doc` → `montar.py --final`, 1080p60, barra por bloco, `ver_final`) e
+  Publicação do documentário (`publicacao.gerar_textos_doc`: capítulos da SPEC, miniatura de um quadro do final,
+  concorrentes pela YouTube Data API só com `YOUTUBE_API_KEY`), prompt pelo orquestrador. Rótulo da descrição no
+  `PainelPublicacao` virou "aviso legal" (vale para os dois canais).
 - **Observações gerais por voz ou texto** (2026-11-13, todos os formatos): painel "Observações gerais" na página do vídeo
   (`Observacoes.tsx`, coluna da direita), microfone estilo ditado (clicar/clicar ou segurar/soltar) → faster-whisper local
   em processo à parte (`tools/audio/ditado.py`) → texto editável → salvar; editar/apagar. Banco `observacoes` + espelho

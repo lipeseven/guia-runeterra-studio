@@ -165,7 +165,7 @@ def ffprobe(mp4: Path) -> dict:
 def main() -> int:
     if "--limpar" in sys.argv:
         shutil.rmtree(SAIDA, ignore_errors=True)
-    for d in ("trechos", "rascunho", "verificacao", "estado.json", "storyboard", "blocos", "prompts", "ajustes_diretos.json"):   # cada rodada começa sem cache (o teste do cache depende disso)
+    for d in ("trechos", "rascunho", "verificacao", "estado.json", "storyboard", "blocos", "prompts", "ajustes_diretos.json", "final", "historia.json"):   # cada rodada começa sem cache (o teste do cache depende disso)
         p = PASTA / d
         shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
     PASTA.mkdir(parents=True, exist_ok=True)
@@ -359,11 +359,144 @@ def main() -> int:
     checa("quero os carros mais separados" in (PASTA / "prompts" / f"pedido_{c2}.prompt.txt").read_text(encoding="utf-8"),
           "prompt da cena traz o pedido")
 
+    final_7c(ponte, E)
+
     for f in sorted((PASTA / "rascunho" / "verificacao").glob("folha_*.jpg")):
         shutil.copy2(f, AQUI / f.name)
     shutil.copy2(PASTA / "rascunho" / "verificacao" / "verificacao_montagem.json", AQUI / "verificacao_montagem.json")
     print(f"\nvídeo: {rel3['arquivo']}\n{n_ok} checagens ok, {len(falhas)} falhas")
     return 1 if falhas else 0
+
+
+def final_7c(ponte, E) -> None:
+    """Fase 7c: o vídeo final DE VERDADE (1920×1080, 60 q/s) do mini-spec, com a "gravação limpa" do card (a narração
+    sintética copiada para trabalho/gravacao/limpa.wav: o caminho e a regra são os do final; a voz é a de teste)."""
+    import os
+    import storyboard as SB
+    from comum import hash_dados
+    B = MT.B
+    print("7. vídeo final (fase 7c): 1920×1080 60 q/s, narração gravada, NVENC e x264, só o bloco afetado refeito")
+    limpa = PASTA.parent / "trabalho" / "gravacao" / "limpa.wav"
+    limpa.unlink(missing_ok=True)
+    shutil.rmtree(PASTA / "final", ignore_errors=True)
+    try:
+        MT.planejar(PASTA, exigir_estado=False, modo="final")
+        checa(False, "final sem a gravação limpa: barrado")
+    except MT.NaoMonta as e:
+        checa("narração gravada e limpa" in str(e), "final sem a gravação limpa: barrado (a voz guia/narracao.wav não vale)", str(e)[:200])
+    limpa.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(PASTA / "narracao.wav", limpa)
+    checa(MT.narracao(PASTA, "final") == limpa and MT.narracao(PASTA) == PASTA / "narracao.wav", "final usa SÓ a gravação limpa; rascunho segue com narracao.wav")
+
+    # estado: o pedido por voz da seção 6 sai (fixture) e a SPEC atual fica ★
+    est = E.ler(PASTA)
+    for p in est["pedidos"]:
+        if p["status"] == "aberto":
+            p["status"] = "recusado"
+    sp_atual = json.loads((PASTA / "spec.json").read_text(encoding="utf-8"))
+    est["etapas"]["spec"].update(status="aprovado", hash=hash_dados(sp_atual))
+    from comum import gravar_json
+    gravar_json(PASTA / "historia.json", {"titulo": "Leclerc × Hamilton em Monza", "tese": "mini-spec do teste do montador",
+                                          "tempos": "medidos", "capitulos": [{"id": "c1", "titulo": "Monza", "funcao": "gancho",
+                                                                              "ritmo": "denso", "em": "Em Monza,", "i": 0}],
+                                          "afirmacoes": []})
+    E.gravar(PASTA, est)
+    c1, c2, c3 = (c["id"] for c in sp_atual["cenas"])
+    r = ponte(cmd="final_checar", narracao="guia")
+    checa(not r["ok"] and "sua gravação" in r["erro"], "final recusado com a voz guia valendo", str(r)[:200])
+    r = ponte(cmd="final_checar", narracao="gravacao")
+    checa(not r["ok"] and "aprove ★ no storyboard" in r["erro"], "final recusado sem todas as cenas ★", str(r)[:300])
+    SB.gerar(PASTA, None)
+    for c in (c1, c2, c3):
+        ponte(cmd="aprovar_cena", cena=c)
+    r = ponte(cmd="final_checar", narracao="gravacao")
+    checa(not r["ok"] and "verificação reprovou" in r["erro"], "final recusado com a verificação da SPEC atual reprovada (mini-spec à mão)",
+          str(r)[:200])
+    # conserta o mini-spec como o diretor faria: história válida, hashes da SPEC e o número “2025” que não é dito na c3
+    from comum import hash_texto
+    hist = {"versao": 1, "titulo": "Leclerc × Hamilton em Monza", "tese": "mini-spec do teste do montador",
+            "roteiro_hash": hash_texto((PASTA / "roteiro.txt").read_text(encoding="utf-8")), "tempos": "medidos",
+            "capitulos": [{"id": "c1", "titulo": "Monza", "funcao": "gancho", "ritmo": "denso", "em": "Em Monza,", "i": 0}], "afirmacoes": []}
+    gravar_json(PASTA / "historia.json", hist)
+    sp_atual.update(roteiro_hash=hist["roteiro_hash"], historia_hash=hash_dados(hist))
+    sp_atual["cenas"][2]["texto"] = ["0,117 s", "Leclerc × Hamilton · Monza"]
+    (PASTA / "spec.json").write_text(json.dumps(sp_atual, ensure_ascii=False, indent=1), encoding="utf-8")
+    est = E.ler(PASTA)
+    est["etapas"]["spec"].update(status="aprovado", hash=hash_dados(sp_atual))
+    est["etapas"]["verificacao"]["status"] = "desatualizado"
+    E.gravar(PASTA, est)
+    r = ponte(cmd="final_checar", narracao="gravacao")
+    checa(not r["ok"] and "cena 3" in r["erro"] and "verificação" not in r["erro"], "texto da c3 mudou: final pede ★ da c3 de novo", str(r)[:200])
+    SB.gerar(PASTA, [c3])
+    ponte(cmd="aprovar_cena", cena=c3)
+    r = ponte(cmd="final_checar", narracao="gravacao")
+    checa(r["ok"] and r["final"]["cenas"] == 3 and "--final" in r["final"]["comando"], "todas as cenas ★: final liberado (comando do montador)", str(r)[:300])
+
+    # o mesmo comando que o motor do painel roda (processo à parte, linhas PROG para a barra)
+    t0 = __import__("time").time()
+    p = subprocess.run([sys.executable, *r["final"]["comando"]], cwd=r["final"]["pasta_montador"], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+    seg_final = __import__("time").time() - t0
+    progs = [ln.split(" ", 2) for ln in p.stdout.splitlines() if ln.startswith("PROG ")]
+    fr = [float(x[1]) for x in progs]
+    checa(p.returncode == 0, "montador --final terminou", p.stdout[-600:])
+    checa(fr and fr == sorted(fr) and fr[-1] == 1.0 and any(x[2].startswith("bloco 1 de") for x in progs)
+          and any(x[2].startswith("cena 3 de 3") for x in progs), "progresso cena a cena e bloco a bloco, crescente até 100 %",
+          str([x[2] for x in progs])[:300])
+    info = json.loads((PASTA / "final" / "final.json").read_text(encoding="utf-8"))
+    pr = ffprobe(Path(info["arquivo"]))
+    checa((pr["video"]["width"], pr["video"]["height"]) == (1920, 1080) and pr["video"]["r_frame_rate"] == "60/1"
+          and int(pr["video"]["nb_read_frames"]) == 540, "final 1920×1080, 60/1, 540 quadros (ffprobe)", str(pr["video"]))
+    checa(abs(float(pr["audio"]["duration"]) - 9.0) < 0.03, "áudio do final com a duração do vídeo", str(pr["audio"].get("duration")))
+    lf = info["loudness_mp4"] or {}
+    checa(info["verificacao"]["status"] == "aprovado" and abs(lf.get("lufs", 0) + 14) <= 0.7 and lf.get("pico_dbtp", 0) <= -1.0,
+          "final aprovado na verificação por quadro; −14 LUFS e pico ≤ −1 dBTP medidos no MP4", f"({info['verificacao']['erros'][:2]}, {lf})")
+    checa(info["narracao"] == str(limpa) and info["spec_hash"] == hash_dados(sp_atual), "final com a gravação limpa e o hash da SPEC")
+    checa(info["codificador"] == "h264_nvenc", "esta máquina: NVENC", info["codificador"])
+    print(f"   final 1080p60 de 9 s em {seg_final:.0f} s; {info['resumo']}")
+    res = ponte(cmd="resumo")
+    checa(res["final"]["spec_hash"] == res["spec_hash"], "ponte: final em dia com a SPEC")
+
+    # x264: máquina "sem NVENC" (o ffmpeg recusa o NVENC de verdade) → sonda cai no x264
+    os.environ["F1_SEM_NVENC"] = "1"
+    B._CODEC.clear()
+    try:
+        relx = MT.montar(PASTA, "final", exigir_estado=False, teto_bloco=TETO_TESTE)
+        x264 = b"x264 - core" in Path(relx["arquivo"]).read_bytes()
+        checa(relx["codificador"] == "libx264" and all(s["codec"] == "libx264" for s in relx["blocos"]["segmentos"]) and x264,
+              "sem NVENC: todos os blocos em x264 (SEI do x264 no MP4)", f"({relx['codificador']}, x264 no arquivo: {x264})")
+        checa(relx["verificacao"]["status"] == "aprovado", "final em x264 aprovado na verificação", str(relx["verificacao"]["erros"][:2]))
+        # NVENC que passa na sonda e cai no meio dos blocos: o vídeo inteiro vira x264 (concat exige um codificador só)
+        B._CODEC[False] = "h264_nvenc"
+        rely = MT.montar(PASTA, "final", exigir_estado=False, teto_bloco=TETO_TESTE)
+        checa(rely["codificador"] == "libx264" and any("NVENC falhou" in a for a in rely["avisos"])
+              and rely["verificacao"]["status"] == "aprovado", "NVENC caiu no bloco: refeito em x264, com aviso",
+              f"({rely['codificador']}, {rely['avisos'][-1:]})")
+    finally:
+        os.environ.pop("F1_SEM_NVENC", None)
+        B._CODEC.clear()
+
+    # correção depois do final: ação direta na c3 → final barrado até o ★ → só a c3 e o bloco dela refeitos
+    rel_a = MT.montar(PASTA, "final", exigir_estado=False, teto_bloco=TETO_TESTE)
+    checa(rel_a["codificador"] == "h264_nvenc" and all(c["do_cache"] for c in rel_a["cenas"]), "final de novo: cenas 1080p do cache")
+    r = ponte(cmd="ajustar", cena=c3, acao={"acao": "movimento", "tipo": "aproximar", "intensidade": 0.08}, previa=False)
+    checa(r["ok"] and r["ajuste"]["afetadas"] == [c3], "correção pós-final na c3 (ação direta)", str(r)[:200])
+    res = ponte(cmd="resumo")
+    checa(res["final"]["spec_hash"] != res["spec_hash"], "ponte: final desatualizado depois da correção")
+    r = ponte(cmd="final_checar", narracao="gravacao")
+    checa(not r["ok"] and "cena 3" in r["erro"], "final barrado até a c3 ser ★ de novo", str(r)[:200])
+    SB.gerar(PASTA, [c3])
+    ponte(cmd="aprovar_cena", cena=c3)
+    r = ponte(cmd="final_checar", narracao="gravacao")
+    checa(r["ok"], "c3 ★: final liberado", str(r)[:200])
+    rel_b = MT.montar(PASTA, "final", exigir_estado=False, teto_bloco=TETO_TESTE)
+    checa([c["do_cache"] for c in rel_b["cenas"]] == [True, True, False], "só a c3 renderizada de novo em 1080p",
+          f"({[c['do_cache'] for c in rel_b['cenas']]})")
+    checa([s["do_cache"] for s in rel_b["blocos"]["segmentos"]] == [True, True, True, False, False],
+          "só a junção c2→c3 e o bloco da c3 recodificados", f"({[s['do_cache'] for s in rel_b['blocos']['segmentos']]})")
+    checa(rel_b["verificacao"]["status"] == "aprovado", "final corrigido aprovado na verificação", str(rel_b["verificacao"]["erros"][:2]))
+    for f in sorted((PASTA / "final" / "verificacao").glob("folha_*.jpg")):
+        shutil.copy2(f, AQUI / f"final_{f.name}")
 
 
 if __name__ == "__main__":

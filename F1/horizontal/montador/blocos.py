@@ -93,8 +93,13 @@ def segmentos(pcs: list[dict], cenas: list[dict], blocos: list[dict]) -> list[di
     return segs
 
 
+class TrocaCodec(RuntimeError):
+    """O NVENC falhou no meio dos blocos: o vídeo inteiro passa para o x264 (concat sem recodificar exige o mesmo)."""
+
+
 def codec(rascunho: bool) -> str:
-    """NVENC se esta máquina codifica com ele; senão x264. Decidido uma vez: os blocos de um vídeo usam o mesmo."""
+    """NVENC se esta máquina codifica com ele; senão x264. Decidido uma vez: os blocos de um vídeo usam o mesmo.
+    `F1_SEM_NVENC=1` (testes) faz o NVENC falhar de verdade no ffmpeg (ver `juncao.parametros_codec`)."""
     if rascunho not in _CODEC:
         r = subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=c=gray:s=256x144:r=60:d=0.1", "-c:v",
                             *J.parametros_codec("h264_nvenc", rascunho), "-f", "null", "-"], capture_output=True)
@@ -132,7 +137,13 @@ def codificar(segs: list[dict], trechos: dict, transicoes: dict, pasta: Path, mo
         cache = not forcar and arq.exists() and m.get("quadros") == quadros
         t0 = time.perf_counter()
         if not cache:
-            J.encodar_final(s["pecas"], None, arq, W, H, rascunho, tmp, codec=cod)
+            try:
+                J.encodar_final(s["pecas"], None, arq, W, H, rascunho, tmp, codec=cod)
+            except RuntimeError as e:
+                if cod != "h264_nvenc":
+                    raise
+                _CODEC[rascunho] = "libx264"   # o resto do vídeo (e as próximas montagens deste processo) em x264
+                raise TrocaCodec(f"NVENC falhou no segmento {n} ({str(e)[-300:]}): refazendo em x264") from e
             n_lido = int(subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-count_frames", "-show_entries",
                                          "stream=nb_read_frames", "-of", "csv=p=0", str(arq)], capture_output=True, text=True).stdout.strip() or -1)
             if n_lido != quadros:

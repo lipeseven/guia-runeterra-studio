@@ -648,7 +648,8 @@ def publicar_limpeza(con, vid: int, slug: str, original: Path, rel: dict, nota: 
                     f"{len(rel['removidos'])} cortes, {mmss(rel['duracao_original'])} → {mmss(rel['duracao_limpa'])}. "
                     + nota + "Ouça o áudio limpo no painel “Gravação” (na linha do tempo dá para ouvir, cortar e "
                     "recuperar cada fala). Se estiver bom, aprove: aí o sistema realinha as cenas à sua voz"
-                    + (" (SPEC retemporizada; o render final é a fase 7c)." if _documentario(con, vid) else " e renderiza."))
+                    + (" (SPEC retemporizada; com todas as cenas ★ no storyboard, sai o vídeo final 1920×1080)."
+                       if _documentario(con, vid) else " e renderiza."))
 
 
 def tarefa_remontar_gravacao(vid: int) -> None:
@@ -685,7 +686,8 @@ def aprovar_gravacao(con, vid: int) -> None:
 
 def tarefa_ressinc_doc(vid: int) -> None:
     """Documentário: gravação aprovada → tempos por palavra DO ROTEIRO na sua voz → a ponte do diretor retemporiza a
-    SPEC (`spec.retemporizar`, mesmas cenas e índices; só mudam os tempos das cenas afetadas). Render é a fase 7c."""
+    SPEC (`spec.retemporizar`, mesmas cenas e índices; só mudam os tempos das cenas afetadas). Com todas as cenas ★,
+    o vídeo final sai em seguida (como o Runeterra: gravação aprovada → render); senão a etapa Render diz o que falta."""
     sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
     from alinhar import alinhar
 
@@ -710,6 +712,110 @@ def tarefa_ressinc_doc(vid: int) -> None:
                         f"{estimadas} palavras com tempo estimado" if estimadas else "todas as palavras encontradas",
                         {"afetadas": info.get("afetadas", []), "audio": caminho_rel(slug, "trabalho", "gravacao", "limpa.wav")})
         registrar(con, vid, f"Ressincronização: {resumo} (sua voz, {mmss(palavras[-1]['f'])})", "ok")
+        con.commit()
+    tarefa_render_doc(vid, automatico=True)
+
+
+# ---------------------------------------------------------------- documentário: vídeo final (fase 7c)
+def _comando_final(args: list[str]) -> list[str]:
+    """Processo do montador (os testes trocam por um montador fictício)."""
+    return [sys.executable, *args]
+
+
+def _plano_final(slug: str) -> tuple[dict | None, str | None]:
+    """(plano, None) = pode renderizar; (None, motivo) = falta algo (a ponte confere narração gravada, SPEC ★, cenas ★,
+    verificação da SPEC atual e o que o montador precisa)."""
+    from fastapi import HTTPException
+
+    from .horizontal_doc import _base, chamar
+
+    try:
+        return chamar({"cmd": "final_checar", **_base(slug)}, tempo=900)["final"], None
+    except HTTPException as e:
+        return None, str(e.detail)
+
+
+def tarefa_render_doc(vid: int, automatico: bool = False) -> None:
+    """Documentário: o montador em modo final (1920×1080, 60 q/s, NVENC ou x264, UMA mixagem com a sua narração gravada,
+    loudness medida) num processo à parte; barra de progresso por cena/bloco; saida/final_vN.mp4; pendência
+    "ver_final" como no Runeterra. Correção depois do final: storyboard (★ da cena) e renderizar de novo: só as cenas e
+    os blocos que mudaram são refeitos (cache do montador por hash). `automatico` = chamado pela ressincronização:
+    faltando algo, a etapa só avisa (sem erro)."""
+    import shutil
+    import subprocess
+
+    from .horizontal_doc import _base
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    base = _base(slug)
+    plano, falta = _plano_final(slug)
+    if falta:
+        if not automatico:
+            raise RuntimeError(falta)
+        with conectar() as con:
+            atualizar_etapa(con, vid, "render", "atencao", "aguardando ★ das cenas", falta[:300])
+            abrir_pendencia(con, vid, "final_doc", "render", "Vídeo final: falta pouco",
+                            falta[:400] + ". Depois clique em “Renderizar o vídeo final” no painel Documentário.")
+            registrar(con, vid, f"Vídeo final ainda não: {falta[:200]}", "info")
+            con.commit()
+        return
+    pasta_h = Path(base["pasta"])
+    saida = PASTA_PROJETOS / slug / "saida"
+    saida.mkdir(parents=True, exist_ok=True)
+    versao = proxima_versao(saida, "final")
+    with conectar() as con:
+        limpar_avisos(con, vid, AVISOS_DO_FINAL + ("final_doc", "doc_final"))
+        atualizar_etapa(con, vid, "render", "andamento", f"renderizando v{versao}…", f"{plano['cenas']} cenas · 1920×1080 60 q/s")
+        con.commit()
+    (pasta_h / "final").mkdir(parents=True, exist_ok=True)
+    log = pasta_h / "final" / "render.log"
+    t0 = time.time()
+    titulo = f"Vídeo final v{versao}"
+    definir_progresso(titulo, "conferindo o que mudou desde o último render", 0.0, t0)
+    ultimo_bloco = None
+    with open(log, "w", encoding="utf-8") as fh:
+        proc = subprocess.Popen(_comando_final(plano["comando"]), cwd=plano["pasta_montador"], stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, text=True, encoding="utf-8",
+                                errors="replace", env={**os.environ, "PYTHONIOENCODING": "utf-8"})
+        for linha in proc.stdout:
+            fh.write(linha)
+            if not linha.startswith("PROG "):
+                continue
+            _, fracao, texto = (linha.rstrip("\r\n").split(" ", 2) + [""])[:3]
+            definir_progresso(titulo, texto, float(fracao), t0)
+            if texto.startswith("bloco ") and texto != ultimo_bloco:   # card: em que bloco está
+                ultimo_bloco = texto
+                with conectar() as con:
+                    con.execute("UPDATE etapas SET detalhe=?, atualizado_em=? WHERE video_id=? AND chave='render'",
+                                (f"{texto} · {plano['cenas']} cenas · 1920×1080 60 q/s", agora(), vid))
+                    con.commit()
+        proc.wait()
+    info = json.loads((pasta_h / "final" / "final.json").read_text(encoding="utf-8")) if (pasta_h / "final" / "final.json").exists() else None
+    if proc.returncode != 0 or not info or not Path(info["arquivo"]).exists():
+        falhou = pasta_h / "final" / "falhou.json"
+        motivo = json.loads(falhou.read_text(encoding="utf-8"))["erro"] if falhou.exists() else f"montador saiu com {proc.returncode} (ver {log})"
+        raise RuntimeError(f"vídeo final: {motivo}")
+    arquivo = saida / f"final_v{versao}.mp4"
+    shutil.move(info["arquivo"], arquivo)   # cada versão em arquivo próprio (nunca sobrescrever o que pode estar aberto)
+    segundos = time.time() - t0
+    lf = info.get("loudness_mp4") or info["loudness"]
+    cod = {"h264_nvenc": "NVENC", "libx264": "x264"}.get(info["codificador"], info["codificador"])
+    dados = {"video": caminho_rel(slug, "saida", arquivo.name), "versao": versao, "spec_hash": info["spec_hash"],
+             "codificador": info["codificador"], "loudness": lf, "verificacao": info["verificacao"],
+             "blocos": info["blocos"], "duracao": info["duracao"], "avisos": info["avisos"]}
+    with conectar() as con:
+        atualizar_etapa(con, vid, "render", "atencao", f"{mmss(info['duracao'])} · v{versao}",
+                        f"1920×1080 60 q/s · {lf['lufs']:.1f} LUFS · pico {lf.get('pico_dbtp', lf.get('pico', 0)):.1f} dBTP · {cod} · "
+                        f"{info['blocos']['codificados']} bloco(s) refeito(s), {info['blocos']['do_cache']} do cache · render em {mmss(segundos)}",
+                        dados)
+        abrir_pendencia(con, vid, "ver_final", "render", "Assista o vídeo final",
+                        "O documentário foi montado em 1920×1080, 60 q/s, com a sua narração (limpa) e as cenas aprovadas ★ no "
+                        "storyboard. Confira na Prévia. Se precisar trocar algo, ajuste a cena no storyboard, aprove ★ e "
+                        "renderize de novo (só os blocos afetados são refeitos). Gostou? “Vídeo aprovado” prepara a publicação.")
+        con.execute("UPDATE videos SET coluna='revisao', atualizado_em=? WHERE id=?", (agora(), vid))
+        registrar(con, vid, f"Vídeo final v{versao} pronto ({info['verificacao']['status']}, {lf['lufs']:.1f} LUFS, {cod}, "
+                            f"render em {mmss(segundos)}) → Revisão", "ok")
         con.commit()
 
 
@@ -785,6 +891,11 @@ def eh_vertical(vid: int) -> bool:
 def _documentario(con, vid: int) -> bool:
     r = con.execute("SELECT formato FROM videos WHERE id=?", (vid,)).fetchone()
     return bool(r) and r["formato"] == "horizontal_doc"
+
+
+def _documentario_vid(vid: int) -> bool:
+    with conectar() as con:
+        return _documentario(con, vid)
 
 
 def eh_documentario(vid: int) -> bool:
@@ -974,6 +1085,24 @@ def tarefa_publicacao(vid: int) -> None:
     vertical, animado = eh_vertical(vid), eh_animado(vid)
     tempos = pasta / "direcao" / ("tempos_voz.json" if animado else "tempos_gravacao.json")
     duracao = json.loads(tempos.read_text(encoding="utf-8"))[-1]["f"] if tempos.exists() else 0
+    if _documentario_vid(vid):   # fase 7c: capítulos da SPEC, miniatura de um quadro do final, concorrentes (opcional)
+        finais = [f for f in (pasta / "saida").glob("final_v*.mp4") if f.stem.split("_v")[1].isdigit()]
+        final = max(finais, key=lambda f: int(f.stem.split("_v")[1]), default=None)
+        textos = publicacao.gerar_textos_doc(pasta, v["titulo"], duracao, final)
+        quadro = textos.pop("_quadro")
+        textos["thumbnail"] = caminho_rel(v["slug"], "saida", quadro.name) if quadro else None
+        textos["video_publicar"] = caminho_rel(v["slug"], "saida", final.name) if final else None
+        (pasta / "direcao" / "publicacao.json").write_text(json.dumps(textos, ensure_ascii=False, indent=1), encoding="utf-8")
+        with conectar() as con:
+            atualizar_etapa(con, vid, "publicacao", "atencao", "textos prontos · revise",
+                            f"{len(textos['titulos'])} títulos · {len(textos['capitulos'])} capítulos")
+            abrir_pendencia(con, vid, "publicar", "publicacao", "Revise os textos e publique",
+                            "Títulos, descrição (capítulos e créditos), tags e a sugestão de miniatura estão no painel “Publicação”. "
+                            "Suba o vídeo no YouTube e depois clique em “Marcar como publicado”.")
+            registrar(con, vid, "Textos de publicação prontos" + (f" (concorrentes: {len(textos['concorrentes']['itens'])} vídeos)"
+                                                                  if textos["concorrentes"]["status"] == "ok" else ""), "ok")
+            con.commit()
+        return
     textos = publicacao.gerar_textos(pasta, v["titulo"] + (" (vídeo vertical curto: Shorts/Reels)" if vertical else ""), duracao)
     if animado:  # sem capa e sem encerramento: sobe o último vídeo como está
         final = max((pasta / "saida").glob("final_v*.mp4"), key=lambda p: p.stat().st_mtime, default=None)
@@ -1364,7 +1493,8 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "voz_ia": tarefa_voz_ia, "direcao": tare
            "conferencia": tarefa_conferencia, "clipes": tarefa_clipes,
            "importar_riot": tarefa_importar_riot, "musica": tarefa_musica,
            "apos_publicar": tarefa_apos_publicar,
-           "remontar_gravacao": tarefa_remontar_gravacao, "retrospectiva": tarefa_retrospectiva}
+           "remontar_gravacao": tarefa_remontar_gravacao, "retrospectiva": tarefa_retrospectiva,
+           "render_doc": tarefa_render_doc}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 
 
@@ -1429,6 +1559,8 @@ def aguardar_orquestrador(vid: int, nome: str, p) -> None:
     with conectar() as con:
         if nome == "roteiro":
             atualizar_etapa(con, vid, "roteiro", "andamento", None, "aguardando o orquestrador")
+        elif nome == "publicacao":
+            atualizar_etapa(con, vid, "publicacao", "andamento", "textos: aguardando o orquestrador", "prompt da publicação")
         rot = {"roteiro": "do roteirista/pesquisa", "conferencia": "da conferência do roteiro", "publicacao": "da publicação"}[nome]
         texto = (f"Para o chat/orquestrador (o painel não chama o Claude): rode o prompt {p.prompt} e grave a resposta "
                  f"em {p.resposta}. O painel continua sozinho (ou clique em “Continuar”).")
@@ -1564,6 +1696,8 @@ def retomar_interrompidas(con) -> None:
         tarefas = {ETAPA_PARA_TAREFA[k] for k in chaves if k in ETAPA_PARA_TAREFA}
         if _animado(con, vid) and "render" in chaves:
             tarefas = (tarefas - {"final"}) | {"rascunho"}  # vertical: re-render da direção salva
+        elif _documentario(con, vid) and "render" in chaves and "ressincronizacao" not in chaves:
+            tarefas = (tarefas - {"final"}) | {"render_doc"}  # documentário: só o render final (cache do montador)
         if "direcao" in chaves and "rascunho" not in tarefas:  # direção do zero: retoma de onde parou (cache)
             con.execute("UPDATE etapas SET status='pendente' WHERE video_id=? AND chave='direcao'", (vid,))
             verificar_direcao(con, vid)

@@ -6,8 +6,9 @@ num processo à parte, manda um pedido JSON pela entrada padrão e lê a respost
 cena) só montam o prompt e devolvem o que o orquestrador deve rodar; a resposta entra por `aplicar`.
 
 Pedido (stdin):  {"cmd": "resumo" | "passo" | "aprovar" | "pedir" | "retirar" | "aplicar"
-                  | "storyboard" | "ajustar" | "previa" | "aprovar_cena" | "pedido_cena", "pasta": "...", ...}
-(storyboard do Rascunho, fase 7b: `ajustar` = ação direta na SPEC sem modelo, `pedido_cena` = pedido + prompt só da cena)
+                  | "storyboard" | "ajustar" | "previa" | "aprovar_cena" | "pedido_cena" | "final_checar", "pasta": "...", ...}
+(storyboard do Rascunho, fase 7b: `ajustar` = ação direta na SPEC sem modelo, `pedido_cena` = pedido + prompt só da cena;
+fase 7c: `final_checar` = confere se o vídeo final pode sair e devolve o comando do montador; quem roda é o motor do painel)
 Resposta (stdout): {"ok": true, ...} ou {"ok": false, "erro": "..."}
 
 Uso pelo orquestrador (a resposta do modelo é um arquivo JSON):
@@ -29,7 +30,8 @@ import etapas
 import historia as H
 import spec as S
 import verificar as V
-from comum import AQUI, HORIZONTAL, cache_resposta, entradas, gravar_json, ler_json, limpa, observacoes, palavras_do_roteiro
+from comum import (AQUI, HORIZONTAL, cache_resposta, entradas, gravar_json, hash_dados, ler_json, limpa, observacoes,
+                   palavras_do_roteiro)
 
 PY = Path(sys.executable).name
 TITULO = {"historia": "História", "spec": "SPEC", "ativos": "Ativos", "verificacao": "Verificação", "rascunho": "Rascunho"}
@@ -81,8 +83,13 @@ def sincronizar_entradas(pasta: Path, roteiro: str | None, palavras: str | None,
             lista = [p for p in lista if limpa(p["t"])]
         if valida and len(lista) == n_rot:
             if ler_json(pasta / "palavras.json") != lista:
+                # ★ das cenas (storyboard) presos ao hash: a mesma cena só retemporizada pela narração continua aprovada
+                aprov_arq = pasta / "storyboard" / "aprovacoes.json"
+                antes = _hashes(pasta) if (pasta / "spec.json").exists() and ler_json(aprov_arq) else {}
                 gravar_json(pasta / "palavras.json", lista)
-                ressincronizar(pasta, narracao or "narração")
+                info = ressincronizar(pasta, narracao or "narração")
+                if antes:
+                    _manter_aprovacoes(pasta, antes, info)
         else:
             avisos.append(f"narração medida com {len(lista) if isinstance(lista, list) else '?'} palavras × roteiro com "
                           f"{n_rot}: tempos ficam estimados até medir de novo")
@@ -104,6 +111,25 @@ def ressincronizar(pasta: Path, narracao: str) -> dict | None:
             etapas.retemporizar(pasta, nova, f"{len(info['afetadas'])} de {info['cenas']} cenas, {narracao}")
     gravar_json(pasta / "ressinc.json", info)
     return info
+
+
+def _manter_aprovacoes(pasta: Path, antes: dict, info: dict | None) -> None:
+    """Narração nova (voz guia → sua gravação): o hash de cada cena muda só porque os tempos mudaram. A cena que estava
+    ★ NA VERSÃO VISTA continua ★ no hash novo (o Felipe aprovou o conteúdo preso às palavras, como no Runeterra a
+    gravação aprovada vai direto ao render). Cena mexida depois do ★ continua sem ★."""
+    arq = pasta / "storyboard" / "aprovacoes.json"
+    aprov = ler_json(arq) or {}
+    depois = _hashes(pasta)
+    mantidas = []
+    for cid, h in list(aprov.items()):
+        if antes.get(cid) == h and depois.get(cid) and depois[cid] != h:
+            aprov[cid] = depois[cid]
+            mantidas.append(cid)
+    if mantidas:
+        gravar_json(arq, aprov)
+    if info is not None:
+        info["aprovacoes_mantidas"] = mantidas
+        gravar_json(pasta / "ressinc.json", info)
 
 
 def sincronizar_observacoes(pasta: Path, arquivo: str | None) -> None:
@@ -159,6 +185,9 @@ def resumo(pasta: Path, slug: str) -> dict:
             "montador": _montador_pronto(), "rascunho": None if _montador_pronto() else SEM_MONTADOR,
             "rascunho_info": ler_json(pasta / etapas.ARQUIVO["rascunho"]),
             "ressinc": ler_json(pasta / "ressinc.json"),   # última troca de narração (cenas retemporizadas)
+            # vídeo final (fase 7c): o último render e o hash da SPEC agora (mudou depois do final = desatualizado)
+            "final": ler_json(pasta / "final" / "final.json"), "final_falhou": ler_json(pasta / "final" / "falhou.json"),
+            "spec_hash": hash_dados(ler_json(pasta / "spec.json")) if (pasta / "spec.json").exists() else None,
             "rascunho_video": str(pasta / "rascunho" / "rascunho.mp4") if (pasta / "rascunho" / "rascunho.mp4").exists() else None}
 
 
@@ -427,6 +456,49 @@ def pedido_cena(pasta: Path, slug: str, cena: str, texto: str, origem: str = "te
     return {"estado": etapas.ler(pasta), "prompt": r.get("prompts"), "comandos": r.get("comandos")}
 
 
+# ---------------------------------------------------------------- vídeo final (fase 7c)
+def final_checar(pasta: Path, narracao: str | None) -> dict:
+    """O vídeo final só sai com: a sua narração gravada (tempos da gravação, SPEC ressincronizada), a SPEC ★, TODAS as
+    cenas ★ no storyboard na versão atual e a verificação da SPEC atual sem erro. Ativos e Verificação rodam de novo
+    aqui (offline), sobre a SPEC de agora. Devolve o comando do montador (o motor do painel roda
+    num processo à parte, com a barra de progresso por bloco)."""
+    estado = etapas.ler(pasta)
+    faltas = []
+    if narracao != "gravacao" or entradas(pasta)[2] != "medidos":
+        faltas.append("a narração que vale ainda não é a sua gravação: grave, aprove a gravação e espere a ressincronização")
+    if estado["etapas"]["spec"]["status"] != "aprovado":
+        faltas.append(f"a SPEC está '{estado['etapas']['spec']['status']}': aprove ★")
+    spec = ler_json(pasta / "spec.json") or {"cenas": []}
+    hashes = _hashes(pasta)
+    aprov = ler_json(pasta / "storyboard" / "aprovacoes.json") or {}
+    sem = [f"{n + 1}" for n, c in enumerate(spec["cenas"]) if not hashes.get(c["id"]) or aprov.get(c["id"]) != hashes[c["id"]]]
+    if not spec["cenas"]:
+        faltas.append("sem SPEC")
+    elif sem:
+        faltas.append(f"aprove ★ no storyboard {len(sem)} de {len(spec['cenas'])} cena(s) na versão atual "
+                      f"(cena{'s' if len(sem) > 1 else ''} {', '.join(sem[:20])}{'…' if len(sem) > 20 else ''})")
+    if faltas:
+        raise Recusa("vídeo final ainda não: " + " | ".join(faltas))
+    for nome, mod in (("ativos", A), ("verificacao", V)):   # sempre de novo (offline, rápidos): o final confere a SPEC de agora
+        try:
+            _calado(mod.aplicar, pasta)
+        except Exception as e:   # noqa: BLE001 — o motivo vai para a tela
+            raise Recusa(f"vídeo final ainda não: {TITULO[nome]} não rodou ({type(e).__name__}: {str(e)[:200]})") from None
+    v = ler_json(pasta / etapas.ARQUIVO["verificacao"]) or {}
+    if v.get("status") == "reprovado":
+        raise Recusa(f"vídeo final ainda não: a verificação reprovou a SPEC atual ({len(v.get('erros', []))} erro(s)); veja a aba Verificação")
+    mdir = HORIZONTAL / "montador"
+    sys.path.insert(0, str(mdir))
+    import montar as MT   # noqa: PLC0415
+
+    try:
+        plano = _calado(MT.planejar, pasta, modo="final")
+    except MT.NaoMonta as e:
+        raise Recusa(str(e)) from None
+    return {"cenas": len(plano["jobs"]), "avisos": plano["avisos"], "pasta_montador": str(mdir),
+            "comando": [str(mdir / "montar.py"), str(pasta), "--final", "--registrar", "--progresso"]}
+
+
 # ---------------------------------------------------------------- entrada
 def executar(pedido: dict) -> dict:
     pasta = Path(pedido["pasta"])
@@ -459,6 +531,8 @@ def executar(pedido: dict) -> dict:
             r = {"aprovacoes": _calado(_sb().aprovar, pasta, pedido["cena"])}
         except ValueError as e:
             raise Recusa(str(e)) from None
+    elif cmd == "final_checar":
+        r = {"final": final_checar(pasta, pedido.get("narracao"))}
     elif cmd == "pedido_cena":
         if not str(pedido.get("texto", "")).strip():
             raise Recusa("escreva (ou dite) o pedido")

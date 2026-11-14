@@ -36,7 +36,15 @@ type Doc = {
   rascunho: string | null
   rascunho_video?: string | null
   narracao?: 'guia' | 'gravacao' | null // de quem são os tempos por palavra: voz guia (Fish) ou a sua gravação
-  ressinc?: { quando: string; narracao: string; cenas: number; afetadas: string[] } | null // última retemporização da SPEC
+  ressinc?: { quando: string; narracao: string; cenas: number; afetadas: string[]; aprovacoes_mantidas?: string[] } | null // última retemporização da SPEC
+  final?: Final | null // último vídeo final (fase 7c): final/final.json do montador
+  final_falhou?: { erro: string } | null
+  spec_hash?: string | null // hash da SPEC agora: diferente do final = final desatualizado
+}
+type Final = {
+  duracao: number; largura: number; altura: number; fps: number; codificador: string; spec_hash: string; resumo: string; segundos: number
+  loudness: { lufs: number; pico_dbtp?: number }; loudness_mp4?: { lufs: number; pico_dbtp: number } | null
+  blocos: { codificados: number; do_cache: number }; verificacao: { status: string; erros: string[] }
 }
 
 const ETAPAS = ['historia', 'spec', 'ativos', 'verificacao', 'rascunho'] as const
@@ -176,6 +184,10 @@ export function PainelDocumental({ videoId, aoMudar }: { videoId: number; aoMuda
         </div>
       )}
 
+      {(d.narracao === 'gravacao' || d.final) && (
+        <VideoFinal d={d} ocupado={ocupado} renderizar={() => agir(`/videos/${videoId}/doc/final`, { method: 'POST' }, () => 'Vídeo final na fila: a barra de progresso mostra cena a cena e bloco a bloco.')} />
+      )}
+
       <div className="mt-4">
         {atual === 'historia' && <VerHistoria h={d.historia} />}
         {atual === 'spec' && (
@@ -209,6 +221,38 @@ export function PainelDocumental({ videoId, aoMudar }: { videoId: number; aoMuda
         <PedidosDaEtapa pedidos={d.estado.pedidos.filter((p) => p.etapa === atual)} ocupado={ocupado} pedir={(t) => pedir(t)} retirar={retirar} />
       )}
     </section>
+  )
+}
+
+/** Fase 7c: o render final (montador --final). O vídeo aparece na Prévia; aqui, o que saiu e o botão. */
+function VideoFinal({ d, ocupado, renderizar }: { d: Doc; ocupado: boolean; renderizar: () => void }) {
+  const f = d.final
+  const velho = Boolean(f && d.spec_hash && f.spec_hash !== d.spec_hash)
+  const lf = f?.loudness_mp4 ?? f?.loudness
+  return (
+    <div className={`mt-3 rounded-lg border p-3 ${velho ? 'border-atencao/40 bg-atencao/5' : 'border-borda bg-painel-2'}`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-xs font-semibold">Vídeo final (1920×1080, 60 q/s, sua narração)</h3>
+        <button
+          disabled={ocupado}
+          onClick={renderizar}
+          className="ml-auto rounded-md border border-ouro/60 px-3 py-1.5 text-xs text-ouro hover:bg-ouro/10 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {f ? 'Renderizar o vídeo final de novo' : 'Renderizar o vídeo final'}
+        </button>
+      </div>
+      {f ? (
+        <p className="mt-1 font-mono text-[11px] text-suave">
+          {seg(f.duracao)} · {f.largura}×{f.altura} {f.fps} q/s · {f.codificador === 'h264_nvenc' ? 'NVENC' : 'x264'}
+          {lf ? ` · ${lf.lufs.toFixed(1)} LUFS · pico ${(lf.pico_dbtp ?? 0).toFixed(1)} dBTP` : ''} · verificação {f.verificacao.status}
+          {` · ${f.blocos.codificados} bloco(s) refeito(s), ${f.blocos.do_cache} do cache`}
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-suave">Sai quando todas as cenas estiverem ★ no storyboard (aba Rascunho) com a sua gravação ressincronizada. O vídeo aparece na Prévia e a pendência “Assista o vídeo final” pede a sua aprovação.</p>
+      )}
+      {velho && <p className="mt-1 text-xs text-atencao">A SPEC mudou depois deste final: aprove ★ as cenas mexidas e renderize de novo (só os blocos afetados são refeitos).</p>}
+      {d.final_falhou && <p className="mt-1 text-xs text-atencao">Último render falhou: {d.final_falhou.erro}</p>}
+    </div>
   )
 }
 

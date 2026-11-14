@@ -5,8 +5,8 @@ Card novo no painel do F1: formato **`horizontal_doc`** ("documentário" no bot�
 só mostra e grava o protocolo de arquivos do `diretor/` (ver `../diretor/README.md`).
 
 ## Etapas do card
-Roteiro → Voz guia → **História ★** → **SPEC ★** → Ativos → Verificação → **Rascunho ★** → Gravação → Ressincronização → Publicação
-(fase 7a; card criado antes, com a etapa "Narração" `voz_ia`, continua no fluxo antigo: `etapas.ETAPAS_HORIZONTAL_DOC_V1`).
+Roteiro → Voz guia → **História ★** → **SPEC ★** → Ativos → Verificação → **Rascunho ★** → Gravação → Ressincronização →
+**Render final** (7c) → Publicação (fase 7a; card criado antes, com a etapa "Narração" `voz_ia`, continua no fluxo antigo: `etapas.ETAPAS_HORIZONTAL_DOC_V1`).
 Roteiro, Voz guia, Gravação e Ressincronização são as do Runeterra (ver "Fase 7a" abaixo). As cinco do meio são o `estado.json` de `F1/dados/projetos/<slug>/horizontal/`, espelhado nas
 etapas e pendências do banco a cada leitura (o estado vive no arquivo; o banco só reflete).
 
@@ -82,6 +82,7 @@ falado em frases** com o tempo, o objetivo e o texto na tela.
 | `POST /api/videos/{id}/doc/previa` `{cenas?}` | prévia das cenas (todas se vazio), processo à parte |
 | `POST /api/videos/{id}/doc/cena/{cid}/aprovar` | ★ da cena (409 sem prévia da versão atual) |
 | `POST /api/videos/{id}/doc/cena/{cid}/pedido` `{texto, origem: texto\|voz}` | pedido da cena + prompt só dela para o orquestrador |
+| `POST /api/videos/{id}/doc/final` | (7c) confere tudo e põe o render final na fila (409 com o motivo; 409 se já está na fila) |
 
 Entradas: `direcao/roteiro.txt` do card vira `horizontal/roteiro.txt`; `direcao/tempos_voz.json` (narração medida) vira
 `horizontal/palavras.json` **só** se tiver o mesmo número de palavras do roteiro (senão aviso e tempos estimados).
@@ -117,12 +118,52 @@ O MESMO código do Runeterra, com dois ganchos: o card documental não chama `cl
   voz guia → gravação) passa pelo mesmo caminho. Tempos que valem: gravação > voz guia > `tempos_voz.json` (card antigo).
   `alinhar.py` conta todo token ("—"); a ponte descarta os sem letra/número para bater com o diretor.
 
+## Fase 7c: Render final e Publicação (como no Runeterra)
+Etapas do card: … Gravação → Ressincronização → **Render final** → Publicação (card da 7a/7b ganha a linha "render" na
+1ª leitura do `/doc`).
+- **Quando sai**: só com a SUA narração (`trabalho/gravacao/limpa.wav`, tempos da gravação, SPEC ressincronizada), a
+  SPEC ★, **todas as cenas ★ no storyboard na versão atual** e a verificação da SPEC atual sem erro (`painel.final_checar`
+  roda Ativos/Verificação desatualizados de novo, offline). A ressincronização mantém o ★ da cena que só foi
+  retemporizada (o Felipe aprovou o conteúdo preso às palavras; `ressinc.json` → `aprovacoes_mantidas`); cena mexida
+  depois do ★ precisa de ★ de novo.
+- **Disparo**: gravação aprovada → ressincronização → render na mesma tarefa, como no Runeterra; faltando algo, a etapa
+  Render diz o quê (pendência "Vídeo final: falta pouco") e o botão **“Renderizar o vídeo final”** (painel Documentário)
+  dispara depois (`POST /doc/final`, 409 com o motivo).
+- **Render** (`motor.tarefa_render_doc`, fila do motor e trava da máquina): `montador/montar.py --final --registrar
+  --progresso` num processo à parte: 1920×1080, 60 q/s, NVENC (x264 se a máquina não tiver, ou se o NVENC cair no meio:
+  o vídeo inteiro vira x264), UMA mixagem com a narração gravada, loudness medida no MP4. Linhas `PROG` → barra do painel
+  (cena a cena, bloco a bloco) e o detalhe do card ("bloco 3 de 7"). Sai `saida/final_vN.mp4` (cada versão um arquivo),
+  a etapa mostra resolução, LUFS, pico, codificador e blocos refeitos/do cache; pendência **"Assista o vídeo final"**
+  (`ver_final`) e card em Revisão. Falha = pendência `erro_render_doc` com o motivo (`final/falhou.json`).
+- **Correção depois do final**: storyboard (ação direta ou pedido por cena) → a SPEC muda → o final fica "desatualizado"
+  (sai o "Assista", entra "Vídeo final desatualizado"); ★ da cena mexida e “Renderizar de novo”: o montador refaz só os
+  trechos e os blocos que mudaram (cache por hash em `trechos/` e `blocos/final_*`).
+- **“Vídeo aprovado”** (resolver `ver_final`) → Publicação, pelo orquestrador (`publicacao` já é tarefa do orquestrador
+  desde a 7a): `publicacao.gerar_textos_doc` monta UM prompt (`orquestrador/publicacao-doc_<hash>.prompt.txt`) com
+  título provisório, duração, tese, capítulos, a lista de cenas (id, início, o que mostra), o roteiro e, se houver
+  `YOUTUBE_API_KEY` no `.env`, os vídeos que já existem sobre o tema (YouTube Data API v3: busca + views, cache em
+  `direcao/concorrentes.json`; sem chave ou com erro de cota/rede, pula com aviso). Resposta: 6 títulos, gancho, 10–15
+  tags, comentário fixado e a miniatura (texto curto, enquadramento, cena). A descrição junta gancho + capítulos +
+  créditos (OpenF1, imagens validadas dos ativos, SFX CC BY do final) + aviso legal do F1.
+  **Capítulos** = 1ª cena de cada capítulo da História na SPEC, nos tempos da gravação; regras do YouTube (0:00, ≥ 3,
+  ≥ 10 s; capítulo curto junta com o anterior). **Miniatura**: quadro 1280×720 do vídeo final no meio da cena escolhida
+  (`saida/miniatura_base.jpg`); o texto sugerido vai por cima no editor do Felipe (nada é desenhado). VidIQ: não (decisão
+  do Felipe depois). “Marcar como publicado” é o do Runeterra.
+
 ## Observações gerais do Felipe
 O painel "Observações gerais" do card (voz ou texto, `docs/observacoes.md` na raiz) grava `<projeto>/observacoes.json`;
 a ponte (`sincronizar_observacoes`, em `resumo`/`passo`) copia para `horizontal/observacoes.txt`, e `comum.observacoes`
 põe o texto nos prompts da História, da SPEC e do pedido por cena (`{{observacoes}}`).
 
 ## Testes
+- Fase 7c: `testar_api.py` agora 163 checagens (132 + 31 da 7c): Render final no card, ressincronização sem cenas ★ só
+  avisa, botão recusado (cenas sem ★; sem gravação), card antigo ganha a linha, render pelo motor com um MONTADOR
+  FICTÍCIO no mesmo protocolo (PROG + final.json + MP4 1080p60 real de 2 s): barra bloco a bloco, final_v1/v2 (o v1 fica),
+  desatualizado depois de ação direta e em dia depois de renderizar de novo, falha com motivo, “Vídeo aprovado” →
+  Publicação pelo orquestrador (prompt, resposta, 6 títulos, tags, descrição com créditos e aviso legal, capítulos nas
+  regras, miniatura 1280×720 do final na cena escolhida, concorrentes pulados sem chave), regra dos capítulos, YouTube
+  Data API fictícia (ordem por views, cache, no prompt; cota estourada não quebra). O render final DE VERDADE (1080p60,
+  NVENC e x264, mixagem com a "gravação") está em `testes/montador/testar.py` (seção 7).
 - `.venv\Scripts\python.exe F1\horizontal\testes\painel\testar_api.py [-v] [--manter]` — 107 checagens (61 da fase 4 +
   46 da 7a), ~15 s, motor sem thread (`motor.executar` tarefa a tarefa). 7a: roteirista+pesquisa e conferência pelo
   orquestrador (3 + 2 prompts respondidos no teste; `claude_cli.EXE` apontado para um caminho que não existe), números
@@ -148,6 +189,16 @@ põe o texto nos prompts da História, da SPEC e do pedido por cena (`{{observac
   trechos do `testes/montador/testar.py` (rode-o antes) para ver o storyboard com quadros de verdade.
 
 ## Limites (o que não foi verificado / não existe)
+- Fase 7c, visto no navegador (porta 8797, `servidor.py --storyboard --final`, dados fictícios): card com Render final,
+  1º clique recusado com o motivo na tela (verificação reprovada do seed antigo; corrigido o seed), depois render REAL
+  1080p60 pelo motor (barra: "cena 3 de 3", mixagem, verificação), etapa "0:09 · v1" com −14,0 LUFS / −2,5 dBTP / NVENC,
+  vídeo na Prévia, "Assista o vídeo final" → “Vídeo aprovado” → prompt da publicação (respondido pelo chat no papel do
+  orquestrador) → painel Publicação com 6 títulos, descrição com créditos (OpenF1, SFX CC BY) e aviso legal do F1,
+  miniatura sugerida + quadro 1280×720, concorrentes "pulada: sem YOUTUBE_API_KEY". Vertical/horizontal abrem iguais.
+- NÃO exercido na 7c: YouTube Data API real (sem chave; só a fictícia no teste), narração gravada de verdade (sintética),
+  vídeo longo (só 9 s: tempo de um final de 20 min não medido), capítulos num vídeo real (o mini-spec tem 9 s e 1
+  capítulo: 0 capítulos, como manda a regra), “Marcar como publicado” no documentário, progresso "bloco k de N" com
+  vários blocos na tela (o mini-spec cabe num bloco; os vários blocos estão no teste do montador e no fictício da API).
 - Fase 7a (2026-11-13), visto no navegador (porta 8799, `--voz-windows`): conferência com Wikipedia e **OpenF1 reais**
   (LEC 1:19,007 e HAM 1:19,124 na volta 16 e a diferença 0,117 conferidos na sessão 9908), prompts respondidos pelo
   chat no papel de orquestrador, voz guia da voz do Windows medida pelo Whisper real (91 palavras, 8 estimadas),

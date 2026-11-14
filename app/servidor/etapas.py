@@ -39,6 +39,7 @@ ETAPAS_HORIZONTAL_ANIMADO = [
 # (F1/horizontal/diretor/etapas.py, estado.json da pasta <projeto>/horizontal/) espelhado nos cards; ver horizontal_doc.py.
 # Fase 7a (2026-11-14): Roteiro, Voz guia, Gravação e Ressincronização como no Runeterra (voz guia Fish Audio só para
 # dosar e montar; a voz real do Felipe grava por cima e as cenas, presas às palavras, são retemporizadas). ★ = aprovação.
+# Fase 7c: Render final (montador --final; card criado na 7a/7b ganha a linha "render" na 1ª leitura do /doc).
 ETAPAS_HORIZONTAL_DOC = [
     {"chave": "roteiro", "titulo": "Roteiro", "descricao": "Texto final, pesquisa e fatos conferidos (OpenF1)"},
     {"chave": "voz_guia", "titulo": "Voz guia", "descricao": "Leitura provisória (Fish Audio) para medir e montar"},
@@ -49,7 +50,8 @@ ETAPAS_HORIZONTAL_DOC = [
     {"chave": "rascunho_doc", "titulo": "Rascunho ★", "descricao": "Montagem em baixa resolução"},
     {"chave": "gravacao", "titulo": "Gravação", "descricao": "Sua narração limpa"},
     {"chave": "ressincronizacao", "titulo": "Ressincronização", "descricao": "Cenas retemporizadas à sua voz"},
-    {"chave": "publicacao", "titulo": "Publicação", "descricao": "Título, descrição e créditos"},
+    {"chave": "render", "titulo": "Render final", "descricao": "1920×1080, 60 q/s, com a sua voz (fase 7c)"},
+    {"chave": "publicacao", "titulo": "Publicação", "descricao": "Títulos, descrição, tags, capítulos e miniatura"},
 ]
 # card documental criado antes da fase 7a (Narração = etapa "voz_ia", sua gravação já medida): continua como era
 ETAPAS_HORIZONTAL_DOC_V1 = [

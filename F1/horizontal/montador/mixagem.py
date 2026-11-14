@@ -58,6 +58,14 @@ def eventos(cenas: list[dict], palavras: list[dict], transicoes: list[dict], sem
     return evs
 
 
+def creditos(evs: list[SFX.Evento]) -> list[str]:
+    """Créditos dos SFX CC BY usados (vão na descrição do vídeo publicado); CC0/sintetizados não pedem crédito."""
+    try:
+        return SFX.Banco().creditos(evs)
+    except (FileNotFoundError, KeyError, OSError):
+        return []
+
+
 def medir(wav: Path) -> dict:
     """Loudness integrada (LUFS) e pico verdadeiro (dBTP) pelo ebur128 do ffmpeg (BS.1770-4)."""
     r = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(wav), "-af", "ebur128=peak=true", "-f", "null", "-"],
