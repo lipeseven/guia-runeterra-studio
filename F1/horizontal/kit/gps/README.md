@@ -119,7 +119,27 @@ ponto mais longe da área pilotável (≤ 4 m).
 - Folha `testes/gps/folha_*_remotion_monza.jpg` (render `ExemploGpsFolhaMonza`, freada para a 1ª chicane): 0 recuos na
   tela, passo 23 → 10 px/q descendo liso (variação p95 1,24 px/q). Olhei a folha, a cebola e quadros da perseguição.
 
+## Mods do Assetto Corsa e posição lateral (2026-11-14; relatório: `../../docs/teste_vhe_interlagos.md`)
+- `py/assetto.py` — lê `.kn5` e `.ai` do AC **sem o Blender**: `python py/assetto.py superficies <pasta_mod> <saida.glb>`
+  (malhas de física 1ROAD/1KERB/1GRASS..., um nó por objeto; idêntico ±0,08 mm ao Blender + KN5 Tools) e
+  `python py/assetto.py visual <pasta_mod> <saida.glb> --kn5 ... --textura 512 --excluir "^(ads|hor_)"` (cenário com
+  textura reduzida, agrupado por material). `ai <arquivo.ai>` resume a linha ideal (pontos, distância às bordas).
+- `pista/Interlagos_vhe.json` — mod `vhe_interlagos` (`--circuito Interlagos_vhe`): `"agrupar": "no"` (o nome do objeto
+  diz a superfície), padrões `1road_*`/`1kerb_*`, `zebra`, `linha_ideal` (o `.ai` do mod) e `"refinar_dentro": true`
+  (o alinhador refina o ICP até 100% do GPS cair em asfalto+zebra e grava a folga que sobra).
+- `preparar_volta.py ... --lateral livre` — sem puxar o centro de volta para o asfalto (sufixo `_livre`);
+  `--linha ideal` — o carro anda na linha ideal do mod e o GPS só dá a posição AO LONGO da pista (sufixo `_ideal`;
+  `lateral.medida = false`). Pistas com malha de zebra ganham `lateral.borda_esq/borda_dir/zebra/fora_asfalto` por
+  metro; no JS, `am.lateral(t)`.
+- `py/lateral.py <circuito> <sessao> <piloto>` — mede quanto o OpenF1 diz da posição lateral (relatório
+  `testes/gps/<circuito>_lateral.json`). **Resultado: nada.** 52 voltas de 8 pilotos caem na mesma linha com 3 cm
+  (mediana) de diferença: o `/v1/location` é a posição AO LONGO de uma linha de referência fixa, igual para todos.
+- `testes/testar_lateral.py` — bordas, projeção, alinhamento, convenção de lado do `.ai`, voltas `_livre`/`_ideal`,
+  KN5 → GLB igual ao Blender.
+
 ## Limites conhecidos
+- **O OpenF1 não mede a posição lateral** (ver acima): qualquer "carro na zebra" vem de um traçado inferido
+  (linha ideal de um mod), nunca do GPS.
 - Ao longo da pista o carro pode estar até ~4 m (RMS) / ~17 m (pico) de onde o GPS bruto diz num instante: é o ruído
   do GPS que foi filtrado (a velocidade bate com a telemetria: erro médio ≤ 1,6 km/h). Entre dois carros, isso é ≤ ~0,05 s.
 - Rodas (informativo no teste): com pitch/roll, o contato das rodas fica até ~4 cm abaixo da malha em pontos de zebra/

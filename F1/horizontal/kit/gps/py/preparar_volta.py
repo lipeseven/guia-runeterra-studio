@@ -23,6 +23,7 @@ from scipy.interpolate import PchipInterpolator, UnivariateSpline, splev, splpre
 from scipy.ndimage import gaussian_filter1d
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import lateral as LAT  # noqa: E402
 import openf1  # noqa: E402
 import pista as PISTA  # noqa: E402
 
@@ -75,12 +76,23 @@ def _dedup(t, xy, vel):
     return np.array(ok)
 
 
-def preparar(sessao, piloto, volta, saida=None, circuito=None, modo=None):
-    """circuito = circuit_short_name do OpenF1 (padrão: o da sessão); modo = None (automático: modelo 3D se houver),
-    'glb' ou 'plana' (pista traçada pelo GPS, sem modelo)."""
+def preparar(sessao, piloto, volta, saida=None, circuito=None, modo=None, lateral="puxar", linha=None):
+    """circuito = circuit_short_name do OpenF1 (padrão: o da sessão) ou outra pista/<nome>.json do mesmo lugar
+    (ex.: 'Interlagos_vhe'); modo = None (automático: modelo 3D se houver), 'glb' ou 'plana' (pista traçada pelo GPS).
+    lateral = 'puxar' (padrão: centro puxado de volta para asfalto/zebra, até ~3,7 m) ou 'livre' (sem correção lateral).
+    linha = None | 'ideal' (linha_ideal de pista/<circuito>.json) | caminho de um .ai do Assetto Corsa: o caminho
+    geométrico passa a ser essa linha e o GPS só dá a posição ao longo dela (lateral INFERIDA, não medida)."""
     info = openf1.sessao_info(sessao)
     circuito = circuito or info["circuit_short_name"]
     pista = PISTA.carregar(circuito, sessao=sessao, modo=modo)
+    if lateral not in ("puxar", "livre"):
+        raise ValueError("lateral = 'puxar' ou 'livre'")
+    if linha is not None:
+        arq_linha = PISTA.parametros(circuito).get("linha_ideal") if linha == "ideal" else linha
+        if not arq_linha:
+            raise ValueError(f"pista/{circuito}.json sem 'linha_ideal'")
+        linha = LAT.Linha.de_ai(arq_linha)
+        linha.nome = "/".join(Path(arq_linha).parts[-4:])  # ex.: vhe_interlagos/gp/data/ideal_line.ai
     lap = next((v for v in openf1.voltas(sessao, piloto) if v["lap_number"] == volta), None)
     if lap is None or not lap.get("lap_duration"):
         raise ValueError(f"OpenF1 não tem a volta {volta} (com tempo) do carro {piloto} na sessão {sessao}")
@@ -100,29 +112,50 @@ def preparar(sessao, piloto, volta, saida=None, circuito=None, modo=None):
     xz = pista.aplicar(raw)
     buracos = [[round(float(a), 3), round(float(b), 3)] for a, b in zip(tl[:-1], tl[1:]) if b - a > 0.6]
 
-    # --- 3. caminho geométrico (spline suavizada; corda como parâmetro)
-    u = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(xz, axis=0), axis=1))])
-    sig = 0.45  # m, ruído típico do GPS após alinhamento
-    tck, _ = splprep([xz[:, 0], xz[:, 1]], u=u, s=len(u) * sig ** 2, k=3)
-    uf = np.linspace(0, u[-1], int(u[-1] / 0.1))
-    pf = np.array(splev(uf, tck)).T
-    sf = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(pf, axis=0), axis=1))])
-    S = np.arange(0, sf[-1], DS)
-    P = np.c_[np.interp(S, sf, pf[:, 0]), np.interp(S, sf, pf[:, 1])]
-    # mantém o centro sobre asfalto/zebra; correção suavizada para não criar quina
-    corr = _puxar_para_pista(P, pista)
-    corr = np.c_[gaussian_filter1d(corr[:, 0], 3, mode="nearest"), gaussian_filter1d(corr[:, 1], 3, mode="nearest")]
-    corr_mag = np.linalg.norm(corr, axis=1)
-    P = P + corr
-    S_orig = S
-    # reamostra em passo exato de DS após a correção
-    sp = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
-    S = np.arange(0, sp[-1], DS)
-    P = np.c_[np.interp(S, sp, P[:, 0]), np.interp(S, sp, P[:, 1])]
+    # --- 3. caminho geométrico
+    if linha is not None:
+        # traçado EXTERNO (ex.: linha ideal .ai do mod): o GPS só dá a posição AO LONGO da pista (projeção na linha);
+        # a posição lateral é a da linha (inferida, não medida: ver py/lateral.py e o relatório da pista)
+        s_loop, d_linha = linha.projetar(xz)
+        s_un = np.unwrap(s_loop, period=linha.comprimento)
+        a0 = math.floor(s_un.min()) - 5.0
+        S = np.arange(0, s_un.max() + 5.0 - a0, DS)
+        P = linha.ponto(S + a0)
+        s_gps = s_un - a0
+        corr_mag = np.zeros(len(P))
+        lateral_info = dict(fonte=f"inferida: traçado {linha.nome} (o GPS do OpenF1 só posiciona AO LONGO da pista)",
+                            medida=False, gps_x_linha_m=dict(p50=round(float(np.median(np.abs(d_linha))), 2),
+                                                             max=round(float(np.abs(d_linha).max()), 2)))
+    else:
+        # spline suavizada; corda como parâmetro
+        u = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(xz, axis=0), axis=1))])
+        sig = 0.45  # m, ruído típico do GPS após alinhamento
+        tck, _ = splprep([xz[:, 0], xz[:, 1]], u=u, s=len(u) * sig ** 2, k=3)
+        uf = np.linspace(0, u[-1], int(u[-1] / 0.1))
+        pf = np.array(splev(uf, tck)).T
+        sf = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(pf, axis=0), axis=1))])
+        S = np.arange(0, sf[-1], DS)
+        P = np.c_[np.interp(S, sf, pf[:, 0]), np.interp(S, sf, pf[:, 1])]
+        if lateral == "puxar":
+            # mantém o centro sobre asfalto/zebra; correção suavizada para não criar quina
+            corr = _puxar_para_pista(P, pista)
+            corr = np.c_[gaussian_filter1d(corr[:, 0], 3, mode="nearest"), gaussian_filter1d(corr[:, 1], 3, mode="nearest")]
+        else:
+            # "livre": sem correção lateral (o traçado do GPS como veio; a altura vem de qualquer superfície: grama, zebra)
+            corr = np.zeros_like(P)
+        corr_mag = np.linalg.norm(corr, axis=1)
+        P = P + corr
+        S_orig = S
+        # reamostra em passo exato de DS após a correção
+        sp = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(P, axis=0), axis=1))])
+        S = np.arange(0, sp[-1], DS)
+        P = np.c_[np.interp(S, sp, P[:, 0]), np.interp(S, sp, P[:, 1])]
+        # arco da spline no parâmetro de cada amostra (monotônico), levado ao caminho corrigido
+        s_gps = np.interp(np.interp(u, uf, sf), S_orig, sp)
+        lateral_info = dict(fonte="GPS do OpenF1 " + ("puxado para asfalto/zebra" if lateral == "puxar" else "sem correção lateral"),
+                            medida=True)
 
     # --- 4. relógio s(t): posição de cada amostra GPS ao longo do caminho
-    # arco da spline no parâmetro de cada amostra (monotônico), levado ao caminho corrigido
-    s_gps = np.interp(np.interp(u, uf, sf), S_orig, sp)
     # O carimbo de tempo do GPS tem ruído de ~2 m ao longo da pista (velocidade derivada dele erra ~28 km/h em média):
     # interpolar direto nele dá o tranco/vai-e-vem dos testes. Por isso o relógio é a VELOCIDADE da telemetria
     # (car_data, sensor limpo) integrada, ancorada às posições do GPS por uma correção lenta (spline bem suavizada).
@@ -198,6 +231,18 @@ def preparar(sessao, piloto, volta, saida=None, circuito=None, modo=None):
     # (rotação em Z local, regra da mão direita). Yl = altura em P + nrm (direita), Yr = em P - nrm (esquerda).
     roll = np.arctan2(gaussian_filter1d(Yr - Yl, 2.0, mode="nearest"), 2 * MEIA_BITOLA)
 
+    # --- posição lateral em relação às bordas do asfalto e zebra (só pistas com malha de zebra: mods do AC)
+    if getattr(pista, "_T_zebra", None) is not None:
+        B = LAT.bordas(pista, P, -nrm)  # -nrm = esquerda do carro
+        # raster de 0,2 m: zebra/fora oscilam ±10% de um metro para o outro (pisca no HUD) -> média de ±2 m
+        for k in ("zebra", "fora_asfalto"):
+            B[k] = gaussian_filter1d(B[k], 1.5, mode="nearest")
+        lateral_info.update(
+            borda_esq=np.round(B["borda_esq"], 2).tolist(), borda_dir=np.round(B["borda_dir"], 2).tolist(),
+            zebra=np.round(B["zebra"], 2).tolist(), fora_asfalto=np.round(B["fora_asfalto"], 2).tolist(),
+            nota="por metro do caminho (mesmo índice de caminho.x): m do centro do carro à borda esquerda/direita do "
+                 "asfalto (negativo = passou da borda); zebra / fora_asfalto = fração dos 2,0 m de largura do carro")
+
     # --- qualidade: velocidade do relógio x velocidade da telemetria
     tq = np.arange(0, dur, 0.1)
     v_rel = np.gradient(np.interp(tq, tg, sg), tq) * 3.6
@@ -224,6 +269,7 @@ def preparar(sessao, piloto, volta, saida=None, circuito=None, modo=None):
         caminho=dict(ds=DS, x=np.round(P[:, 0], 3).tolist(), y=np.round(Y, 3).tolist(), z=np.round(P[:, 1], 3).tolist(),
                      yaw=np.round(yaw, 4).tolist(), pitch=np.round(pitch, 4).tolist(), roll=np.round(roll, 4).tolist()),
         gps=dict(t=np.round(tl, 3).tolist(), x=np.round(xz[:, 0], 3).tolist(), z=np.round(xz[:, 1], 3).tolist()),
+        lateral=lateral_info,
         qualidade=dict(
             amostras_gps=int(len(tl)), buracos_gps_maiores_0_6s=buracos,
             correcao_lateral_max_m=round(float(corr_mag.max()), 3), correcao_lateral_media_m=round(float(corr_mag.mean()), 3),
@@ -236,6 +282,10 @@ def preparar(sessao, piloto, volta, saida=None, circuito=None, modo=None):
     )
     # modo plano forçado num circuito que tem modelo 3D: sufixo, para não sobrescrever a volta do modo glb
     sufixo = "_plana" if pista.modo == "plana" and PISTA.tem_modelo(circuito) else ""
+    # outra pista do mesmo lugar (ex.: Interlagos_vhe) e modos laterais: sufixos, para não sobrescrever a volta padrão
+    if circuito != info["circuit_short_name"]:
+        sufixo = f"_{circuito}" + sufixo
+    sufixo += "_ideal" if linha is not None else ("_livre" if lateral == "livre" else "")
     saida = Path(saida) if saida else AQUI / "voltas" / f"{sessao}_{piloto}_{volta}{sufixo}.json"
     saida.parent.mkdir(parents=True, exist_ok=True)
     saida.write_text(json.dumps(out, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
@@ -248,14 +298,19 @@ if __name__ == "__main__":
     ap.add_argument("trios", nargs="+", help="<session_key> <piloto> <volta|melhor> [...mais trios]")
     ap.add_argument("--modo", choices=("glb", "plana"), default=None,
                     help="pista: glb (modelo 3D alinhado) ou plana (traçada pelo GPS). Padrão: glb se houver modelo")
-    ap.add_argument("--circuito", default=None, help="circuit_short_name (padrão: o da sessão no OpenF1)")
+    ap.add_argument("--circuito", default=None, help="pista/<circuito>.json (padrão: circuit_short_name da sessão)")
+    ap.add_argument("--lateral", choices=("puxar", "livre"), default="puxar",
+                    help="puxar = centro volta para asfalto/zebra (padrão); livre = sem correção lateral")
+    ap.add_argument("--linha", default=None,
+                    help="'ideal' (linha_ideal da pista) ou um .ai do AC: caminho = essa linha (lateral inferida)")
     a = ap.parse_args()
     if len(a.trios) % 3:
         ap.error("os argumentos vêm em trios: <session_key> <piloto> <volta|melhor>")
+    lat, lin = a.lateral, a.linha
     a, modo, circ = a.trios, a.modo, a.circuito
     for i in range(0, len(a), 3):
         s, p, v = int(a[i]), int(a[i + 1]), a[i + 2]
         if v == "melhor":
             v = min((x for x in openf1.voltas(s, p) if x.get("lap_duration")), key=lambda x: x["lap_duration"])["lap_number"]
-        out, arq = preparar(s, p, int(v), circuito=circ, modo=modo)
+        out, arq = preparar(s, p, int(v), circuito=circ, modo=modo, lateral=lat, linha=lin)
         print(arq.name, f"{arq.stat().st_size / 1024:.0f} KB", out["sigla"], out["volta"], out["duracao"], out["qualidade"])

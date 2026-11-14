@@ -41,6 +41,8 @@ export interface Amostrador {
   posEmS(s: number): Vec3;
   pose(t: number): Pose;
   rastro(t0: number, t1: number, opcoes?: { passo?: number; elev?: number }): Rastro;
+  /** só voltas com lateral.borda_esq (pistas com malha de zebra): distâncias às bordas do asfalto e zebra */
+  lateral(t: number): { bordaEsq: number; bordaDir: number; zebra: number; foraAsfalto: number; medida: boolean; fonte: string } | null;
 }
 
 export function criarAmostrador(volta: VoltaJSON): Amostrador;

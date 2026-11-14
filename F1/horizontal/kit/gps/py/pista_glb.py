@@ -55,9 +55,10 @@ def _matriz(no):
     return m
 
 
-def triangulos(caminho, filtro_no=None):
+def triangulos(caminho, filtro_no=None, agrupar="material"):
     """Triângulos do .glb em coordenadas de mundo. Devolve dict material -> array (n, 3, 3).
-    filtro_no: nome de nó; só a sub-árvore dele entra (ex.: 'tracksplit_0')."""
+    filtro_no: nome de nó; só a sub-árvore dele entra (ex.: 'tracksplit_0').
+    agrupar="no": a chave é o nome do nó (mods do Assetto Corsa: o nome do objeto diz a superfície, ex. '1road_001')."""
     g, binario = _ler_glb(caminho)
     saida = {}
 
@@ -73,7 +74,10 @@ def triangulos(caminho, filtro_no=None):
                 pos = (np.c_[pos, np.ones(len(pos))] @ m.T)[:, :3]
                 idx = _acessor(g, binario, p["indices"]).ravel() if "indices" in p else np.arange(len(pos))
                 tri = pos[idx.reshape(-1, 3)]
-                nome = g["materials"][p["material"]].get("name") if "material" in p else None
+                if agrupar == "no":
+                    nome = no.get("name")
+                else:
+                    nome = g["materials"][p["material"]].get("name") if "material" in p else None
                 saida.setdefault(nome, []).append(tri)
         for c in no.get("children", []):
             visitar(c, m, dentro)

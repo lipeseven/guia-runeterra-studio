@@ -1,0 +1,105 @@
+{
+ "ok": true,
+ "casos": {
+  "1 bordas() em pista sintética": {
+   "ok": true,
+   "valor": {
+    "borda_esq": [
+     6.0,
+     0.5,
+     12.5
+    ],
+    "borda_dir": [
+     6.1,
+     11.6,
+     -0.4
+    ],
+    "fora_asfalto": [
+     0.0,
+     0.19,
+     0.71
+    ],
+    "zebra": [
+     0.0,
+     0.33,
+     0.0
+    ]
+   }
+  },
+  "2 Linha.projetar(ponto(s, d)) = (s, d)": {
+   "ok": true,
+   "valor": {
+    "s": [
+     9.996,
+     200.008,
+     499.999
+    ],
+    "d": [
+     2.0,
+     -3.0,
+     0.5
+    ]
+   }
+  },
+  "3 alinhamento: GPS fora de asfalto+zebra <= 0,1%; escala ~0,1": {
+   "ok": true,
+   "valor": {
+    "fora": 0.0,
+    "escala": 0.10012,
+    "folga": {
+     "+x": 1.6,
+     "-x": 0.8,
+     "+z": 6.6,
+     "-z": 1.0
+    }
+   }
+  },
+  "4 .ai: lado_esq = borda esquerda da malha (e não a direita); comprimento ~4223 m": {
+   "ok": true,
+   "valor": {
+    "dif_mediana_m": 1.1,
+    "se_trocado_m": 7.42,
+    "comprimento": 4224.9
+   }
+  },
+  "5 volta _livre: sem correção lateral e caminho sobre o GPS": {
+   "ok": true,
+   "valor": {
+    "correcao_max": 0.0,
+    "gps_caminho_p50": 0.383,
+    "p95": 0.764
+   }
+  },
+  "6 volta _ideal: caminho na linha ideal; lateral marcada como inferida": {
+   "ok": true,
+   "valor": {
+    "d_max": 0.0007,
+    "fonte": "inferida: traçado vhe_interlagos/gp/data/ideal_line.ai (o GPS do OpenF1 só posiciona AO LONGO da pista)"
+   }
+  },
+  "7 lateral por metro (bordas, zebra) e ápice do S do Senna": {
+   "ok": true,
+   "valor": {
+    "finitos": 1.0,
+    "largura_p5_p50_p95": [
+     10.3,
+     14.3,
+     23.4
+    ],
+    "senna1": {
+     "borda_esq": 0.6,
+     "zebra": 0.27
+    },
+    "lados_das_curvas_ok": true
+   }
+  },
+  "8 KN5 -> GLB (assetto.py) = exportação do Blender (±1 mm)": {
+   "ok": true,
+   "valor": {
+    "1road001": 7.6e-05,
+    "1kerb001": 7.6e-05,
+    "1curb001": 7.6e-05
+   }
+  }
+ }
+}
