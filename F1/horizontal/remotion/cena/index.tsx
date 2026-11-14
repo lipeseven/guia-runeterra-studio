@@ -24,6 +24,7 @@ type Camada =
   | { kit: "cartoes"; cena: CenaCartoes }
   | { kit: "foco"; cena: CenaFoco }
   | { kit: "duelo"; titulo: string; unidade: string; rodape: string; destaque?: number | null; destaqueEm: number;
+      forma?: "cartoes" | "barras"; escala?: [number, number] | null;
       lados: { sigla: string; nome: string; equipe: string; cor: string; valor: string; em: number }[] };
 type Movimento = { tipo: string; intensidade?: number; foco?: [number, number] };
 // movimento/L: câmera da cena inteira (ação direta do storyboard) ao longo dos L quadros puros da cena
@@ -70,6 +71,42 @@ const Foco: React.FC<{ c: Extract<Camada, { kit: "foco" }> }> = ({ c }) => {
 const Duelo: React.FC<{ c: Extract<Camada, { kit: "duelo" }> }> = ({ c }) => {
   const t = useCurrentFrame() / 60;
   const ent = (em: number) => Math.min(1, Math.max(0, (t - em) / 0.15));
+  if (c.forma === "barras") {
+    // rodada 2: forma "barras" (variar os duelos): eixo e nomes desde o início, cada barra cresce em 0,5 s na palavra
+    const [v0, v1] = c.escala ?? [0, Math.max(...c.lados.map((l) => parseFloat(l.valor) || 0)) * 1.05];
+    const X0 = 520, X1 = 1680, cres = (em: number) => { const u = Math.min(1, Math.max(0, (t - em) / 0.5)); return 1 - (1 - u) ** 3; };
+    const px = (v: number) => X0 + ((v - v0) / (v1 - v0)) * (X1 - X0);
+    const ticks = Array.from({ length: 5 }, (_, i) => v0 + ((v1 - v0) * i) / 4);
+    return (
+      <AbsoluteFill>
+        <svg width="100%" height="100%" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
+          <text x={960} y={190} textAnchor="middle" fontFamily='"Arial Black"' fontWeight={900} fontSize={76} fill={TINTA}>{c.titulo}</text>
+          {ticks.map((v, i) => (
+            <g key={i}>
+              <line x1={px(v)} x2={px(v)} y1={300} y2={780} stroke="#d9d7d0" strokeWidth={2} />
+              <text x={px(v)} y={830} textAnchor="middle" fontFamily='"Arial"' fontSize={34} fill="#777">{Math.round(v)}</text>
+            </g>
+          ))}
+          {c.lados.map((l, k) => {
+            const y = 340 + k * 230, v = parseFloat(l.valor) || 0, w = (px(v) - X0) * cres(l.em);
+            const marcado = c.destaque === k && t >= c.destaqueEm;
+            return (
+              <g key={k}>
+                <rect x={240} y={y + 20} width={14} height={110} fill={l.cor} />
+                <text x={274} y={y + 80} fontFamily='"Arial"' fontWeight={700} fontSize={60} fill={TINTA}>{l.sigla}</text>
+                <text x={274} y={y + 122} fontFamily='"Arial"' fontSize={30} fill="#555">{l.equipe}</text>
+                <rect x={X0} y={y} width={Math.max(0, w)} height={150} rx={10} fill={l.cor} stroke={marcado ? TINTA : "none"} strokeWidth={6} />
+                <text x={X0 + w - 24} y={y + 104} textAnchor="end" fontFamily='"Arial Black"' fontWeight={900} fontSize={84} fill="#fff"
+                  opacity={ent(l.em + 0.35)}>{`${l.valor} ${c.unidade}`}</text>
+              </g>
+            );
+          })}
+          <text x={1680} y={880} textAnchor="end" fontFamily='"Arial"' fontSize={30} fill="#777">{`eixo de ${Math.round(v0)} a ${Math.round(v1)} ${c.unidade}`}</text>
+          {c.rodape ? <text x={1872} y={1036} textAnchor="end" fontFamily='"Segoe UI"' fontSize={28} fill="#666">{c.rodape}</text> : null}
+        </svg>
+      </AbsoluteFill>
+    );
+  }
   return (
     <AbsoluteFill>
       <svg width="100%" height="100%" viewBox="0 0 1920 1080" style={{ position: "absolute", inset: 0 }}>
@@ -78,7 +115,7 @@ const Duelo: React.FC<{ c: Extract<Camada, { kit: "duelo" }> }> = ({ c }) => {
           const x = k === 0 ? 260 : 1020, y = 300, w = 640, h = 520;
           const marcado = c.destaque === k && t >= c.destaqueEm;
           return (
-            <g key={k} opacity={ent(Math.min(l.em, 0.1 + 0.1 * k))}>
+            <g key={k} opacity={ent(l.em)}>
               <rect x={x} y={y} width={w} height={h} rx={18} fill="#ffffff" stroke={marcado ? l.cor : "#d9d7d0"} strokeWidth={marcado ? 10 : 2} />
               <rect x={x} y={y} width={w} height={22} rx={10} fill={l.cor} />
               <text x={x + 48} y={y + 120} fontFamily='"Arial"' fontWeight={700} fontSize={64} fill={TINTA}>{l.sigla}</text>

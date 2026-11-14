@@ -112,6 +112,16 @@ def main() -> int:
     except R.FaltaAtivo:
         checa(True, "piloto fora da sessão recusado")
 
+    j = R.receita({**cena([{"kit": "cartoes", "params": {**d["params"], "forma": "barras", "escala": [26, 27]}}]), "t1": 6.0}, pal, 0, 0)
+    checa(j["props"]["camadas"][0]["forma"] == "barras" and j["props"]["camadas"][0]["escala"] == [26, 27], "duelo em barras com escala")
+    recusa(cena([{"kit": "cartoes", "params": {**d["params"], "forma": "pizza"}}]), "forma", "forma de duelo desconhecida recusada")
+    checa(R._arquibancadas_gps([{"circuito": "Mexico City"}])[0]["f0"] == round(3560 / 4304, 5), "arquibancadas do México em fração da volta")
+    with tempfile.TemporaryDirectory() as td:
+        a, b = Path(td) / "a.py", Path(td) / "b.py"
+        a.write_bytes(b"x = 1\r\ny = 2\r\n")
+        b.write_bytes(b"x = 1\ny = 2\n")
+        checa(R.hash_arquivo(a) == R.hash_arquivo(b), "hash do código igual com CRLF e LF (cache vale entre cópias)")
+
     print("4. narração do rascunho")
     with tempfile.TemporaryDirectory() as td:
         proj = Path(td)

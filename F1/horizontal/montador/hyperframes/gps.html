@@ -31,8 +31,7 @@
   #tags { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; }
   .tag { position: absolute; transform: translate(-50%, -100%); font-family: "Bahnschrift", "Segoe UI", sans-serif;
          font-weight: 700; font-size: 30px; color: #fff; padding: 4px 12px; border-radius: 6px; white-space: nowrap; }
-  .tag::after { content: ""; position: absolute; left: 50%; bottom: -10px; width: 2px; height: 10px; background: inherit; }
-  #mapa { position: absolute; right: 56px; top: 52px; width: 360px; height: 260px; background: rgba(255,255,255,0.9);
+    #mapa { position: absolute; right: 56px; top: 52px; width: 360px; height: 260px; background: rgba(255,255,255,0.9);
           border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.12); }
   #rotulo { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); font-family: "Bahnschrift", "Segoe UI", sans-serif;
             font-weight: 700; font-size: 52px; color: #141414; background: rgba(255,255,255,0.95); padding: 14px 34px;
@@ -42,6 +41,7 @@
 <body>
 <div id="root" data-composition-id="main" data-start="0" data-duration="__DUR__" data-fps="60" data-width="__W__" data-height="__H__">
   <canvas id="tela" width="__W__" height="__H__"></canvas>
+  <svg id="linhas" width="__W__" height="__H__" style="position:absolute;left:0;top:0;pointer-events:none"></svg>
   <div id="tags"></div>
   <canvas id="mapa" width="360" height="260"></canvas>
   <div id="hud"></div>
@@ -84,7 +84,7 @@
     canvas: document.getElementById("tela"), largura: __W__, altura: __H__,
     carros: carros.map((c, i) => ({ cena: c.scene, volta: voltas[i] })),
     inicio: cfg.inicio, fator: cfg.fator, rastro: cfg.rastro, camera: cfg.camera, duracao: cfg.duracao, distancia: cfg.distancia,
-    mundo: !!cfg.mundo, curvas: cfg.curvas || [],
+    mundo: !!cfg.mundo, curvas: cfg.curvas || [], arquibancadas: cfg.arquibancadas || [],
   };
   if (cfg.pista.glb) o.pista = (await ld.loadAsync(`assets/${cfg.pista.glb}`)).scene;
   else o.pistaPlana = await fetch(`assets/${cfg.pista.plana}`).then((r) => r.json());
@@ -93,7 +93,7 @@
   const hud = document.getElementById("hud"), nota = document.getElementById("nota");
   // tamanhos do CSS valem para 1920 px de largura: o rascunho (1280) e o final (1920) mostram o HUD do mesmo tamanho
   // relativo (uso real: no final 1080p o HUD saía 1,5× menor que no rascunho que foi aprovado)
-  const tagsEl = document.getElementById("tags"), mapaEl = document.getElementById("mapa"), rotuloEl = document.getElementById("rotulo");
+  const linhas = document.getElementById("linhas"), tagsEl = document.getElementById("tags"), mapaEl = document.getElementById("mapa"), rotuloEl = document.getElementById("rotulo");
   const k = __W__ / 1920;
   for (const el of [hud, nota, mapaEl, rotuloEl]) el.style.zoom = String(k);
   const chips = [], caixas = [];
@@ -157,14 +157,28 @@
     const est = cena.desenhar(tau);
     const m = (cfg.marcas || []).find((x) => tau >= x.t && tau < x.t + (x.dur ?? 1.5));
     chips.forEach((c, i) => { c.textContent = String(m ? kmhEm(m.t, i) : est[i].kmh); caixas[i].classList.toggle("marcado", !!m); });
-    tags.forEach((el, i) => {
-      v3.set(est[i].pos[0], est[i].pos[1] + 2.2, est[i].pos[2]).project(cena.cam);
-      const vis = v3.z < 1 && Math.abs(v3.x) < 1.1 && Math.abs(v3.y) < 1.1;
-      el.style.display = vis ? "block" : "none";
-      // 2º carro: etiqueta um pouco mais alta, para as duas não se cobrirem quando os carros estão colados
-      el.style.left = `${((v3.x + 1) / 2) * __W__}px`;
-      el.style.top = `${((1 - v3.y) / 2) * __H__ - i * 46 * k}px`;
+    // etiquetas (rodada 2): âncora no PRÓPRIO carro (0,6 m acima do centro, não 2,2 m: na perseguição baixa aquele ponto
+    // caía sobre o carro da frente), etiqueta a 70 px acima com perninha até a âncora; se as duas se cobririam, afastam
+    // na horizontal (a da esquerda na tela vai para a esquerda), nunca sobem uma sobre a outra
+    const pos = tags.map((el, i) => {
+      v3.set(est[i].pos[0], est[i].pos[1] + 0.6, est[i].pos[2]).project(cena.cam);
+      return { el, ax: ((v3.x + 1) / 2) * __W__, ay: ((1 - v3.y) / 2) * __H__, vis: v3.z < 1 && Math.abs(v3.x) < 1.05 && Math.abs(v3.y) < 1.05,
+               w: (el.textContent.length * 19 + 24) * k };
     });
+    for (const p of pos) { p.x = p.ax; p.y = p.ay - 70 * k; }
+    if (pos.length === 2 && pos[0].vis && pos[1].vis) {
+      const [a, b] = pos[0].ax <= pos[1].ax ? pos : [pos[1], pos[0]];
+      const precisa = (a.w + b.w) / 2 + 12 * k - (b.x - a.x);
+      if (precisa > 0 && Math.abs(a.y - b.y) < 44 * k) { a.x -= precisa / 2; b.x += precisa / 2; }
+    }
+    linhas.innerHTML = "";
+    for (const p of pos) {
+      p.el.style.display = p.vis ? "block" : "none";
+      p.el.style.left = `${p.x}px`;
+      p.el.style.top = `${p.y}px`;
+      if (p.vis) linhas.innerHTML += `<line x1="${p.ax}" y1="${p.ay}" x2="${p.x}" y2="${p.y}" stroke="${p.el.style.background}" stroke-width="${3 * k}"/>` +
+        `<circle cx="${p.ax}" cy="${p.ay}" r="${5 * k}" fill="${p.el.style.background}" stroke="#fff" stroke-width="${2 * k}"/>`;
+    }
     if (mapa) desenharMapa(est);
     const r = [...(cfg.rotulos || [])].reverse().find((x) => tau >= x.t);
     rotuloEl.style.display = r ? "block" : "none";

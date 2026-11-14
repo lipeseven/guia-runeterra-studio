@@ -92,10 +92,10 @@ function placa(THREE, texto, { cor = "#141414", fundo = "#ffffff", w = 6, h = 4 
 }
 
 /**
- * Grupo com o mundo em volta da pista plana. opcoes: { curvas: [{n, frac}], semente }.
+ * Grupo com o mundo em volta da pista plana. opcoes: { curvas: [{n, frac}], trechos: [{f0, f1}] (arquibancadas), semente }.
  * Coordenadas = as da pista plana (y = 0 é o asfalto).
  */
-export function criarMundoPlano(THREE, plana, { curvas = [], semente = 7 } = {}) {
+export function criarMundoPlano(THREE, plana, { curvas = [], trechos = [], semente = 7 } = {}) {
   const g = new THREE.Group();
   g.name = "mundo_plano";
   const am = amostrarCentro(plana);
@@ -170,6 +170,38 @@ export function criarMundoPlano(THREE, plana, { curvas = [], semente = 7 } = {})
     g.add(b);
   }
 
+  // arquibancadas grandes em trechos pedidos (reta dos boxes, estádio): blocos inclinados com faixas de assento coloridas
+  // dos dois lados, a cada 18 m (rodada 2: "nada de arquibancada/estádio")
+  if (trechos.length) {
+    const cv = document.createElement("canvas");
+    cv.width = 64; cv.height = 64;
+    const gg = cv.getContext("2d");
+    const faixas = ["#2b6cb0", "#e8eef3", "#d8262b", "#e8eef3"];
+    for (let k = 0; k < 8; k++) { gg.fillStyle = faixas[k % 4]; gg.fillRect(0, k * 8, 64, 8); }
+    const texA = new THREE.CanvasTexture(cv);
+    texA.colorSpace = THREE.SRGBColorSpace;
+    const matA = new THREE.MeshLambertMaterial({ map: texA });
+    const matB = new THREE.MeshLambertMaterial({ color: 0xd9d6cf });
+    for (const tr of trechos) {
+      let prox = -1;
+      for (const p of P) {
+        const f = p.s / am.L;
+        const dentro = tr.f0 <= tr.f1 ? f >= tr.f0 && f <= tr.f1 : f >= tr.f0 || f <= tr.f1;
+        if (!dentro || p.s < prox) continue;
+        prox = p.s + 18;
+        for (const lado of [1, -1]) {
+          const off = meia + 16;
+          const x = p.x + p.nx * lado * off, z = p.z + p.nz * lado * off;
+          if (distanciaMin(P, x, z) < meia + 10) continue;
+          const arq = new THREE.Mesh(new THREE.BoxGeometry(17, 11, 12), [matB, matB, matB, matB, matA, matA]);
+          arq.position.set(x, 5.5, z);
+          arq.rotation.y = Math.atan2(p.tx, p.tz) + Math.PI / 2;
+          g.add(arq);
+        }
+      }
+    }
+  }
+
   // placa com o número de cada curva pedida, do lado de fora, em pé
   for (const c of curvas) {
     const p = pontoNaFracao(am, c.frac);
@@ -189,6 +221,7 @@ export function opacidadeCarro(obj, a) {
   if (obj.userData.opacidade === a) return;
   obj.traverse((o) => {
     if (!o.isMesh) return;
+    o.renderOrder = a < 1 ? 10 : 0;   // depois do rastro (5): o rastro não "atravessa" o carro translúcido
     if (!o.userData.matProprio) {
       o.material = Array.isArray(o.material) ? o.material.map((m) => m.clone()) : o.material.clone();
       o.userData.matProprio = true;
