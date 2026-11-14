@@ -164,3 +164,22 @@ SFX: 25 pedidos → 13 (regra do Felipe "~9 em 2 min 20 s" × buracos apontados 
 Não feito nesta rodada: imagens reais (kit/imagens), estádio de verdade na cena 14 (a pista plana não sabe onde fica o
 estádio), "HUD segurado na palavra" (`marcar`) foi implementado mas não usado (o rótulo com os números ditos é mais claro);
 ninguém ouviu a trilha/mixagem.
+
+## Rodada 2 de correções (placar 79,8) → `final_v4.mp4`
+O que mudou por cena:
+| # | cena | mudança |
+|---|---|---|
+| 2, 8, 12, 14, 18 (GPS) | todas | etiqueta HAM/RUS ancorada 0,6 m acima do PRÓPRIO carro, com perninha e ponto; se as duas se cobririam, afastam na horizontal (nunca empilham) — na perseguição (18) a "HAM" estava sobre a Mercedes; carro de trás translúcido no mínimo 60 % e desenhado depois do rastro (o ciano não atravessa) |
+| 14 | setor 3 | arquibancadas listradas no trecho do estádio e na reta dos boxes (posição aproximada, só cenário: `kit/graficos/pista/Mexico City.json` "arquibancadas"); acelerado 3× para chegar à bandeirada; a cena agora vai até "resultado final:" com rótulo "Bandeirada"; tecla no "6" |
+| 2, 12, 18 | GPS | clique/pop nos rótulos ("classificação", "100%", "frenagens") |
+| 9b | mínima na Curva 1 | começa no "104" (sem cartão vazio); cartões entram com o número |
+| 11 | velocidade S2 | faixa = setor 2 inteiro com "Setor 2: RUS 0,022 s mais rápido (tempos oficiais)" (antes: trecho escolhido sem fonte e sem diferença visível); clique em "rápidas" |
+| 15 | resultado | começa no "1:16.514" (sem 2 s vazios); clique nos dois tempos |
+| 16 | speed trap | duelo → BARRAS crescendo na palavra (eixo 340–352 km/h escrito na tela), pop no 350 e no 347 |
+| 19 | fecho | sino com +22 dB (estava 33 dB abaixo da voz; com +14 ainda ficava 19 dB abaixo, medido) |
+Mixagem: só impacto/riser/whoosh abaixam sob a voz; clique/tecla +10 dB, pop +8, alerta +4, sino +22 (só com narração). Medido no rascunho r2: cliques/teclas/pops 9–15 dB abaixo da voz (eram 23–28).
+Cache: `montador/receitas.py` (`hash_arquivo`) normaliza CRLF → LF; o rascunho da worktree passa a valer no painel.
+
+**Resultado da rodada 2:** `F1/dados/projetos/nove-milesimos-teste-do-fluxo-completo/saida/final_v4.mp4` — 1920×1080, 60 q/s,
+5.429 quadros, 90,5 s, NVENC; −14,0 LUFS e pico −1,4 dBTP no MP4; verificação por quadro/junção/SFX aprovada (0 erros,
+0 avisos). Voz Fish provisória. Não ouvido por ninguém; quadros olhados nas cenas 2, 9b, 11, 12, 14, 16 e 18.
