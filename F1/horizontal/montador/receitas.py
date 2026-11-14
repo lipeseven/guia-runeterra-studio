@@ -14,7 +14,9 @@ Receitas de hoje (o resto dá `SemReceita` com mensagem clara):
 |-------------|-----------|---------------|
 | remotion    | graficos  | 1 gráfico do kit/graficos (velocidade, setores, delta, telemetria, normalizado) em tela cheia |
 | remotion    | anotacao  | os `texto` da cena em tipografia grande + anotações à mão (oval, sublinhado, riscado, corrigido) |
-| hyperframes | gps       | carros pelo GPS do OpenF1 na pista (.glb alinhado ou pista plana), câmera perseguindo ou fixa |
+| remotion    | cartoes   | cartão de capítulo em tela cheia ("PARTE 0N", título, traçado da sessão) |
+| remotion    | foco      | desfoca tudo menos um `texto` da cena (índice) ou uma caixa {x,y,w,h}; anotações ficam nítidas |
+| hyperframes | gps       | carros pelo GPS do OpenF1 na pista (.glb alinhado ou pista plana), câmera perseguindo, fixa ou alta; HUD (sigla, km/h) e rodapé |
 """
 from __future__ import annotations
 
@@ -162,13 +164,75 @@ def _anotacao(cena: dict, usos: list[dict], palavras: list[dict], dur: float) ->
     return {"kit": "anotacao", "cena": cen, "linhas": linhas, "fonte": json.loads(fonte.read_text(encoding="utf-8"))}, [fonte]
 
 
+# ---------------------------------------------------------------- Remotion: cartoes (capítulo)
+def _tracado_sessao(sessao) -> tuple[dict | None, list[Path]]:
+    """Traçado do circuito para o cartão de capítulo: o `tracado` (x, z do OpenF1) de uma comparação do kit/graficos da
+    mesma sessão. Sem comparação da sessão = cartão sem traçado (não é erro)."""
+    if sessao is None:
+        return None, []
+    for arq in sorted((KIT / "graficos" / "comparacoes").glob(f"{sessao}_*.json")):
+        tr = json.loads(arq.read_text(encoding="utf-8")).get("tracado") or {}
+        xs, zs = tr.get("x") or [], tr.get("z") or []
+        if len(xs) < 10:
+            continue
+        x0, z0 = min(xs), min(zs)
+        w, h = max(xs) - x0, max(zs) - z0
+        d = "M" + " L".join(f"{x - x0:.1f} {z - z0:.1f}" for x, z in zip(xs, zs)) + " Z"
+        return {"d": d, "largura": round(w, 1), "altura": round(h, 1)}, [arq]
+    return None, []
+
+
+def _cartoes(cena: dict, usos: list[dict], palavras: list[dict], dur: float) -> tuple[dict, list[Path]]:
+    """Cartão de capítulo em tela cheia ("PARTE 0N" + título + traçado da sessão se houver). Pessoa (precisa de foto
+    validada) e tag (precisa de âncora na tela) ainda não têm receita."""
+    cartoes, arquivos = [], []
+    for k, p in enumerate(usos):
+        tipo = p.get("tipo")
+        if tipo != "capitulo":
+            raise SemReceita(f"cartoes tipo '{tipo}' ainda sem receita no montador (há: capitulo)")
+        if not p.get("titulo") or p.get("numero") is None:
+            raise SemReceita("cartoes capitulo precisa de `numero` e `titulo`")
+        c = {"tipo": "capitulo", "id": f"c{k}", "em": round(_t_palavra(palavras, p.get("i"), cena["t0"], 0.0), 4),
+             "ate": round(dur + 1.0, 4), "numero": int(p["numero"]), "titulo": str(p["titulo"])}
+        if p.get("cor"):
+            c["cor"] = p["cor"]
+        if p.get("tracado", True):
+            tr, a = _tracado_sessao(p.get("sessao"))
+            if tr:
+                c["tracado"] = tr
+                arquivos += a
+        cartoes.append(c)
+    return {"kit": "cartoes", "cena": {"largura": BASE_W, "altura": BASE_H, "fps": FPS, "duracao": round(dur + 1.0, 4),
+                                       "margem": 48, "cartoes": cartoes}}, arquivos
+
+
+# ---------------------------------------------------------------- Remotion: foco (num texto da cena)
+def _foco(cena: dict, usos: list[dict], palavras: list[dict], alvos: dict, dur: float) -> dict:
+    """Desfoca tudo menos o alvo. Alvo = índice de um `texto` da cena (caixa medida na fonte, estável) ou caixa
+    {x, y, w, h} em px de 1920×1080. Entra na palavra `i` (ou 0,3 s) e fica até o fim da cena."""
+    focos = []
+    for k, p in enumerate(usos):
+        alvo = p.get("alvo", 0)
+        if isinstance(alvo, dict) and all(c in alvo for c in ("x", "y", "w", "h")):
+            caixa = {c: float(alvo[c]) for c in ("x", "y", "w", "h")}
+        elif str(alvo).isdigit() and f"t{int(alvo)}" in alvos:
+            caixa = alvos[f"t{int(alvo)}"]["caixa"]
+        else:
+            raise SemReceita(f"foco: alvo {alvo!r} não é um texto da cena nem uma caixa {{x,y,w,h}}")
+        em = _t_palavra(palavras, p.get("i"), cena["t0"], 0.3)
+        focos.append({"id": f"f{k}", "em": round(em, 4), "ate": round(dur + 1.0, 4), "alvo": {"caixa": caixa},
+                      "blur": float(p.get("blur", 10)), "escurecer": float(p.get("escurecer", 0.10)),
+                      "folga": float(p.get("folga", 18)), "forma": p.get("forma", "caixa")})
+    return {"kit": "foco", "cena": {"largura": BASE_W, "altura": BASE_H, "fps": FPS, "duracao": round(dur + 1.0, 4), "focos": focos}}
+
+
 # ---------------------------------------------------------------- HyperFrames: gps
 def _gps(cena: dict, p: dict, dur: float) -> tuple[dict, dict, list[Path]]:
     s = p.get("sessao")
     carros = p.get("carros") or []
     if not carros:
         raise SemReceita("gps sem carros")
-    voltas, arquivos, assets = [], [], {}
+    voltas, arquivos, assets, voltas_json = [], [], {}, []
     d = dados_f1() / "modelos3d"
     for c in carros:
         if str(c.get("volta")) == "melhor":
@@ -179,6 +243,7 @@ def _gps(cena: dict, p: dict, dur: float) -> tuple[dict, dict, list[Path]]:
             raise FaltaAtivo(f"GPS {nome} (kit/gps) — produzir: cd F1/horizontal/kit/gps && python py/openf1.py {s} {c.get('piloto')} "
                              f"&& python py/preparar_volta.py {s} {c.get('piloto')} {c.get('volta')}")
         v = json.loads(arq.read_text(encoding="utf-8"))
+        voltas_json.append(v)
         modelo = CARROS.get(v.get("equipe"))
         if not modelo or not (d / modelo).exists():
             raise FaltaAtivo(f"modelo 3D do carro da equipe {v.get('equipe')!r} (F1/dados/modelos3d; montador/receitas.py CARROS)")
@@ -202,10 +267,28 @@ def _gps(cena: dict, p: dict, dur: float) -> tuple[dict, dict, list[Path]]:
         arquivos.append(pp)
     cfg = {"voltas": voltas, "pista": cfg_pista, "inicio": float(p.get("inicio", 0.0)), "fator": float(p.get("fator", 1.0)),
            "rastro": float(p.get("rastro", 2.5)), "camera": p.get("camera_gps", "perseguicao"), "distancia": float(p.get("distancia", 0.5)),
-           "duracao": round(dur, 4)}
-    if cfg["camera"] not in ("perseguicao", "fixa"):
-        raise SemReceita(f"gps: camera_gps '{cfg['camera']}' (há: perseguicao, fixa)")
+           "duracao": round(dur, 4), "hud": bool(p.get("hud", True)), "nota": _nota_gps(p, voltas_json)}
+    if cfg["camera"] not in CAMERAS_GPS:
+        raise SemReceita(f"gps: camera_gps '{cfg['camera']}' (há: {', '.join(CAMERAS_GPS)})")
     return cfg, assets, arquivos
+
+
+CAMERAS_GPS = ("perseguicao", "fixa", "alta")
+SESSAO_PT = {"Qualifying": "classificação", "Race": "corrida", "Sprint": "sprint", "Sprint Qualifying": "classificação sprint",
+             "Practice 1": "TL1", "Practice 2": "TL2", "Practice 3": "TL3"}
+
+
+def _nota_gps(p: dict, voltas: list[dict]) -> str:
+    """Rodapé da cena GPS: o relógio (tempo real / acelerado / câmera lenta) e a fonte. `nota` na SPEC substitui;
+    `nota: ""` tira. Uso real (card "Nove milésimos", 2026-11-14): a cena GPS não dizia se era tempo real."""
+    if "nota" in p:
+        return str(p["nota"] or "")
+    f = float(p.get("fator", 1.0))
+    rel = "tempo real" if abs(f - 1) < 1e-6 else (f"acelerado {f:g}×" if f > 1 else f"câmera lenta {1 / f:g}×").replace(".", ",")
+    v = voltas[0] if voltas else {}
+    sessao = SESSAO_PT.get(str(v.get("sessao_nome")), v.get("sessao_nome"))
+    fonte = " ".join(str(x) for x in (v.get("circuito"), v.get("ano"), sessao) if x)
+    return f"{rel} · Dados: OpenF1" + (f" · {fonte}" if fonte else "")
 
 
 # ---------------------------------------------------------------- entrada
@@ -214,6 +297,10 @@ FONTES_CODIGO = {
                                KIT / "graficos" / "graficos.ts"],
     ("remotion", "anotacao"): [HORIZ / "remotion" / "cena" / "index.tsx", HORIZ / "remotion" / "anotacao" / "CamadaAnotacao.tsx",
                                KIT / "anotacao" / "anotacao.ts"],
+    ("remotion", "cartoes"): [HORIZ / "remotion" / "cena" / "index.tsx", HORIZ / "remotion" / "cartoes" / "CamadaCartoes.tsx",
+                              KIT / "cartoes" / "cartoes.ts", KIT / "cartoes" / "larguras.ts"],
+    ("remotion", "foco"): [HORIZ / "remotion" / "cena" / "index.tsx", HORIZ / "remotion" / "foco" / "CamadaFoco.tsx",
+                           KIT / "foco" / "foco.ts", HORIZ / "remotion" / "anotacao" / "CamadaAnotacao.tsx"],
     ("hyperframes", "gps"): [AQUI / "hyperframes" / "gps.html", KIT / "gps" / "src" / "gps.js", KIT / "gps" / "src" / "gps_three.js",
                              KIT / "gps" / "exemplo" / "cena_exemplo.js"],
 }
@@ -234,19 +321,31 @@ def receita(cena: dict, palavras: list[dict], pre: int, pos: int) -> dict:
         camadas = []
         graf = [u["params"] for u in usos if u["kit"] == "graficos"]
         anot = [u["params"] for u in usos if u["kit"] == "anotacao"]
-        outros = [k for k in kits if k not in ("graficos", "anotacao")]
+        cart = [u["params"] for u in usos if u["kit"] == "cartoes"]
+        foco = [u["params"] for u in usos if u["kit"] == "foco"]
+        outros = [k for k in kits if k not in ("graficos", "anotacao", "cartoes", "foco")]
         if outros:
-            raise SemReceita(f"kit {', '.join(outros)} ainda sem receita no Remotion (há: graficos, anotacao)")
+            raise SemReceita(f"kit {', '.join(outros)} ainda sem receita no Remotion (há: graficos, anotacao, cartoes, foco)")
         if len(graf) > 1:
             raise SemReceita("mais de um gráfico na mesma cena: divida em cenas")
+        if cart and (graf or anot or foco):
+            raise SemReceita("cartão de capítulo ocupa a tela cheia: não junte com gráfico, anotação ou foco na mesma cena")
         if graf:
             c, a = _graficos(cena, graf[0], palavras, dur)
             camadas.append(c)
             arquivos += a
-        if anot:
+        if cart:
+            c, a = _cartoes(cena, cart, palavras, dur)
+            camadas.append(c)
+            arquivos += a
+        if anot or (foco and cena.get("texto") and not graf):
+            # textos da cena (+ anotações): o foco num texto precisa dos textos desenhados mesmo sem anotação
             c, a = _anotacao(cena, anot, palavras, dur)
             camadas.append(c)
             arquivos += a
+        if foco:
+            _, alvos = _layout_textos(cena.get("texto") or []) if not graf else ([], {})
+            camadas.append(_foco(cena, foco, palavras, alvos, dur))
         job["props"] = {"quadros": quadros, "pre": pre, "camadas": camadas}
         if cena.get("movimento"):   # câmera da cena inteira (ação direta do storyboard; montador/movimento.js)
             job["props"].update(movimento=cena["movimento"], L=quadros - pre - pos)

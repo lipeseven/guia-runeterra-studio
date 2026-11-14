@@ -99,7 +99,13 @@ puros da cena; parado durante a transição de entrada (os `pre` quadros seguram
 |---|---|---|
 | remotion | `graficos` | 1 gráfico do kit em tela cheia (`tipo`, `sessao`, `a`, `b`, `trecho`, `dur`, `ritmo[{em,i,d}]` → tempo da palavra) |
 | remotion | `anotacao` | `texto` da cena centralizado (caixas medidas na fonte real) + `oval`/`sublinhado`/`riscado`/`corrigido` na palavra `i` |
-| hyperframes | `gps` | carros pelo GPS (`sessao`, `carros`, `fator`, `inicio` = s da volta no 1º quadro, `camera_gps` perseguicao/fixa, `rastro`); pista .glb ou plana conforme a volta; carro por equipe (`receitas.CARROS`) |
+| hyperframes | `gps` | carros pelo GPS (`sessao`, `carros`, `fator`, `inicio` = s da volta no 1º quadro, `camera_gps` perseguicao/fixa/alta, `rastro`, `hud`, `nota`); pista .glb ou plana conforme a volta; carro por equipe (`receitas.CARROS`); HUD com sigla + km/h por carro e rodapé "tempo real/acelerado N×/câmera lenta N× · Dados: OpenF1 · …" |
+| remotion | `cartoes` | cartão de capítulo em tela cheia (`tipo: capitulo`, `numero`, `titulo`, `sessao` → traçado da comparação da sessão); pessoa e tag ainda sem receita |
+| remotion | `foco` | desfoca tudo menos o `alvo` (índice de um `texto` da cena ou caixa {x,y,w,h}); entra na palavra `em`; traços à mão ficam nítidos por cima |
+
+Uso real (card "Nove milésimos", 2026-11-14): `F1_RENDER_PARALELO` (padrão 3) renderiza os lotes do Remotion e as cenas
+do HyperFrames ao mesmo tempo; o rascunho usa a voz guia (`trabalho/voz_guia.wav`) quando não há gravação; a
+verificação do SFX mede o pico contra o PRÓPRIO som (o `pico_s` do catálogo errado vira aviso; 12 itens corrigidos).
 
 Qualquer outro par motor × kit (imagens, cartões, foco, modelo3d, gps no Remotion, gráficos no HyperFrames, cena só de
 texto) dá **erro claro** (`SemReceita`), nunca uma cena "parecida". Arquivo faltando dá `FaltaAtivo` com o comando.
@@ -163,7 +169,7 @@ c2→c3 + o bloco da c3 recodificados. Folhas: `testes/montador/final_folha_*.jp
 - (até a 7b) `--final` não tinha sido rodado; na 7c rodou no mini-spec (ver "Fase 7c" no Teste), NVENC e x264 exercitados.
 - Desempenho em 20 min (≈ 70 cenas): não medido. A mixagem abre um arquivo por SFX no ffmpeg (OK para ~200).
 - No GPS de Monza os dois carros ficam quase sobrepostos na perseguição (o kit anda cada um no próprio GPS): visto, não mexido.
-- Receitas só para graficos/anotacao (Remotion) e gps (HyperFrames); o resto recusa.
+- Receitas para graficos/anotacao/cartoes(capítulo)/foco (Remotion) e gps (HyperFrames); imagens, modelo3d, pessoa e tag recusam.
 - (fase 5) A tela do Rascunho não tinha sido vista no navegador; na 7b o storyboard foi visto na porta 8799 (dados fictícios).
 - 7b: blocos e lotes medidos só no mini-spec (3 cenas de 3 s); nenhum vídeo de 20 min. Lote do HyperFrames não existe.
   Movimento de câmera: só conferido que muda os quadros e passa na verificação; ninguém julgou se 8 %/12 % fica bonito.

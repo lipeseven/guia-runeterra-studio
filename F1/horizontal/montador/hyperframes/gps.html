@@ -14,11 +14,25 @@
   #root { width: 100%; height: 100%; position: relative; background: #e9e9e6; }
   #tela { position: absolute; left: 0; top: 0; width: __W__px; height: __H__px; }
   #root { overflow: hidden; }
+  /* HUD (cfg.hud): uma etiqueta por carro (cor da equipe, sigla, km/h do GPS/telemetria) e o rodapé com o relógio
+     ("tempo real" / "acelerado N×" / "câmera lenta") e a fonte. Texto seco, sem animação; fora do canvas (não move). */
+  #hud { position: absolute; left: 48px; top: 44px; display: flex; flex-direction: column; gap: 12px; }
+  .chip { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,0.94); border-radius: 8px;
+          padding: 10px 18px 10px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.12); font-family: "Bahnschrift", "Segoe UI", sans-serif;
+          font-kerning: none; }
+  .chip .barra { width: 8px; align-self: stretch; border-radius: 8px 0 0 8px; }
+  .chip .sig { font-weight: 700; font-size: 34px; color: #141414; width: 74px; }
+  .chip .kmh { font-weight: 600; font-size: 34px; color: #141414; width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+  .chip .un { font-size: 22px; color: #555; }
+  #nota { position: absolute; right: 48px; bottom: 36px; font-family: "Segoe UI", sans-serif; font-size: 24px; color: #4a4a4a;
+          background: rgba(255,255,255,0.85); padding: 6px 14px; border-radius: 6px; }
 </style>
 </head>
 <body>
 <div id="root" data-composition-id="main" data-start="0" data-duration="__DUR__" data-fps="60" data-width="__W__" data-height="__H__">
   <canvas id="tela" width="__W__" height="__H__"></canvas>
+  <div id="hud"></div>
+  <div id="nota"></div>
 </div>
 <script>
   (function () {
@@ -60,7 +74,26 @@
   if (cfg.pista.glb) o.pista = (await ld.loadAsync(`assets/${cfg.pista.glb}`)).scene;
   else o.pistaPlana = await fetch(`assets/${cfg.pista.plana}`).then((r) => r.json());
   const cena = montarCena(THREE, o);
-  host.desenhar = (t) => { const tau = Math.max(0, t - cfg.pre / 60); cena.desenhar(tau); mover(tau); };
+  // HUD: as etiquetas ficam por cima do canvas (o movimento de câmera da ação direta não as move nem escala)
+  const hud = document.getElementById("hud"), nota = document.getElementById("nota");
+  const chips = [];
+  if (cfg.hud) {
+    for (const it of cena.itens) {
+      const el = document.createElement("div");
+      el.className = "chip";
+      el.innerHTML = `<div class="barra" style="background:${it.am.info.cor}"></div><div class="sig">${it.am.info.sigla}</div>` +
+        `<div class="kmh">0</div><div class="un">km/h</div>`;
+      hud.appendChild(el);
+      chips.push(el.querySelector(".kmh"));
+    }
+  }
+  if (cfg.nota) nota.textContent = cfg.nota; else nota.style.display = "none";
+  host.desenhar = (t) => {
+    const tau = Math.max(0, t - cfg.pre / 60);
+    const est = cena.desenhar(tau);
+    chips.forEach((c, i) => { c.textContent = String(est[i].kmh); });
+    mover(tau);
+  };
   host.desenhar(host.relogio.t);
   host.pronto();
 </script>

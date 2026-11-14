@@ -14,6 +14,7 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 
 import receitas as R
@@ -42,11 +43,15 @@ def node_modules() -> Path:
     raise FalhaRender("F1/video/node_modules não encontrado (rode npm install em F1/video na pasta principal)")
 
 
+_TRAVA_JUNCAO = threading.Lock()   # montar._renderizar_paralelo chama de várias threads
+
+
 def _juncao_remotion() -> Path:
     nm = node_modules()
     junc = HORIZ / "remotion" / "node_modules"
-    if not junc.exists():
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(junc), str(nm)], check=True, capture_output=True)
+    with _TRAVA_JUNCAO:
+        if not junc.exists():
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(junc), str(nm)], check=True, capture_output=True)
     return nm
 
 

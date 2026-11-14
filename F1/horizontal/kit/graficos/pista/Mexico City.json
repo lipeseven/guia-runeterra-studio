@@ -1,0 +1,8 @@
+{
+  "_nota": "Autódromo Hermanos Rodríguez: comprimento oficial 4.304 m, sentido horário. Só a Curva 1 (fim da reta principal) entra com número: é o 1º mínimo de velocidade depois da reta na telemetria da classificação 2026 (sessão 11400, HAM v19 104 km/h e RUS v21 100 km/h a ~1.205 m na distância integrada de 4.244 m, × 4304/4244). As outras curvas não foram conferidas uma a uma e ficam sem nome.",
+  "comprimento_m": 4304,
+  "sentido": "horário",
+  "curvas": [
+    {"n": 1, "nome": "Curva 1", "d": 1222}
+  ]
+}
