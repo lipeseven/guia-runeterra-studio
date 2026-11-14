@@ -31,7 +31,7 @@ DUCK_SFX = "threshold=0.05:ratio=3:attack=15:release=300:makeup=1"
 # rodada 2 do placar: com o ducking em tudo, cliques/pops ficaram 23–28 dB abaixo da voz e o sino a 33 dB (inaudíveis).
 # Só os sons longos abaixam sob a voz; os curtos ganham reforço (com narração) para ficar ~12–15 dB abaixo dela.
 COM_DUCK = {"impacto", "riser", "whoosh"}
-REFORCO_DB = {"clique": 10.0, "tecla": 10.0, "pop": 8.0, "alerta": 4.0, "sino": 14.0}
+REFORCO_DB = {"clique": 10.0, "tecla": 10.0, "pop": 8.0, "alerta": 4.0, "sino": 22.0}   # medido: sino_suave ainda 19 dB abaixo com +14
 
 
 def pasta_banco() -> Path:
