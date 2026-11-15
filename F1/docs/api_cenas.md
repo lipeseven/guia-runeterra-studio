@@ -209,8 +209,9 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 
 ## Geografia real (set "real": nenhum cenário fixo, névoa longe)
 - Circuitos na biblioteca: `"interlagos"` (atual, com cenário), `"lasvegas"` (Las Vegas Strip Circuit, com cenário, ver abaixo),
-  `"monaco_1984"` (Mônaco 1976-1985, 3,312 km) e `"donington_1993"` (GP da Europa 1993, 4,023 km). Os antigos só têm o
-  traçado (sem cenário nem curvas numeradas); f 0 = linha de chegada.
+  `"monaco_1984"` (Mônaco 1976-1985, 3,312 km), `"donington_1993"` (GP da Europa 1993, 4,023 km) e `"silverstone"` (5,891 km, 2026-11-14:
+  traçado bacinger/f1-circuits gb-1948 + 18 curvas do MultiViewer, sem cenário; f 0 = linha de chegada; script em F1/dados/mapas/silverstone_dados/preparar.py).
+  Os antigos só têm o traçado (sem cenário nem curvas numeradas); f 0 = linha de chegada.
   Nunca desenhar traçado à mão: circuito que não está aqui precisa ser criado na biblioteca.
 - `obj(w, "circ:interlagos", () => criarCircuito("interlagos", { rotulos }))`: o circuito com o TRAÇADO REAL, em metros
   (4,309 km; asfalto, área de escape, zebras, linha de chegada). Vídeo sobre um circuito usa SEMPRE o traçado real, nunca a
