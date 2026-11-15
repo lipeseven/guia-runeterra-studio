@@ -107,11 +107,28 @@ def copiar_logos(trabalho: Path, planos: list[dict], pasta: Path | None = None) 
     disp = logos_disponiveis(pasta)
     saida = {}
     for k in sorted(logos_usados(planos) & set(disp)):
-        destino = trabalho / "logos" / disp[k].name
+        dados = disp[k].read_bytes()
+        nome = disp[k].name
+        if dados.lstrip(b"\xef\xbb\xbf \t\r\n")[:5].lower() in (b"<svg ", b"<svg\n", b"<?xml") or b"<svg" in dados[:400].lower():
+            # SVG salvo com extensão .png (aconteceu com o fia.png): o servidor do render o serviria como image/png e o
+            # navegador não decodifica. Grava como .svg e, se faltar largura/altura, deriva do viewBox.
+            nome = disp[k].stem + ".svg"
+            txt = dados.decode("utf-8", errors="replace")
+            m = re.search(r"<svg\b[^>]*>", txt, re.I)
+            if m and not re.search(r"\swidth\s*=", m.group(0), re.I):
+                vb = re.search(r'viewBox\s*=\s*"([-\d.\s,]+)"', m.group(0))
+                if vb:
+                    p = [float(x) for x in re.split(r"[\s,]+", vb.group(1).strip())]
+                    if len(p) == 4 and p[2] > 0 and p[3] > 0:
+                        esc = 1024 / max(p[2], p[3])
+                        nova = m.group(0)[:-1] + f' width="{p[2] * esc:.0f}" height="{p[3] * esc:.0f}">'
+                        txt = txt.replace(m.group(0), nova, 1)
+            dados = txt.encode("utf-8")
+        destino = trabalho / "logos" / nome
         destino.parent.mkdir(parents=True, exist_ok=True)
-        if not destino.exists() or destino.read_bytes() != disp[k].read_bytes():
-            shutil.copy2(disp[k], destino)
-        saida[k] = f"logos/{disp[k].name}"
+        if not destino.exists() or destino.read_bytes() != dados:
+            destino.write_bytes(dados)
+        saida[k] = f"logos/{nome}"
     return saida
 
 
