@@ -1,10 +1,10 @@
 // Vídeo vertical montado pelo diretor do painel: os planos chegam por props (direcao/vertical.json do vídeo).
 // Cada plano traz o CÓDIGO da cena, escrito pelo diretor para este vídeo com a API abaixo (F1/docs/api_cenas.md), ou o nome
 // de uma cena pronta (	ipo, F1/docs/catalogo_vertical.md). O código roda aqui (new Function): nada dele fica no projeto.
-import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import * as THREE from "three";
-import { FONTE, Legenda, Placa, entra, suave, type Palavra } from "./kit";
+import { FONTE, Legenda, Placa, entra, suave, type EstiloLegenda, type Palavra } from "./kit";
 import {
   Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, enquadrar, orbitar, drawRastro, fumaca, grade, gridX, gridZ, halo,
   luzGantry, luzesDesfocadas, montar, num, poe, poeCinza, poePneu, preparar, seed, solta, type Mundo,
@@ -22,6 +22,7 @@ import {
   topoDoPodio, criarMapaRegiao,
 } from "./modelos/extras";
 import "./modelos/logo_canal"; // carrega o logo (segura o render até decodificar)
+import { aplicarLogo, carregarLogos, criarLivro, criarPainelLogo, logo } from "./modelos/logos"; // logos de arquivo (F1/arte/logos)
 import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar } from "./modelos/boneco";
 import { apertarFreio, criarFreio, girarDisco } from "./modelos/freio";
 import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, ponteiro, tomadaDeAr, ventilar } from "./modelos/freio_cena";
@@ -32,11 +33,16 @@ export type PlanoV = {
   modo?: string; angulo?: string; de?: number; ate?: number; valores?: number[]; sai?: number; marcas?: Record<string, number>;
   titulo?: TituloV; grafico?: GraficoV; foco?: boolean; // gráficos informativos (Infograficos.tsx)
   sem_legenda?: boolean; // a frase já está na tela em letra grande (gráfico "frase"): a legenda sairia duplicada
+  legenda?: EstiloLegenda; // caixa de fundo / legenda branca só neste plano (por cima do estilo do vídeo)
   placas?: PlacaV[]; contador?: { de: number; ate: number; unidade?: string; casas?: number; formato?: string; i0?: number; i1?: number; cor_final?: string };
   chips?: { itens: string[]; ativo?: number; i?: number }; selo?: { texto: string; i?: number }; riscado?: { texto: string; i: number };
   medidor?: { texto: string; sub?: string; i?: number }; gota?: { texto: string }; chuva?: boolean;
 };
-export type PropsVertical = { palavras: Palavra[]; planos: PlanoV[]; audio: string; chaves?: string[] };
+export type PropsVertical = {
+  palavras: Palavra[]; planos: PlanoV[]; audio: string; chaves?: string[];
+  logos?: Record<string, string>; // {chave: caminho na pasta pública} (o Python copia de F1/arte/logos)
+  legenda?: EstiloLegenda; // estilo da legenda do vídeo inteiro
+};
 
 export type CV = {
   w: Mundo; p: PlanoV; t: number; s: number; k: number; fim: number; ini: number; m: (nome: string, frac?: number) => number;
@@ -407,6 +413,7 @@ export const API = {
   criarMapaRegiao, neutro, andar, faseDoPasso, carregar, agachar, abaixar, apontar, acenar, empurrar, maos, olhar,
   criarFreio, girarDisco, apertarFreio, aquecer, noFreio, fluxo, ventilar, criarTermometro, medirTemperatura, criarMedidorTermico, ponteiro,
   criarPlacaCarbono, criarHibrido, poeHibrido, caminhoDaEnergia, escurecer, tomadaDeAr, poePedais, linhaDoFreio, poePilotoNoCarro,
+  logo, aplicarLogo, criarPainelLogo, criarLivro,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
@@ -504,7 +511,7 @@ function Sobre({ c, tempo }: { c: CV; tempo: (i?: number) => number }): ReactNod
   return <>{extra}</>;
 }
 
-export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, chaves = [] }) => {
+export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, chaves = [], logos, legenda }) => {
   const ref = useRef<HTMLCanvasElement>(null);
   const mundo = useRef<Mundo | null>(null);
   const quadro = useCurrentFrame();
@@ -534,8 +541,14 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
     return c;
   };
   const [alca] = useState(() => delayRender("desenhando o quadro 3D"));
+  // logos de arquivo: nada é desenhado antes de as imagens decodificarem (o tamanho do painel sai da proporção do logo)
+  const [logosOk, setLogosOk] = useState(() => !logos || Object.keys(logos).length === 0);
+  useEffect(() => {
+    if (!logosOk) void carregarLogos(logos).then(() => setLogosOk(true));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   // o logo do canal (Sphere de Las Vegas) é uma imagem: logo_canal.ts segura o render (delayRender) até ela decodificar
   useLayoutEffect(() => {
+    if (!logosOk) return; // o render continua segurado (alca) até os logos chegarem
     const w = mundo.current ?? (mundo.current = montar(ref.current!));
     esconderExtras(w);
     restaurar(); // desmonte do quadro anterior (explodir, isolar, raio-X, corte) não vaza para este
@@ -567,9 +580,9 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
       <Audio src={staticFile(audio)} />
       {/* modo quadro informativo: a cena 3D escurece e desfoca atrás do gráfico */}
       <canvas ref={ref} width={1080} height={1920} style={{ position: "absolute", width: 1080, height: 1920, filter: p.foco ? "blur(10px) brightness(0.42) saturate(0.85)" : undefined }} />
-      {claro && <FundoLegenda />}
+      {claro && !(p.legenda?.fundo ?? legenda?.fundo) && <FundoLegenda />}{/* legenda com caixa própria dispensa a faixa do cenário claro */}
       <Sobre c={c} tempo={tempo} />
-      {!p.sem_legenda && <Legenda palavras={palavras} chaves={chaves} />}
+      {!p.sem_legenda && <Legenda palavras={palavras} chaves={chaves} estilo={p.legenda || legenda ? { ...legenda, ...p.legenda } : undefined} />}
       <AbsoluteFill style={{ background: "#000", opacity: suave(t, falaFim + 0.05, falaFim + 0.25), zIndex: 99 }} />
     </AbsoluteFill>
   );

@@ -148,7 +148,23 @@ export const TRECHOS_LASVEGAS: { texto: string; f: number }[] = [
   { texto: "SANDS AVENUE", f: 0.44 }, { texto: "LAS VEGAS STRIP", f: 0.68 }, { texto: "PLANET HOLLYWOOD", f: 0.843 }, { texto: "HARMON AVENUE", f: 0.91 },
 ];
 
-export const TRECHOS: Record<string, { texto: string; f: number }[]> = { interlagos: TRECHOS_INTERLAGOS, lasvegas: TRECHOS_LASVEGAS };
+/** Silverstone (Arena, 5,891 km, 18 curvas): nomes conferidos na Wikipedia ("A lap in a Formula One car", 2026-11-14):
+ *  1 Abbey, 2 Farm, 3 Village, 4 The Loop, 5 Aintree, 6 Brooklands, 7 Luffield, 8 Woodcote, 9 Copse, 10-13 Maggotts e
+ *  Becketts, 14 Chapel, 15 Stowe, 16 Vale, 17-18 Club. f = posição da curva no circuitos.json (MultiViewer). */
+export const TRECHOS_SILVERSTONE: { texto: string; f: number }[] = [
+  { texto: "ABBEY", f: 0.0775 }, { texto: "FARM", f: 0.1044 }, { texto: "VILLAGE", f: 0.1478 }, { texto: "THE LOOP", f: 0.1775 },
+  { texto: "AINTREE", f: 0.2103 }, { texto: "BROOKLANDS", f: 0.3359 }, { texto: "LUFFIELD", f: 0.3743 }, { texto: "WOODCOTE", f: 0.4342 },
+  { texto: "COPSE", f: 0.5237 }, { texto: "MAGGOTTS E BECKETTS", f: 0.651 }, { texto: "CHAPEL", f: 0.7093 }, { texto: "STOWE", f: 0.8552 },
+  { texto: "VALE", f: 0.9321 }, { texto: "CLUB", f: 0.9614 },
+];
+
+/** Mônaco atual: vazio de propósito. A numeração oficial curva a curva (19) não foi conferida numa fonte (a Wikipedia só
+ *  numera a 1 Sainte-Dévote e a 11 Nouvelle Chicane): nomear de memória arriscaria nome na curva errada. */
+export const TRECHOS_MONACO: { texto: string; f: number }[] = [];
+
+export const TRECHOS: Record<string, { texto: string; f: number }[]> = {
+  interlagos: TRECHOS_INTERLAGOS, lasvegas: TRECHOS_LASVEGAS, silverstone: TRECHOS_SILVERSTONE, monaco: TRECHOS_MONACO,
+};
 
 /** Marcos reais de Las Vegas (centro do contorno no OpenStreetMap) para câmera e rótulos: sphere, high_roller, eiffel,
  *  plaza (Grand Prix Plaza = prédio dos boxes), fontes (Bellagio), campanile, bellagio, venetian, palazzo, caesars, wynn,

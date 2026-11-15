@@ -18,7 +18,23 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
   button click", "rotary knob clicks"), bipe de rádio ("radio beep static"). Barulho de carro: nunca. Só em momento-chave, em
   que algo muda na tela naquela palavra; a maioria dos planos fica sem efeito. O efeito bate na palavra citada e dura pouco (pop 0,3 s). Teto de 1 a cada 12 s no vídeo (o motor corta o excesso por igual). Efeito pedido pelo Felipe: `"obrigatorio": true` no
   som (passa por fora do teto e do intervalo; os outros continuam no teto); mantenha a marca nas revisões. A trilha não é daqui: é ligada no painel.
+  **Som por arquivo** (2026-11-14): `{"arquivo": "freesound_cache/104026.ogg", "em": "trecho", "volume"?: 0.26, "duracao"?:
+  0.8, "o_que"?: "nota", "obrigatorio"?}` toca AQUELE arquivo (sem busca). Caminho absoluto ou relativo a, nesta ordem:
+  `dados/comum/`, a pasta do projeto do vídeo, a raiz do repositório, `dados/comum/freesound_cache/`,
+  `F1/horizontal/kit/sfx/banco/` (ex.: `"alerta/alerta_dois_tons.wav"`) e `dados/comum/sfx/`. Áudio .wav/.mp3/.ogg/.flac/.m4a,
+  normalizado como o catálogo (sem silêncio no início, até 6 s, pico -3 dBFS); `volume` 0,02 a 1 (padrão 0,26 ≈ os do
+  catálogo), `duracao` em segundos (padrão: o som inteiro). Arquivo que não existe vira aviso no card e o render segue sem ele.
+  Use quando o Felipe pedir um som específico ou quando nenhuma descrição acha o som certo; vale o mesmo teto dos outros.
 - `sem_legenda`: true tira a legenda do plano (quando a frase já está em letra grande com o gráfico `frase`).
+- `legenda` (2026-11-14): estilo da legenda. `{"fundo": "#0e1118", "opacidade": 0.72, "raio": 22, "margem": 18, "branca":
+  true}`: `fundo` = caixa atrás do texto (cor hex ou CSS; sem `fundo` = sem caixa), `opacidade` 0 a 1, `raio` e `margem` em px;
+  `branca: true` = todas as palavras já faladas em branco e negrito (legenda branca de destaque, sem o cinza das anteriores).
+  No plano vale só para ele; na RAIZ da resposta (`"legenda": {...}` ao lado de `"planos"`) vale para o vídeo inteiro (o do
+  plano se soma por cima). Use em cena clara ou movimentada onde a legenda se perde, ou quando o Felipe pedir.
+- Números na tela: só os que a fala diz, **exceto os liberados pelo Felipe**: a seção `NÚMEROS NA TELA (pedido do Felipe)`
+  do briefing (uma linha por texto/número, ex.: `- 6,201 km`) e todo número que ele escrever num pedido do card (inclusive
+  a resposta a um "pedido não feito"). Esses vão para a tela exatamente como escritos; a checagem automática (aviso
+  "número fora da fala") só libera aqueles números, nunca os outros.
 - Gráficos informativos (campos do plano, 2D por cima da cena; UM por plano, só quando reforçam a fala):
   - `titulo`: {"texto": "RÁDIO — COMUNICAÇÃO", "sub": "COM A EQUIPE", "em": "trecho"}: só na troca de assunto.
   - `grafico`: {"tipo", "em": "trecho" (entra), "ate_em": "trecho" (fim do movimento), ...}:
@@ -124,6 +140,19 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
 - `rotulo("TEXTO", { altura, cor, fundo })`: placa 3D que olha para a câmera (dentro de `obj`).
 - Também prontos no mundo: `w.trofeu` (troféu dourado: `.visible = true` e posição), `w.sc` (Safety Car).
 
+## Logos e texturas de arquivo (2026-11-14; `modelos/logos.ts`)
+O Felipe põe o arquivo licenciado em `F1/arte/logos/` (nome do arquivo = chave: `fia.png` = `"logo:fia"`; PNG com fundo
+transparente de preferência). A lista "LOGOS DISPONÍVEIS" no fim destes documentos diz quais existem. Logo que não está
+na lista NÃO existe: não desenhe à mão nem troque por outro; ponha em `nao_feitos` o arquivo exato que falta (ex.: "falta o
+arquivo F1/arte/logos/fia.png"). Sem o arquivo, o objeto mostra um cartão cinza "FALTA fia.png" e o card avisa.
+- `logo("logo:fia")` → textura (THREE.Texture) para qualquer material: `new THREE.MeshStandardMaterial({ map: logo("logo:fia"), transparent: true })`.
+- `aplicarLogo(malha, "logo:fia")`: troca o material de uma malha que já existe pelo logo.
+- `criarPainelLogo("logo:fia", { largura: 2, fundo: "#ffffff", moldura, margem, espessura })`: placa com o logo (frente +z,
+  altura pela proporção do logo, centro na origem). Pendure em parede, pórtico, box (apoio físico visível).
+- `criarLivro({ capa: "logo:fia", cor: "#16306b", titulo: "REGULAMENTO", largura: 0.6, altura: 0.85, espessura: 0.12 })`:
+  livro de capa dura (livro de regras): capa +z, páginas brancas na lateral, logo e título na capa. Deitado na mesa:
+  `l.rotation.x = -Math.PI / 2`. Sempre dentro de `obj(w, "livro:fia", () => criarLivro({...}))`.
+
 ## Pit stop (equipe coreografada, já pronta)
 Use sempre que a fala mostrar um pit stop ou a função de um mecânico: nunca desenhe mecânicos à mão.
 `const ps = obj(c.w, "pit:1", () => criarPitStop({ composto: "macio" }))` cria a equipe de 22 (cada função com a cor
@@ -210,7 +239,15 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 ## Geografia real (set "real": nenhum cenário fixo, névoa longe)
 - Circuitos na biblioteca: `"interlagos"` (atual, com cenário), `"lasvegas"` (Las Vegas Strip Circuit, com cenário, ver abaixo),
   `"monaco_1984"` (Mônaco 1976-1985, 3,312 km), `"donington_1993"` (GP da Europa 1993, 4,023 km) e `"silverstone"` (5,891 km, 2026-11-14:
-  traçado bacinger/f1-circuits gb-1948 + 18 curvas do MultiViewer, sem cenário; f 0 = linha de chegada; script em F1/dados/mapas/silverstone_dados/preparar.py).
+  traçado bacinger/f1-circuits gb-1948 + 18 curvas do MultiViewer, sem cenário; f 0 = linha de chegada; script em F1/dados/mapas/silverstone_dados/preparar.py)
+  e `"monaco"` (Circuit de Monaco ATUAL, 3,337 km, 19 curvas do MultiViewer, sem cenário; traçado bacinger mc-1929; script
+  preparar_monaco.py). **`"monaco"` = Mônaco de hoje; `"monaco_1984"` = o traçado de 1976-1985 (3,312 km), só para fala sobre
+  aquela época (Senna 1984).** Os dois novos têm `numerarCurvas` (posição real de cada curva), mas não `cenario` nem `perfil`.
+  Silverstone, numeração oficial (Wikipedia, conferida 2026-11-14): 1 Abbey 0,078; 2 Farm 0,104; 3 Village 0,148; 4 The Loop
+  0,178; 5 Aintree 0,210; 6 Brooklands 0,336; 7 Luffield 0,374; 8 Woodcote 0,434; 9 Copse 0,524; 10-13 Maggotts e Becketts
+  0,618–0,684; 14 Chapel 0,709; 15 Stowe 0,855; 16 Vale 0,932; 17-18 Club 0,949–0,974. `nomearTrechos` já usa esses nomes.
+  Mônaco atual: nomes dos trechos NÃO conferidos curva a curva (só 1 Sainte-Dévote e 11 Nouvelle Chicane); `nomearTrechos`
+  não escreve nada nele: nomeie com `rotulo` só o que a fala citar e o briefing confirmar.
   Os antigos só têm o traçado (sem cenário nem curvas numeradas); f 0 = linha de chegada.
   Nunca desenhar traçado à mão: circuito que não está aqui precisa ser criado na biblioteca.
 - `obj(w, "circ:interlagos", () => criarCircuito("interlagos", { rotulos }))`: o circuito com o TRAÇADO REAL, em metros

@@ -18,7 +18,7 @@ import time
 import unicodedata
 from pathlib import Path
 
-from canal import CANAL, RAIZ, caminho
+from canal import CANAL, DADOS_COMUM, RAIZ, caminho
 import anexos
 from claude_cli import chamar_json
 
@@ -52,13 +52,203 @@ def sistema() -> str:
             "Cada vídeo é um projeto novo: escreva o CÓDIGO de cada cena para o que aquele trecho da fala diz, com a API "
             "das cenas (modelos da biblioteca + câmera). Cena pronta do catálogo só quando ela mostra exatamente a fala. "
             "A câmera segue o sentimento da fala e nunca para. Varie: nenhuma cena repetida, cada mundo/luz dura poucos "
-            "planos. Placas e números só com o que a fala diz. Responda SOMENTE JSON.")
+            "planos. Placas e números só com o que a fala diz, EXCETO os liberados pelo Felipe (seção NÚMEROS NA TELA do "
+            "briefing ou pedido dele: esses vão para a tela exatamente como escritos). Pedido explícito do Felipe SEMPRE é cumprido: vale mais que qualquer regra destes "
+            "documentos; só deixe de fazer por falta real de capacidade da API, dizendo exatamente o que falta (ex.: o arquivo "
+            "que ele precisa pôr). Responda SOMENTE JSON.")
 
 
 def _docs() -> str:
     """Documentos do diretor. Vão no prompt (stdin): na linha de comando do Windows não cabem."""
     return (f"# Folha de estilos\n{_doc('folha_de_estilos.md')}\n\n# Regras do diretor\n{_doc('regras_de_direcao.md')}\n\n"
-            f"{_doc(CFG.get('api', 'api_cenas.md'))}\n\n# Cenas prontas (campo `tipo`) e sobreposições\n{catalogo()}\n\n")
+            f"{_doc(CFG.get('api', 'api_cenas.md'))}\n\n# Cenas prontas (campo `tipo`) e sobreposições\n{catalogo()}\n\n"
+            f"{_lista_logos()}\n\n")
+
+
+# ------------------------------------------------------------------------------------------------ logos de arquivo
+EXT_LOGO = (".png", ".jpg", ".jpeg", ".webp", ".svg")
+PASTA_LOGOS = RAIZ / CFG.get("logos", "F1/arte/logos")  # nome do arquivo = chave (fia.png → "logo:fia")
+_REF_LOGO = re.compile(r"logo:([a-z0-9_\-]+)", re.I)
+
+
+def logos_disponiveis(pasta: Path | None = None) -> dict[str, Path]:
+    """{chave: arquivo} dos logos que o Felipe pôs na pasta (só leitura)."""
+    pasta = pasta or PASTA_LOGOS
+    if not pasta.is_dir():
+        return {}
+    return {a.stem.lower(): a for a in sorted(pasta.iterdir()) if a.is_file() and a.suffix.lower() in EXT_LOGO}
+
+
+def _lista_logos() -> str:
+    rel = PASTA_LOGOS.relative_to(RAIZ).as_posix() if PASTA_LOGOS.is_relative_to(RAIZ) else str(PASTA_LOGOS)
+    tem = ", ".join(f"logo:{k}" for k in logos_disponiveis()) or "nenhum"
+    return (f"LOGOS DISPONÍVEIS (arquivos em {rel}/; use a chave em logo(), criarPainelLogo, criarLivro, aplicarLogo): {tem}. "
+            f"Logo que não está nesta lista NÃO existe: não invente nem desenhe à mão; ponha em \"nao_feitos\" o arquivo exato "
+            f"que o Felipe precisa colocar (ex.: \"falta o arquivo {rel}/fia.png\").")
+
+
+def logos_usados(planos: list[dict]) -> set[str]:
+    return {m.lower() for m in _REF_LOGO.findall(json.dumps(planos, ensure_ascii=False))}
+
+
+def avisos_logos(planos: list[dict], pasta: Path | None = None) -> list[str]:
+    """Logo citado no código que não tem arquivo: diz exatamente qual arquivo o Felipe precisa colocar."""
+    pasta = pasta or PASTA_LOGOS
+    rel = pasta.relative_to(RAIZ).as_posix() if pasta.is_relative_to(RAIZ) else str(pasta)
+    falta = sorted(logos_usados(planos) - set(logos_disponiveis(pasta)))
+    return [f"falta o logo \"{k}\": coloque o arquivo {rel}/{k}.png (PNG, de preferência com fundo transparente; nome do "
+            f"arquivo = chave)" for k in falta]
+
+
+def copiar_logos(trabalho: Path, planos: list[dict], pasta: Path | None = None) -> dict[str, str]:
+    """Copia os logos citados para <trabalho>/logos (a pasta pública do render). Devolve {chave: caminho público}."""
+    import shutil
+
+    disp = logos_disponiveis(pasta)
+    saida = {}
+    for k in sorted(logos_usados(planos) & set(disp)):
+        destino = trabalho / "logos" / disp[k].name
+        destino.parent.mkdir(parents=True, exist_ok=True)
+        if not destino.exists() or destino.read_bytes() != disp[k].read_bytes():
+            shutil.copy2(disp[k], destino)
+        saida[k] = f"logos/{disp[k].name}"
+    return saida
+
+
+def _assinatura_logos(planos: list[dict]) -> str:
+    """Trocar o arquivo de um logo refaz os blocos que o usam (entra na impressão)."""
+    disp = logos_disponiveis()
+    usados = sorted(logos_usados(planos) & set(disp))
+    if not usados:
+        return ""
+    return "|logos:" + hashlib.sha1(b"".join(k.encode() + disp[k].read_bytes() for k in usados)).hexdigest()
+
+
+# ------------------------------------------------------------------------------------------------ números na tela
+_NUM = re.compile(r"\d+(?:[.,]\d+)*")
+_UNID = {"zero": 0, "um": 1, "uma": 1, "dois": 2, "duas": 2, "tres": 3, "quatro": 4, "cinco": 5, "seis": 6, "sete": 7,
+         "oito": 8, "nove": 9, "dez": 10, "onze": 11, "doze": 12, "treze": 13, "quatorze": 14, "catorze": 14, "quinze": 15,
+         "dezesseis": 16, "dezessete": 17, "dezoito": 18, "dezenove": 19, "vinte": 20, "trinta": 30, "quarenta": 40,
+         "cinquenta": 50, "sessenta": 60, "setenta": 70, "oitenta": 80, "noventa": 90, "cem": 100, "cento": 100,
+         "duzentos": 200, "duzentas": 200, "trezentos": 300, "trezentas": 300, "quatrocentos": 400, "quatrocentas": 400,
+         "quinhentos": 500, "quinhentas": 500, "seiscentos": 600, "seiscentas": 600, "setecentos": 700, "setecentas": 700,
+         "oitocentos": 800, "oitocentas": 800, "novecentos": 900, "novecentas": 900}
+_MULT = {"mil": 1000, "milhao": 10 ** 6, "milhoes": 10 ** 6}
+
+
+def _chave_num(bruto: str) -> str:
+    """Número comparável: só os dígitos ("6,201" = "6.201" = "6201"; "311.0" de JSON = "311")."""
+    return re.sub(r"\D", "", bruto).lstrip("0") or "0"
+
+
+def _por_extenso(texto: str) -> set[str]:
+    """Números falados por extenso ("seis vírgula duzentos e um" → 6201; "dezessete" → 17)."""
+    tok = [_limpa(x) for x in re.split(r"[\s\-]+", texto) if _limpa(x)]
+    achados, i = set(), 0
+    while i < len(tok):
+        if tok[i] not in _UNID and tok[i] not in _MULT:
+            i += 1
+            continue
+        total = atual = 0
+        inteiro, j = None, i
+        while j < len(tok):
+            w = tok[j]
+            if w in _UNID:
+                atual += _UNID[w]
+            elif w in _MULT:
+                total += (atual or 1) * _MULT[w]
+                atual = 0
+            elif w == "e" and j + 1 < len(tok) and (tok[j + 1] in _UNID or tok[j + 1] in _MULT):
+                pass
+            elif w == "virgula" and inteiro is None and j + 1 < len(tok) and tok[j + 1] in _UNID:
+                inteiro, total, atual = total + atual, 0, 0
+            else:
+                break
+            j += 1
+        n = total + atual
+        achados.add(_chave_num(f"{inteiro}{n}") if inteiro is not None else str(n))
+        i = j
+    return achados
+
+
+def numeros_do_texto(texto: str) -> set[str]:
+    """Chaves de todos os números de um texto (em algarismos e por extenso)."""
+    return {_chave_num(x) for x in _NUM.findall(texto)} | _por_extenso(texto)
+
+
+def _sem_float(v) -> str:
+    return str(int(v)) if isinstance(v, float) and v.is_integer() else str(v)
+
+
+_TEXTO_COD = re.compile(r"(?:\b(?:rotulo|criarAlfinete|criarLivro|criarPainelLogo)\(\s*|\b(?:texto|titulo|sub):\s*)([\"'`])(.*?)\1")
+
+
+def textos_na_tela(p: dict) -> list[str]:
+    """Textos que o plano escreve na tela (sobreposições, gráficos e rótulos do código)."""
+    t: list[str] = []
+    for pl in p.get("placas") or []:
+        if isinstance(pl, dict):
+            t.append(f"{pl.get('texto', '')} {pl.get('unidade', '')}")
+    if isinstance(p.get("contador"), dict):
+        t.append(_sem_float(p["contador"].get("ate", "")))
+    for campo in ("titulo", "selo", "riscado", "medidor", "gota"):
+        if isinstance(p.get(campo), dict):
+            t += [str(p[campo].get(k, "")) for k in ("texto", "sub")]
+    if isinstance(p.get("chips"), dict):
+        t += [str(x) for x in p["chips"].get("itens") or []]
+    g = p.get("grafico")
+    if isinstance(g, dict):
+        t += [str(g.get(k, "")) for k in ("texto", "esquerda", "direita", "unidade")]
+        if g.get("tipo") in ("numero", "ano") and "valor" in g:
+            t.append(_sem_float(g["valor"]))
+        t += [str(x) for x in g.get("itens") or []]
+        t += [str(x.get("t", "")) for x in g.get("palavras") or [] if isinstance(x, dict)]
+        t += [f"{x.get('rotulo', '')} {x.get('nome', '')}" for x in g.get("marcos") or [] if isinstance(x, dict)]
+        t += [str(x.get("texto", "")) for x in g.get("horas") or [] if isinstance(x, dict)]
+    if isinstance(p.get("codigo"), str):
+        t += [m.group(2) for m in _TEXTO_COD.finditer(p["codigo"])]
+    return [x for x in t if x and x.strip()]
+
+
+def numeros_liberados(briefing: str) -> list[str]:
+    """Linhas da seção "NÚMEROS NA TELA (pedido do Felipe)" do briefing: textos/números que podem ir para a tela mesmo
+    fora da fala. Aceita o briefing do diretor ("## TÍTULO") e o arquivo original (títulos entre linhas de "=")."""
+    if not briefing:
+        return []
+    texto = briefing.replace("\r\n", "\n")
+    secao = None
+    for m in re.finditer(r"^##[ \t]*(.+)$", texto, re.M):
+        if "NUMEROS NA TELA" in _limpa_titulo(m.group(1)):
+            fim = re.search(r"^##[ \t]", texto[m.end():], re.M)
+            secao = texto[m.end():m.end() + fim.start()] if fim else texto[m.end():]
+            break
+    if secao is None:
+        partes = re.split(r"^=+[ \t]*\n[ \t]*(?:\d+\.[ \t]*)?([^\n]+?)[ \t]*\n=+[ \t]*$", texto, flags=re.M)
+        for tit, corpo in zip(partes[1::2], partes[2::2]):
+            if "NUMEROS NA TELA" in _limpa_titulo(tit):
+                secao = corpo
+                break
+    if not secao:
+        return []
+    return [re.sub(r"^[-*•]\s*", "", x.strip()) for x in secao.splitlines() if x.strip()]
+
+
+def _limpa_titulo(t: str) -> str:
+    return unicodedata.normalize("NFKD", t).encode("ascii", "ignore").decode().upper()
+
+
+def avisos_numeros(planos: list[dict], palavras: list[dict], liberados: list[str]) -> list[str]:
+    """Número na tela que a fala não diz e o Felipe não liberou (NÚMEROS NA TELA do briefing ou pedido dele)."""
+    ok = numeros_do_texto(" ".join(w["t"] for w in palavras))
+    for x in liberados:
+        ok |= numeros_do_texto(x)
+    avisos = []
+    for n, p in enumerate(planos):
+        fora = sorted({b for txt in textos_na_tela(p) for b in _NUM.findall(txt) if _chave_num(b) not in ok})
+        if fora:
+            avisos.append(f"número fora da fala (cena {n + 1}): {', '.join(fora)}. Se foi pedido do Felipe, ponha na seção "
+                          "NÚMEROS NA TELA do briefing (ou peça no card) para liberar")
+    return avisos
 
 def frases(palavras: list[dict]) -> str:
     """Roteiro em frases, cada uma com o tempo, para o Claude dosar a duração dos planos."""
@@ -145,7 +335,7 @@ def resolver(brutos: list[dict], palavras: list[dict]) -> tuple[list[dict], list
                     item["i"] = j
         if isinstance(p.get("riscado"), dict) and "i" not in p["riscado"]:
             p["riscado"]["i"] = i
-        if isinstance(p.get("som"), dict) and p["som"].get("o_que"):  # o "em" fica: a revisão volta a localizar
+        if isinstance(p.get("som"), dict) and (p["som"].get("o_que") or p["som"].get("arquivo")):  # o "em" fica: a revisão volta a localizar
             j = localizar(palavras, p["som"].get("em"), i)
             p["som"]["i"] = j if j is not None else i
         else:
@@ -161,8 +351,8 @@ def resolver(brutos: list[dict], palavras: list[dict]) -> tuple[list[dict], list
 
 
 FORMATO = ("Responda SOMENTE com JSON {\"chaves\": [um termo-chave por frase, como aparece na fala], \"planos\": [{\"em\", "
-           "\"set\", \"clima\", \"codigo\" (ou \"tipo\" + parâmetros), \"marcas\"?, \"som\"?, sobreposições?}]}. O código é JavaScript "
-           "puro dentro de uma string JSON.")
+           "\"set\", \"clima\", \"codigo\" (ou \"tipo\" + parâmetros), \"marcas\"?, \"som\"?, \"legenda\"?, sobreposições?}], "
+           "\"legenda\"?: estilo da legenda do vídeo inteiro}. O código é JavaScript puro dentro de uma string JSON.")
 
 
 def _pedir(prompt: str, palavras: list[dict], etiqueta: str) -> dict:
@@ -170,7 +360,10 @@ def _pedir(prompt: str, palavras: list[dict], etiqueta: str) -> dict:
     brutos = r["planos"] if isinstance(r, dict) else r
     planos, avisos = resolver(brutos, palavras)
     chaves = [c for c in (r.get("chaves") if isinstance(r, dict) else None) or [] if isinstance(c, str)][:20]
-    return {"planos": planos, "avisos": avisos, "chaves": chaves, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    d = {"planos": planos, "avisos": avisos, "chaves": chaves, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    if isinstance(r, dict) and isinstance(r.get("legenda"), dict):
+        d["legenda"] = r["legenda"]
+    return d
 
 
 def _briefing(texto: str) -> str:
@@ -178,7 +371,7 @@ def _briefing(texto: str) -> str:
         return ""
     return ("BRIEFING DO VÍDEO (pedidos de quem fez o roteiro: siga; trecho que não existe mais no roteiro = ignore; cena "
             "marcada MODELO A CRIAR = use o modelo da API se já existir, senão a alternativa indicada; nunca contrarie o "
-            f"EVITAR):\n{texto}\n\n")
+            f"EVITAR):\n{texto}\n\n")  # NÚMEROS NA TELA: explicado no sistema() do vertical (o horizontal também usa este texto)
 
 
 def dirigir(roteiro: str, palavras: list[dict], briefing: str = "", trabalho: Path | None = None, aviso=lambda m: None) -> dict:
@@ -270,9 +463,14 @@ def _consertar_tsc(direcao: dict, palavras: list[dict], aviso) -> dict:
     return direcao
 
 
-def _props(direcao: dict, palavras: list[dict]) -> dict:
-    return {"palavras": [{"t": p["t"], "i": p["i"], "f": p["f"]} for p in palavras], "planos": direcao["planos"],
-            "audio": "voz.wav", "chaves": direcao.get("chaves", [])}
+def _props(direcao: dict, palavras: list[dict], logos: dict[str, str] | None = None) -> dict:
+    d = {"palavras": [{"t": p["t"], "i": p["i"], "f": p["f"]} for p in palavras], "planos": direcao["planos"],
+         "audio": "voz.wav", "chaves": direcao.get("chaves", [])}
+    if logos:
+        d["logos"] = logos  # {chave: caminho na pasta pública}: o Vertical.tsx carrega antes de desenhar
+    if isinstance(direcao.get("legenda"), dict):
+        d["legenda"] = direcao["legenda"]  # estilo da legenda do vídeo inteiro (o plano pode trocar com o próprio "legenda")
+    return d
 
 
 def quadros(trabalho: Path, direcao: dict, palavras: list[dict], ids: set[str] | None = None) -> tuple[list[Path], dict[str, str]]:
@@ -294,7 +492,7 @@ def quadros(trabalho: Path, direcao: dict, palavras: list[dict], ids: set[str] |
         fim = palavras[planos[n + 1]["i"]]["i"] if n + 1 < len(planos) else fim_fala
         alvos.append((n, p, int((ini + (fim - ini) * 0.6) * FPS)))
     props = trabalho / "vertical_props_conferencia.json"
-    props.write_text(json.dumps(_props(direcao, palavras), ensure_ascii=False), encoding="utf-8")
+    props.write_text(json.dumps(_props(direcao, palavras, copiar_logos(trabalho, planos)), ensure_ascii=False), encoding="utf-8")
     pedido = trabalho / "quadros_pedido.json"
     pedido.write_text(json.dumps({"composicao": CFG.get("composicao", "Vertical"), "props": str(props), "publicDir": str(trabalho),
                                   "escala": 0.25, "quadros": [{"q": q, "saida": str(pasta / f"{n:03d}.jpg")} for n, _, q in alvos]}),
@@ -370,6 +568,19 @@ def conferir(direcao: dict, palavras: list[dict], briefing: str, trabalho: Path 
     com_codigo = {p["em"] for p in direcao["planos"] if p.get("codigo")}
     direcao["avisos"] = [a for a in direcao.get("avisos", [])
                          if not (a.startswith('cena "') and a.split('"')[1] in com_codigo)]
+    return checar_regras(direcao, palavras, briefing, trabalho.parent if trabalho is not None else None)
+
+
+_AVISOS_REGRAS = ("número fora da fala", "falta o logo", "som não encontrado")
+
+
+def checar_regras(direcao: dict, palavras: list[dict], briefing: str = "", projeto: Path | None = None) -> dict:
+    """Checagens que não pedem nada ao Claude (só avisos no card): números fora da fala (menos os liberados pelo Felipe),
+    logos sem arquivo e sons por arquivo que não existem. Refeitas a cada conferência (os avisos antigos saem)."""
+    planos = direcao["planos"]
+    liberados = numeros_liberados(briefing) + list(direcao.get("numeros_liberados") or [])
+    novos = avisos_numeros(planos, palavras, liberados) + avisos_logos(planos) + avisos_sons(planos, projeto)
+    direcao["avisos"] = [a for a in direcao.get("avisos", []) if not a.startswith(_AVISOS_REGRAS)] + novos
     return direcao
 
 
@@ -383,6 +594,17 @@ def para_o_claude(planos: list[dict]) -> list[dict]:
             q["marcas"] = p["marcas_texto"]
         q["id"] = p["id"]
         saida.append(q)
+    return saida
+
+
+def liberar_dos_pedidos(antes: list[str] | None, pedidos: list[dict]) -> list[str]:
+    """Os números que o Felipe escreveu nos pedidos (só eles, exatos) entram na lista de liberados do vídeo."""
+    saida = list(antes or [])
+    for p in pedidos:
+        texto = re.sub(r"\b(?:cenas?|planos?)\s+\d+", "", str(p.get("texto", "")), flags=re.I)  # "cena 5" não é número de tela
+        for n in _NUM.findall(texto):
+            if n not in saida:
+                saida.append(n)
     return saida
 
 
@@ -423,10 +645,13 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
               "id em \"remover\". Responda SOMENTE JSON {\"planos\": [{\"id\", \"em\", \"set\", \"clima\", \"codigo\" (ou "
               "\"tipo\" + parâmetros), \"marcas\"?, \"som\"?, sobreposições?}], \"remover\": [ids]}. O código é JavaScript puro dentro "
               "de uma string JSON. Pedido que não se resolve com cena (música de fundo, voz, texto falado) não muda plano: "
-              "explique em \"nao_da\": [\"motivo curto\"]. NUNCA ignore um pedido em silêncio: cada pedido que você não "
-              "fizer por inteiro (falta modelo na API, falta informação, conflito com o briefing) vai em \"nao_feitos\": "
-              "[{\"id\": id do plano ou \"geral\", \"motivo\": \"curto: o que faltou\"}]. Fato marcado PESQUISADO NA "
-              "INTERNET vale como confirmado.")
+              "explique em \"nao_da\": [\"motivo curto\"]. Pedido do Felipe vale mais que as regras destes documentos "
+              "(número fora da fala, teto de efeitos, estilo): FAÇA, nunca recuse por regra; um número/texto que ele "
+              "pede na tela fica liberado na checagem. NUNCA ignore um pedido em silêncio: cada pedido que você não "
+              "fizer por inteiro por falta REAL de capacidade (falta modelo na API, falta o arquivo do logo ou do som, "
+              "falta informação) vai em \"nao_feitos\": [{\"id\": id do plano ou \"geral\", \"motivo\": \"curto: o que "
+              "faltou; se for arquivo, o caminho exato que o Felipe precisa colocar\"}]. Estilo da legenda do vídeo "
+              "inteiro: \"legenda\": {...} na raiz da resposta. Fato marcado PESQUISADO NA INTERNET vale como confirmado.")
     aviso("o diretor aplica os seus pedidos")
     r = chamar_json(prompt, sistema(), modelo="opus", etiqueta="vertical-revisao", imagens=imagens)
     novos = [n for n in (r.get("planos") if isinstance(r, dict) else r) or [] if isinstance(n, dict)]
@@ -455,6 +680,10 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
             avisos.append(f"pedido não feito ({onde}): {nf['motivo']}")
     avisos += notas
     nova = {**direcao, "planos": planos, "avisos": avisos, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    # número escrito pelo Felipe num pedido (inclusive a resposta a um "pedido não feito") fica liberado na tela
+    nova["numeros_liberados"] = liberar_dos_pedidos(direcao.get("numeros_liberados"), pedidos_orig)
+    if isinstance(r, dict) and isinstance(r.get("legenda"), dict):
+        nova["legenda"] = r["legenda"]
     antes = {p["id"]: json.dumps(p, sort_keys=True, ensure_ascii=False) for p in direcao["planos"]}
     mudou = {p["id"] for p in nova["planos"] if antes.get(p["id"]) != json.dumps(p, sort_keys=True, ensure_ascii=False)}
     mudou |= set(antes) - {p["id"] for p in nova["planos"]}  # plano removido também é mudança
@@ -498,7 +727,8 @@ def blocos(direcao: dict, palavras: list[dict], fonte: str = "", fps: int = FPS)
     planos = direcao["planos"]
     total = math.ceil((palavras[-1]["f"] + 0.35) * fps)
     q = [0] + [min(total, math.ceil(palavras[p["i"]]["i"] * fps - 1e-6)) for p in planos[1:]] + [total]
-    comum = hashlib.sha1(json.dumps([[w["t"], w["i"], w["f"]] for w in palavras] + [direcao.get("chaves", []), fonte],
+    extra = [direcao["legenda"]] if direcao.get("legenda") else []  # sem estilo de legenda, a impressão fica a de antes
+    comum = hashlib.sha1(json.dumps([[w["t"], w["i"], w["f"]] for w in palavras] + [direcao.get("chaves", []), fonte] + extra,
                                     ensure_ascii=False).encode()).hexdigest()
     saida, atual = [], []
     for n, p in enumerate(planos):
@@ -562,47 +792,153 @@ def _na_fala(trabalho: Path) -> callable:
 SOM_VOLUME = {"clique": 0.22, "seletor": 0.22, "radio": 0.26, "whoosh": 0.24, "pop": 0.24, "alerta": 0.22}
 
 
+EXT_SOM = (".wav", ".mp3", ".ogg", ".flac", ".m4a")
+SOM_ARQ_VOLUME = 0.26  # padrão do som por arquivo (mesma faixa dos do catálogo, ~15 dB abaixo da voz)
+SOM_ARQ_MAX = 6.0  # segundos: igual ao corte do catálogo (sfx.MAX_SEG)
+
+
+def pastas_de_som(projeto: Path | None = None) -> list[Path]:
+    """Onde um `arquivo` relativo é procurado, na ordem: dados/comum/, a pasta do projeto do vídeo, a raiz do repositório
+    e as pastas liberadas (dados/comum/freesound_cache, F1/horizontal/kit/sfx/banco e o catálogo dados/comum/sfx)."""
+    pastas = [DADOS_COMUM]
+    if projeto is not None:
+        pastas += [projeto, projeto / "trabalho"]
+    return pastas + [RAIZ, DADOS_COMUM / "freesound_cache", RAIZ / "F1" / "horizontal" / "kit" / "sfx" / "banco", DADOS_COMUM / "sfx"]
+
+
+def achar_som(nome: str, projeto: Path | None = None) -> Path:
+    """Caminho absoluto, ou relativo a uma das pastas_de_som. Erro com a lista do que foi procurado."""
+    p = Path(str(nome).strip().replace("\\", "/"))
+    if p.suffix.lower() not in EXT_SOM:
+        raise FileNotFoundError(f"som não encontrado: \"{nome}\" não é áudio ({', '.join(EXT_SOM)})")
+    candidatos = [p] if p.is_absolute() else [d / p for d in pastas_de_som(projeto)]
+    for c in candidatos:
+        if c.is_file():
+            return c.resolve()
+    onde = str(p) if p.is_absolute() else ", ".join(str(d) for d in pastas_de_som(projeto))
+    raise FileNotFoundError(f"som não encontrado: \"{nome}\" (procurado em {onde})")
+
+
+def avisos_sons(planos: list[dict], projeto: Path | None = None) -> list[str]:
+    avisos = []
+    for n, p in enumerate(planos):
+        for s in ([p["som"]] if isinstance(p.get("som"), dict) else []) + [x for x in p.get("sons") or [] if isinstance(x, dict)]:
+            if s.get("arquivo"):
+                try:
+                    achar_som(s["arquivo"], projeto)
+                except FileNotFoundError as e:
+                    avisos.append(f"{e} (cena {n + 1})")
+    return avisos
+
+
+def _normalizar_som(origem: Path, destino: Path) -> float:
+    """Como o catálogo (sfx._preparar): mono 44,1 kHz, sem silêncio no início, até 6 s com fade, pico em -3 dBFS.
+    Devolve a duração (s)."""
+    import numpy as np
+    import soundfile as sf
+
+    sr = 44100
+    r = subprocess.run(["ffmpeg", "-v", "error", "-i", str(origem), "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"],
+                       capture_output=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"não consegui ler o som {origem}: {r.stderr.decode(errors='replace')[-200:]}")
+    a = np.frombuffer(r.stdout, dtype=np.float32).copy()
+    if not len(a) or np.abs(a).max() == 0:
+        raise RuntimeError(f"som vazio ou mudo: {origem}")
+    env = np.abs(a)
+    limiar = env.max() * 0.03
+    ini = int(np.argmax(env > limiar))
+    a = a[max(0, ini - int(0.01 * sr)):]
+    fim_util = len(a) - int(np.argmax(np.abs(a[::-1]) > limiar))
+    a = a[:max(1, fim_util + int(0.15 * sr))]
+    if len(a) > SOM_ARQ_MAX * sr:
+        a = a[:int(SOM_ARQ_MAX * sr)]
+        n = int(0.6 * sr)
+        a[-n:] *= np.linspace(1, 0, n, dtype=np.float32)
+    a = (a / np.abs(a).max() * 10 ** (-3 / 20)).astype(np.float32)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    sf.write(str(destino), a, sr, subtype="PCM_16")
+    return len(a) / sr
+
+
+def som_de_arquivo(s: dict, trabalho: Path) -> dict:
+    """Pedido {"arquivo", "volume"?, "duracao"?} → som pronto para a mixagem (cópia normalizada em trabalho/sons_arquivo)."""
+    origem = achar_som(s["arquivo"], trabalho.parent)
+    h = hashlib.sha1(f"{origem}|{origem.stat().st_size}|{origem.stat().st_mtime_ns}".encode()).hexdigest()[:12]
+    destino = trabalho / "sons_arquivo" / f"{origem.stem[:40]}_{h}.wav"
+    if destino.exists():
+        import soundfile as sf
+
+        total = sf.info(str(destino)).duration
+    else:
+        total = _normalizar_som(origem, destino)
+    try:
+        vol = float(s.get("volume", SOM_ARQ_VOLUME))
+    except (TypeError, ValueError):
+        vol = SOM_ARQ_VOLUME
+    try:
+        dur = float(s.get("duracao") or total)
+    except (TypeError, ValueError):
+        dur = total
+    return {"o_que": s.get("o_que") or origem.name, "arquivo": str(destino), "origem": str(origem), "categoria": "arquivo",
+            "volume": round(max(0.02, min(1.0, vol)), 3), "inicio": 0.0, "duracao": round(max(0.05, min(total, dur)), 3)}
+
+
 def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
     """Efeitos pedidos pelo diretor (`som` do plano) → arquivos do catálogo do canal (busca CLAP pela descrição).
     As regras valem aqui mesmo que o diretor exagere: intervalo mínimo, teto pela duração, sem repetir o mesmo som.
     A escolha fica guardada (mesmos pedidos = mesmos sons, sem carregar o CLAP de novo)."""
-    pedidos = sorted(((palavras[min(s["i"], len(palavras) - 1)]["i"], s["o_que"], bool(s.get("obrigatorio"))) for p in direcao["planos"]
+    pedidos = sorted(((palavras[min(s["i"], len(palavras) - 1)]["i"], s) for p in direcao["planos"]
                       for s in ([p["som"]] if isinstance(p.get("som"), dict) else []) + (p.get("sons") or [])
-                      if "i" in s and s.get("o_que")), key=lambda x: x[0])
+                      if isinstance(s, dict) and "i" in s and (s.get("o_que") or s.get("arquivo"))), key=lambda x: x[0])
     teto = max(1, int(palavras[-1]["f"] / SOM_POR_SEGUNDOS))
     # "obrigatorio": pedido explícito do Felipe (a palavra dele vale mais que a regra): passa por fora do intervalo e do teto,
     # que continuam valendo para os outros efeitos do vídeo
-    fixos = [(round(t, 3), o) for t, o, ob in pedidos if ob]
+    fixos = [(round(t, 3), s) for t, s in pedidos if s.get("obrigatorio")]
     aceitos, ultimo = [], -1e9
-    for t, o_que, ob in pedidos:
-        if not ob and t - ultimo >= SOM_INTERVALO:
-            aceitos.append((round(t, 3), o_que))
+    for t, s in pedidos:
+        if not s.get("obrigatorio") and t - ultimo >= SOM_INTERVALO:
+            aceitos.append((round(t, 3), s))
             ultimo = t
     if len(aceitos) > teto:  # corta por igual ao longo do vídeo: cortar só o excesso do fim deixaria o final sem efeito
         aceitos = [aceitos[round(k * (len(aceitos) - 1) / max(1, teto - 1))] for k in range(teto)]
-    aceitos = sorted(aceitos + fixos)
+    aceitos = sorted(aceitos + fixos, key=lambda x: (x[0], str(x[1].get("o_que") or x[1].get("arquivo"))))
     if not aceitos:
         return []
     guardado = trabalho / "sons_vertical.json"
-    chave = hashlib.sha1(json.dumps(["um-toque-2", aceitos], ensure_ascii=False).encode()).hexdigest()
+    # som do catálogo entra na chave como antes ([t, o_que]: a escolha guardada dos vídeos antigos continua valendo)
+    chave = hashlib.sha1(json.dumps(["um-toque-2", [
+        (t, s["o_que"]) if not s.get("arquivo") else (t, s.get("o_que"), {k: s.get(k) for k in ("arquivo", "volume", "duracao")})
+        for t, s in aceitos]], ensure_ascii=False).encode()).hexdigest()
     if guardado.exists():
         g = json.loads(guardado.read_text(encoding="utf-8"))
         if g.get("chave") == chave and all(Path(s["arquivo"]).exists() for s in g["sons"]):
             return g["sons"]
-    try:
-        import sys
-
-        sys.path.insert(0, str(RAIZ / "tools" / "audio"))
-        from sfx import PASTA as PASTA_SFX, Busca
-
-        busca = Busca()
-    except Exception as e:  # sem catálogo/CLAP: o vídeo sai só com a voz, nunca quebra o render
-        print("efeitos sonoros indisponíveis:", e)
-        return []
-    usados: set[int] = set()
     saida = []
     colar = _na_fala(trabalho)
-    for t, o_que in aceitos:
+    catalogo_pedidos = [(t, s["o_que"]) for t, s in aceitos if not s.get("arquivo")]
+    faltou = False
+    for t, s in aceitos:  # som por arquivo: direto do arquivo, sem busca
+        if s.get("arquivo"):
+            try:
+                saida.append({"t": colar(t), **som_de_arquivo(s, trabalho)})
+            except (FileNotFoundError, RuntimeError) as e:  # nunca quebra o render: o aviso já saiu na conferência
+                print("som por arquivo ignorado:", e)
+                faltou = True
+    busca = None
+    if catalogo_pedidos:
+        try:
+            import sys
+
+            sys.path.insert(0, str(RAIZ / "tools" / "audio"))
+            from sfx import PASTA as PASTA_SFX, Busca
+
+            busca = Busca()
+        except Exception as e:  # sem catálogo/CLAP: o vídeo sai só com a voz, nunca quebra o render
+            print("efeitos sonoros indisponíveis:", e)
+            catalogo_pedidos = []
+    usados: set[int] = set()
+    for t, o_que in catalogo_pedidos:
         achados = busca.buscar(o_que, 8, evitar=usados)
         if not achados:
             continue
@@ -621,7 +957,12 @@ def sons(direcao: dict, palavras: list[dict], trabalho: Path) -> list[dict]:
             dur = min(dur, tq[1] - tq[0] - 0.02)
         saida.append({"t": colar(t), "o_que": o_que, "arquivo": str(PASTA_SFX / busca.info[sid]["arquivo"]), "categoria": cat,
                       "volume": SOM_VOLUME.get(cat, 0.26), "inicio": max(0.0, (tq[0] if tq else 0.0) - 0.005), "duracao": round(dur, 3)})
-    busca.liberar()
+    if busca is not None:
+        busca.liberar()
+    saida.sort(key=lambda s: s["t"])
+    if faltou:  # não guarda: quando o Felipe puser o arquivo, o som entra no próximo render
+        guardado.unlink(missing_ok=True)
+        return saida
     guardado.write_text(json.dumps({"chave": chave, "sons": saida}, ensure_ascii=False, indent=1), encoding="utf-8")
     return saida
 
@@ -723,9 +1064,10 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
     cache = trabalho.parent / cache_nome  # fora de trabalho/: a pasta pública é copiada a cada render
     cache.mkdir(parents=True, exist_ok=True)
     arq_props = trabalho / ("vertical_props.json" if props is None else f"{cache_nome}_props.json")
-    arq_props.write_text(json.dumps(_props(direcao, palavras) if props is None else props, ensure_ascii=False), encoding="utf-8")
+    arq_props.write_text(json.dumps(_props(direcao, palavras, copiar_logos(trabalho, direcao["planos"])) if props is None else props,
+                                    ensure_ascii=False), encoding="utf-8")
     # props entram na impressão dos blocos: no horizontal elas trazem dados que não estão nos planos (paleta, carro)
-    lista = blocos(direcao, palavras, _fonte_remotion(projeto) + ("" if props is None else json.dumps(
+    lista = blocos(direcao, palavras, _fonte_remotion(projeto) + (_assinatura_logos(direcao["planos"]) if props is None else json.dumps(
         {k: v for k, v in props.items() if k != "cenas"}, sort_keys=True)), fps)
     faltam = [b for b in lista if not (cache / f"{b['impressao']}.mp4").exists()]
     inicio = time.time()
