@@ -25,6 +25,28 @@ mudando a cada quadro saltava (distância TOTAL × V_RODA/v): acima de V_RODA o 
 (`definirTempo`, posto pelo Vertical.tsx a cada quadro; estado do quadro anterior não serve porque o Remotion desenha fora
 de ordem, em 3 abas). Pedais/piloto no cockpit: `poePedais`, `poePilotoNoCarro`, `linhaDoFreio` (freio_cena.ts).
 
+## Capacidades do vertical pedidas pelo Felipe (2026-11-14, branch f1-capacidades-vertical)
+O diretor devolvia "pedidos não feitos" por falta de capacidade ou por regra. Agora (testes em `tools/direcao/testar_vertical.py`):
+- **Pedido do Felipe vence a regra**: `vertical.sistema()`, o prompt de `revisar` e `regras_de_direcao.md` dizem que o pedido
+  explícito dele sempre é cumprido; `nao_feitos` só por falta real de capacidade, com o arquivo exato que falta.
+- **Números na tela**: checagem nova `vertical.checar_regras` (no fim de `conferir`, só avisos no card, sem Claude):
+  `avisos_numeros` compara os números escritos na tela (placas, contador, gráficos, título/selo/medidor, `rotulo`/`texto:`
+  do código) com os da fala (algarismos e por extenso: "seis vírgula duzentos e um" = 6201). Exceções: seção do briefing
+  `NÚMEROS NA TELA (pedido do Felipe)` (`numeros_liberados`) e os números escritos nos pedidos do card
+  (`liberar_dos_pedidos` → `direcao["numeros_liberados"]`; "cena 5" não conta). Só aqueles números são liberados.
+- **Som por arquivo**: `som.arquivo` (+ `volume`, `duracao`): `achar_som` (absoluto, `dados/comum/`, pasta do projeto,
+  raiz, `dados/comum/freesound_cache`, `F1/horizontal/kit/sfx/banco`, `dados/comum/sfx`), `som_de_arquivo` normaliza como o
+  catálogo (cópia em `trabalho/sons_arquivo/`), `avisos_sons` avisa o que não existe; o render segue sem ele. A chave do
+  cache `sons_vertical.json` dos sons do catálogo é a mesma de antes (vídeos antigos não trocam de som).
+- **Legenda**: `legenda` {fundo, opacidade, raio, margem, branca} no plano ou na raiz da direção (`_props` → `legenda`);
+  `Legenda` do `kit.tsx` desenha a caixa numa camada separada. Sem estilo, nada muda (nem a impressão dos blocos).
+- **Logos de arquivo**: `F1/arte/logos/<chave>.png` (`canal.toml [vertical] logos`), `modelos/logos.ts` (`logo`,
+  `aplicarLogo`, `criarPainelLogo`, `criarLivro`); o Python copia os citados (`logo:fia`) para `trabalho/logos/` e passa o
+  mapa nas props; o `Vertical.tsx` só desenha depois de decodificar. Lista dos disponíveis no prompt; logo que falta =
+  aviso "falta o logo ... coloque o arquivo F1/arte/logos/fia.png". A pasta está vazia: o logo da FIA o Felipe fornece.
+- **Circuitos**: `silverstone` com `TRECHOS_SILVERSTONE` (nomes conferidos na Wikipedia: 1 Abbey … 14 Chapel, 15 Stowe,
+  16 Vale, 17-18 Club); `monaco` atual documentado (vs `monaco_1984`), `TRECHOS_MONACO` vazio (numeração não conferida).
+
 ## Documentário: correções do 1º uso real (2026-11-14, card 20 "Nove milésimos")
 Detalhes em `F1/horizontal/docs/painel.md` ("Correções do 1º uso real"). Card novo saindo com "Narração" (`voz_ia`) e
 sem voz guia NÃO era bug do código: a pasta principal estava no PR #108 (antes da 7a) com #109–#111 já no GitHub, e o

@@ -22,8 +22,22 @@ export const entra = (t: number, a: number, dur = 0.35) =>
 
 export const FONTE = "'Segoe UI', 'Inter', sans-serif";
 
+/** Estilo da legenda (2026-11-14, pedido do Felipe): caixa de fundo atrás do texto e legenda toda branca de destaque.
+ *  `fundo` = cor da caixa (hex ou nome CSS; sem = sem caixa), `opacidade` 0 a 1 (padrão 0,72), `raio` e `margem` em px
+ *  (padrão 22 e 18), `branca` = todas as palavras já faladas em branco e negrito (sem o cinza das anteriores). */
+export type EstiloLegenda = { fundo?: string; opacidade?: number; raio?: number; margem?: number; branca?: boolean };
+
+/** "#0e1118" + 0,72 → "rgba(14,17,24,0.72)"; outra cor CSS passa como está (a opacidade vai na caixa). */
+export const corComOpacidade = (cor: string, opacidade: number): { background: string; opacity?: number } => {
+  const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(cor.trim());
+  if (!m) return { background: cor, opacity: opacidade };
+  const h = m[1].length === 3 ? m[1].split("").map((x) => x + x).join("") : m[1];
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  return { background: `rgba(${r},${g},${b},${Math.max(0, Math.min(1, opacidade))})` };
+};
+
 /** Só aparecem as palavras já faladas: a atual em branco e negrito, as anteriores em cinza; termo-chave com caixa própria do canal. */
-export const Legenda: React.FC<{ palavras: Palavra[]; chaves?: string[]; limite?: number }> = ({ palavras, chaves = [], limite = 5 }) => {
+export const Legenda: React.FC<{ palavras: Palavra[]; chaves?: string[]; limite?: number; estilo?: EstiloLegenda }> = ({ palavras, chaves = [], limite = 5, estilo }) => {
   const t = useTempo();
   const blocos: Palavra[][] = [];
   let atual: Palavra[] = [];
@@ -40,16 +54,28 @@ export const Legenda: React.FC<{ palavras: Palavra[]; chaves?: string[]; limite?
   const destaque = chaves.map(limpa);
   const faladas = bloco.filter((p) => p.i <= t);
   const fala = faladas[faladas.length - 1];
+  const branca = !!estilo?.branca;
+  const palavrasEl = faladas.map((p, k) => {
+    const chave = destaque.includes(limpa(p.t));
+    const atual = p === fala;
+    return (
+      <span key={k} style={{ color: atual || branca ? "#fff" : "#b4b8c2", opacity: atual ? entra(t, p.i, 0.12) * 0.25 + 0.75 : 1, fontWeight: atual || branca ? (branca ? 800 : 700) : 500, marginRight: 5, display: "inline-block", padding: "0 7px", borderRadius: 10, background: chave ? "rgba(255,196,0,.22)" : "none", boxShadow: chave ? "inset 0 -5px 0 #ffc400" : "none" }}>
+        {p.t}
+      </span>
+    );
+  });
+  const caixa = estilo?.fundo && faladas.length ? corComOpacidade(estilo.fundo, estilo.opacidade ?? 0.72) : null;
   return (
-    <div style={{ position: "absolute", top: 300, left: 60, right: 60, textAlign: "center", fontFamily: FONTE, fontSize: 62, lineHeight: 1.24, zIndex: 50, textShadow: "0 2px 14px rgba(0,0,0,.85)" }}>
-      {faladas.map((p, k) => {
-        const chave = destaque.includes(limpa(p.t));
-        return (
-          <span key={k} style={{ color: p === fala ? "#fff" : "#b4b8c2", opacity: p === fala ? entra(t, p.i, 0.12) * 0.25 + 0.75 : 1, fontWeight: p === fala ? 700 : 500, marginRight: 5, display: "inline-block", padding: "0 7px", borderRadius: 10, background: chave ? "rgba(255,196,0,.22)" : "none", boxShadow: chave ? "inset 0 -5px 0 #ffc400" : "none" }}>
-            {p.t}
-          </span>
-        );
-      })}
+    <div style={{ position: "absolute", top: 300, left: 60, right: 60, textAlign: "center", fontFamily: FONTE, fontSize: 62, lineHeight: 1.24, zIndex: 50, textShadow: branca ? "0 2px 10px rgba(0,0,0,.95), 0 0 2px rgba(0,0,0,.9)" : "0 2px 14px rgba(0,0,0,.85)" }}>
+      {caixa ? (
+        <div style={{ display: "inline-block", position: "relative", padding: `${estilo?.margem ?? 18}px ${(estilo?.margem ?? 18) + 8}px` }}>
+          {/* a caixa é uma camada separada: a opacidade dela nunca apaga o texto */}
+          <div style={{ position: "absolute", inset: 0, ...caixa, borderRadius: estilo?.raio ?? 22 }} />
+          <span style={{ position: "relative" }}>{palavrasEl}</span>
+        </div>
+      ) : (
+        palavrasEl
+      )}
     </div>
   );
 };
