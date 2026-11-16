@@ -14,7 +14,7 @@ O **código** está no GitHub (`github.com/lipeseven/guia-runeterra-studio`, pri
 | `catálogo sequencial LOL` | `Downloads\canais` | acervo do Guia de Runeterra (inclui `_oficial_riot/`) |
 | `Runeterra/dados/referencias*` | raiz do projeto | vídeos de referência (dá para baixar de novo) |
 
-Dica: `dados/comum/cache_voz`, `dados/backups` e `Runeterra/dados/analise_referencias` são recriáveis — dispensáveis se faltar espaço.
+Dica: `dados/backups` (o cache de voz agora fica dentro de cada projeto, em trabalho/cache_voz) e `Runeterra/dados/analise_referencias` são recriáveis — dispensáveis se faltar espaço.
 Os renders de rascunho dentro de `Runeterra/dados/projetos/*/trabalho/` também (o sistema refaz).
 
 ## 2. Programas (Windows)
