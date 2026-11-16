@@ -8,7 +8,7 @@ Uso:
 - Fish Audio (modelo gratuito s2.1-pro-free) como padrão; Piper (local) como reserva automática.
 - O roteiro é dividido em blocos (por parágrafo); cada bloco fica em cache DENTRO DO PROJETO (<pasta da saída>/cache_voz/),
   então gerar de novo um roteiro levemente editado só refaz os blocos que mudaram, e excluir o projeto leva o cache junto.
-- Voz fixa (opcional, no .env): FISH_REFERENCE_ID = id da voz no Fish (sem isso o Fish sorteia o timbre a cada bloco),
+- Voz fixa: VOZ_PADRAO (id de voz do Fish) em toda requisição; FISH_REFERENCE_ID no .env troca (sem reference_id o Fish sorteia o timbre a cada bloco),
   FISH_TEMPERATURE = 0 a 1 (menor = mais estável). Se o Fish falhar no meio do roteiro NÃO troca de motor (misturaria vozes).
 - No fim, a velocidade é ajustada (sem mudar o tom) para bater com o ritmo do Felipe (palavras/min).
 """
@@ -29,6 +29,15 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from comum import RAIZ, preparar_ffmpeg  # noqa: E402
+
+# Voz fixa padrão do Fish (2026-11-15): "Narrador de Histórias e Ciências", voz genérica de narrador educacional em português (não é
+# clone de pessoa real). É só a voz GUIA (nunca vai ao vídeo publicado); FISH_REFERENCE_ID no .env troca por outra.
+VOZ_PADRAO = "0ba1afd27db44eb2b4cb27fd331b93aa"
+
+
+def voz_fish() -> str:
+    return (os.environ.get("FISH_REFERENCE_ID") or VOZ_PADRAO).strip()
+
 
 CACHE_ANTIGO = RAIZ / "dados" / "comum" / "cache_voz"  # até 2026-11-15 o cache era global; blocos dele são reaproveitados
 PPM_FELIPE = 162  # medido no vídeo "Todos os DEMÔNIOS" (fala corrida, sem pausas longas)
@@ -75,8 +84,7 @@ def fish(texto: str, destino: Path) -> None:
         "text": texto, "format": "wav", "sample_rate": 44100, "latency": "normal",
         "pronunciation_dictionary": [{"items": [{"key": k, "value": v} for k, v in PRONUNCIA.items()]}],
     }
-    if os.environ.get("FISH_REFERENCE_ID"):  # voz fixa: o mesmo timbre em todos os blocos
-        corpo["reference_id"] = os.environ["FISH_REFERENCE_ID"].strip()
+    corpo["reference_id"] = voz_fish()  # voz fixa: o mesmo timbre em todos os blocos (sem isso o Fish sorteia a cada requisição)
     if os.environ.get("FISH_TEMPERATURE"):
         corpo["temperature"] = float(os.environ["FISH_TEMPERATURE"])
     r = httpx.post("https://api.fish.audio/v1/tts", json=corpo, timeout=300,
@@ -119,7 +127,8 @@ def gerar(roteiro: str, saida: Path, motor: str = "fish", ppm_alvo: float = PPM_
         tentativas = [motor] + [m for m in ("fish", "piper") if m != motor]
         for m in tentativas:
             tb = sem_parenteses(b) if m == "fish" else b  # texto que vai ao motor (e a chave do cache)
-            nome = f"{m}_{hashlib.sha1(tb.encode()).hexdigest()[:16]}.wav"
+            # a voz entra no nome: trocar de voz não reaproveita bloco de outro timbre (o cache global antigo tem vozes sorteadas)
+            nome = f"{m}_{voz_fish()[:8]}_{hashlib.sha1(tb.encode()).hexdigest()[:16]}.wav" if m == "fish"                 else f"{m}_{hashlib.sha1(tb.encode()).hexdigest()[:16]}.wav"
             arq = CACHE / nome
             try:
                 if not arq.exists() and (CACHE_ANTIGO / nome).exists():  # bloco do cache global antigo: reaproveita sem gastar o Fish
