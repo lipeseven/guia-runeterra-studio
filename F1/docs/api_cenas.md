@@ -138,7 +138,7 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
   `pontoNoMapa` funciona nele; rotas e alfinetes por cima. Ícones (avião, navio, caminhão) grandes o bastante para ler.
 - `criarAlfinete("BOLONHA", cor)`: alfinete com rótulo; `.position.copy(pontoNoMapa(mapa, 44.49, 11.34))`.
 - `rotulo("TEXTO", { altura, cor, fundo })`: placa 3D que olha para a câmera (dentro de `obj`).
-- Também prontos no mundo: `w.trofeu` (troféu dourado: `.visible = true` e posição), `w.sc` (Safety Car).
+- Também prontos no mundo: `w.trofeu` (troféu dourado: `.visible = true` e posição), `w.sc` (Safety Car; `rolarRodas(w.sc, metros, v)` gira as rodas dele: aro e raios, desde 2026-11-16).
 
 ## Logos e texturas de arquivo (2026-11-14; `modelos/logos.ts`)
 O Felipe põe o arquivo licenciado em `F1/arte/logos/` (nome do arquivo = chave: `fia.png` = `"logo:fia"`; PNG com fundo
