@@ -6,8 +6,10 @@ Uso:
     .venv\\Scripts\\python.exe tools\\audio\\voz_guia.py <roteiro.txt> <saida.wav> [--motor fish|piper] [--ppm 162]
 
 - Fish Audio (modelo gratuito s2.1-pro-free) como padrão; Piper (local) como reserva automática.
-- O roteiro é dividido em blocos (por parágrafo); cada bloco fica em cache em dados/comum/cache_voz/,
-  então gerar de novo um roteiro levemente editado só refaz os blocos que mudaram.
+- O roteiro é dividido em blocos (por parágrafo); cada bloco fica em cache DENTRO DO PROJETO (<pasta da saída>/cache_voz/),
+  então gerar de novo um roteiro levemente editado só refaz os blocos que mudaram, e excluir o projeto leva o cache junto.
+- Voz fixa (opcional, no .env): FISH_REFERENCE_ID = id da voz no Fish (sem isso o Fish sorteia o timbre a cada bloco),
+  FISH_TEMPERATURE = 0 a 1 (menor = mais estável). Se o Fish falhar no meio do roteiro NÃO troca de motor (misturaria vozes).
 - No fim, a velocidade é ajustada (sem mudar o tom) para bater com o ritmo do Felipe (palavras/min).
 """
 from __future__ import annotations
@@ -17,6 +19,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -27,7 +30,7 @@ from dotenv import load_dotenv
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from comum import RAIZ, preparar_ffmpeg  # noqa: E402
 
-CACHE = RAIZ / "dados" / "comum" / "cache_voz"
+CACHE_ANTIGO = RAIZ / "dados" / "comum" / "cache_voz"  # até 2026-11-15 o cache era global; blocos dele são reaproveitados
 PPM_FELIPE = 162  # medido no vídeo "Todos os DEMÔNIOS" (fala corrida, sem pausas longas)
 MODELO_PIPER = RAIZ / "dados/comum/modelos/piper/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx"
 MAX_BLOCO = 1200  # caracteres por chamada
@@ -72,6 +75,10 @@ def fish(texto: str, destino: Path) -> None:
         "text": texto, "format": "wav", "sample_rate": 44100, "latency": "normal",
         "pronunciation_dictionary": [{"items": [{"key": k, "value": v} for k, v in PRONUNCIA.items()]}],
     }
+    if os.environ.get("FISH_REFERENCE_ID"):  # voz fixa: o mesmo timbre em todos os blocos
+        corpo["reference_id"] = os.environ["FISH_REFERENCE_ID"].strip()
+    if os.environ.get("FISH_TEMPERATURE"):
+        corpo["temperature"] = float(os.environ["FISH_TEMPERATURE"])
     r = httpx.post("https://api.fish.audio/v1/tts", json=corpo, timeout=300,
                    headers={"Authorization": f"Bearer {chave}", "model": "s2.1-pro-free"})
     if r.status_code != 200:
@@ -105,20 +112,26 @@ def gerar(roteiro: str, saida: Path, motor: str = "fish", ppm_alvo: float = PPM_
     (o render por blocos reaproveita os capítulos antes da edição)."""
     load_dotenv(RAIZ / ".env")
     preparar_ffmpeg()
+    CACHE = saida.parent / "cache_voz"  # dentro do projeto: excluir o projeto leva o cache junto
     CACHE.mkdir(parents=True, exist_ok=True)
     partes, usados = [], set()
     for b in blocos(roteiro):
         tentativas = [motor] + [m for m in ("fish", "piper") if m != motor]
         for m in tentativas:
             tb = sem_parenteses(b) if m == "fish" else b  # texto que vai ao motor (e a chave do cache)
-            arq = CACHE / f"{m}_{hashlib.sha1(tb.encode()).hexdigest()[:16]}.wav"
+            nome = f"{m}_{hashlib.sha1(tb.encode()).hexdigest()[:16]}.wav"
+            arq = CACHE / nome
             try:
+                if not arq.exists() and (CACHE_ANTIGO / nome).exists():  # bloco do cache global antigo: reaproveita sem gastar o Fish
+                    shutil.copy2(CACHE_ANTIGO / nome, arq)
                 if not arq.exists():
                     (fish if m == "fish" else piper)(tb, arq)
                 partes.append(arq)
                 usados.add(m)
                 break
-            except Exception as e:  # cai para o próximo motor
+            except Exception as e:  # cai para o próximo motor, MAS sem misturar vozes no mesmo vídeo
+                if usados and m not in usados:
+                    raise RuntimeError(f"{m} falhou no meio do roteiro ({e}); não troco de motor para não misturar vozes") from e
                 print(f"  ! {m} falhou ({e}); tentando o próximo", flush=True)
         else:
             raise RuntimeError("nenhum motor de voz funcionou")
