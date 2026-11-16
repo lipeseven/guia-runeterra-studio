@@ -192,5 +192,26 @@ checa("silverstone: TRECHOS_SILVERSTONE" in geo and "monaco: TRECHOS_MONACO" in 
 api = (V.RAIZ / "F1" / "docs" / "api_cenas.md").read_text(encoding="utf-8")
 checa('"monaco"' in api and "Abbey" in api,"api_cenas.md documenta monaco e os nomes de Silverstone")
 
+# ------------------------------------------------------------------ 6. revisão por pedido geral não apaga campos
+print("6. revisão preserva campos que o diretor não devolveu (placas da cena 19)")
+pal7 = palavras_de("Abre a cena. e quantas voltas faltam. Fecha aqui")
+dir7 = {"planos": [
+    {"id": "aaaa1111", "set": "estudio", "clima": "vazio", "codigo": "const w=c.w;", "em": "Abre a cena.", "i": 0},
+    {"id": "bbbb2222", "set": "estudio", "clima": "vazio", "codigo": "const w=c.w;", "em": "e quantas voltas faltam.", "i": 3,
+     "placas": [{"texto": "48/62", "unidade": "VOLTAS", "cor": "amarelo", "pos": "meio", "i": 3}], "grafico": {"tipo": "palavra", "texto": "VOLTAS"}},
+]}
+resposta = {"planos": [{"id": "bbbb2222", "em": "e quantas voltas faltam.", "set": "estudio", "clima": "vazio", "codigo": "const w=c.w;w.chao.color.set('#333');"}], "remover": []}
+_orig = V.chamar_json
+try:
+    V.chamar_json = lambda *a, **k: resposta
+    r7 = V.revisar(dir7, [{"texto": "as rodas devem girar", "plano": None}], pal7, "", None)
+finally:
+    V.chamar_json = _orig
+pl7 = {"bbbb2222": next((p for p in r7["planos"] if "voltas faltam" in (p.get("em") or "")), {})}  # o resolver refaz ids e índices
+checa("w.chao.color.set" in pl7["bbbb2222"].get("codigo", ""), "o código que o diretor mudou entra")
+checa(bool(pl7["bbbb2222"].get("placas")) and "48/62" in json.dumps(pl7["bbbb2222"]["placas"], ensure_ascii=False),
+      "placa 48/62 continua depois da revisão geral que não a devolveu")
+checa(bool(pl7["bbbb2222"].get("grafico")), "gráfico da cena também continua")
+
 print(f"\n{OK} ok, {len(FALHAS)} falha(s)")
 sys.exit(1 if FALHAS else 0)

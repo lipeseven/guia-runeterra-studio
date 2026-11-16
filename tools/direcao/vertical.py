@@ -680,6 +680,7 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
             depois.setdefault(n.get("depois_de") if n.get("depois_de") in numero else ids[-1], []).append(
                 {k: v for k, v in n.items() if k not in ("id", "depois_de")})
     brutos = []
+    perdidos: dict[int, list[str]] = {}  # campos que o diretor deixou de devolver e foram mantidos
     for q in claude:
         if q["id"] not in remover:
             n = por_id.get(q["id"])
@@ -688,6 +689,14 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
                 n.setdefault("em", q["em"])
                 if not n.get("codigo") and not n.get("tipo"):
                     n.update({k: q[k] for k in ("codigo", "tipo", "set") if k in q})
+                if q["id"] not in alvo:
+                    # plano que o Felipe NÃO pediu cena a cena (só pedido geral): o que o diretor não devolveu continua como estava
+                    # (placas, marcas, som, gráfico, legenda...). Antes o campo omitido sumia em silêncio (a placa "48/62" da cena 19
+                    # existia nas duas versões anteriores e foi apagada pela revisão de um pedido geral, 2026-11-16).
+                    for k, v in q.items():
+                        if k not in n and k not in ("depois_de",):
+                            n[k] = v
+                            perdidos.setdefault(numero[q["id"]], []).append(k)
             brutos.append(n or q)
         brutos += depois.get(q["id"], [])
     planos, avisos = resolver(brutos, palavras)
