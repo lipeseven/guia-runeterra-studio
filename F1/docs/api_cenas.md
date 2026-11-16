@@ -342,7 +342,7 @@ Exemplo: `explodir(w.carros[12], suave(c.t, c.m("pecas", 0.2), c.m("pecas", 0.2)
 ## Efeitos
 `confete(w, t, inicio, x, altura)`, `fumaca(w, t, x, z)`, `bandeira(w, n, x, z, giroY, t, escala)` (n: 0 verde,
 1 amarela, 2 azul, 3 vermelha, 4 preta, 5 quadriculada), `luzGantry(w, n, acesa)` (n = 0 a 4, pórtico em Z_PORTICO = -111,
-mostre `w.portico.visible = true`), `luzesDesfocadas(w, t)` (bokeh no estúdio), `poePneu(w, n, x, y, z, cor, giro, frenteY, esc)` (cor = nome do composto ou cor; giro 0 = PIRELLI no topo; **`frenteY = Math.PI/2` vira a LATERAL (marca, cor do composto, raios) para uma câmera em +z; com 0 o pneu fica de lado, só o piso aparece**. O pneu tem ~1,03 m de diâmetro (esc 1): no vertical (tela estreita) três lado a lado só cabem com `esc` ~0,6, espaçamento ~0,86 e câmera em z ~8-9 (conferido 2026-11-16: macio à esquerda, médio no meio, duro à direita; y do centro = 0,52*esc),
+mostre `w.portico.visible = true`), `luzesDesfocadas(w, t)` (bokeh no estúdio), `poePneu(w, n, x, y, z, cor, giro, frenteY, esc)` (cor = nome do composto ou cor; giro 0 = PIRELLI no topo; **`frenteY = Math.PI/2` vira a LATERAL (marca, cor do composto, raios) para uma câmera em +z; com 0 o pneu fica de lado, só o piso aparece**. O pneu real tem ~1,65 m de diâmetro por unidade de `esc` (NÃO 1,03: com esc 0,6 e espaçamento 0,86 eles se atravessam). Vertical (tela estreita), três lado a lado SEM se tocar: `esc` 0,44, x -0,88/0/0,88, y 0,37, câmera [0.1, 0.5, 8.6] olhando [0, 0.2, 0] (conferido 2026-11-16: macio à esquerda, médio no meio, duro à direita; espaçamento mínimo = 1,9 × esc),
 `solta(w, n, (i) => ({ p: [x, y, z], e: escala, cor, o: opacidade }))` (partículas), `seed(i)`, `THREE`.
 
 ## Exemplos
