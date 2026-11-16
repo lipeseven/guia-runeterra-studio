@@ -271,7 +271,8 @@ export function montar(canvas: HTMLCanvasElement): Mundo {
 
   // Safety Car com barra de luzes
   const sc = new THREE.Group();
-  const { carro: modeloSc } = vantage();
+  const { carro: modeloSc, rodas: rodasSc } = vantage();
+  sc.userData.rodasGiro = rodasSc; // rolarRodas(w.sc, ...) gira estas (o Safety Car não tem as peças nomeadas do carro de F1)
   sc.add(modeloSc, plano(2.7, 5.6, 0, 0, sombra));
   cena.add(sc);
   sc.add(bloco(1.05, 0.05, 0.2, 0, 1.3, 0.42, mat("#101116", 0.4)));

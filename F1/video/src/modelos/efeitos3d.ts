@@ -151,6 +151,10 @@ export function rolarRodas(car: THREE.Object3D, metros: number, velocidade = 0) 
     const r = achar(car, nome)?.children[0];
     if (r) girarPecaEixo(r, "x", -ang / R_RODA);
   }
+  // Safety Car (e qualquer modelo que guarde as rodas em userData.rodasGiro): o aro e os raios giram com o mesmo ângulo de rolagem
+  // (raio de roda de rua 0,355 m). Antes o pedido "as rodas do Safety Car devem girar" era 'atendido' com rolarRodas(w.sc) que não achava nada.
+  const rg = (car.userData as { rodasGiro?: THREE.Object3D[] }).rodasGiro;
+  if (rg) for (const r of rg) r.rotation.x = -ang / 0.355;
   // o disco gira com a roda (a pinça e as pastilhas não)
   for (const nome of NOMES_FREIOS) {
     const f = achar(car, nome)?.getObjectByName("conjunto_freio");
