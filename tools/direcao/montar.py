@@ -445,6 +445,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 "entrada_texto": {"efeito": "corte", "quadros": 1}, "sem_imagem": True}
 
     cenas = []
+    manuais: set[str] = set()  # cenas cujo início o Felipe moveu à mão no storyboard: nenhuma regra automática mexe nelas
     bloco_atual = None
     for k, c in enumerate(plano["cenas"]):
         if c.get("removida"):
@@ -456,6 +457,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
         de = indice_na_frase(f, toks, c.get("comeca_na_palavra")) or f["de"]
         if c.get("inicio_indice") is not None:  # corte movido pelo Felipe no storyboard
             de = max(int(c["inicio_indice"]), cenas[-1]["de"] + 1 if cenas else 0)
+            manuais.add(id_da_cena(c, k))
         legenda_em = indice_na_frase(f, toks, c.get("legenda_na_palavra"))
         if estilo >= 2:  # retrospectiva do 1º vídeo: o texto entra junto com a imagem (o Felipe muda à mão se quiser)
             legenda_em = None
@@ -615,7 +617,7 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
     # A capa só aparece durante a leitura do TÍTULO da seção (pedido do Felipe): se a cena seguinte começaria
     # depois (cenas sem imagem no meio), ela é antecipada para logo após o título.
     for a, b in zip(cenas, cenas[1:]):
-        if a["tipo"] == "hub" and b["tipo"] not in ("hub", "capa"):
+        if a["tipo"] == "hub" and b["tipo"] not in ("hub", "capa") and b["id"] not in manuais:  # início movido à mão (poder de Deus) vence a regra do título
             titulo = next((f for f in frases if f["de"] <= a["de"] <= f["ate"]), None)
             if titulo and b["de"] > titulo["ate"] + 1:
                 b["de"] = titulo["ate"] + 1
