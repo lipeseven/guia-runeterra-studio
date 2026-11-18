@@ -2,12 +2,14 @@
 // números: a faixa ideal muda com material, pista e equipe), partículas que correm por um caminho (ar no duto, energia
 // até a bateria), ventilação do disco e o esquema do sistema híbrido de 2026 (MGU-K, bateria, eixo traseiro).
 import * as THREE from "three";
-import { deslocar, peca } from "./desmonte";
+import { aoRestaurar, deslocar, peca } from "./desmonte";
 import { brilho } from "./efeitos3d";
 import { criarPiloto, obj, rotulo } from "./extras";
 import { neutro } from "./boneco";
 import { calorNosDiscos, corDoCalor, texFibra } from "./freio";
-import type { Mundo } from "./mundo";
+import { COCKPIT } from "./Carro3D";
+import { criarVolante } from "./volante";
+import { camera, type Mundo } from "./mundo";
 
 /** Aquece os discos de `modelo` (freio solto ou carro) a `graus` °C, só neste quadro; com `w`, põe também o halo de luz
  *  em volta de cada disco (o brilho que se vê à noite). `quais` = nomes dos conjuntos do carro (ex.: ["freio_dianteiro_esquerdo"]). */
@@ -426,26 +428,108 @@ export function linhaDoFreio(pedais: THREE.Object3D, roda: string) {
   return pts.map((q) => pedais.localToWorld(q.clone()));
 }
 
-/** Piloto articulado sentado no cockpit (reclinado, braços no volante) com o pé ESQUERDO no pedal de freio. A perna é
- *  resolvida por IK de duas articulações (coxa 0,43 m, canela 0,40 m) até a sapata do pedal; `k` = quanto o pedal afunda
- *  (o mesmo de `poePedais`). O pé direito fica apoiado no acelerador, solto. Use com raioX do monocoque/tampa/sidepods. */
-export function poePilotoNoCarro(w: Mundo, car: THREE.Object3D, k = 0, o: { chave?: string; cores?: { macacao?: string; detalhe?: string; faixa?: string; capacete?: string } } = {}) {
+// esconde o piloto simples do carro (capacete/ombros/volante fixos) só neste quadro: o boneco articulado entra no lugar
+const fixosEscondidos = new Set<THREE.Object3D>();
+let restauraFixos = false;
+function esconderPilotoFixo(car: THREE.Object3D) {
+  const f = car.getObjectByName("piloto_fixo");
+  if (!f) return;
+  f.visible = false;
+  fixosEscondidos.add(f);
+  if (!restauraFixos) {
+    restauraFixos = true;
+    aoRestaurar(() => {
+      fixosEscondidos.forEach((x) => (x.visible = true));
+      fixosEscondidos.clear();
+    });
+  }
+}
+const noCarro = (car: THREE.Object3D, p: readonly number[]) => car.localToWorld(new THREE.Vector3(p[0], p[1], p[2]));
+
+/** Volante de verdade (criarVolante, ~29 cm) montado na coluna do cockpit, na posição de COCKPIT.volante (diante do
+ *  peito do piloto, topo inclinado para ele). Devolve o volante (apertar, girar, telaDoVolante funcionam nele). */
+export function poeVolanteNoCarro(w: Mundo, car: THREE.Object3D, chave = "volante:cockpit") {
+  const v = obj(w, chave, () => criarVolante());
+  car.updateMatrixWorld(true);
+  v.position.copy(noCarro(car, COCKPIT.volante.pos));
+  v.quaternion.copy(car.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), COCKPIT.volante.incl));
+  v.scale.setScalar(car.scale.x);
+  // coluna de direção: do cubo do volante até o painel, por baixo da borda da abertura
+  const [x, y, z] = COCKPIT.volante.pos;
+  const col = obj(w, chave + ":coluna", () => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 1, 12), new THREE.MeshStandardMaterial({ color: "#3a3d44", roughness: 0.4, metalness: 0.6 }));
+    return m;
+  });
+  const a = noCarro(car, [x, y - 0.01, z - 0.03]);
+  const b = noCarro(car, [x, y - 0.06, z - 0.3]);
+  col.position.copy(a).add(b).multiplyScalar(0.5);
+  col.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+  col.scale.set(car.scale.x, a.distanceTo(b), car.scale.x);
+  v.updateMatrixWorld(true);
+  return v;
+}
+
+/** Aponta o osso (o filho fica em `local` = [0, -L, 0]) para o ponto `alvo` do mundo. */
+function apontarOsso(osso: THREE.Object3D, alvo: THREE.Vector3) {
+  osso.updateMatrixWorld(true);
+  const o = osso.getWorldPosition(new THREE.Vector3());
+  const qw = osso.getWorldQuaternion(new THREE.Quaternion());
+  const atual = new THREE.Vector3(0, -1, 0).applyQuaternion(qw);
+  const quer = alvo.clone().sub(o).normalize();
+  const nova = new THREE.Quaternion().setFromUnitVectors(atual, quer).multiply(qw);
+  const qp = osso.parent!.getWorldQuaternion(new THREE.Quaternion());
+  osso.quaternion.copy(qp.invert().multiply(nova));
+  osso.updateMatrixWorld(true);
+}
+
+/** Braço por IK (braço 0,29 m, antebraço+mão 0,30 m): a mão vai até `mao` e o cotovelo dobra para `polo`. */
+function braco(j: Record<string, THREE.Object3D>, l: "E" | "D", mao: THREE.Vector3, polo: THREE.Vector3, escala: number) {
+  const A = 0.29 * escala, B = 0.3 * escala;
+  const s = j[`ombro${l}`].getWorldPosition(new THREE.Vector3());
+  const d = mao.clone().sub(s);
+  const D = Math.min(A + B - 1e-4, d.length());
+  const u = d.clone().normalize();
+  const v = polo.clone().sub(u.clone().multiplyScalar(polo.dot(u))).normalize();
+  const al = Math.acos(Math.max(-1, Math.min(1, (A * A + D * D - B * B) / (2 * A * D))));
+  const cot = s.clone().addScaledVector(u, A * Math.cos(al)).addScaledVector(v, A * Math.sin(al));
+  apontarOsso(j[`ombro${l}`], cot);
+  apontarOsso(j[`cotovelo${l}`], mao);
+}
+
+/** Piloto articulado sentado no cockpit (reclinado ~50°, mãos nas empunhaduras do volante, cotovelos dobrados para baixo
+ *  e para fora) com o pé ESQUERDO no pedal de freio. Braços e pernas por IK: mãos no volante (que entra junto, na
+ *  coluna: `o.volante = false` tira), perna esquerda até a sapata do pedal (coxa 0,43 m, canela 0,40 m); `k` = quanto o
+ *  pedal afunda (o mesmo de `poePedais`). O pé direito fica apoiado no acelerador, solto. O piloto simples do carro
+ *  some neste quadro. Com o carro opaco, só o capacete e o alto dos ombros aparecem (como no carro de verdade); para
+ *  ver o corpo, raioX do monocoque/tampa/sidepods. O volante fica em `p.userData.volante`. */
+export function poePilotoNoCarro(w: Mundo, car: THREE.Object3D, k = 0, o: { chave?: string; volante?: boolean; cores?: { macacao?: string; detalhe?: string; faixa?: string; capacete?: string } } = {}) {
   const p = obj(w, o.chave ?? "piloto:cockpit", () => criarPiloto({ traje: "capacete", macacao: o.cores?.macacao ?? "#1d3f9e", detalhe: o.cores?.detalhe ?? "#f2c232", faixa: o.cores?.faixa ?? "#f2c232", capacete: o.cores?.capacete ?? "#f5c518" }));
   neutro(p);
   const j = p.userData.juntas as Record<string, THREE.Object3D>;
-  const QUADRIL = { y: 0.17, z: -0.62 }; // quadril no assento (espaço do carro), cabeça cai no lugar do capacete
+  const QUADRIL = COCKPIT.quadril; // quadril no assento (espaço do carro), cabeça cai no lugar do capacete
   car.updateMatrixWorld(true);
+  esconderPilotoFixo(car);
   p.position.copy(car.localToWorld(new THREE.Vector3(0, QUADRIL.y - 0.92, QUADRIL.z)));
   p.quaternion.copy(car.quaternion);
   p.rotateY(Math.PI); // o boneco olha para +z; o carro anda para -z
   p.scale.setScalar(car.scale.x);
-  j.coluna.rotation.x = 0.78; // tronco reclinado para trás (~45°)
-  j.pescoco.rotation.x = -0.55; // olhando para a frente
-  // braços para o volante (diante do peito)
-  for (const l of ["E", "D"]) {
-    j[`ombro${l}`].rotation.x = 0.72; // a coluna reclinada já soma 0,78: o braço sai para a frente, na altura do volante
-    j[`ombro${l}`].rotation.z = l === "E" ? -0.25 : 0.25;
-    j[`cotovelo${l}`].rotation.x = 0.55;
+  j.coluna.rotation.x = 0.915; // tronco reclinado para trás (~52° da vertical): ombros abaixo da borda da abertura
+  j.pescoco.rotation.x = -0.75; // queixo para baixo: olhando para a frente, por cima do volante
+  // ombros mais juntos que no boneco de pé (a abertura tem ~47 cm de largura; ombros de piloto ~40-45 cm)
+  j.ombroE.position.x = -0.165;
+  j.ombroD.position.x = 0.165;
+  const vol = o.volante === false ? null : poeVolanteNoCarro(w, car, (o.chave ?? "piloto:cockpit") + ":volante");
+  p.userData.volante = vol;
+  p.updateMatrixWorld(true);
+  // mãos nas empunhaduras (lados do volante, atrás da face), cotovelos para baixo e um pouco para fora
+  const [vx, vy, vz] = COCKPIT.volante.pos;
+  const inc = COCKPIT.volante.incl;
+  for (const l of ["E", "D"] as const) {
+    const s = l === "E" ? -1 : 1;
+    const mao = noCarro(car, [vx + s * 0.122, vy - 0.012 * Math.cos(inc) - 0.035 * Math.sin(inc), vz - 0.012 * Math.sin(inc) + 0.035 * Math.cos(inc)]);
+    const polo = new THREE.Vector3(s * 0.55, -1, 0.2).applyQuaternion(car.quaternion);
+    braco(j, l, mao, polo, car.scale.x);
+    j[`pulso${l}`].rotation.set(0, 0, 0);
   }
   // pernas: IK no plano de lado (w = para a frente do carro = -z, y = altura)
   const COXA = 0.43, CANELA = 0.4;
@@ -474,4 +558,44 @@ export function poePilotoNoCarro(w: Mundo, car: THREE.Object3D, k = 0, o: { chav
   ik("D", ac.w - 0.03, ac.y); // pé direito encostado no acelerador, sem pisar
   p.updateMatrixWorld(true);
   return p;
+}
+
+// ------------------------------------------------------------------------------------------------ câmeras do cockpit
+type Ponto = readonly [number, number, number];
+/** Tomadas prontas do cockpit, no espaço do carro (frente -z): [de onde, para onde, lente]. Conferidas em quadros
+ *  com poePilotoNoCarro (2026-11-17). */
+const TOMADAS: Record<string, [Ponto, Ponto, number]> = {
+  piloto: [COCKPIT.olhos, [0, 0.28, -5], 74], // visão do piloto: topo do volante embaixo, halo e pilar central, a pista
+  ombro: [[0.21, 0.95, 0.2], [-0.02, 0.5, -0.78], 48], // por cima do ombro direito: capacete, mãos e volante
+  rosto: [[0.07, 0.62, -0.78], [0, 0.7, -0.12], 58], // do volante para o rosto: capacete, halo em volta, ombros
+  lado: [[4.2, 1.0, -0.45], [0, 0.52, -0.45], 30], // de lado, na altura do cockpit (com raioX vê o corpo inteiro)
+  cima: [[0.35, 2.1, -1.55], [0, 0.55, -0.32], 32], // do alto, à frente: a abertura, o halo e o piloto encaixado
+};
+export type TomadaCockpit = "piloto" | "ombro" | "rosto" | "lado" | "cima";
+
+/** Câmera dentro/junto do cockpit de `car` (funciona parado ou andando no circuito: segue o carro). `tipo`: "piloto"
+ *  (o que ele vê, por cima do volante e pelo halo), "ombro" (por cima do ombro direito), "rosto" (do volante para o
+ *  capacete), "lado" (lateral do cockpit), "cima" (do alto, à frente). `k` 0 a 1 = aproximação lenta (até 12% do
+ *  caminho; anime com c.k); `olhar` [x, y, z] no espaço do carro troca o ponto para onde olha (ex.: "piloto" olhando o
+ *  retrovisor esquerdo: [-0.5, 0.72, -0.25]); `lente` troca a lente. Use com poePilotoNoCarro. */
+export function cameraNoCockpit(w: Mundo, car: THREE.Object3D, tipo: TomadaCockpit = "piloto", o: { k?: number; olhar?: Ponto; lente?: number; rolar?: number } = {}) {
+  const [de, para, lente] = TOMADAS[tipo] ?? TOMADAS.piloto;
+  car.updateMatrixWorld(true);
+  const alvo = noCarro(car, o.olhar ?? para);
+  const pos = noCarro(car, de);
+  if (tipo !== "piloto") pos.lerp(alvo, 0.12 * Math.max(0, Math.min(1, o.k ?? 0)));
+  else pos.add(noCarro(car, [0, 0, -0.02 * (o.k ?? 0)]).sub(noCarro(car, [0, 0, 0])));
+  camera(w, [pos.x, pos.y, pos.z], [alvo.x, alvo.y, alvo.z], o.lente ?? lente, o.rolar ?? 0);
+}
+
+/** Caixa invisível em volta do cockpit (do pedal ao capacete, da largura da abertura) para `enquadrar`/`orbitar`:
+ *  `enquadrar(w, alvoDoCockpit(w, car), [1, 0.35, 0.2], 1.1, 34)`. */
+export function alvoDoCockpit(w: Mundo, car: THREE.Object3D, chave = "alvo:cockpit:caixa") {
+  const a = obj(w, chave, () => new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 1.55), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })));
+  car.updateMatrixWorld(true);
+  a.position.copy(noCarro(car, [0, 0.5, -0.62]));
+  a.quaternion.copy(car.quaternion);
+  a.scale.setScalar(car.scale.x);
+  a.updateMatrixWorld(true);
+  return a;
 }

@@ -25,6 +25,15 @@ mudando a cada quadro saltava (distância TOTAL × V_RODA/v): acima de V_RODA o 
 (`definirTempo`, posto pelo Vertical.tsx a cada quadro; estado do quadro anterior não serve porque o Remotion desenha fora
 de ordem, em 3 abas). Pedais/piloto no cockpit: `poePedais`, `poePilotoNoCarro`, `linhaDoFreio` (freio_cena.ts).
 
+Cockpit em proporção real (2026-11-17, branch f1-cockpit-proporcoes, para o vídeo da visão interna; Felipe: "sem espaço
+para os braços nem para o volante"): o monocoque ganhou abertura de verdade (`casco(..., cava)` afunda os vértices da
+elipse da abertura; borda acolchoada e apoio de cabeça), halo refeito (pilar preso à frente da abertura, arco na altura
+da testa), piloto simples dentro (capacete menor, ombros, volante). `poePilotoNoCarro`: reclinado ~52°, ombros mais
+juntos (0,33 m), mãos nas empunhaduras por IK, volante real na coluna (`poeVolanteNoCarro`). Câmeras prontas
+`cameraNoCockpit` (piloto, ombro, rosto, lado, cima) e `alvoDoCockpit`. Medidas em `COCKPIT` (Carro3D.tsx). Capacete do
+`criarPiloto` de 0,28 x 0,33 x 0,30 m para 0,26 x 0,30 x 0,28 m. O exterior do carro e as câmeras externas não mudaram
+(quadros conferidos antes/depois).
+
 ## Capacidades do vertical pedidas pelo Felipe (2026-11-14, branch f1-capacidades-vertical)
 O diretor devolvia "pedidos não feitos" por falta de capacidade ou por regra. Agora (testes em `tools/direcao/testar_vertical.py`):
 - **Pedido do Felipe vence a regra**: `vertical.sistema()`, o prompt de `revisar` e `regras_de_direcao.md` dizem que o pedido
