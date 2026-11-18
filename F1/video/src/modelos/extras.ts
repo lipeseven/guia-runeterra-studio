@@ -247,13 +247,14 @@ export function criarPiloto(o: OpcoesPiloto = {}): THREE.Group {
     cabeca.add(aba);
   } else {
     const mCasco = mat(o.capacete ?? eq.capacete, 0.22, 0.05);
-    const casco = malha(new THREE.SphereGeometry(0.145, 28, 20), mCasco, 0, 0.005, 0.004);
-    casco.scale.set(0.98, 1.05, 1.12);
+    // capacete de F1 real (~0,26 m de largura, ~0,30 m de comprimento, ~0,28 m de altura; 2026-11-17: era 0,28 x 0,33 x 0,30)
+    const casco = malha(new THREE.SphereGeometry(0.135, 28, 20), mCasco, 0, 0.005, 0.004);
+    casco.scale.set(0.96, 1.04, 1.12);
     cabeca.add(casco);
-    const listra = malha(new THREE.SphereGeometry(0.1465, 28, 6, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.08), mFaixa, 0, 0.005, 0.004);
+    const listra = malha(new THREE.SphereGeometry(0.1365, 28, 6, 0, Math.PI * 2, Math.PI * 0.3, Math.PI * 0.08), mFaixa, 0, 0.005, 0.004);
     listra.scale.copy(casco.scale);
     cabeca.add(listra);
-    const viseira = malha(new THREE.SphereGeometry(0.148, 28, 12, Math.PI * 1.15, Math.PI * 0.7, Math.PI * 0.4, Math.PI * 0.17), mat("#0a0c10", 0.06, 0.7), 0, 0.005, 0.004);
+    const viseira = malha(new THREE.SphereGeometry(0.138, 28, 12, Math.PI * 1.15, Math.PI * 0.7, Math.PI * 0.4, Math.PI * 0.17), mat("#0a0c10", 0.06, 0.7), 0, 0.005, 0.004);
     viseira.scale.copy(casco.scale);
     cabeca.add(viseira);
   }

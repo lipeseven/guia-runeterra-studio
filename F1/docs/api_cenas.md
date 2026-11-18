@@ -218,6 +218,22 @@ em frenagem forte (nunca o disco brilhando a volta toda).
   `fluxo(w, "pressao", linhaDoFreio(pd, "dianteiro_esquerdo"), c.t, k)` (pressão correndo até a pinça). Enxergue com
   `raioX(carro, ["monocoque", "tampa_do_motor", "sidepod_esquerda", "sidepod_direita", "halo", "roda_dianteira_esquerda",
   "suspensao", "asa_dianteira"])`; câmera de lado a ~3,5 m mostra o piloto inteiro; a ~1,8 m da frente esquerda, o pedal.
+- Cockpit em proporção real (2026-11-17): o carro tem ABERTURA de verdade (~0,85 x 0,47 m, fundo escuro, borda
+  acolchoada, apoio de cabeça dos lados), halo de 3 pontos (arco na altura da testa, pilar central preso à frente da
+  abertura) e um piloto simples dentro (capacete, ombros, volante). `poePilotoNoCarro` troca esse piloto simples pelo
+  boneco articulado reclinado (~50°), com o VOLANTE de verdade na coluna (~27 cm à frente do peito) e as mãos nas
+  empunhaduras por IK (cotovelos dobrados para baixo); o volante fica em `p.userData.volante` (`apertar`, `girar`,
+  `telaDoVolante` funcionam nele; `{ volante: false }` tira). Volante sozinho no carro: `poeVolanteNoCarro(w, car)`.
+  Medidas em `COCKPIT` (Carro3D.tsx). Com o carro opaco só aparecem capacete e alto dos ombros (como no real).
+- Câmeras do cockpit (com `poePilotoNoCarro`; seguem o carro parado ou no circuito): `cameraNoCockpit(w, car, tipo,
+  { k, olhar, lente, rolar })`. `tipo`: "piloto" (o que ele vê: topo do volante, halo e pilar central, a pista; lente
+  74), "ombro" (por cima do ombro direito: capacete, mãos e volante), "rosto" (do volante para o capacete, halo em
+  volta), "lado" (lateral do cockpit; com raioX do monocoque/tampa/sidepods vê o corpo reclinado), "cima" (do alto, à
+  frente: a abertura e o piloto encaixado). `k` 0 a 1 = aproximação lenta (anime com c.k); `olhar` [x, y, z] no espaço
+  do carro troca o alvo (ex.: retrovisor esquerdo [-0.5, 0.72, -0.25]). Para enquadrar/orbitar o cockpit inteiro (do
+  pedal ao capacete): `enquadrar(w, alvoDoCockpit(w, car), [1, 0.35, 0.2], 1.1, 34)`.
+  Ex.: `poe(w, 20, 0, 0); const car = w.carros[20]; const p = poePilotoNoCarro(w, car, 0); apertar(p.userData.volante,
+  "ot", k); cameraNoCockpit(w, car, "ombro", { k: c.k });`
 - `escurecer(w, k)`: escurece a tela INTEIRA por igual (vidro preto na frente da câmera; chame depois da câmera). Para o
   gancho de abertura com `frase`, sem desfocar a cena (o `foco` desfoca).
 
