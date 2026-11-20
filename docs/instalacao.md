@@ -41,8 +41,7 @@ py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install --upgrade pip
 .venv\Scripts\python.exe -m pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128
 
-npm install                       # raiz: motor de vídeo ÚNICO (Remotion, React, three) usado pelo F1 e canais futuros
-cd app\video  && npm install && cd ..\..   # Runeterra (até migrar para a raiz)
+npm install                       # raiz: motor de vídeo ÚNICO (Remotion, React, three, gif) usado por TODOS os canais (Runeterra, F1 e futuros)
 cd app\painel && npm install && npm run build && cd ..\..
 ```
 

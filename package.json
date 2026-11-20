@@ -4,6 +4,7 @@
   "private": true,
   "description": "Motor de vídeo COMPARTILHADO entre os canais (Remotion, React, three.js). Uma só node_modules, aqui na raiz; as pastas dos canais só têm código e resolvem os pacotes subindo até aqui.",
   "scripts": {
+    "estudio:runeterra": "remotion studio app/video/src/index.ts",
     "estudio:f1-vertical": "remotion studio F1/vertical/video/src/index.ts",
     "estudio:f1-horizontal-v1": "remotion studio F1/horizontal/v1/src/index.ts",
     "estudio:f1-horizontal": "remotion studio F1/horizontal/remotion/src/index.ts",
