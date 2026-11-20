@@ -105,7 +105,9 @@ const deMalha = (m: THREE.Mesh): Gemeos => {
 /** Recopia o original (cor, brilho do botão apertado…) e fixa o que o gêmeo tem de próprio: sempre o mesmo shader. */
 const prepararFantasma = (g: Gemeos, opacidade: number) => {
   g.fantasma.copy(g.orig as THREE.MeshStandardMaterial);
-  Object.assign(g.fantasma, { transparent: true, opacity: opacidade, depthWrite: false, clippingPlanes: [g.plano], polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+  // quase opaco = grava profundidade: sem isso as faces de dentro da casca (DoubleSide) apareciam por cima das de fora
+  // e o carro "rasgava" em lascas (v5 da "visão do piloto", 2026-11-18). Só o vidro bem translúcido mostra o miolo.
+  Object.assign(g.fantasma, { transparent: true, opacity: opacidade, depthWrite: opacidade > 0.6, clippingPlanes: [g.plano], polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
   return g.fantasma;
 };
 
@@ -118,12 +120,14 @@ const transparencia = (o: THREE.Object3D, opacidade: number) =>
   });
 /** Só as peças citadas ficam inteiras; o resto vira fantasma (k = 0 normal, 1 quase invisível). */
 export function isolar(modelo: THREE.Object3D, nomes: string | string[], k = 1) {
+  if (k <= 0.01) return; // k 0 = nada muda (antes trocava o material por um "fantasma" opaco sem profundidade: lascas)
   const quero = new Set(Array.isArray(nomes) ? nomes : [nomes]);
   for (const o of pecas(modelo)) if (!quero.has(o.userData.peca)) transparencia(o, 1 - 0.88 * Math.min(1, Math.max(0, k)));
 }
 
 /** Raio-X: as peças citadas (a casca) viram vidro para mostrar o que tem dentro. */
 export function raioX(modelo: THREE.Object3D, nomes: string | string[], k = 1) {
+  if (k <= 0.01) return; // k 0 = nada muda (o fantasma opaco sem profundidade rasgava a casca em lascas)
   const quero = new Set(Array.isArray(nomes) ? nomes : [nomes]);
   for (const o of pecas(modelo)) if (quero.has(o.userData.peca)) transparencia(o, 1 - 0.78 * Math.min(1, Math.max(0, k)));
 }

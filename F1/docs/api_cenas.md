@@ -55,7 +55,7 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
     `torre` {n: 6, de: 1, ate: 4, texto, em}: torre de posições sem nomes; a linha acesa cai (vermelha) ou sobe (verde) e troca de lugar com as outras.
     `relogio` {texto: "SEXTA", horas: [{h: 12, m: 30, texto: "TREINO LIVRE 1", em}, ...]}: ponteiros giram até cada hora falada.
     `sentido` {texto: "ANTI-HORÁRIO", em}: seta circular girando no sentido da volta.
-    `etapas` e `foco` são tempero (regras de direção): prefira os gráficos acima.
+    **`etapas` (cartões/seletor empilhados): NUNCA (Felipe, 2026-11-18: "já pedi mil vezes pra não aparecer").** `foco` é tempero.
     `pos`: "meio" (centro) ou "baixo" (padrão, abaixo do assunto 3D). Com gráfico embaixo, deixe o assunto 3D no meio ou um pouco acima (ex.: alvoY negativo no enquadrar).
   - `foco`: true = modo quadro informativo: a cena 3D escurece e desfoca atrás e o gráfico vai para o centro (trecho
     que é explicação pura). Nunca dois planos seguidos com foco.
@@ -223,7 +223,7 @@ em frenagem forte (nunca o disco brilhando a volta toda).
   abertura) e um piloto simples dentro (capacete, ombros, volante). `poePilotoNoCarro` troca esse piloto simples pelo
   boneco articulado reclinado (~50°), com o VOLANTE de verdade na coluna (~27 cm à frente do peito) e as mãos nas
   empunhaduras por IK (cotovelos dobrados para baixo); o volante fica em `p.userData.volante` (`apertar`, `girar`,
-  `telaDoVolante` funcionam nele; `{ volante: false }` tira). Volante sozinho no carro: `poeVolanteNoCarro(w, car)`.
+  `telaDoVolante` funcionam nele; `{ volante: false }` tira). Volante sozinho no carro: `poeVolanteNoCarro(w, car)`. Para destacar o volante sem a coluna: `realcar(v, nomesDasPecas(v).filter(n => n !== "engate_rapido"), k)`.
   Medidas em `COCKPIT` (Carro3D.tsx). Com o carro opaco só aparecem capacete e alto dos ombros (como no real).
 - Câmeras do cockpit (com `poePilotoNoCarro`; seguem o carro parado ou no circuito): `cameraNoCockpit(w, car, tipo,
   { k, olhar, lente, rolar })`. `tipo`: "piloto" (o que ele vê: topo do volante, halo e pilar central, a pista; lente
@@ -234,6 +234,26 @@ em frenagem forte (nunca o disco brilhando a volta toda).
   pedal ao capacete): `enquadrar(w, alvoDoCockpit(w, car), [1, 0.35, 0.2], 1.1, 34)`.
   Ex.: `poe(w, 20, 0, 0); const car = w.carros[20]; const p = poePilotoNoCarro(w, car, 0); apertar(p.userData.volante,
   "ot", k); cameraNoCockpit(w, car, "ombro", { k: c.k });`
+- POV do piloto na pista (2026-11-18, "como se nós estivéssemos numa câmera POV"): `poeNoCircuito(...)`, `const p =
+  poePilotoNoCarro(w, car, 0); telaDoVolante(p.userData.volante, { marcha: "8" }); cameraNoCockpit(w, car, "piloto",
+  { lente: 78, rolar: 0.012 * Math.sin(c.t * 2.1), olhar: [0.25 * Math.sin(c.t * 0.45), 0.45, -5] })` com 2 ou 3 carros
+  à frente (`poeNoCircuito(..., f + 0.0026, { lado: 1.7 })`): halo e pilar no meio, volante com a tela embaixo, pista e
+  carros. Os retrovisores ficam a ~70° do olhar: não entram no quadro vertical (só olhando de lado). Lista falada no fim
+  = esse POV com UM rótulo curto por vez à frente (`rotulo` em `car.localToWorld(V(0, 2.3, -7))`), nunca `etapas`.
+- **Piloto andando na pista (v6, 2026-11-18):** `const q = poeNoCircuito(w, k, circ, f, { v }); cockpitNaPista(w, car, q, v,
+  { semCabeca: true })`: o volante gira com o esterço das rodas (q.esterco × 4, até ±1 rad) e a tela mostra marcha
+  (`marchaDe(kmh)`, 8 marchas) e velocidade de `v` (m/s). Sempre ele, nunca `poePilotoNoCarro` com o carro andando.
+  Câmera `cameraNoCockpit(w, car, "pov")` = POV um pouco atrás dos olhos (a cabeça some com `semCabeca`): mãos no
+  volante, halo, bico e pista, sem faixa vazia embaixo. Retrovisor: `espelhoReal(w, car, -1 | 1)` (Reflector do three.js
+  sobre o vidro do retrovisor do próprio carro, virado ~35° para o piloto) + `cameraNoCockpit(w, car, "piloto", { olhar:
+  [-0.56, 0.75, -0.42], lente: 34–40 })`; para a "olhadinha", leve o `olhar` da frente ([0, 0.42, -5]) até o espelho.
+  Piloto por dentro sem sujeira: `cortar(car, [1, 0, 0], [x, 0, 0])` com x indo de 1,2 a 0,02 (corte entrando), não
+  raio-X translúcido do carro inteiro.
+- **v7 (2026-11-18):** POV de verdade = `cameraNoCockpit(w, car, "olhos", { rolar, olhar: [x, 0.6, -5] })`: olhos ABAIXO do
+  arco do halo (arco e pilar no alto do quadro, volante grande na altura do peito/queixo), CENTRADA entre os dois
+  olhos (v8), lente 82; some com a cabeça (`semCabeca`). Vibração de alta velocidade: some `0.004 * Math.sin(c.t * 53)`
+  ao `rolar`. Carro rápido na pista: `rodasRapidas(car, v)` depois de `poeNoCircuito` = face da roda vira disco com
+  borrão de movimento (a partir de 25 m/s), opt-in, nada muda nos planos que não chamam.
 - `escurecer(w, k)`: escurece a tela INTEIRA por igual (vidro preto na frente da câmera; chame depois da câmera). Para o
   gancho de abertura com `frase`, sem desfocar a cena (o `foco` desfoca).
 
@@ -328,8 +348,22 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
 - `destacar(w, modelo, "peça" | ["peças"], k, distancia = 0.05, cor)`: a peça SAI do modelo para a frente, cresce um
   pouco e ganha brilho atrás; o resto fica normal. É ASSIM que se destaca um comando do volante (nunca isolar/raio-X,
   que deixam o volante transparente). Com título no alto, mostre o volante inteiro e destaque o comando.
-- `brilho(w, "chave", posição, tamanho, k, cor)`: luz num ponto (ex.: a força de frenagem andando do eixo dianteiro ao
-  traseiro: `car.localToWorld(new THREE.Vector3(0, 0.35, z))`, eixos em z = -1,55 e 1,85; rodas em x = ±0,81 / ±0,76).
+- **Destacar uma peça = a PRÓPRIA peça acende (2026-11-18, pedido do Felipe: "ao invés de uma luz em cima da peça, a
+  peça poderia emitir um brilho").** `realcar(modelo, "peça" | ["peças"] | null, k, cor = "#ffd23f", contorno = 0.012)`:
+  material emissivo + contorno luminoso na própria peça, volta ao normal no quadro seguinte. Nomes de peça do carro:
+  `halo` (ou só `halo_arco` / `halo_pilar`), `retrovisor_esquerdo`, `retrovisor_direito`, `banco`, `apoio_cabeca`,
+  `borda_cockpit` (contorno da abertura); `null` = o modelo inteiro (ex.: `realcar(p.userData.volante, null, k)`; outro
+  carro: `realcar(w.carros[k], null, k, "#ffb020", 0)`). Para o resto em vidro, `raioX`/`isolar` nas OUTRAS peças
+  (banco, apoio e retrovisores são peças próprias, não somem com o raioX do monocoque/sidepods). Rótulo curto preso à
+  peça (`rotulo`) e câmera nela. **Nunca** `brilho` (bola de luz) como destaque de peça, e nunca acrescente outro
+  retrovisor: o carro já tem os dois (em ±0,56, 0,76, -0,42 no espaço do carro).
+- **Campo de visão (2026-11-18: "feixe de bolinhas amarelas ridículo"):** `campoDeVisao(w, "chave", origem, para, graus,
+  alcance, k, { cor, chao, texto, volume })`: leque translúcido com degradê, bordas e arco luminosos e o volume do olhar
+  (pirâmide de vidro do olho até o arco); `chao: 0.05` projeta no chão com a linha-guia descendo do olho. Olhos do piloto
+  no carro: `[0, 0.74, -0.215]` (COCKPIT.olhos); espelho: `[±0.56, 0.76, -0.42]`, apontando para trás. Leia melhor visto
+  de cima/3-4 (câmera a 9–12 m de altura); de trás e baixo ele vira uma parede. Nunca `fluxo` de pontinhos para visão.
+- `brilho(w, "chave", posição, tamanho, k, cor)`: luz num ponto do espaço (efeito de luz, não destaque de peça: ex.:
+  a força de frenagem andando do eixo dianteiro ao traseiro, `car.localToWorld(new THREE.Vector3(0, 0.35, z))`).
 - `aura(w, modelo, c.t, k, cor = "#3d9bff")`: aura elétrica pulsando e faíscas em volta (ex.: carro no Boost).
 - `criarCurva({ raio, largura, angulo, rotulos })` (dentro de `obj`) + `naCurva(curva, f)` → {x, z, giro}: o carro faz a
   curva de verdade (`poe(w, k, q.x, q.z, q.giro); estercar(w.carros[k], q.esterco)`; f 0 entrada, 0,5 meio, 1 saída).

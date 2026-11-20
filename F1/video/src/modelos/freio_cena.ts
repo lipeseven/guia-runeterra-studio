@@ -2,13 +2,15 @@
 // números: a faixa ideal muda com material, pista e equipe), partículas que correm por um caminho (ar no duto, energia
 // até a bateria), ventilação do disco e o esquema do sistema híbrido de 2026 (MGU-K, bateria, eixo traseiro).
 import * as THREE from "three";
-import { aoRestaurar, deslocar, peca } from "./desmonte";
+import { achar, aoRestaurar, deslocar, peca } from "./desmonte";
 import { brilho } from "./efeitos3d";
 import { criarPiloto, obj, rotulo } from "./extras";
 import { neutro } from "./boneco";
 import { calorNosDiscos, corDoCalor, texFibra } from "./freio";
 import { COCKPIT } from "./Carro3D";
-import { criarVolante } from "./volante";
+import { CX, CY, PEGA, S, criarVolante, telaDoVolante } from "./volante";
+import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
+import { Reflector } from "three/addons/objects/Reflector.js";
 import { camera, type Mundo } from "./mundo";
 
 /** Aquece os discos de `modelo` (freio solto ou carro) a `graus` °C, só neste quadro; com `w`, põe também o halo de luz
@@ -429,6 +431,8 @@ export function linhaDoFreio(pedais: THREE.Object3D, roda: string) {
 }
 
 // esconde o piloto simples do carro (capacete/ombros/volante fixos) só neste quadro: o boneco articulado entra no lugar
+const cabecasEscondidas = new Set<THREE.Object3D>();
+let restauraCabecas = false;
 const fixosEscondidos = new Set<THREE.Object3D>();
 let restauraFixos = false;
 function esconderPilotoFixo(car: THREE.Object3D) {
@@ -448,23 +452,15 @@ const noCarro = (car: THREE.Object3D, p: readonly number[]) => car.localToWorld(
 
 /** Volante de verdade (criarVolante, ~29 cm) montado na coluna do cockpit, na posição de COCKPIT.volante (diante do
  *  peito do piloto, topo inclinado para ele). Devolve o volante (apertar, girar, telaDoVolante funcionam nele). */
-export function poeVolanteNoCarro(w: Mundo, car: THREE.Object3D, chave = "volante:cockpit") {
+export function poeVolanteNoCarro(w: Mundo, car: THREE.Object3D, chave = "volante:cockpit", giro = 0) {
   const v = obj(w, chave, () => criarVolante());
   car.updateMatrixWorld(true);
   v.position.copy(noCarro(car, COCKPIT.volante.pos));
-  v.quaternion.copy(car.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), COCKPIT.volante.incl));
+  // `giro` (rad, positivo = virar à esquerda): gira no próprio eixo (a face olha para o piloto, +z do volante)
+  v.quaternion.copy(car.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), COCKPIT.volante.incl)).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), giro));
   v.scale.setScalar(car.scale.x);
-  // coluna de direção: do cubo do volante até o painel, por baixo da borda da abertura
-  const [x, y, z] = COCKPIT.volante.pos;
-  const col = obj(w, chave + ":coluna", () => {
-    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 1, 12), new THREE.MeshStandardMaterial({ color: "#3a3d44", roughness: 0.4, metalness: 0.6 }));
-    return m;
-  });
-  const a = noCarro(car, [x, y - 0.01, z - 0.03]);
-  const b = noCarro(car, [x, y - 0.06, z - 0.3]);
-  col.position.copy(a).add(b).multiplyScalar(0.5);
-  col.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
-  col.scale.set(car.scale.x, a.distanceTo(b), car.scale.x);
+  // v9: sem segunda coluna de direção. O volante já traz a coluna dele (peça "engate_rapido"); com o volante
+  // reposicionado na v8 as duas saíam em ângulos diferentes ("uma barra brilhando e uma segunda barra preta").
   v.updateMatrixWorld(true);
   return v;
 }
@@ -502,7 +498,7 @@ function braco(j: Record<string, THREE.Object3D>, l: "E" | "D", mao: THREE.Vecto
  *  pedal afunda (o mesmo de `poePedais`). O pé direito fica apoiado no acelerador, solto. O piloto simples do carro
  *  some neste quadro. Com o carro opaco, só o capacete e o alto dos ombros aparecem (como no carro de verdade); para
  *  ver o corpo, raioX do monocoque/tampa/sidepods. O volante fica em `p.userData.volante`. */
-export function poePilotoNoCarro(w: Mundo, car: THREE.Object3D, k = 0, o: { chave?: string; volante?: boolean; cores?: { macacao?: string; detalhe?: string; faixa?: string; capacete?: string } } = {}) {
+export function poePilotoNoCarro(w: Mundo, car: THREE.Object3D, k = 0, o: { chave?: string; volante?: boolean; giro?: number; semCabeca?: boolean; cores?: { macacao?: string; detalhe?: string; faixa?: string; capacete?: string } } = {}) {
   const p = obj(w, o.chave ?? "piloto:cockpit", () => criarPiloto({ traje: "capacete", macacao: o.cores?.macacao ?? "#1d3f9e", detalhe: o.cores?.detalhe ?? "#f2c232", faixa: o.cores?.faixa ?? "#f2c232", capacete: o.cores?.capacete ?? "#f5c518" }));
   neutro(p);
   const j = p.userData.juntas as Record<string, THREE.Object3D>;
@@ -518,7 +514,20 @@ export function poePilotoNoCarro(w: Mundo, car: THREE.Object3D, k = 0, o: { chav
   // ombros mais juntos que no boneco de pé (a abertura tem ~47 cm de largura; ombros de piloto ~40-45 cm)
   j.ombroE.position.x = -0.165;
   j.ombroD.position.x = 0.165;
-  const vol = o.volante === false ? null : poeVolanteNoCarro(w, car, (o.chave ?? "piloto:cockpit") + ":volante");
+  const vol = o.volante === false ? null : poeVolanteNoCarro(w, car, (o.chave ?? "piloto:cockpit") + ":volante", o.giro ?? 0);
+  // POV mais afastado: a câmera fica atrás dos olhos, então a cabeça some neste quadro (senão tamparia a vista)
+  const cab = j.pescoco;
+  cab.visible = !o.semCabeca;
+  if (o.semCabeca) {
+    cabecasEscondidas.add(cab);
+    if (!restauraCabecas) {
+      restauraCabecas = true;
+      aoRestaurar(() => {
+        cabecasEscondidas.forEach((x) => (x.visible = true));
+        cabecasEscondidas.clear();
+      });
+    }
+  }
   p.userData.volante = vol;
   p.updateMatrixWorld(true);
   // mãos nas empunhaduras (lados do volante, atrás da face), cotovelos para baixo e um pouco para fora
@@ -526,10 +535,33 @@ export function poePilotoNoCarro(w: Mundo, car: THREE.Object3D, k = 0, o: { chav
   const inc = COCKPIT.volante.incl;
   for (const l of ["E", "D"] as const) {
     const s = l === "E" ? -1 : 1;
-    const mao = noCarro(car, [vx + s * 0.122, vy - 0.012 * Math.cos(inc) - 0.035 * Math.sin(inc), vz - 0.012 * Math.sin(inc) + 0.035 * Math.cos(inc)]);
-    const polo = new THREE.Vector3(s * 0.55, -1, 0.2).applyQuaternion(car.quaternion);
-    braco(j, l, mao, polo, car.scale.x);
-    j[`pulso${l}`].rotation.set(0, 0, 0);
+    // v11: a mão é filha do volante (dedos fechados no cabo, criarMaoNoVolante); o braço vai ao pulso por IK e a mão do
+    // boneco some (o punho azul com faixa amarela é orientado pelo antebraço)
+    if (vol) {
+      vol.updateMatrixWorld(true);
+      let mao = vol.getObjectByName(s < 0 ? "mao_E" : "mao_D");
+      if (!mao) {
+        mao = criarMaoNoVolante(s, new THREE.MeshStandardMaterial({ color: "#eceef2", roughness: 0.7 }), new THREE.MeshStandardMaterial({ color: o.cores?.macacao ?? "#1d3f9e", roughness: 0.9 }), new THREE.MeshStandardMaterial({ color: o.cores?.faixa ?? "#f2c232", roughness: 0.8 }));
+        vol.add(mao);
+      }
+      mao.visible = true;
+      const [px, py, pz] = mao.userData.pulso as number[];
+      const pulsoW = vol.localToWorld(new THREE.Vector3(px, py, pz));
+      const ombro = j[`ombro${l}`].getWorldPosition(new THREE.Vector3());
+      const alvo = pulsoW.clone().addScaledVector(pulsoW.clone().sub(ombro).normalize(), 0.05 * car.scale.x); // a IK mira 5 cm além do pulso
+      const polo = new THREE.Vector3(s * 0.35, -1, 0.25).applyQuaternion(car.quaternion);
+      braco(j, l, alvo, polo, car.scale.x);
+      j[`pulso${l}`].visible = false;
+      // manga: do pulso para o cotovelo
+      const cot = j[`cotovelo${l}`].getWorldPosition(new THREE.Vector3());
+      const dir = vol.worldToLocal(cot.clone()).sub(new THREE.Vector3(px, py, pz)).normalize();
+      mao.getObjectByName("punho")!.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), dir);
+    } else {
+      const mao = noCarro(car, [vx + s * 0.122, vy - 0.012 * Math.cos(inc) - 0.035 * Math.sin(inc), vz - 0.012 * Math.sin(inc) + 0.035 * Math.cos(inc)]);
+      const polo = new THREE.Vector3(s * 0.55, -1, 0.2).applyQuaternion(car.quaternion);
+      braco(j, l, mao, polo, car.scale.x);
+      j[`pulso${l}`].rotation.set(0, 0, 0);
+    }
   }
   // pernas: IK no plano de lado (w = para a frente do carro = -z, y = altura)
   const COXA = 0.43, CANELA = 0.4;
@@ -557,6 +589,126 @@ export function poePilotoNoCarro(w: Mundo, car: THREE.Object3D, k = 0, o: { chav
   ik("E", fr.w, fr.y);
   ik("D", ac.w - 0.03, ac.y); // pé direito encostado no acelerador, sem pisar
   p.updateMatrixWorld(true);
+  cintoEmX(w, car, p, o.chave ?? "piloto:cockpit");
+  return p;
+}
+
+/** Cinto de 6 pontos (arnês) cruzado em X sobre o peito, faixas largas pretas com fivela central prata, presas ao banco;
+ *  pedido do Felipe (2026-11-18): "o cinto em X cruzado, branco ou preto". Feito a cada quadro sobre o boneco reclinado. */
+function cintoEmX(w: Mundo, car: THREE.Object3D, p: THREE.Object3D, chave: string) {
+  // v7 (Felipe: "o cinto está atravessando nosso piloto quando devia passar por cima dos ombros"): o arnês é preso ao
+  // TRONCO do boneco (filho do grupo "corpo", que reclina com a coluna) e segue o perfil do macacão por fora: duas alças
+  // descem de trás do banco, passam por cima dos ombros e descem pelo peito até a fivela; mais o cinto pélvico.
+  const j = p.userData.juntas as Record<string, THREE.Object3D>;
+  const corpo = j.coluna.children[0];
+  if (!corpo.getObjectByName("arnes")) corpo.add(criarArnes());
+  return;
+  // (o X antigo abaixo não é mais usado)
+  const pos = (o: THREE.Object3D) => o.getWorldPosition(new THREE.Vector3());
+  const frente = new THREE.Vector3(0, Math.sin(0.915), -Math.cos(0.915)).applyQuaternion(car.quaternion); // normal do peito
+  const esc = car.scale.x;
+  const oE = pos(j.ombroE), oD = pos(j.ombroD), qE = pos(j.quadrilE), qD = pos(j.quadrilD);
+  const f = (v: THREE.Vector3, d: number) => v.clone().addScaledVector(frente, d * esc);
+  const centro = f(oE.clone().add(oD).add(qE).add(qD).multiplyScalar(0.25), 0.115);
+  const faixa = (n: string, a: THREE.Vector3, b: THREE.Vector3, larg: number) => {
+    const m = obj(w, `${chave}:cinto:${n}`, () => new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ color: "#111216", roughness: 0.7 })));
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    const dir = b.clone().sub(a);
+    // base: y ao longo da faixa, z = normal do peito (a faixa fica deitada sobre o macacão), x = largura
+    const ey = dir.clone().normalize();
+    const ez = frente.clone().addScaledVector(ey, -frente.dot(ey)).normalize();
+    const ex = new THREE.Vector3().crossVectors(ey, ez);
+    m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(ex, ey, ez));
+    m.scale.set(larg * esc, dir.length(), 0.008 * esc);
+  };
+  // ombro esquerdo -> quadril direito e ombro direito -> quadril esquerdo (o X), mais a faixa da cintura
+  faixa("x1", f(oE, 0.1), f(qD, 0.11), 0.06);
+  faixa("x2", f(oD, 0.1), f(qE, 0.11), 0.06);
+  faixa("cintura", f(qE.clone().lerp(qD, -0.35), 0.12), f(qE.clone().lerp(qD, 1.35), 0.12), 0.055);
+  const fivela = obj(w, `${chave}:cinto:fivela`, () => new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.015, 24), new THREE.MeshStandardMaterial({ color: "#d9dde3", metalness: 0.85, roughness: 0.25 })));
+  fivela.position.copy(f(centro, 0.012));
+  fivela.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), frente);
+  fivela.scale.setScalar(esc);
+}
+
+/** Arnês no espaço do tronco do boneco (y para cima, frente -z; perfil do tronco em extras.ts, escala z 0,66). */
+function criarArnes() {
+  const g = new THREE.Group();
+  g.name = "arnes";
+  const mat = new THREE.MeshStandardMaterial({ color: "#f1f2f4", roughness: 0.6, side: THREE.DoubleSide }); // faixas brancas: legíveis sobre o macacão
+  // raio do tronco na altura y (o mesmo perfil do LatheGeometry), profundidade = raio * 0,66
+  const perfil = [[0, 0.88], [0.15, 0.89], [0.163, 0.96], [0.148, 1.05], [0.152, 1.14], [0.18, 1.27], [0.186, 1.35], [0.16, 1.43], [0.09, 1.48], [0.062, 1.5]];
+  const raio = (y: number) => {
+    for (let i = 1; i < perfil.length; i++) if (y <= perfil[i][1]) {
+      const [r0, y0] = perfil[i - 1], [r1, y1] = perfil[i];
+      return r0 + ((r1 - r0) * (y - y0)) / (y1 - y0);
+    }
+    return 0.062;
+  };
+  // ponto na superfície do tronco (elipse r x 0,66r) na altura y, a x do centro, de frente (-1) ou de costas (+1)
+  const sup = (x: number, y: number, lado: -1 | 1, folga = 0.012) => {
+    const r = raio(y) + folga;
+    const zz = 0.66 * r * Math.sqrt(Math.max(0, 1 - (x / r) ** 2));
+    return new THREE.Vector3(x, y, lado * zz);
+  };
+  // v8 ("tem que ser uma faixa claramente visível, não essa linha medonha"): fita larga deitada sobre o macacão; a
+  // largura fica na tangente da superfície (perpendicular à direção da fita e à normal, que sai do eixo do tronco)
+  const tira = (pts: THREE.Vector3[], larg: number) => {
+    const curva = new THREE.CatmullRomCurve3(pts);
+    const N = 60;
+    const pos: number[] = [];
+    const ind: number[] = [];
+    for (let i = 0; i <= N; i++) {
+      const u = i / N;
+      const pt = curva.getPointAt(u);
+      const tg = curva.getTangentAt(u);
+      const nrm = new THREE.Vector3(pt.x, 0, pt.z / 0.66);
+      if (Math.abs(pt.y - 1.5) < 0.04 || nrm.length() < 1e-3) nrm.set(0, 1, 0); // em cima do ombro: normal para cima
+      nrm.normalize();
+      const lat = new THREE.Vector3().crossVectors(tg, nrm).normalize().multiplyScalar(larg / 2);
+      pos.push(pt.x + lat.x, pt.y + lat.y, pt.z + lat.z, pt.x - lat.x, pt.y - lat.y, pt.z - lat.z);
+      if (i < N) ind.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 2, i * 2 + 1, i * 2 + 3);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+    geo.setIndex(ind);
+    geo.computeVertexNormals();
+    return new THREE.Mesh(geo, mat);
+  };
+  for (const s of [-1, 1]) {
+    const x = s * 0.075;
+    // de trás (encosto), por cima do ombro (perto do pescoço), descendo pelo peito até a fivela
+    const pts = [sup(x * 1.1, 1.22, 1, 0.02), sup(x * 1.05, 1.4, 1, 0.02), new THREE.Vector3(x, 1.5, 0), sup(x, 1.4, -1), sup(x * 0.9, 1.27, -1), sup(x * 0.6, 1.12, -1), sup(s * 0.025, 0.99, -1)];
+    g.add(tira(pts, 0.075));
+  }
+  // cinto pélvico: de um quadril ao outro pela frente, passando pela fivela
+  const pel: THREE.Vector3[] = [];
+  for (let k = 0; k <= 8; k++) {
+    const x = -0.16 + (0.32 * k) / 8;
+    pel.push(sup(x, 0.97, -1, 0.014));
+  }
+  g.add(tira(pel, 0.08));
+  const fivela = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.014, 24), new THREE.MeshStandardMaterial({ color: "#d9dde3", metalness: 0.85, roughness: 0.25 }));
+  fivela.rotation.x = Math.PI / 2;
+  fivela.position.copy(sup(0, 0.99, -1, 0.026));
+  g.add(fivela);
+  g.traverse((o) => (o.castShadow = true));
+  return g;
+}
+
+/** Marcha de um F1 de 2026 (8 marchas) pela velocidade em km/h: reta = 7ª/8ª, curva lenta = 2ª-4ª. */
+export function marchaDe(kmh: number) {
+  const lim = [85, 115, 145, 175, 210, 245, 285];
+  return 1 + lim.filter((x) => kmh > x).length;
+}
+
+/** Piloto no carro andando na pista: volante gira com o esterço das rodas (`q` = o que poeNoCircuito devolve) e a tela
+ *  mostra a marcha e a velocidade coerentes com `v` (m/s). `semCabeca` para a câmera "pov". Devolve o piloto. */
+export function cockpitNaPista(w: Mundo, car: THREE.Object3D, q: { esterco: number }, v: number, o: { semCabeca?: boolean } = {}) {
+  const giro = Math.max(-1.0, Math.min(1.0, q.esterco * 4)); // volante de F1: até ~±60° nos grampos (as mãos ficam nas empunhaduras)
+  const p = poePilotoNoCarro(w, car, 0, { giro, semCabeca: o.semCabeca });
+  const kmh = v * 3.6;
+  if (p.userData.volante) telaDoVolante(p.userData.volante, { marcha: String(marchaDe(kmh)), velocidade: Math.round(kmh) });
   return p;
 }
 
@@ -566,12 +718,17 @@ type Ponto = readonly [number, number, number];
  *  com poePilotoNoCarro (2026-11-17). */
 const TOMADAS: Record<string, [Ponto, Ponto, number]> = {
   piloto: [COCKPIT.olhos, [0, 0.28, -5], 74], // visão do piloto: topo do volante embaixo, halo e pilar central, a pista
+  // POV um pouco afastado (atrás dos olhos, cabeça escondida: cockpitNaPista(..., { semCabeca: true })): mãos no volante,
+  // halo, bico e a pista (v6, pedido do Felipe)
+  pov: [[0, 0.92, 0.04], [0, 0.42, -5], 72],
+  // v7 (Felipe, ref. onboard do Leclerc): olhos ABAIXO do arco do halo, câmera na espuma ao lado do capacete
+  olhos: [[0, 0.715, -0.17], [0, 0.6, -5], 82], // v8: centrado entre os dois olhos (não na câmera do capacete)
   ombro: [[0.21, 0.95, 0.2], [-0.02, 0.5, -0.78], 48], // por cima do ombro direito: capacete, mãos e volante
   rosto: [[0.07, 0.62, -0.78], [0, 0.7, -0.12], 58], // do volante para o rosto: capacete, halo em volta, ombros
   lado: [[4.2, 1.0, -0.45], [0, 0.52, -0.45], 30], // de lado, na altura do cockpit (com raioX vê o corpo inteiro)
   cima: [[0.35, 2.1, -1.55], [0, 0.55, -0.32], 32], // do alto, à frente: a abertura, o halo e o piloto encaixado
 };
-export type TomadaCockpit = "piloto" | "ombro" | "rosto" | "lado" | "cima";
+export type TomadaCockpit = "piloto" | "pov" | "olhos" | "ombro" | "rosto" | "lado" | "cima";
 
 /** Câmera dentro/junto do cockpit de `car` (funciona parado ou andando no circuito: segue o carro). `tipo`: "piloto"
  *  (o que ele vê, por cima do volante e pelo halo), "ombro" (por cima do ombro direito), "rosto" (do volante para o
@@ -583,7 +740,7 @@ export function cameraNoCockpit(w: Mundo, car: THREE.Object3D, tipo: TomadaCockp
   car.updateMatrixWorld(true);
   const alvo = noCarro(car, o.olhar ?? para);
   const pos = noCarro(car, de);
-  if (tipo !== "piloto") pos.lerp(alvo, 0.12 * Math.max(0, Math.min(1, o.k ?? 0)));
+  if (tipo !== "piloto" && tipo !== "pov" && tipo !== "olhos") pos.lerp(alvo, 0.12 * Math.max(0, Math.min(1, o.k ?? 0)));
   else pos.add(noCarro(car, [0, 0, -0.02 * (o.k ?? 0)]).sub(noCarro(car, [0, 0, 0])));
   camera(w, [pos.x, pos.y, pos.z], [alvo.x, alvo.y, alvo.z], o.lente ?? lente, o.rolar ?? 0);
 }
@@ -598,4 +755,137 @@ export function alvoDoCockpit(w: Mundo, car: THREE.Object3D, chave = "alvo:cockp
   a.scale.setScalar(car.scale.x);
   a.updateMatrixWorld(true);
   return a;
+}
+
+/** Espelho de verdade no retrovisor do carro (o do próprio carro, nunca um par novo): um Reflector (three.js) sobre o
+ *  vidro, que reflete a cena atrás (pista, carro que se aproxima). `lado` -1 esquerdo, 1 direito. Use nos planos em que a
+ *  câmera olha para o retrovisor (POV virando a cabeça: cameraNoCockpit(w, car, "piloto", { olhar: [-0.56, 0.76, -0.42] })). */
+export function espelhoReal(w: Mundo, car: THREE.Object3D, lado: -1 | 1 = -1) {
+  const m = obj(w, `espelho:real:${lado}`, () => {
+    const r = new Reflector(new THREE.PlaneGeometry(0.14, 0.055), { textureWidth: 512, textureHeight: 256, color: 0xdfe8f2, clipBias: 0.003 });
+    return r;
+  });
+  car.updateMatrixWorld(true);
+  const g = -lado * 0.6;
+  m.position.copy(noCarro(car, [lado * 0.56 + Math.sin(g) * 0.025, 0.76, -0.42 + Math.cos(g) * 0.025]));
+  // a face (+z do plano) olha para trás, virada ~35° para o piloto (como o vidro de verdade: ele vê o lado e a traseira)
+  m.quaternion.copy(car.quaternion).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -lado * 0.6));
+  m.scale.setScalar(car.scale.x);
+  return m;
+}
+
+// ------------------------------------------------------------------------------------------------ mãos no volante (v11)
+// Felipe (v10 reprovada): mãos refeitas com articulação de verdade, presas à EMPUNHADURA do modelo do volante. Cada
+// dedo tem 3 falanges e o polegar 2; a pose é calculada encostando cada falange na seção real do cabo (medida no
+// contorno PEGA do volante.ts, extrudado em z de -0,0295 a +0,0115): os 4 dedos saem do lado do piloto, passam por FORA
+// do cabo e terminam atrás dele; o polegar entra pela fresta (janela do corpo do volante, ao lado do cabo). As mãos são
+// filhas do volante (giram com ele) e o antebraço vai ao pulso por IK.
+const Z_PEGA = [-0.0295, 0.0115];
+/** Lado de fora e de dentro do cabo (metros, volante da esquerda) na altura y (metros). */
+function cabo(y: number): { fora: number; dentro: number } {
+  const ypx = CY - y / S;
+  const xs: number[] = [];
+  for (let i = 0; i < PEGA.length; i++) {
+    const [x1, y1] = PEGA[i], [x2, y2] = PEGA[(i + 1) % PEGA.length];
+    if ((y1 <= ypx && y2 > ypx) || (y2 <= ypx && y1 > ypx)) xs.push(x1 + ((ypx - y1) * (x2 - x1)) / (y2 - y1));
+  }
+  const a = Math.min(...xs), b = Math.max(...xs);
+  return { fora: (a - CX) * S - 0.0025, dentro: (b - CX) * S + 0.0025 };
+}
+const segmento = (a: THREE.Vector3, b: THREE.Vector3, ra: number, rb: number, m: THREE.Material) => {
+  const d = b.clone().sub(a);
+  const seg = new THREE.Mesh(new THREE.CylinderGeometry(rb, ra, d.length(), 14, 1, true), m);
+  seg.position.copy(a).addScaledVector(d, 0.5);
+  seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  return seg;
+};
+const junta = (p: THREE.Vector3, r: number, m: THREE.Material) => {
+  const j = new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), m);
+  j.position.copy(p);
+  return j;
+};
+/** Mão `s` (-1 esquerda, 1 direita) no espaço do volante. Devolve o grupo; userData.pulso = posição do pulso.
+ *  v12 (Felipe: "é só fazer uma mão normal"): medidas de mão adulta com luva (+10% de espessura): palma ~0,09 x 0,10;
+ *  dedos médio 0,088, indicador/anelar ~0,07, mínimo ~0,06 (falanges 4:2,5:2), espessura ~0,02; polegar 0,055 em 2
+ *  falanges, saindo da base lateral da palma. Pegada de força na haste lateral: a palma encosta no lado de FORA da haste
+ *  e vai para o piloto (o pulso fica à frente do volante); os dedos saem dos nós atrás/por fora, contornam a haste por
+ *  trás e por dentro e as pontas aparecem na frente dela, sem passar da borda de dentro; o polegar fica sobre a frente
+ *  da haste. Nada cobre a tela/botões. Faixa amarela só no punho. */
+function criarMaoNoVolante(s: number, mLuva: THREE.Material, mPunho: THREE.Material, mFaixa: THREE.Material) {
+  const g = new THREE.Group();
+  g.name = s < 0 ? "mao_E" : "mao_D";
+  const cz = (Z_PEGA[0] + Z_PEGA[1]) / 2, b = (Z_PEGA[1] - Z_PEGA[0]) / 2;
+  const fal = (tot: number) => [tot * 4 / 8.5, tot * 2.5 / 8.5, tot * 2 / 8.5];
+  const dedos = [
+    { y: 0.004, L: fal(0.074), r: 0.0098 },
+    { y: -0.0175, L: fal(0.084), r: 0.01 },
+    { y: -0.039, L: fal(0.078), r: 0.0097 },
+    { y: -0.059, L: fal(0.062), r: 0.0088 },
+  ];
+  const pontosPalma: THREE.Vector3[] = [];
+  let foraX = 0, zNos = 0;
+  for (const dd of dedos) {
+    const c = cabo(dd.y);
+    const cx = s * -((c.fora + c.dentro) / 2); // volante da esquerda: x negativo; espelha para a direita
+    const a = (c.dentro - c.fora) / 2;
+    foraX = Math.max(foraX, Math.abs(cx) + a); // |x| do lado de fora do cabo
+    const A = a + dd.r + 0.0008, B = b + dd.r + 0.0008;
+    // elipse folgada em volta do cabo: t = 90° frente (piloto), 180° lado de FORA, 270° atrás, 360° lado de dentro
+    const Q = (t: number) => new THREE.Vector3(cx - s * A * Math.cos(t), dd.y, cz + B * Math.sin(t));
+    let t = (284 * Math.PI) / 180; // nó do dedo: atrás da haste (a palma vem pelo lado de fora)
+    const juntas = [Q(t)];
+    for (const L of dd.L) {
+      // avança na elipse (atrás, dentro, frente) até a corda medir a falange: a falange encosta no cabo
+      let t2 = t;
+      while (Q(t2).distanceTo(Q(t)) < L && t2 < t + Math.PI) t2 += 0.005;
+      juntas.push(Q(t2));
+      t = t2;
+    }
+    for (let k = 0; k < 3; k++) {
+      const ra = dd.r * (1 - k * 0.07), rb = dd.r * (1 - (k + 1) * 0.07);
+      g.add(segmento(juntas[k], juntas[k + 1], ra, rb, mLuva), junta(juntas[k + 1], rb, mLuva));
+    }
+    g.add(junta(juntas[0], dd.r, mLuva));
+    zNos += juntas[0].z / dedos.length;
+    for (let k = 0; k < 8; k++) {
+      const ang = (k / 8) * Math.PI * 2;
+      pontosPalma.push(juntas[0].clone().add(new THREE.Vector3(Math.cos(ang) * dd.r, Math.sin(ang) * dd.r, 0)));
+    }
+  }
+  // palma (~0,10 dos nós ao pulso) encostada no lado de fora da haste, indo para o piloto e um pouco para baixo
+  const pulso = new THREE.Vector3(s * (foraX + 0.016), -0.062, zNos + 0.088);
+  for (let k = 0; k < 14; k++) {
+    const ang = (k / 14) * Math.PI * 2;
+    pontosPalma.push(pulso.clone().add(new THREE.Vector3(Math.cos(ang) * 0.018, Math.sin(ang) * 0.026, 0)));
+  }
+  // dorso abaulado para fora; face da palma rente ao lado de fora da haste
+  pontosPalma.push(new THREE.Vector3(s * (foraX + 0.032), -0.03, zNos + 0.035));
+  for (const y of [0.0, -0.03, -0.058]) pontosPalma.push(new THREE.Vector3(s * (foraX + 0.001), y, Z_PEGA[1] + 0.012));
+  // eminência tenar: base lateral (de cima) da palma, na frente da haste
+  const tenar = new THREE.Vector3(s * (foraX + 0.004), 0.004, Z_PEGA[1] + 0.03);
+  for (let k = 0; k < 8; k++) {
+    const ang = (k / 8) * Math.PI * 2;
+    pontosPalma.push(tenar.clone().add(new THREE.Vector3(Math.cos(ang) * 0.012, Math.sin(ang) * 0.012, 0)));
+  }
+  const palma = new THREE.Mesh(new ConvexGeometry(pontosPalma), mLuva);
+  palma.geometry.computeVertexNormals();
+  g.add(palma);
+  // polegar (2 falanges, ~0,055): da tenar, deitado sobre a frente da haste, subindo para dentro; a ponta para antes
+  // da borda de dentro e abaixo do seletor do canto
+  const t1 = new THREE.Vector3(s * (foraX - 0.007), 0.01, Z_PEGA[1] + 0.022);
+  const t2 = new THREE.Vector3(s * (foraX - 0.017), 0.01, Z_PEGA[1] + 0.019); // por cima do indicador, abaixo do seletor do canto
+  g.add(segmento(tenar, t1, 0.011, 0.0102, mLuva), junta(t1, 0.0102, mLuva), segmento(t1, t2, 0.0102, 0.009, mLuva), junta(t2, 0.009, mLuva));
+  // punho do macacão (manga azul com faixa amarela na boca): orientado a cada quadro pelo antebraço
+  const punho = new THREE.Group();
+  punho.name = "punho";
+  const manga = new THREE.Mesh(new THREE.CylinderGeometry(0.029, 0.032, 0.05, 18), mPunho);
+  manga.position.y = -0.03;
+  const faixa = new THREE.Mesh(new THREE.CylinderGeometry(0.0295, 0.0295, 0.01, 18), mFaixa);
+  faixa.position.y = -0.008;
+  punho.add(manga, faixa);
+  punho.position.copy(pulso);
+  g.add(punho);
+  g.userData.pulso = [pulso.x, pulso.y, pulso.z];
+  g.traverse((o) => (o.castShadow = true));
+  return g;
 }
