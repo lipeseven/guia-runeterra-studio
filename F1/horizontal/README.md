@@ -13,4 +13,4 @@ Tudo do vídeo horizontal novo fica aqui. O vertical tem a própria pasta (`F1/v
 - `testes/` — folhas de teste de cada componente (aprovadas pelo Felipe antes de entrar em vídeo).
 
 Dados de cada vídeo (fora do Git): `F1/dados/projetos/<slug>/horizontal/`.
-Código legado do horizontal v1 (Remotion, vocabulário fixo): `F1/video/src/horizontal/` (continua funcionando; não mexer).
+Código legado do horizontal v1 (Remotion, vocabulário fixo): `F1/horizontal/v1/src/` (continua funcionando; não mexer).

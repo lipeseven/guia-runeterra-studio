@@ -1,6 +1,6 @@
 // Exemplo mínimo Remotion: o trilho de 20 s do exemplo (pedidos.json + palavras.json) calculado pela API TS.
 // Render só do áudio (feito por exemplo_20s.py --motores):
-//   node <F1/video/node_modules>/@remotion/cli/remotion-cli.js render index.tsx ExemploSfx saida.wav --public-dir=../saida/remotion_public
+//   node <node_modules (raiz)>/@remotion/cli/remotion-cli.js render index.tsx ExemploSfx saida.wav --public-dir=../saida/remotion_public
 import React from "react";
 import { AbsoluteFill, Composition, registerRoot } from "remotion";
 import { Banco, type Catalogo, type Palavra, type Pedido } from "../../sfx.ts";

@@ -1,6 +1,6 @@
 """Diretor do vídeo horizontal animado (Explicando F1: `[horizontal]` no canal.toml).
 
-O Claude escolhe as cenas da biblioteca do horizontal (F1/video/src/horizontal: estúdio, pista, pessoa, capítulo,
+O Claude escolhe as cenas da biblioteca do horizontal (F1/horizontal/v1/src: estúdio, pista, pessoa, capítulo,
 palavra solta) com parâmetros em JSON, citando TRECHOS do roteiro; a validação converte cada trecho no índice da palavra
 (direção presa à palavra) e, no render, em segundos da voz. O roteiro é dirigido por blocos (parágrafos somando até
 ~220 palavras), cada um com cache pelo conteúdo: mudar um parágrafo só manda aquele bloco de novo ao Claude.
@@ -481,7 +481,8 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
                                      and p.get("nome") in aprovadas else p for p in direcao["planos"]]}
     pr = props(direcao, palavras)
     return vertical.renderizar(trabalho, direcao, palavras, saida, progresso, composicao=CFG.get("composicao", "Horizontal"),
-                               props=pr, cache_nome="blocos_horizontal", concorrencia=2, fps=FPS)
+                               props=pr, cache_nome="blocos_horizontal", concorrencia=2, fps=FPS,
+                               projeto_remotion=CFG.get("projeto"))
 
 
 gerar_musica = vertical.gerar_musica

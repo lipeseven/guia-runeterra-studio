@@ -3,7 +3,7 @@
 import { Img, staticFile } from "remotion";
 import { Cena, FONTE, Fundo, MAO, corSobre, entra, suave, useCores, useTempo } from "./base";
 import { decodificar } from "./textos";
-import circuitos from "../modelos/geo/circuitos.json";
+import circuitos from "../../../comum/remotion/modelos/geo/circuitos.json";
 
 export type PessoaP = {
   nome: string;

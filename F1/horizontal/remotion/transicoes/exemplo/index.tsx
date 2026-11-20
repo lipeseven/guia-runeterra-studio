@@ -1,7 +1,7 @@
 // Exemplo mínimo Remotion do kit/transicoes: 5 cenas paradas ligadas por corte (impacto), fade, wipe (whoosh) e
 // zoom-through (whoosh), com os SFX do kit/sfx no quadro de pico. Render (feito por F1/horizontal/testes/transicoes/rodar.py,
 // que monta o public dir só com os WAVs usados):
-//   node <F1/video/node_modules>/@remotion/cli/remotion-cli.js render index.tsx ExemploTransicoes <pasta> --sequence --public-dir=<pasta>
+//   node <node_modules (raiz)>/@remotion/cli/remotion-cli.js render index.tsx ExemploTransicoes <pasta> --sequence --public-dir=<pasta>
 import React, { useMemo } from "react";
 import { AbsoluteFill, Composition, registerRoot } from "remotion";
 import { montarTransicoes, pedidosSfx, type Transicao } from "../../../kit/transicoes/transicoes.ts";

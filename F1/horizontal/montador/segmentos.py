@@ -4,7 +4,7 @@ Cache por hash da receita (`receitas.receita`): `<pasta>/trechos/<cena>_<hash>.m
 renderiza de novo; cena mudada (texto, dados, tempos, transição vizinha, código do kit/adaptador) = hash novo.
 Os motores renderizam PNG quadro a quadro (o mesmo caminho medido nos testes dos kits) e o ffmpeg codifica o trecho.
 
-Remotion 4.0.539 (o `node_modules` do F1/video, por junção LOCAL em F1/horizontal/remotion/node_modules, fora do Git)
+Remotion 4.0.539 (o `node_modules` único da raiz do projeto, compartilhado entre os canais)
 e HyperFrames 0.9.20 (`npx --yes hyperframes@0.9.20`, nada global). A cena HyperFrames carrega gsap e three.js do CDN
 (como os exemplos dos kits): sem internet, o render dela falha com a mensagem do motor.
 """
@@ -37,22 +37,18 @@ def _sh(cmd: list, cwd: Path | None = None) -> subprocess.CompletedProcess:
 
 def node_modules() -> Path:
     for base in [HORIZ.parents[1], *HORIZ.parents[1].parents]:
-        p = base / "F1" / "video" / "node_modules"
+        p = base / "node_modules"
         if (p / "@remotion" / "cli").is_dir():
             return p
-    raise FalhaRender("F1/video/node_modules não encontrado (rode npm install em F1/video na pasta principal)")
+    raise FalhaRender("node_modules não encontrado (rode npm install na raiz do projeto: o motor Remotion é um só, compartilhado)")
 
 
 _TRAVA_JUNCAO = threading.Lock()   # montar._renderizar_paralelo chama de várias threads
 
 
 def _juncao_remotion() -> Path:
-    nm = node_modules()
-    junc = HORIZ / "remotion" / "node_modules"
-    with _TRAVA_JUNCAO:
-        if not junc.exists():
-            subprocess.run(["cmd", "/c", "mklink", "/J", str(junc), str(nm)], check=True, capture_output=True)
-    return nm
+    """node_modules do motor (único, na raiz). O Node o encontra sozinho subindo as pastas: não há mais junção por projeto."""
+    return node_modules()
 
 
 def _render_remotion(job: dict, largura: int, altura: int, destino: Path, tmp: Path) -> None:

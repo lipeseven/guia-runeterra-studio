@@ -5,7 +5,7 @@ Padrão dos vídeos longos (16:9, 10–16 min). Base: o estudo de 10 referência
 3D, palavras-chave e anotações. Da Documentsui entram o cartão de capítulo com o traçado, a palavra solta em tela
 escura e o cartão de pontos.
 
-Código: `F1/video/src/horizontal/`, composição `Horizontal` (plano em JSON). A demonstração é `DEMO_HORIZONTAL`, de
+Código: `F1/horizontal/v1/src/`, composição `Horizontal` (plano em JSON). A demonstração é `DEMO_HORIZONTAL`, de
 ~50 s, com todos os recursos. Esta folha vale só para o horizontal do F1. Não valem aqui as regras do Runeterra nem as
 do vertical.
 

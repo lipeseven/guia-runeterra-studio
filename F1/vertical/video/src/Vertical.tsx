@@ -1,31 +1,31 @@
 // Vídeo vertical montado pelo diretor do painel: os planos chegam por props (direcao/vertical.json do vídeo).
-// Cada plano traz o CÓDIGO da cena, escrito pelo diretor para este vídeo com a API abaixo (F1/docs/api_cenas.md), ou o nome
-// de uma cena pronta (	ipo, F1/docs/catalogo_vertical.md). O código roda aqui (new Function): nada dele fica no projeto.
+// Cada plano traz o CÓDIGO da cena, escrito pelo diretor para este vídeo com a API abaixo (F1/vertical/docs/api_cenas.md), ou o nome
+// de uma cena pronta (	ipo, F1/vertical/docs/catalogo_vertical.md). O código roda aqui (new Function): nada dele fica no projeto.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AbsoluteFill, Audio, continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import * as THREE from "three";
-import { FONTE, Legenda, Placa, entra, suave, type EstiloLegenda, type Palavra } from "./kit";
+import { FONTE, Legenda, Placa, entra, suave, type EstiloLegenda, type Palavra } from "../../../comum/remotion/kit";
 import {
   Chips, FundoLegenda, Z_POLE, Z_PORTICO, bandeira, camCircuito, camera, confete, enquadrar, orbitar, drawRastro, fumaca, grade, gridX, gridZ, halo,
   luzGantry, luzesDesfocadas, montar, num, poe, poeCinza, poePneu, preparar, seed, solta, type Mundo,
-} from "./modelos/mundo";
-import { PINTURAS, carro, trocarComposto } from "./modelos/Carro3D";
-import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "./modelos/desmonte";
-import { ligar } from "./modelos/ligacoes";
-import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "./modelos/pitstop";
-import { filmar, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "./modelos/geografia";
-import { aura, brilho, campoDeVisao, criarCurva, definirTempo, destacar, estercar, naCurva, realcar, rodasRapidas } from "./modelos/efeitos3d";
+} from "../../../comum/remotion/modelos/mundo";
+import { PINTURAS, carro, trocarComposto } from "../../../comum/remotion/modelos/Carro3D";
+import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "../../../comum/remotion/modelos/desmonte";
+import { ligar } from "../../../comum/remotion/modelos/ligacoes";
+import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "../../../comum/remotion/modelos/pitstop";
+import { filmar, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "../../../comum/remotion/modelos/geografia";
+import { aura, brilho, campoDeVisao, criarCurva, definirTempo, destacar, estercar, naCurva, realcar, rodasRapidas } from "../../../comum/remotion/modelos/efeitos3d";
 import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
-import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
+import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "../../../comum/remotion/modelos/volante";
 import {
   bracos, criarAlfinete, criarEscada, criarKart, criarMapa, criarPiloto, criarPodio, degrau, esconderExtras, numeroNoCarro, obj, pontoNoMapa, rotulo,
   topoDoPodio, criarMapaRegiao,
-} from "./modelos/extras";
-import "./modelos/logo_canal"; // carrega o logo (segura o render até decodificar)
-import { aplicarLogo, carregarLogos, criarLivro, criarPainelLogo, logo } from "./modelos/logos"; // logos de arquivo (F1/arte/logos)
-import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar } from "./modelos/boneco";
-import { apertarFreio, criarFreio, girarDisco } from "./modelos/freio";
-import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit, ponteiro, tomadaDeAr, ventilar, cockpitNaPista, marchaDe, espelhoReal } from "./modelos/freio_cena";
+} from "../../../comum/remotion/modelos/extras";
+import "../../../comum/remotion/modelos/logo_canal"; // carrega o logo (segura o render até decodificar)
+import { aplicarLogo, carregarLogos, criarLivro, criarPainelLogo, logo } from "../../../comum/remotion/modelos/logos"; // logos de arquivo (F1/comum/arte/logos)
+import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar } from "../../../comum/remotion/modelos/boneco";
+import { apertarFreio, criarFreio, girarDisco } from "../../../comum/remotion/modelos/freio";
+import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit, ponteiro, tomadaDeAr, ventilar, cockpitNaPista, marchaDe, espelhoReal } from "../../../comum/remotion/modelos/freio_cena";
 
 type PlacaV = { texto: string; unidade?: string; i?: number; cor?: string; pos?: string };
 export type PlanoV = {
@@ -40,7 +40,7 @@ export type PlanoV = {
 };
 export type PropsVertical = {
   palavras: Palavra[]; planos: PlanoV[]; audio: string; chaves?: string[];
-  logos?: Record<string, string>; // {chave: caminho na pasta pública} (o Python copia de F1/arte/logos)
+  logos?: Record<string, string>; // {chave: caminho na pasta pública} (o Python copia de F1/comum/arte/logos)
   legenda?: EstiloLegenda; // estilo da legenda do vídeo inteiro
 };
 

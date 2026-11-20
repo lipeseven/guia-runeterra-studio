@@ -9,7 +9,8 @@ import { readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const aqui = path.dirname(fileURLToPath(import.meta.url));
+// O projeto Remotion (vertical, horizontal v1…) é a pasta de onde o Python chama este script (cwd); o script em si é do motor comum.
+const aqui = process.cwd();
 const pedido = JSON.parse(readFileSync(process.argv[2], "utf-8"));
 const inputProps = JSON.parse(readFileSync(pedido.props, "utf-8"));
 const gl = { gl: "angle" };

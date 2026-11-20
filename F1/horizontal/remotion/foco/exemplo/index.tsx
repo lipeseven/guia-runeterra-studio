@@ -1,7 +1,7 @@
 // Exemplo mínimo Remotion do kit/foco: carro estilizado andando sobre fundo claro, foco na asa traseira (caixa) e depois
 // na roda dianteira (elipse). Prop `semFoco` = mesma cena sem a camada (referência do teste de pixels).
 // Render (feito por F1/horizontal/testes/foco/rodar.py):
-//   node <F1/video/node_modules>/@remotion/cli/remotion-cli.js render index.tsx ExemploFoco <pasta> --sequence
+//   node <node_modules (raiz)>/@remotion/cli/remotion-cli.js render index.tsx ExemploFoco <pasta> --sequence
 import React, { useMemo } from "react";
 import { AbsoluteFill, Composition, registerRoot, useCurrentFrame, useVideoConfig } from "remotion";
 import { ancoraEm } from "../../../kit/anotacao/anotacao.ts";
