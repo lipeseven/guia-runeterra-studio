@@ -234,5 +234,5 @@ def observacoes(pasta: Path) -> str:
 
 
 def regras_de_direcao() -> str:
-    p = F1 / "docs" / "regras_de_direcao.md"
+    p = F1 / "comum" / "docs" / "regras_de_direcao.md"
     return p.read_text(encoding="utf-8") if p.exists() else ""

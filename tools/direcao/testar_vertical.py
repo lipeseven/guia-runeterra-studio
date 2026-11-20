@@ -176,7 +176,7 @@ checa("logos" in V._props(dl, pal6, mapa) and "logos" not in V._props(dl, pal6, 
 checa("LOGOS DISPONÍVEIS" in V._docs() and "nao_feitos" in V._lista_logos(), "prompt lista os logos e diz o que fazer se faltar")
 nomes = V._nomes_api(V.RAIZ / "F1" / "video")
 checa({"logo", "aplicarLogo", "criarPainelLogo", "criarLivro"} <= set(nomes), "API do código das cenas tem os logos")
-checa((V.RAIZ / "F1" / "arte" / "logos").is_dir(), "pasta F1/arte/logos existe")
+checa((V.RAIZ / "F1" / "comum" / "arte" / "logos").is_dir(), "pasta F1/comum/arte/logos existe")
 
 # ------------------------------------------------------------------ 5. circuitos
 print("5. circuitos")
@@ -189,7 +189,7 @@ trechos = dict(re.findall(r'texto: "([A-Z ]+)", f: ([\d.]+)', geo.split("TRECHOS
 checa(float(trechos["ABBEY"]) == fs[1] and float(trechos["COPSE"]) == fs[9] and float(trechos["CHAPEL"]) == fs[14] and float(trechos["STOWE"]) == fs[15],
       "TRECHOS_SILVERSTONE nas posições das curvas oficiais (1 Abbey, 9 Copse, 14 Chapel, 15 Stowe)")
 checa("silverstone: TRECHOS_SILVERSTONE" in geo and "monaco: TRECHOS_MONACO" in geo, "TRECHOS registra silverstone e monaco")
-api = (V.RAIZ / "F1" / "docs" / "api_cenas.md").read_text(encoding="utf-8")
+api = (V.RAIZ / "F1" / "vertical" / "docs" / "api_cenas.md").read_text(encoding="utf-8")
 checa('"monaco"' in api and "Abbey" in api,"api_cenas.md documenta monaco e os nomes de Silverstone")
 
 # ------------------------------------------------------------------ 6. revisão por pedido geral não apaga campos

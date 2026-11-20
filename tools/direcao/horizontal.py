@@ -37,8 +37,12 @@ PALAVRAS_POR_BLOCO = 220
 
 
 def _doc(nome: str) -> str:
-    p = caminho("docs") / nome
-    return p.read_text(encoding="utf-8") if p.exists() else ""
+    """Documento do diretor: primeiro na pasta de docs do horizontal ([horizontal].docs), depois na do canal ([pastas].docs)."""
+    for pasta in ([RAIZ / CFG["docs"]] if CFG.get("docs") else []) + [caminho("docs")]:
+        p = pasta / nome
+        if p.exists():
+            return p.read_text(encoding="utf-8")
+    return ""
 
 
 def sistema() -> str:
