@@ -31,7 +31,7 @@ def _limpa(t: str) -> str:
 
 
 def catalogo() -> str:
-    return (caminho("docs") / CFG.get("catalogo", "catalogo_vertical.md")).read_text(encoding="utf-8")
+    return _doc(CFG.get("catalogo", "catalogo_vertical.md"))
 
 
 def tipos() -> set[str]:
@@ -40,8 +40,12 @@ def tipos() -> set[str]:
 
 
 def _doc(nome: str) -> str:
-    p = caminho("docs") / nome
-    return p.read_text(encoding="utf-8") if p.exists() else ""
+    """Documento do diretor: primeiro na pasta de docs do vertical ([vertical].docs), depois na do canal ([pastas].docs)."""
+    for pasta in ([RAIZ / CFG["docs"]] if CFG.get("docs") else []) + [caminho("docs")]:
+        p = pasta / nome
+        if p.exists():
+            return p.read_text(encoding="utf-8")
+    return ""
 
 
 SETS = {"pista", "circuito", "estudio", "pit", "livre", "real"}
@@ -67,7 +71,7 @@ def _docs() -> str:
 
 # ------------------------------------------------------------------------------------------------ logos de arquivo
 EXT_LOGO = (".png", ".jpg", ".jpeg", ".webp", ".svg")
-PASTA_LOGOS = RAIZ / CFG.get("logos", "F1/arte/logos")  # nome do arquivo = chave (fia.png → "logo:fia")
+PASTA_LOGOS = RAIZ / CFG.get("logos", "F1/comum/arte/logos")  # nome do arquivo = chave (fia.png → "logo:fia")
 _REF_LOGO = re.compile(r"logo:([a-z0-9_\-]+)", re.I)
 
 

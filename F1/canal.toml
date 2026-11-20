@@ -16,13 +16,15 @@ sfx = ["clique", "seletor", "radio", "whoosh", "pop", "alerta"]   # efeitos sono
 projeto = "F1/video"
 composicao = "Vertical"
 fps = 60                                    # igual ao Root.tsx (VERTICAL_FPS); tempos das cenas sempre em segundos
-catalogo = "catalogo_vertical.md"           # em F1/docs; a 1ª coluna da tabela = tipos válidos
-logos = "F1/arte/logos"                    # logos/texturas de arquivo (fia.png = "logo:fia"); o Felipe põe os arquivos licenciados
+docs = "F1/vertical/docs"                   # api_cenas.md, catalogo_vertical.md, folha_de_estilos.md (o que não estiver aqui é procurado em [pastas].docs)
+catalogo = "catalogo_vertical.md"           # em F1/vertical/docs; a 1ª coluna da tabela = tipos válidos
+logos = "F1/comum/arte/logos"                    # logos/texturas de arquivo (fia.png = "logo:fia"); o Felipe põe os arquivos licenciados
 
-[horizontal]                                # vídeo longo animado (F1/docs/folha_horizontal.md): sua voz gravada + diretor do horizontal
+[horizontal]                                # vídeo longo animado (F1/horizontal/docs/folha_horizontal.md): sua voz gravada + diretor do horizontal
 projeto = "F1/video"
 composicao = "Horizontal"
-api = "api_horizontal.md"                  # em F1/docs
+docs = "F1/horizontal/docs"                 # api_horizontal.md, folha_horizontal.md (o que não estiver aqui é procurado em [pastas].docs)
+api = "api_horizontal.md"                  # em F1/horizontal/docs
 modelo = "sonnet"                          # modelo do diretor (opus custa mais cota)
 modelos = "F1/dados/modelos3d"             # .glb do acervo 3D (entram por link na pasta pública do render)
 carro = "ferrari_sf26.glb"                # carro padrão do estúdio
@@ -38,6 +40,6 @@ banco_acervo = "F1/dados/acervo.db"
 internet = "F1/dados/acervo_internet"       # mídias baixadas da internet
 projetos = "F1/dados/projetos"
 studio = "F1/dados/studio.db"
-docs = "F1/docs"                            # regras_de_direcao.md, estilo_roteiro.md, guia_de_estilo.md
+docs = "F1/comum/docs"                            # regras_de_direcao.md, estilo_roteiro.md, guia_de_estilo.md
 referencias = "F1/dados/referencias"        # vídeos dos canais de referência
 analise = "F1/dados/analise_referencias"

@@ -26,3 +26,6 @@ F1/horizontal/hyperframes/*/assets/
 F1/horizontal/hyperframes/*/.hyperframes/
 F1/horizontal/testes/vhe/snap*/
 F1/horizontal/testes/vhe/*.log
+
+# F1: imagens geradas (carro de cima, comparações), regeneráveis
+F1/comum/arte/gerados/

@@ -45,7 +45,7 @@ O histórico detalhado de cada recurso fica no arquivo da área. **Antes de mexe
 - Diretor do Runeterra, storyboard, render por blocos, efeitos visuais e sonoros, aprendizado entre vídeos → [docs/estado/direcao.md](docs/estado/direcao.md)
 - Roteirista, pesquisa antes do roteiro, conferência de fatos → [docs/estado/roteiro.md](docs/estado/roteiro.md)
 - Acervo (atualizar, CLIP, etiquetas), referências analisadas, mídias da internet → [docs/estado/acervo.md](docs/estado/acervo.md)
-- **Explicando F1** (vertical, horizontal, modelos 3D, briefing, fotos de pessoas) → [F1/docs/estado_f1.md](F1/docs/estado_f1.md)
+- **Explicando F1** (vertical, horizontal, modelos 3D, briefing, fotos de pessoas) → [F1/comum/docs/estado_f1.md](F1/comum/docs/estado_f1.md)
 - **HUB de ferramentas** (apps Craft, combinações, como conectar ao Claude Code, plano de testes; nada testado ainda) → [docs/hub_ferramentas.md](docs/hub_ferramentas.md)
 
 Resumo: Runeterra com fluxo completo de ponta a ponta ✅ (Fases 0–3 e painel). F1 em construção: vertical ✅, horizontal

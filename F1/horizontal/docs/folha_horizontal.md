@@ -1,7 +1,7 @@
 # Folha de estilo do horizontal — Explicando F1 (v1, 2026-11-06)
 
 Padrão dos vídeos longos (16:9, 10–16 min). Base: o estudo de 10 referências em
-`F1/dados/estilo/referencias_horizontais/analise_horizontal.md`. A linguagem vem principalmente da Formula Addict:
+`F1/horizontal/dados/estilo/referencias_horizontais/analise_horizontal.md`. A linguagem vem principalmente da Formula Addict:
 3D, palavras-chave e anotações. Da Documentsui entram o cartão de capítulo com o traçado, a palavra solta em tela
 escura e o cartão de pontos.
 

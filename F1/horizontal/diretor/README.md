@@ -27,7 +27,7 @@ roteiro.txt + palavras.json ─▶ historia.py ─▶ historia.json ★ ─▶ s
 | `comum.py` | caminhos, palavras e âncoras (mesma regra do `tools/direcao/vertical.py`), cache por prompt, **registro dos kits** (`KITS`) |
 | `esquema.py` | validador de JSON Schema (subconjunto, sem dependência; o `.venv` não tem `jsonschema`) |
 | `esquemas/*.schema.json` | JSON Schema de `historia`, `spec`, `ativos` e `estado` (padrão draft 2020-12) |
-| `prompts/historia.txt`, `spec.txt`, `pedido_cena.txt` | prompts do diretor (`{{campo}}` preenchido pelo código; as regras de `F1/docs/regras_de_direcao.md` entram inteiras) |
+| `prompts/historia.txt`, `spec.txt`, `pedido_cena.txt` | prompts do diretor (`{{campo}}` preenchido pelo código; as regras de `F1/comum/docs/regras_de_direcao.md` entram inteiras) |
 
 Teste: `.venv\Scripts\python.exe F1\horizontal\testes\diretor\testar.py [-v]` (offline, ~1 s).
 

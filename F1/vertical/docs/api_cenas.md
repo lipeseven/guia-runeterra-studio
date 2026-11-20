@@ -141,10 +141,10 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
 - Também prontos no mundo: `w.trofeu` (troféu dourado: `.visible = true` e posição), `w.sc` (Safety Car; `rolarRodas(w.sc, metros, v)` gira as rodas dele: aro e raios, desde 2026-11-16).
 
 ## Logos e texturas de arquivo (2026-11-14; `modelos/logos.ts`)
-O Felipe põe o arquivo licenciado em `F1/arte/logos/` (nome do arquivo = chave: `fia.png` = `"logo:fia"`; PNG com fundo
+O Felipe põe o arquivo licenciado em `F1/comum/arte/logos/` (nome do arquivo = chave: `fia.png` = `"logo:fia"`; PNG com fundo
 transparente de preferência). A lista "LOGOS DISPONÍVEIS" no fim destes documentos diz quais existem. Logo que não está
 na lista NÃO existe: não desenhe à mão nem troque por outro; ponha em `nao_feitos` o arquivo exato que falta (ex.: "falta o
-arquivo F1/arte/logos/fia.png"). Sem o arquivo, o objeto mostra um cartão cinza "FALTA fia.png" e o card avisa.
+arquivo F1/comum/arte/logos/fia.png"). Sem o arquivo, o objeto mostra um cartão cinza "FALTA fia.png" e o card avisa.
 - `logo("logo:fia")` → textura (THREE.Texture) para qualquer material: `new THREE.MeshStandardMaterial({ map: logo("logo:fia"), transparent: true })`.
 - `aplicarLogo(malha, "logo:fia")`: troca o material de uma malha que já existe pelo logo.
 - `criarPainelLogo("logo:fia", { largura: 2, fundo: "#ffffff", moldura, margem, espessura })`: placa com o logo (frente +z,

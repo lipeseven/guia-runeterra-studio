@@ -60,7 +60,7 @@ tem dois buracos (sino inaudível e longos trechos sem nenhum SFX).
    e a posição da armadilha marcada no eixo), ou trocar a cena por texto/anotação com 350 × 347.
 2. **Cenas de GPS (2, 8, 12, 14, 18 = 29 s, 32 % do vídeo) sem vida e sem sensação de velocidade.** Plano cinza, pista
    cinza lisa, nada em volta; na reta a 349 km/h o fundo anda ~0,1 px por quadro (medido) e o carro parece parado
-   (cena 8, q1694–q1855). Contra `F1/docs/regras_de_direcao.md` (autódromo na cidade, arquibancadas, câmera transita) e a
+   (cena 8, q1694–q1855). Contra `F1/comum/docs/regras_de_direcao.md` (autódromo na cidade, arquibancadas, câmera transita) e a
    memória de fundo claro com cor. A cena 14 promete "o estádio" e não há estádio. Causa: `montador/hyperframes/gps.html`
    (mundo plano sem textura) e câmera `alta` fixa no carro. Correção: zebras/linhas tracejadas/marcas de distância na pista
    (dão velocidade), contorno do estádio e arquibancadas como formas simples, número de curva, minimapa com o ponto.

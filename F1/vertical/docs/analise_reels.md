@@ -1,7 +1,7 @@
 # Análise reel a reel — referências verticais
 
 Ferramentas: `hypit download`, `hypit transcribe` (WhisperX local) e `hypit media tile/tiles/boundaries`. Evidências e transcrições em
-`F1/dados/estilo/references/<id>/`. Cada vídeo foi visto em amostras a cada 1,5 s e, em 6 trechos por vídeo, a cada 0,25 a 0,4 s.
+`F1/vertical/dados/estilo/references/<id>/`. Cada vídeo foi visto em amostras a cada 1,5 s e, em 6 trechos por vídeo, a cada 0,25 a 0,4 s.
 Horários em segundos. Fala em espanhol, resumida aqui só para localizar o evento.
 
 ## Medidas

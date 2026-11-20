@@ -6,13 +6,13 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
 - **Pedido explícito do Felipe SEMPRE é cumprido**, mesmo contra uma regra deste arquivo, da folha de estilos ou da API
   (número fora da fala, teto de efeitos, estilo de legenda, cor). Regra pré-setada nunca é motivo de recusa. Só vai para
   `nao_feitos` o que falta de verdade no motor (modelo que não existe, arquivo de logo/som que não está na pasta,
-  informação que ninguém deu), e o motivo diz exatamente o que falta (ex.: "falta o arquivo F1/arte/logos/fia.png").
+  informação que ninguém deu), e o motivo diz exatamente o que falta (ex.: "falta o arquivo F1/comum/arte/logos/fia.png").
 - **Número na tela fora da fala**: liberado só quando o Felipe pede. Ele declara na seção do briefing
   `NÚMEROS NA TELA (pedido do Felipe)` (uma linha por texto, ex.: `- 6,201 km`) ou escreve o número num pedido do card
   (inclusive respondendo a um "pedido não feito"). O texto vai para a tela exatamente como ele escreveu; os outros números
   continuam presos à fala (a checagem avisa "número fora da fala" no card).
 - **Som específico**: som pedido pelo Felipe por nome de arquivo usa `som.arquivo` (com `obrigatorio: true`).
-- **Logo**: só de arquivo em `F1/arte/logos/` (`logo:chave`); nunca logo desenhado à mão.
+- **Logo**: só de arquivo em `F1/comum/arte/logos/` (`logo:chave`); nunca logo desenhado à mão.
 
 ## Ajustes do Felipe (GP do Brasil, 2026-11-04)
 - **Cartões empilhados (`etapas`) cansam.** No máximo 1 por vídeo, e de preferência com `foco` (fundo escuro e desfocado).
