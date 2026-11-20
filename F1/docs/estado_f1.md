@@ -63,3 +63,60 @@ painel tinha subido desse código. Agora `app/servidor/versao.py` avisa no quadr
 mudado sem reiniciar). Markdown (`**`, `#`, `_x_`) sai da narração ao receber o roteiro (todos os canais; roteiro sem
 Markdown sai idêntico); conferência F1 lê a sessão do texto (GP/ano/sessão em PT) e confere setor; "sem fonte" nunca
 aparece como conferido; verificação aceita cronômetro na tela (1:16.514 = 76.514) e cartão "PARTE 02".
+
+## Visão do piloto v4 (2026-11-18, pedidos do Felipe sobre a v3)
+Biblioteca: suspensão do `carro()` presa NA superfície do bico/chassi (`superficie` em Carro3D.tsx, mesma interpolação do
+`casco`; antes o ponto de dentro ficava fixo em x 0,14–0,18 e os braços de cima passavam do topo do bico, "voando"),
+montante dentro de cada roda unindo os braços, barra de direção e pushrod; boca do sidepod virou moldura arredondada com
+fundo recuado (a placa preta chapada parecia erro); retrovisores, banco (novo, concha sob o piloto) e apoio de cabeça
+viraram peças próprias; nomes `halo_arco`, `halo_pilar`, `borda_cockpit`. `realcar` (a peça acende: emissivo + contorno)
+e `campoDeVisao` (leque com degradê, bordas e volume) em efeitos3d.ts. Direção da v4: `trabalho/v4/planos_v4.py` +
+`gerar_v4.py` (parte da v3 guardada em `direcao/vertical_versoes/vertical_v3.json`), POV real nos trechos "e mesmo assim
+precisa enxergar tudo" e na combinação final (sem `etapas`).
+
+v5 (2026-11-18, "imundice no primeiro frame"): a causa era o desmonte, não a malha: `raioX`/`isolar` com k = 0 (o
+começo de qualquer plano que "acende" o raio-X numa palavra) já trocava o material pelo fantasma com opacidade 1 e SEM
+gravar profundidade; com as cascas DoubleSide, as faces de dentro do cockpit/sidepod saíam por cima das de fora (lascas
+brancas e serrilhadas). Agora k <= 0,01 não mexe em nada e o fantasma quase opaco (> 0,6) grava profundidade
+(desmonte.ts). De quebra o sidepod não atravessa mais o cockpit: sem a cava "todo" (que esticava triângulos até o
+fundo), o lado de dentro para numa parede lisa (`limiteX` em `casco`, `meiaLargura`). Conferido em folha de 30 em 30°
+em volta do carro, por baixo, de cima e em raio-X 0,3/0,85.
+
+v6 (2026-11-18): apoio de cabeça virou encosto fino atrás do capacete (as cápsulas em volta do pescoço pareciam
+"almofadinha de avião"); banco refeito atrás das costas (o encosto estava inclinado ao contrário e atravessava o peito)
+e cinza-azulado; interior do cockpit grafite azulado + forro liso por dentro da borda (`forroDoCockpit`: escondia os
+"dentes" brancos da cava vistos do POV); cinto em X (`cintoEmX`, dentro de `poePilotoNoCarro`); volante com `giro` e mãos
+presas às empunhaduras; `cockpitNaPista`/`marchaDe`; tomada "pov"; `espelhoReal` (Reflector) e cabeça do retrovisor
+virada para o piloto, haste por fora (cruzava o vidro na visão do piloto).
+
+v7 (2026-11-18): regra do Felipe: iterar só no que foi pedido (blocos). Biblioteca: tomada "olhos" (POV na altura real
+dos olhos), `rodasRapidas` (opt-in), arnês preso ao tronco do boneco passando por cima dos ombros (`criarArnes`, substitui
+o X), retrovisor com pilar nascendo do sidepod, borda na cor do carro na tomada de ar sobre a cabeça (a "bola preta").
+Direção: `trabalho/v7/gerar_v7.py` (parte da v6 e muda só os planos pedidos; `mudou.json`), prova em `diff_v6_v7.txt`.
+
+v8 (2026-11-18): biblioteca: argola da tomada de ar removida; `COCKPIT.volante` = [0, 0,585, -0,56], incl -0,12 (altura do
+peito, face quase vertical; afeta todo carro com volante); tomada "olhos" centrada (x 0); arnês em fitas largas brancas
+(geometria de fita na tangente do macacão). Direção: `trabalho/v8/gerar_v8.py` (só o plano do campo de visão: radar azul
+na pista + contorno azul nos carros à frente + rótulo na cena); diff em `trabalho/v8/diff_v7_v8.txt`.
+
+v9 (2026-11-18): luva com dedos para piloto de capacete (`luva` em extras.ts; boné continua com mão de pele); a segunda
+coluna de direção de `poeVolanteNoCarro` saiu (o volante já tem a dele, peça "engate_rapido"; depois da v8 as duas saíam
+em ângulos diferentes). Direção: plano "Ele não enxerga…" com a câmera centrada (tinha x 0,07 herdado da tomada torta) e
+destaque do volante sem a coluna. `trabalho/v9/`.
+
+v10 (2026-11-19): mãos refeitas pelas referências onboard: luva clara (#eceef2) com faixa no dorso e reforço dos nós nas
+cores do macacão, punho fechado (falanges a 65° e 130°); em `poePilotoNoCarro` cada mão vai à empunhadura do volante
+(centro da peça `empunhadura_*`, 1,2 cm para fora e 5,8 cm para o piloto; cotovelo para baixo), pulso orientado no espaço do volante (dorso para o
+piloto, nós ao longo do cabo, antebraço vindo de baixo e de fora). Só mãos mudaram (`trabalho/v10/diff_v9_v10.txt`).
+
+v11 (2026-11-19): `escavar` (Carro3D.tsx) afunda e escurece os vértices da face da frente da casca numa elipse = entrada de
+ar de verdade; usada no sidepod (a moldura da v4 saía flutuando na frente do sidepod) e no airbox (o disco preto saía
+acima da casca: era a "bola preta"). Mãos: `criarMaoNoVolante` (freio_cena.ts), filha do volante: 4 dedos com 3 falanges
+cada encostadas na seção real do cabo (contorno `PEGA` exportado do volante.ts, z -0,0295 a 0,0115), polegar com 2
+falanges entrando na janela do corpo do volante, dorso/palma em casca convexa, punho azul com faixa amarela orientado
+pelo antebraço; a mão do boneco (`pulso`) fica oculta no piloto do cockpit. `trabalho/v11/`.
+v12 (2026-11-19): `criarMaoNoVolante` refeita em medidas anatômicas (Felipe: "é só fazer uma mão normal"): dedos 0,062-0,084
+(falanges 4:2,5:2, raio ~0,01), nós atrás da haste (t=284° na elipse folgada), dedos contornam por dentro e as pontas
+param na frente da haste; palma em casca convexa no lado de fora indo até o pulso ~0,09 à frente; polegar 2 falanges
+por cima do indicador; faixa amarela só no punho (a do dorso saiu). Sem polegar na fresta: a luva branca aparecia pela
+janela como bolinha ao lado dos botões. `trabalho/v12/`.

@@ -24,7 +24,9 @@ export const COCKPIT = {
   abertura: { z: -0.34, meio: 0.42, larg: 0.235, fundo: 0.15 }, // elipse da abertura (centro z, meio comprimento, meia largura) e fundo
   capacete: [0, 0.735, -0.1] as const, // centro do capacete
   olhos: [0, 0.74, -0.215] as const, // entre os olhos, logo atrás da viseira
-  volante: { pos: [0, 0.49, -0.65] as const, incl: 0.3 }, // centro do volante e inclinação (topo para o piloto)
+  // v8 (Felipe: "volante apoiado na barriga" e "virado para baixo"): na altura do peito/queixo, à frente do peito, face
+  // quase vertical com o topo levemente para o piloto (incl negativa = face um pouco para cima)
+  volante: { pos: [0, 0.585, -0.56] as const, incl: -0.12 }, // centro do volante e inclinação
   quadril: { y: 0.215, z: -0.61 }, // articulação do quadril no assento
 };
 
@@ -42,7 +44,9 @@ const cavar = (cv: Cava | undefined, x: number, y: number, z: number, n: number)
 };
 
 /** Liga seções em forma de "superelipse" ao longo do comprimento; `cor` pinta cada vértice. `cava` = abertura do cockpit. */
-export function casco(secoes: Secao[], cor: (x: number, y: number, z: number) => THREE.Color, dx = 0, voltas = 64, passos = 90, curva = 0.72, cava?: Cava): THREE.Mesh {
+/** `limiteX(z)`: a peça não passa para dentro desta distância do centro do carro (|x| >= limite): o lado de dentro vira
+ *  uma parede lisa. Usado nos sidepods (ver abaixo). */
+export function casco(secoes: Secao[], cor: (x: number, y: number, z: number) => THREE.Color, dx = 0, voltas = 64, passos = 90, curva = 0.72, cava?: Cava, limiteX?: (z: number) => number): THREE.Mesh {
   const interp = (i: number) => {
     const u = (i / passos) * (secoes.length - 1);
     const k = Math.min(secoes.length - 2, Math.floor(u));
@@ -61,7 +65,11 @@ export function casco(secoes: Secao[], cor: (x: number, y: number, z: number) =>
       const a = (j / voltas) * Math.PI * 2;
       const c = Math.cos(a);
       const n = Math.sin(a);
-      const x = Math.sign(c) * Math.pow(Math.abs(c), curva) * w + dx;
+      let x = Math.sign(c) * Math.pow(Math.abs(c), curva) * w + dx;
+      if (limiteX) {
+        const L = limiteX(z);
+        x = dx > 0 ? Math.max(x, L) : Math.min(x, -L);
+      }
       const y0 = meio + Math.sign(n) * Math.pow(Math.abs(n), curva) * alt;
       const [y, escuro] = cavar(cava, x, y0, z, n);
       pos.push(x, y, z);
@@ -91,6 +99,44 @@ export function casco(secoes: Secao[], cor: (x: number, y: number, z: number) =>
 
 /** Borda acolchoada da abertura do cockpit: um tubo escuro na elipse da abertura, apoiado no topo do casco (esconde o
  *  serrilhado da malha na beirada). Mesma interpolação das seções que `casco`. */
+/** Forro do cockpit: parede lisa e escura logo por dentro da borda da abertura, da borda até o fundo. Esconde os
+ *  triângulos esticados da cava (vistos de dentro, no POV, como "dentes" brancos; v6 da "visão do piloto"). */
+function forroDoCockpit(secoes: Secao[], curva = 0.72): THREE.Mesh {
+  const amostras: Secao[] = [];
+  for (let i = 0; i <= 400; i++) {
+    const u = (i / 400) * (secoes.length - 1);
+    const k = Math.min(secoes.length - 2, Math.floor(u));
+    const t = u - k;
+    const s = t * t * (3 - 2 * t);
+    amostras.push(secoes[k].map((v, j) => v + (secoes[k + 1][j] - v) * s) as Secao);
+  }
+  const secaoEm = (z: number) => amostras.find((a, i) => i === amostras.length - 1 || amostras[i + 1][0] >= z)!;
+  const { z: zc, meio, larg, fundo } = COCKPIT.abertura;
+  const N = 96;
+  const pos: number[] = [];
+  const ind: number[] = [];
+  for (let i = 0; i <= N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const x = Math.cos(a) * larg * 0.985, z = zc + Math.sin(a) * meio * 0.985;
+    const [, w, topo, base] = secaoEm(z);
+    const c = Math.min(1, Math.pow(Math.abs(x) / w, 1 / curva));
+    const n = Math.sqrt(1 - c * c);
+    const yTopo = (topo + base) / 2 + Math.pow(n, curva) * (topo - base) / 2 - 0.006;
+    pos.push(x, yTopo, z, x, fundo, z);
+  }
+  for (let i = 0; i < N; i++) {
+    const a = i * 2;
+    ind.push(a, a + 1, a + 2, a + 2, a + 1, a + 3);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(ind);
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: "#343b4b", roughness: 0.85, side: THREE.DoubleSide }));
+  m.name = "forro_cockpit";
+  return m;
+}
+
 function bordaDoCockpit(secoes: Secao[], passos = 400, curva = 0.72): THREE.Mesh {
   const amostras: Secao[] = [];
   for (let i = 0; i <= passos; i++) {
@@ -113,6 +159,66 @@ function bordaDoCockpit(secoes: Secao[], passos = 400, curva = 0.72): THREE.Mesh
   }
   const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 144, 0.016, 8, true), new THREE.MeshStandardMaterial({ color: "#1a1b20", roughness: 0.8 }));
   m.castShadow = true;
+  return m;
+}
+
+/** Meia largura do casco na altura y, na posição z (mesma interpolação de `casco`): para prender peças NA superfície
+ *  (as hastes da suspensão saíam do ar ao lado do bico, 2026-11-18). */
+/** Meia largura máxima do casco na posição z (mesma interpolação de `casco`). */
+function meiaLargura(secoes: Secao[], z: number): number {
+  let ant = secoes[0];
+  for (let i = 0; i <= 200; i++) {
+    const u = (i / 200) * (secoes.length - 1);
+    const k = Math.min(secoes.length - 2, Math.floor(u));
+    const t = u - k;
+    const sm = t * t * (3 - 2 * t);
+    const q = secoes[k].map((v, j) => v + (secoes[k + 1][j] - v) * sm) as Secao;
+    if (q[0] >= z) return q[1];
+    ant = q;
+  }
+  return ant[1];
+}
+
+function superficie(secoes: Secao[], z: number, y: number, curva = 0.72): { x: number; y: number } {
+  const amostras: Secao[] = [];
+  for (let i = 0; i <= 400; i++) {
+    const u = (i / 400) * (secoes.length - 1);
+    const k = Math.min(secoes.length - 2, Math.floor(u));
+    const t = u - k;
+    const sm = t * t * (3 - 2 * t);
+    amostras.push(secoes[k].map((v, j) => v + (secoes[k + 1][j] - v) * sm) as Secao);
+  }
+  const sec = amostras.find((q, i) => i === amostras.length - 1 || amostras[i + 1][0] >= z)!;
+  const [, w, topo, base] = sec;
+  const meio = (topo + base) / 2, alt = (topo - base) / 2;
+  const yy = Math.max(base + 0.03, Math.min(topo - 0.04, y));
+  const n = Math.pow(Math.min(1, Math.abs(yy - meio) / alt), 1 / curva);
+  const c = Math.sqrt(Math.max(0, 1 - n * n));
+  return { x: Math.pow(c, curva) * w, y: yy };
+}
+
+/** Escava uma entrada de ar NA PRÓPRIA casca (v11, Felipe: "duto de ar é só um buraco, sem argola"): os vértices da
+ *  face da frente (normal com componente z forte, z < zMax) dentro da elipse (centro cx, cy; semi-eixos ax, ay) afundam
+ *  para dentro do corpo (+z) até `prof` e ficam escuros, com a borda suave. Nada é acrescentado por cima. */
+function escavar(m: THREE.Mesh, cx: number, cy: number, ax: number, ay: number, prof: number, zMax: number) {
+  const g = m.geometry as THREE.BufferGeometry;
+  const pos = g.attributes.position as THREE.BufferAttribute;
+  const nor = g.attributes.normal as THREE.BufferAttribute;
+  const cor = g.attributes.color as THREE.BufferAttribute;
+  const escuro = new THREE.Color("#07080b");
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    if (z > zMax || Math.abs(nor.getZ(i)) < 0.35) continue;
+    const e = ((x - cx) / ax) ** 2 + ((y - cy) / ay) ** 2;
+    if (e >= 1) continue;
+    const f = Math.min(1, (1 - e) / 0.25); // borda suave: 0 na borda, 1 no miolo
+    pos.setZ(i, z + prof * Math.sqrt(1 - e));
+    const c = new THREE.Color(cor.getX(i), cor.getY(i), cor.getZ(i)).lerp(escuro, Math.min(1, f * 1.2));
+    cor.setXYZ(i, c.r, c.g, c.b);
+  }
+  pos.needsUpdate = true;
+  cor.needsUpdate = true;
+  g.computeVertexNormals();
   return m;
 }
 
@@ -225,38 +331,75 @@ export function carro(p: Pintura): THREE.Group {
 
   // monocoque: bico baixo e fino, sobe até o cockpit e desce pela tampa do motor
   const secMono: Secao[] = [[-2.6, 0.05, 0.24, 0.15], [-2.35, 0.09, 0.29, 0.13], [-1.9, 0.13, 0.39, 0.13], [-1.3, 0.2, 0.52, 0.12], [-0.75, 0.27, 0.6, 0.1], [-0.2, 0.3, 0.64, 0.1], [0.25, 0.27, 0.66, 0.1], [0.85, 0.22, 0.62, 0.1], [1.5, 0.16, 0.52, 0.11], [2.1, 0.12, 0.44, 0.13], [2.45, 0.06, 0.37, 0.18]];
-  gMono.add(casco(secMono, corpo, 0, 96, 220, 0.72, { ...COCKPIT.abertura, cor: C("#1a1b20") }));
-  gMono.add(bordaDoCockpit(secMono));
+  // interior do cockpit em grafite azulado (o preto chapado aparecia como "parte preta nas costas" no corte, v6)
+  gMono.add(casco(secMono, corpo, 0, 96, 220, 0.72, { ...COCKPIT.abertura, cor: C("#343b4b") }));
+  gMono.add(forroDoCockpit(secMono));
+  const borda = bordaDoCockpit(secMono);
+  borda.name = "borda_cockpit"; // a abertura do cockpit: realcar(carro, "borda_cockpit") acende o contorno
+  gMono.add(borda);
   // entrada de ar sobre o piloto (santo antônio) e espinha da tampa do motor
-  gTampa.add(casco([[-0.02, 0.03, 0.78, 0.6], [0.12, 0.13, 0.98, 0.58], [0.4, 0.15, 0.95, 0.56], [0.9, 0.12, 0.83, 0.5], [1.5, 0.06, 0.63, 0.45], [1.95, 0.02, 0.5, 0.42]], corpo));
-  const tomada = new THREE.Mesh(new THREE.CircleGeometry(1, 24), new THREE.MeshStandardMaterial({ color: "#050507", roughness: 0.6 }));
-  tomada.scale.set(0.085, 0.07, 1);
-  tomada.position.set(0, 0.88, 0.07);
-  tomada.rotation.y = Math.PI;
-  gTampa.add(tomada);
+  // v11: a entrada de ar sobre a cabeça é um BURACO escavado na frente da casca (antes um disco preto que saía acima
+  // da casca: "bola preta"; de lado lia como uma linha preta)
+  gTampa.add(escavar(casco([[-0.02, 0.05, 0.8, 0.6], [0.12, 0.13, 0.98, 0.58], [0.4, 0.15, 0.95, 0.56], [0.9, 0.12, 0.83, 0.5], [1.5, 0.06, 0.63, 0.45], [1.95, 0.02, 0.5, 0.42]], corpo, 0, 64, 180), 0, 0.79, 0.055, 0.075, 0.09, 0.14));
+  // v7 ("uma bola preta em cima do piloto"): a entrada de ar sobre a cabeça ganha borda na cor do carro, para ler como
+  // tomada de ar (e não uma esfera preta solta atrás do capacete)
+  // (v8: a borda/argola posta na v7 saiu: "essa argola não existe")
 
   for (const s of [-1, 1]) {
     // sidepod: boca larga na frente, com rebaixo embaixo, afinando até a "garrafa de coca" atrás
     const lado = s < 0 ? "esquerda" : "direita";
     const gSide = grupo(`sidepod_${lado}`, [s * 0.9, 0, 0], 1);
-    gSide.add(casco([[-0.5, 0.02, 0.5, 0.3], [-0.42, 0.3, 0.54, 0.28], [-0.1, 0.33, 0.55, 0.22], [0.4, 0.26, 0.5, 0.16], [1.0, 0.14, 0.42, 0.13], [1.6, 0.04, 0.32, 0.12]], lateral, s * 0.28, 64, 90, 0.42, { ...COCKPIT.abertura, cor: C("#1a1b20"), todo: true }));
-    const boca = caixa(0.22, 0.14, 0.02, s * 0.44, 0.43, -0.45, "#050507", 0.6);
-    gSide.add(boca);
-    // retrovisor sobre o sidepod
-    gSide.add(caixa(0.16, 0.07, 0.04, s * 0.56, 0.76, -0.42, "#17181d"));
-    gSide.add(haste(new THREE.Vector3(s * 0.5, 0.74, -0.4), new THREE.Vector3(s * 0.36, 0.62, -0.3), 0.012, "#17181d"));
+    // sidepod (2026-11-18, v5 da "visão do piloto": "imundice no primeiro frame"): a casca dele cruzava o centro do carro e
+    // a cava "todo" puxava os vértices de dentro da abertura até o fundo, esticando triângulos (lascas brancas entre o
+    // cockpit e o sidepod). Agora não há cava: o lado de dentro para numa parede lisa em |x| >= limite, escondida dentro
+    // do monocoque e fora da abertura do cockpit (meia largura 0,235 m).
+    const limiteSide = (z: number) => {
+      const { z: zc, meio, larg } = COCKPIT.abertura;
+      const naAbertura = Math.max(0, 1 - Math.max(0, Math.abs(z - zc) - meio) / 0.12); // 1 ao lado da abertura, some em 12 cm
+      return Math.max(meiaLargura(secMono, z) * 0.82, (larg + 0.03) * naAbertura);
+    };
+    gSide.add(escavar(casco([[-0.5, 0.02, 0.5, 0.3], [-0.42, 0.3, 0.54, 0.28], [-0.1, 0.33, 0.55, 0.22], [0.4, 0.26, 0.5, 0.16], [1.0, 0.14, 0.42, 0.13], [1.6, 0.04, 0.32, 0.12]], lateral, s * 0.28, 96, 240, 0.42, undefined, limiteSide), s * 0.52, 0.41, 0.06, 0.085, 0.08, -0.38));
+    // v11: a boca do sidepod é um buraco escavado na própria casca (sem moldura: "essa argola não existe")
+    // retrovisor sobre o sidepod: peça própria ("retrovisor_esquerdo"/"_direito") para ser destacada no lugar (realcar),
+    // nunca um par novo por cima; espelho virado para trás
+    const gRet = grupo(`retrovisor_${s < 0 ? "esquerdo" : "direito"}`, [s * 0.4, 0.2, 0], 0);
+    const carcaca = caixa(0.16, 0.07, 0.04, s * 0.56, 0.76, -0.42, "#17181d");
+    const espelho = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.055), new THREE.MeshStandardMaterial({ color: "#cfe3ff", metalness: 0.9, roughness: 0.08 }));
+    // cabeça do retrovisor virada ~35° para o piloto (como no carro de verdade: o vidro mostra o lado e a traseira)
+    const giroRet = -s * 0.6;
+    carcaca.rotation.y = giroRet;
+    espelho.rotation.y = giroRet;
+    espelho.position.set(s * 0.56 + Math.sin(giroRet) * 0.022, 0.76, -0.42 + Math.cos(giroRet) * 0.022);
+    // haste por fora e por baixo da cabeça do retrovisor até o sidepod (antes cruzava a frente do vidro na visão do piloto)
+    // pilar que NASCE do topo do sidepod e segura a cabeça do retrovisor por baixo (v7: "retrovisores voando"), com base
+    const pe = new THREE.Vector3(s * 0.44, 0.49, -0.4);
+    const topo = new THREE.Vector3(s * 0.55, 0.735, -0.42);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 0.06, 16), new THREE.MeshStandardMaterial({ color: "#17181d", roughness: 0.4 }));
+    base.position.copy(pe).setY(0.5);
+    gRet.add(carcaca, espelho, haste(pe, topo, 0.016, "#17181d"), base);
     // rodas: dianteira mais estreita que a traseira
     grupo(`roda_dianteira_${lado}`, [s * 1.1, 0, 0], 1).add(roda(s * 0.81, -1.55, 0.36, 0.28));
     grupo(`roda_traseira_${lado}`, [s * 1.1, 0, 0], 1).add(roda(s * 0.76, 1.85, 0.36, 0.38));
     // freios (2026-11-12): disco de carbono, pinça e pastilhas dentro do aro, tomada de ar do lado de dentro (modelos/freio.ts)
     g.add(freioDoCarro(s, true, s * 0.81, 0.36, -1.55), freioDoCarro(s, false, s * 0.76, 0.36, 1.85));
-    // suspensão em braços (dianteira e traseira)
-    for (const [xc, yc, zc, xr, yr, zr] of [
-      [0.18, 0.32, -1.3, 0.66, 0.3, -1.55], [0.18, 0.32, -1.85, 0.66, 0.3, -1.55], [0.16, 0.5, -1.35, 0.66, 0.46, -1.55], [0.16, 0.5, -1.8, 0.66, 0.46, -1.55],
-      [0.14, 0.28, 1.6, 0.56, 0.28, 1.85], [0.14, 0.28, 2.1, 0.56, 0.28, 1.85], [0.14, 0.46, 1.65, 0.56, 0.46, 1.85], [0.14, 0.46, 2.05, 0.56, 0.46, 1.85],
+    // suspensão em braços (dianteira e traseira): o ponto de dentro fica NA superfície do bico/chassi (2 cm para dentro
+    // do casco, sem ponta solta no ar; Felipe, 2026-11-18: "os braços não se encaixam no bico, ficam voando") e o de fora
+    // no montante, uma peça vertical dentro da roda que une os dois braços (e a barra de direção na frente)
+    for (const [yc, zc, xr, yr, zr] of [
+      [0.3, -1.3, 0.66, 0.29, -1.55], [0.3, -1.85, 0.66, 0.29, -1.55], [0.42, -1.35, 0.66, 0.47, -1.55], [0.42, -1.8, 0.66, 0.47, -1.55],
+      [0.26, 1.6, 0.57, 0.27, 1.85], [0.26, 2.1, 0.57, 0.27, 1.85], [0.4, 1.65, 0.57, 0.47, 1.85], [0.4, 2.05, 0.57, 0.47, 1.85],
     ] as const) {
-      gSusp.add(haste(new THREE.Vector3(s * xc, yc, zc), new THREE.Vector3(s * xr, yr, zr), 0.016, "#17181d"));
+      const q = superficie(secMono, zc, yc);
+      gSusp.add(haste(new THREE.Vector3(s * Math.max(0.03, q.x - 0.02), q.y, zc), new THREE.Vector3(s * xr, yr, zr), 0.016, "#17181d"));
     }
+    for (const [xr, zr] of [[0.665, -1.55], [0.575, 1.85]] as const) {
+      gSusp.add(haste(new THREE.Vector3(s * xr, 0.25, zr), new THREE.Vector3(s * xr, 0.51, zr), 0.03, "#26282e"));
+    }
+    // barra de direção (dianteira) e haste de empuxo (pushrod), também do chassi ao montante
+    const qd = superficie(secMono, -1.62, 0.36);
+    gSusp.add(haste(new THREE.Vector3(s * (qd.x - 0.02), qd.y, -1.62), new THREE.Vector3(s * 0.665, 0.38, -1.62), 0.012, "#17181d"));
+    const qp = superficie(secMono, -1.45, 0.5);
+    gSusp.add(haste(new THREE.Vector3(s * (qp.x - 0.02), qp.y, -1.45), new THREE.Vector3(s * 0.64, 0.29, -1.52), 0.012, "#17181d"));
     // placas laterais das asas
     gAsaD.add(caixa(0.02, 0.14, 0.4, s * 0.9, 0.17, -2.52, preto));
     gAsaT.add(caixa(0.02, 0.4, 0.4, s * 0.53, 0.8, 2.42, preto));
@@ -300,23 +443,44 @@ export function carro(p: Pintura): THREE.Group {
   gMono.add(fixo);
   // apoio de cabeça: almofadas dos lados do capacete (na borda da abertura, até a altura das orelhas) e atrás dele
   const mApoio = new THREE.MeshStandardMaterial({ color: p.escura, roughness: 0.75 });
-  for (const s of [-1, 1]) {
-    const ap = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.24, 6, 12), mApoio);
-    ap.rotation.x = Math.PI / 2;
-    ap.position.set(s * 0.195, 0.66, hz - 0.02);
-    gMono.add(ap);
+  const gApoio = grupo("apoio_cabeca", [0, 0.4, 0.3], 0); // só um encosto fino atrás do capacete (Felipe, 2026-11-18: nada de "almofadinha" em volta do pescoço)
+  // banco moldado (concha de carbono): assento sob o quadril e encosto reclinado como o piloto; só aparece com o
+  // monocoque em raio-X. Peça "banco".
+  const gBanco = grupo("banco", [0, 0.3, 0.6], 2);
+  const mBanco = new THREE.MeshStandardMaterial({ color: "#5b6476", roughness: 0.55 }); // cinza-azulado (preto chapado nas costas ficava "feio")
+  // o encosto segue o tronco reclinado (0,915 rad da vertical, para trás) e fica ATRÁS das costas: antes estava inclinado
+  // para o lado errado e atravessava o peito do piloto (v6, 2026-11-18)
+  const RECL = 0.915;
+  const dirT = new THREE.Vector3(0, Math.cos(RECL), Math.sin(RECL)); // do quadril para os ombros
+  const atras = new THREE.Vector3(0, -Math.sin(RECL), Math.cos(RECL)); // perpendicular, para as costas
+  const quadril = new THREE.Vector3(0, COCKPIT.quadril.y, COCKPIT.quadril.z);
+  const assento = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.32), mBanco);
+  assento.position.set(0, COCKPIT.quadril.y - 0.105, COCKPIT.quadril.z - 0.06);
+  const encosto = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.56, 0.03), mBanco);
+  encosto.rotation.x = RECL;
+  encosto.position.copy(quadril).addScaledVector(dirT, 0.26).addScaledVector(atras, 0.135);
+  gBanco.add(assento, encosto);
+  for (const sx of [-1, 1]) {
+    // abas laterais da concha, nas costelas (fora do tronco, sem atravessar)
+    const aba = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.42, 0.12), mBanco);
+    aba.rotation.x = RECL;
+    aba.position.copy(quadril).addScaledVector(dirT, 0.22).addScaledVector(atras, 0.07).setX(sx * 0.2);
+    gBanco.add(aba);
   }
-  const apT = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.3, 6, 12), mApoio);
-  apT.rotation.z = Math.PI / 2;
-  apT.position.set(0, 0.665, hz + 0.2);
-  gMono.add(apT);
+  const apT = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.12, 0.035), mApoio);
+  apT.rotation.x = -0.35;
+  apT.position.set(0, 0.7, hz + 0.19); // encosto fino atrás do capacete, na borda de trás da abertura
+  gApoio.add(apT);
   // halo de 3 pontos: pernas de trás presas ao lado dos ombros, arco na altura da testa (acima da linha dos olhos) e o
   // pilar central descendo até a frente da abertura, diante do volante
   const curva = new THREE.CatmullRomCurve3([new THREE.Vector3(-0.255, 0.635, 0.06), new THREE.Vector3(-0.245, 0.84, -0.2), new THREE.Vector3(0, 0.875, -0.52), new THREE.Vector3(0.245, 0.84, -0.2), new THREE.Vector3(0.255, 0.635, 0.06)]);
   const halo = new THREE.Mesh(new THREE.TubeGeometry(curva, 48, 0.024, 10), new THREE.MeshStandardMaterial({ color: "#2a2c33", roughness: 0.4 }));
   halo.castShadow = true;
   gHalo.add(halo);
-  gHalo.add(haste(new THREE.Vector3(0, 0.875, -0.52), new THREE.Vector3(0, 0.625, -0.8), 0.024, "#2a2c33"));
+  halo.name = "halo_arco";
+  const pilar = haste(new THREE.Vector3(0, 0.875, -0.52), new THREE.Vector3(0, 0.625, -0.8), 0.024, "#2a2c33");
+  pilar.name = "halo_pilar";
+  gHalo.add(pilar);
   return g;
 }
 

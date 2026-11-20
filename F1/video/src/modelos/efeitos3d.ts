@@ -2,7 +2,7 @@
 // de frenagem andando de um eixo ao outro), aura elétrica em volta do carro (Boost) e a curva de pista para o carro
 // fazer de verdade (entrada, meio e saída). Tudo é refeito a cada quadro.
 import * as THREE from "three";
-import { achar, deslocar, girarPeca, girarPecaEixo } from "./desmonte";
+import { achar, aoRestaurar as aoRestaurarEfeitos, deslocar, girarPeca, girarPecaEixo } from "./desmonte";
 import { obj, rotulo } from "./extras";
 import type { Mundo } from "./mundo";
 import { NOMES_FREIOS, girarDisco } from "./freio";
@@ -160,4 +160,277 @@ export function rolarRodas(car: THREE.Object3D, metros: number, velocidade = 0) 
     const f = achar(car, nome)?.getObjectByName("conjunto_freio");
     if (f) girarDisco(f, -ang / R_RODA);
   }
+}
+// ---------------------------------------------------------------------------------------------- rodas rápidas (v7)
+// Felipe: "o giro das rodas não transmite 300 km/h". A 300 km/h a roda dá ~37 voltas/s: em 60 q/s qualquer desenho
+// serrilha (parece parada ou para trás). Como numa câmera de verdade, a face da roda vira um DISCO BORRADO (borrão de
+// movimento radial: raios e letras PIRELLI viram anéis contínuos) que gira devagar só para ter vida. Opt-in: só aparece
+// no quadro em que o plano chama `rodasRapidas`; nos outros nada muda.
+let texBorrao: THREE.CanvasTexture | null = null;
+function borraoTex() {
+  if (texBorrao) return texBorrao;
+  const c = document.createElement("canvas");
+  c.width = c.height = 512;
+  const x = c.getContext("2d")!;
+  const m = 256;
+  const anel = (r0: number, r1: number, cor: string) => {
+    x.beginPath();
+    x.arc(m, m, r1 * m, 0, Math.PI * 2);
+    x.arc(m, m, r0 * m, 0, Math.PI * 2, true);
+    x.fillStyle = cor;
+    x.fill();
+  };
+  anel(0.7, 1.0, "rgba(14,15,18,0.97)"); // flanco do pneu
+  anel(0.79, 0.86, "rgba(196,150,40,0.55)"); // letras PIRELLI amarelas viram um anel
+  anel(0.9, 0.93, "rgba(196,150,40,0.25)");
+  anel(0.0, 0.7, "rgba(40,42,48,0.92)"); // aro: raios borrados viram um disco cinza
+  for (let k = 0; k < 40; k++) anel(0.06 + k * 0.016, 0.065 + k * 0.016, `rgba(${k % 2 ? 90 : 20},${k % 2 ? 93 : 22},${k % 2 ? 100 : 26},0.35)`);
+  anel(0.0, 0.17, "rgba(12,13,16,0.95)"); // cubo
+  // riscos curtos em arco (borrão de movimento)
+  x.lineCap = "round";
+  for (let k = 0; k < 140; k++) {
+    const r = (0.2 + ((k * 37) % 50) / 100) * m;
+    const a = (k * 2.399) % (Math.PI * 2);
+    x.strokeStyle = `rgba(150,155,165,${0.08 + ((k * 13) % 10) / 100})`;
+    x.lineWidth = 2;
+    x.beginPath();
+    x.arc(m, m, r, a, a + 0.9);
+    x.stroke();
+  }
+  texBorrao = new THREE.CanvasTexture(c);
+  texBorrao.colorSpace = THREE.SRGBColorSpace;
+  return texBorrao;
+}
+const discosBorrao = new Set<THREE.Object3D>();
+let restauraBorrao = false;
+/** Rodas de carro rápido com borrão de movimento (a partir de ~25 m/s, cresce até ~60 m/s). Chame depois de
+ *  poeNoCircuito/rolarRodas, a cada quadro. `v` em m/s. */
+export function rodasRapidas(car: THREE.Object3D, v: number) {
+  if (!restauraBorrao) {
+    restauraBorrao = true;
+    aoRestaurarEfeitos(() => {
+      discosBorrao.forEach((d) => (d.visible = false));
+      discosBorrao.clear();
+    });
+  }
+  const k = Math.max(0, Math.min(1, (v - 25) / 35));
+  if (k <= 0) return;
+  for (const nome of NOMES_RODAS) {
+    const roda = achar(car, nome)?.children[0];
+    if (!roda) continue;
+    let d = roda.getObjectByName("borrao");
+    if (!d) {
+      d = new THREE.Group();
+      d.name = "borrao";
+      const s = Math.sign(roda.position.x) || 1;
+      const larg = nome.includes("traseira") ? 0.38 : 0.28;
+      for (const lado of [1, -1]) {
+        const m = new THREE.Mesh(new THREE.CircleGeometry(0.352, 64), new THREE.MeshBasicMaterial({ map: borraoTex(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+        m.rotation.y = lado * s > 0 ? Math.PI / 2 : -Math.PI / 2;
+        m.position.x = lado * s * (larg / 2 + 0.006);
+        m.renderOrder = 3;
+        d.add(m);
+      }
+      roda.add(d);
+    }
+    d.visible = true;
+    d.traverse((o) => {
+      const mm = (o as THREE.Mesh).material as THREE.MeshBasicMaterial | undefined;
+      if (mm) mm.opacity = k;
+    });
+    discosBorrao.add(d);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------- realce de peça
+// Pedido do Felipe (2026-11-18): "ao invés de uma luz em cima da peça, a peça poderia emitir um brilho". O destaque é a
+// PRÓPRIA peça acendendo (material emissivo) com um contorno luminoso (casca empurrada pela normal, só o lado de trás),
+// nunca um sprite de luz solto por cima. Volta ao normal sozinho a cada quadro.
+const realcados = new Set<THREE.Mesh>();
+const emis0 = new WeakMap<THREE.Mesh, { cor: THREE.Color; forca: number }>();
+const proprio = new WeakSet<THREE.Mesh>();
+const contornos = new WeakMap<THREE.Mesh, THREE.Mesh>();
+const VERT_CONTORNO = "uniform float esp; void main(){ vec3 p = position + normal * esp; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }";
+const FRAG_CONTORNO = "uniform vec3 cor; uniform float op; void main(){ gl_FragColor = vec4(cor, op); }";
+let restauraRealce = false;
+
+/** Acende peças do modelo no lugar: `nomes` = nomes de peça (`peca`, ex.: "halo", "banco", "apoio_cabeca",
+ *  "retrovisor_esquerdo") ou de malha ("halo_pilar", "borda_cockpit"); `null` = o modelo inteiro (ex.: o volante).
+ *  `k` 0 a 1 (anime com suave); `contorno` = espessura da borda luminosa em metros (0 = só o brilho). */
+export function realcar(modelo: THREE.Object3D, nomes: string | string[] | null, k = 1, cor = "#ffd23f", contorno = 0.012) {
+  if (!restauraRealce) {
+    restauraRealce = true;
+    aoRestaurarEfeitos(() => {
+      for (const m of realcados) {
+        const mt = m.material as THREE.MeshStandardMaterial;
+        const e = emis0.get(m);
+        if (e && mt.emissive) {
+          mt.emissive.copy(e.cor);
+          mt.emissiveIntensity = e.forca;
+        }
+        const c = contornos.get(m);
+        if (c) c.visible = false;
+      }
+      realcados.clear();
+    });
+  }
+  const kk = Math.max(0, Math.min(1, k));
+  if (kk <= 0) return;
+  const quero = nomes === null ? null : new Set(Array.isArray(nomes) ? nomes : [nomes]);
+  const malhas: THREE.Mesh[] = [];
+  const junta = (o: THREE.Object3D) => o.traverse((x) => {
+    if ((x as THREE.Mesh).isMesh) malhas.push(x as THREE.Mesh);
+  });
+  if (!quero) junta(modelo);
+  else modelo.traverse((o) => {
+    if (quero.has(o.userData.peca) || quero.has(o.name)) junta(o);
+  });
+  const c3 = new THREE.Color(cor);
+  for (const m of [...new Set(malhas)]) {
+    if (m.userData.contorno) continue;
+    const mt0 = m.material as THREE.MeshStandardMaterial;
+    if (!mt0 || !mt0.emissive) continue;
+    if (!proprio.has(m)) {
+      // material próprio (os carros da mesma equipe são clones e acenderiam juntos)
+      m.material = mt0.clone();
+      proprio.add(m);
+    }
+    const mt = m.material as THREE.MeshStandardMaterial;
+    if (!emis0.has(m)) emis0.set(m, { cor: mt.emissive.clone(), forca: mt.emissiveIntensity });
+    mt.emissive.copy(c3);
+    mt.emissiveIntensity = 0.85 * kk;
+    realcados.add(m);
+    if (contorno > 0 && m.geometry.attributes.normal) {
+      let ct = contornos.get(m);
+      if (!ct) {
+        ct = new THREE.Mesh(m.geometry, new THREE.ShaderMaterial({ uniforms: { esp: { value: contorno }, cor: { value: c3.clone() }, op: { value: 1 } }, vertexShader: VERT_CONTORNO, fragmentShader: FRAG_CONTORNO, side: THREE.BackSide, transparent: true, depthWrite: false }));
+        ct.userData.contorno = true;
+        ct.renderOrder = 5;
+        m.add(ct);
+        contornos.set(m, ct);
+      }
+      const u = (ct.material as THREE.ShaderMaterial).uniforms;
+      u.esp.value = contorno / Math.max(1e-6, m.getWorldScale(new THREE.Vector3()).x);
+      u.cor.value.copy(c3);
+      u.op.value = kk;
+      ct.visible = true;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------- campo de visão
+let texLeque: THREE.CanvasTexture | null = null;
+function lequeTex() {
+  if (texLeque) return texLeque;
+  const c = document.createElement("canvas");
+  c.width = c.height = 256;
+  const x = c.getContext("2d")!;
+  const g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+  g.addColorStop(0, "rgba(255,255,255,0.75)");
+  g.addColorStop(0.55, "rgba(255,255,255,0.35)");
+  g.addColorStop(0.92, "rgba(255,255,255,0.12)");
+  g.addColorStop(1, "rgba(255,255,255,0.0)");
+  x.fillStyle = g;
+  x.fillRect(0, 0, 256, 256);
+  texLeque = new THREE.CanvasTexture(c);
+  return texLeque;
+}
+
+/** Campo de visão em 3D (pedido do Felipe, 2026-11-18: nada de "feixe de bolinhas"): leque translúcido com degradê (forte
+ *  perto do olho, some no fim), bordas e arco luminosos e o volume do olhar (pirâmide de vidro do olho até o arco).
+ *  `origem` = olho/espelho no mundo; `para` = ponto no mundo para onde o centro do leque aponta; `graus` = abertura;
+ *  `alcance` em metros; `k` 0 a 1 = o leque cresce do olho; `chao` = altura do leque (padrão: a do olho; 0.03 = projetado
+ *  no chão, com a linha-guia descendo do olho). `texto` = rótulo curto no fim do leque (só palavra da fala). */
+export function campoDeVisao(w: Mundo, chave: string, origem: THREE.Vector3, para: THREE.Vector3, graus: number, alcance: number, k = 1, o: { cor?: string; chao?: number; texto?: string; volume?: boolean } = {}) {
+  const kk = Math.max(0, Math.min(1, k));
+  const cor = new THREE.Color(o.cor ?? "#38c6ff");
+  const g = obj(w, `visao:${chave}`, () => {
+    const gr = new THREE.Group();
+    const leque = new THREE.Mesh(new THREE.CircleGeometry(1, 64, 0, 1), new THREE.MeshBasicMaterial({ map: lequeTex(), transparent: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, fog: false }));
+    leque.name = "leque";
+    const borda = new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, fog: false });
+    const e1 = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 8), borda);
+    e1.name = "e1";
+    const e2 = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 8), borda);
+    e2.name = "e2";
+    const arco = new THREE.Mesh(new THREE.TorusGeometry(1, 1, 6, 64, 1), borda);
+    arco.name = "arco";
+    const vol = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    vol.name = "vol";
+    const guia = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 1, 8), borda);
+    guia.name = "guia";
+    gr.add(leque, e1, e2, arco, vol, guia);
+    gr.traverse((x) => (x.renderOrder = 20));
+    return gr;
+  });
+  if (kk <= 0) {
+    g.visible = false;
+    return g;
+  }
+  const altura = o.chao ?? origem.y;
+  const ap = new THREE.Vector3(origem.x, altura, origem.z);
+  const dir = new THREE.Vector3(para.x - origem.x, 0, para.z - origem.z).normalize();
+  const yaw = Math.atan2(-dir.x, -dir.z);
+  const meia = ((graus * Math.PI) / 180) / 2;
+  const R = alcance * (0.15 + 0.85 * kk);
+  const esp = Math.max(0.012, alcance * 0.004);
+  const local = (a: number, r: number) => new THREE.Vector3(-Math.sin(yaw + a) * r, 0, -Math.cos(yaw + a) * r).add(ap);
+  // leque: setor do círculo (frente = -z), deitado na altura `altura`
+  const leque = g.getObjectByName("leque") as THREE.Mesh;
+  leque.geometry.dispose();
+  const geo = new THREE.CircleGeometry(1, 64, Math.PI / 2 - meia, meia * 2);
+  geo.rotateX(-Math.PI / 2);
+  leque.geometry = geo;
+  leque.position.copy(ap);
+  leque.rotation.set(0, yaw, 0);
+  leque.scale.set(R, 1, R);
+  (leque.material as THREE.MeshBasicMaterial).color.copy(cor);
+  (leque.material as THREE.MeshBasicMaterial).opacity = 0.55 * kk;
+  // bordas e arco luminosos
+  const tubo = (m: THREE.Object3D, a: THREE.Vector3, b: THREE.Vector3, r: number) => {
+    m.position.copy(a).add(b).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    m.scale.set(r, a.distanceTo(b), r);
+  };
+  tubo(g.getObjectByName("e1")!, ap, local(meia, R), esp);
+  tubo(g.getObjectByName("e2")!, ap, local(-meia, R), esp);
+  const arco = g.getObjectByName("arco") as THREE.Mesh;
+  arco.geometry.dispose();
+  // arco: pontos do setor no fim do leque (tubo pela curva)
+  const pa: THREE.Vector3[] = [];
+  for (let i = 0; i <= 32; i++) pa.push(local(-meia + (2 * meia * i) / 32, R));
+  arco.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pa), 64, esp, 6, false);
+  arco.position.set(0, 0, 0);
+  arco.quaternion.identity();
+  arco.scale.setScalar(1);
+  const borda = (g.getObjectByName("e1") as THREE.Mesh).material as THREE.MeshBasicMaterial;
+  borda.color.copy(cor).lerp(new THREE.Color("#ffffff"), 0.35);
+  borda.opacity = kk;
+  // linha-guia do olho até o vértice do leque (quando o leque está no chão)
+  const guia = g.getObjectByName("guia")!;
+  guia.visible = Math.abs(origem.y - altura) > 0.05;
+  if (guia.visible) tubo(guia, origem, ap, esp * 0.8);
+  // volume do olhar: pirâmide de vidro do olho até o arco (bem leve)
+  const vol = g.getObjectByName("vol") as THREE.Mesh;
+  vol.visible = o.volume !== false;
+  if (vol.visible) {
+    const pts: number[] = [];
+    const N = 16;
+    for (let i = 0; i < N; i++) {
+      const p0 = local(-meia + (2 * meia * i) / N, R), p1 = local(-meia + (2 * meia * (i + 1)) / N, R);
+      pts.push(origem.x, origem.y, origem.z, p0.x, p0.y, p0.z, p1.x, p1.y, p1.z);
+    }
+    vol.geometry.dispose();
+    const vg = new THREE.BufferGeometry();
+    vg.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    vol.geometry = vg;
+    (vol.material as THREE.MeshBasicMaterial).color.copy(cor);
+    (vol.material as THREE.MeshBasicMaterial).opacity = 0.1 * kk;
+  }
+  if (o.texto) {
+    const r = obj(w, `visao:${chave}:rot`, () => rotulo(o.texto!, { altura: Math.max(0.12, alcance * 0.06), cor: "#ffffff", fundo: "rgba(12,40,80,0.9)" }));
+    r.position.copy(local(0, R * 0.92)).setY(altura + Math.max(0.15, alcance * 0.05));
+    (r.material as THREE.SpriteMaterial).opacity = kk;
+  }
+  return g;
 }

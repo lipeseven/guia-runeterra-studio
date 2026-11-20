@@ -29,9 +29,9 @@ function nomeNoTopo(texto: string) {
   return m;
 }
 type V = [number, number, number];
-const S = 0.00068; // metros por pixel da referência
-const CX = 236; // centro da referência da frente (px)
-const CY = 120;
+export const S = 0.00068; // metros por pixel da referência
+export const CX = 236; // centro da referência da frente (px)
+export const CY = 120;
 /** Pixel da referência da frente → metros (x para a direita, y para cima). */
 const P = (x: number, y: number): [number, number] => [(x - CX) * S, (CY - y) * S];
 const espelho = (x: number) => 2 * CX - x;
@@ -197,7 +197,7 @@ const JANELAS: [number, number][][] = [
   [[88, 114], [113, 114], [115, 121], [112, 127], [88, 126]],
 ];
 // empunhadura esquerda (borracha), medida na frente
-const PEGA: [number, number][] = [[46, 61], [66, 56], [80, 60], [81, 72], [80, 100], [74, 140], [67, 180], [63, 220], [62, 246], [56, 255], [46, 252], [40, 238], [33, 195], [27, 150], [27, 108], [32, 82], [38, 68]];
+export const PEGA: [number, number][] = [[46, 61], [66, 56], [80, 60], [81, 72], [80, 100], [74, 140], [67, 180], [63, 220], [62, 246], [56, 255], [46, 252], [40, 238], [33, 195], [27, 150], [27, 108], [32, 82], [38, 68]];
 
 export type Volante = THREE.Group;
 

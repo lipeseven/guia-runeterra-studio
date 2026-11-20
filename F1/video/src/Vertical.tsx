@@ -14,7 +14,7 @@ import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "./mod
 import { ligar } from "./modelos/ligacoes";
 import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "./modelos/pitstop";
 import { filmar, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "./modelos/geografia";
-import { aura, brilho, criarCurva, definirTempo, destacar, estercar, naCurva } from "./modelos/efeitos3d";
+import { aura, brilho, campoDeVisao, criarCurva, definirTempo, destacar, estercar, naCurva, realcar, rodasRapidas } from "./modelos/efeitos3d";
 import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
 import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "./modelos/volante";
 import {
@@ -25,7 +25,7 @@ import "./modelos/logo_canal"; // carrega o logo (segura o render até decodific
 import { aplicarLogo, carregarLogos, criarLivro, criarPainelLogo, logo } from "./modelos/logos"; // logos de arquivo (F1/arte/logos)
 import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar } from "./modelos/boneco";
 import { apertarFreio, criarFreio, girarDisco } from "./modelos/freio";
-import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit, ponteiro, tomadaDeAr, ventilar } from "./modelos/freio_cena";
+import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit, ponteiro, tomadaDeAr, ventilar, cockpitNaPista, marchaDe, espelhoReal } from "./modelos/freio_cena";
 
 type PlacaV = { texto: string; unidade?: string; i?: number; cor?: string; pos?: string };
 export type PlanoV = {
@@ -413,7 +413,7 @@ export const API = {
   criarMapaRegiao, neutro, andar, faseDoPasso, carregar, agachar, abaixar, apontar, acenar, empurrar, maos, olhar,
   criarFreio, girarDisco, apertarFreio, aquecer, noFreio, fluxo, ventilar, criarTermometro, medirTemperatura, criarMedidorTermico, ponteiro,
   criarPlacaCarbono, criarHibrido, poeHibrido, caminhoDaEnergia, escurecer, tomadaDeAr, poePedais, linhaDoFreio, poePilotoNoCarro, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit,
-  logo, aplicarLogo, criarPainelLogo, criarLivro,
+  logo, aplicarLogo, criarPainelLogo, criarLivro, realcar, campoDeVisao, cockpitNaPista, marchaDe, espelhoReal, rodasRapidas,
 };
 // API:fim
 const NOMES_API = Object.keys(API);

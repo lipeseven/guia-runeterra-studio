@@ -64,6 +64,55 @@ export function texturaTexto(texto: string, cor = "#ffffff", fundo = "", larg = 
 }
 
 /** Rótulo que sempre olha para a câmera. `altura` em metros. */
+/** Luva de piloto (v9, "parece duas bolas de meia"): punho com bainha na cor do macacão, dorso, 4 dedos curvados (duas
+ *  falanges) e polegar, fechada como quem segura uma empunhadura. Espaço do pulso: a mão desce em -y, palma em +z. */
+function luva(m: THREE.Material, mPunho: THREE.Material, lado: number, mFaixa?: THREE.Material, mDetalhe?: THREE.Material) {
+  // v10 (referências onboard): luva CLARA com detalhes nas cores do macacão; dorso em -z, palma em +z, dedos em -y
+  const g = new THREE.Group();
+  const punho = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.04, 0.05, 16), mPunho);
+  punho.position.y = 0.005;
+  g.add(punho);
+  const dorso = new THREE.Mesh(new THREE.BoxGeometry(0.078, 0.085, 0.032), m);
+  dorso.position.set(0, -0.055, 0);
+  g.add(dorso);
+  const bordas = new THREE.Mesh(new THREE.CapsuleGeometry(0.016, 0.05, 4, 10), m); // arredonda a lateral da mão
+  bordas.rotation.z = Math.PI / 2;
+  bordas.position.set(0, -0.098, 0.004);
+  g.add(bordas);
+  for (let k = 0; k < 4; k++) {
+    const x = -0.029 + k * 0.0195;
+    const comp = k === 0 || k === 3 ? 0.026 : 0.032;
+    // v10: punho FECHADO (como nas referências onboard): a 1ª falange já dobra ~65° para a palma e a ponta volta para
+    // trás (~130°), os dedos enrolam o cabo e somem atrás dele; do lado do piloto só se vê o dorso e os nós
+    const a1 = 1.15, a2 = 2.35;
+    const d1 = new THREE.Vector3(0, -Math.cos(a1), Math.sin(a1));
+    const d2 = new THREE.Vector3(0, -Math.cos(a2), Math.sin(a2));
+    const no = new THREE.Vector3(x, -0.097, 0.004);
+    const p1 = new THREE.Mesh(new THREE.CapsuleGeometry(0.0095, comp, 4, 8), m);
+    p1.position.copy(no).addScaledVector(d1, comp / 2 + 0.006);
+    p1.rotation.x = -a1;
+    const l2 = comp * 0.8;
+    const p2 = new THREE.Mesh(new THREE.CapsuleGeometry(0.0088, l2, 4, 8), m);
+    p2.position.copy(no).addScaledVector(d1, comp + 0.012).addScaledVector(d2, l2 / 2 + 0.006);
+    p2.rotation.x = -a2;
+    g.add(p1, p2);
+  }
+  if (mFaixa) {
+    // faixa colorida no dorso e reforço dos nós dos dedos (dão leitura de luva, como as das referências)
+    const fx = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 0.004), mFaixa);
+    fx.position.set(0, -0.05, -0.0175);
+    const nos = new THREE.Mesh(new THREE.BoxGeometry(0.074, 0.012, 0.004), mDetalhe ?? mFaixa);
+    nos.position.set(0, -0.092, -0.0175);
+    g.add(fx, nos);
+  }
+  const pol = new THREE.Mesh(new THREE.CapsuleGeometry(0.0095, 0.035, 4, 8), m);
+  pol.position.set(-lado * 0.046, -0.072, -0.004); // polegar na frente do cabo (lado do piloto), para dentro
+  pol.rotation.set(-0.9, 0, -lado * 0.5);
+  g.add(pol);
+  g.traverse((o) => (o.castShadow = true));
+  return g;
+}
+
 export function rotulo(texto: string, o: { cor?: string; fundo?: string; altura?: number } = {}): THREE.Sprite {
   const larg = Math.max(256, Math.min(1024, 120 + texto.length * 70));
   const t = texturaTexto(texto, o.cor ?? "#ffffff", o.fundo ?? "rgba(12,14,20,0.82)", larg, 192);
@@ -188,9 +237,12 @@ export function criarPiloto(o: OpcoesPiloto = {}): THREE.Group {
     cotovelo.add(malha(new THREE.CylinderGeometry(0.052, 0.052, 0.03, 14), mFaixa, 0, -0.235, 0));
     const pulso = new THREE.Group();
     pulso.position.y = -0.25;
-    const mao = malha(new THREE.SphereGeometry(0.048, 14, 10), mMao, 0, -0.05, 0);
-    mao.scale.set(0.8, 1.25, 0.62);
-    pulso.add(mao);
+    if (capacete) pulso.add(luva(mat("#eceef2", 0.7), mTerno, lado, mFaixa, mDetalhe));
+    else {
+      const mao = malha(new THREE.SphereGeometry(0.048, 14, 10), mMao, 0, -0.05, 0);
+      mao.scale.set(0.8, 1.25, 0.62);
+      pulso.add(mao);
+    }
     cotovelo.add(pulso);
     ombro.add(cotovelo);
     ombro.rotation.z = lado * 0.1;
