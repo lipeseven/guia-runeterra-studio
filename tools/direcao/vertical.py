@@ -518,7 +518,7 @@ def quadros(trabalho: Path, direcao: dict, palavras: list[dict], ids: set[str] |
     pedido.write_text(json.dumps({"composicao": CFG.get("composicao", "Vertical"), "props": str(props), "publicDir": str(trabalho),
                                   "escala": 0.25, "quadros": [{"q": q, "saida": str(pasta / f"{n:03d}.jpg")} for n, _, q in alvos]}),
                       encoding="utf-8")
-    r = subprocess.run(["node", "quadros.mjs", str(pedido)], cwd=projeto, capture_output=True, text=True, encoding="utf-8",
+    r = subprocess.run(["node", str(BIBLIOTECA / "quadros.mjs"), str(pedido)], cwd=projeto, capture_output=True, text=True, encoding="utf-8",
                        errors="replace", timeout=1800)
     por_quadro = {q: p["id"] for _, p, q in alvos}
     erros: dict[str, str] = {}
@@ -730,15 +730,16 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
     return conferir(nova, palavras, briefing, trabalho if mudou else None, aviso, mudou)
 
 # ------------------------------------------------------------------------------------------------ render
+BIBLIOTECA = RAIZ / CFG.get("biblioteca", "F1/comum/remotion")  # modelos 3D, kit e scripts de render compartilhados pelos formatos do canal
 FPS = int(CFG.get("fps", 60))  # quadros por segundo do vertical (canal.toml [vertical] fps; igual ao Root.tsx). Tempos das cenas em segundos
 
 
 def _fonte_remotion(projeto: Path) -> str:
     """Impressão do código que desenha as cenas: mudou um modelo = todos os blocos são refeitos."""
     h = hashlib.sha1()
-    for arq in sorted([*(projeto / "src").rglob("*"), projeto / "package.json"]):
-        if arq.is_file() and arq.name != Path(ARQ_CONFERIR).name:
-            h.update(arq.relative_to(projeto).as_posix().encode())
+    for arq in sorted([*(projeto / "src").rglob("*"), *BIBLIOTECA.rglob("*"), RAIZ / "package.json"]):
+        if arq.is_file() and arq.name != Path(ARQ_CONFERIR).name and "node_modules" not in arq.parts:
+            h.update(arq.relative_to(RAIZ).as_posix().encode())
             h.update(arq.read_bytes())
     return h.hexdigest()
 
@@ -1087,10 +1088,11 @@ def gerar_musica(projeto: Path, segundos: float, aviso=lambda m: None) -> Path |
 
 
 def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path, progresso=None, composicao: str | None = None,
-               props: dict | None = None, cache_nome: str = "blocos_vertical", concorrencia: int = 3, fps: int = FPS) -> float:
+               props: dict | None = None, cache_nome: str = "blocos_vertical", concorrencia: int = 3, fps: int = FPS,
+               projeto_remotion: str | None = None) -> float:
     """Render por blocos com cache (como no Runeterra): só os blocos com plano alterado são renderizados de novo; a
     voz entra no FFmpeg, sem recomprimir o vídeo. A pasta trabalho/ do vídeo (com voz.wav) é a pasta pública do Remotion."""
-    projeto = RAIZ / CFG.get("projeto", "")
+    projeto = RAIZ / (projeto_remotion or CFG.get("projeto", ""))
     cache = trabalho.parent / cache_nome  # fora de trabalho/: a pasta pública é copiada a cada render
     cache.mkdir(parents=True, exist_ok=True)
     arq_props = trabalho / ("vertical_props.json" if props is None else f"{cache_nome}_props.json")
@@ -1108,7 +1110,7 @@ def renderizar(trabalho: Path, direcao: dict, palavras: list[dict], saida: Path,
                                                  for b in faltam]}), encoding="utf-8")
         a_fazer = sum(b["fim"] - b["inicio"] + 1 for b in faltam)
         feitos = [0] * len(faltam)
-        proc = subprocess.Popen(["node", "render_blocos.mjs", str(pedido)], cwd=projeto, stdout=subprocess.PIPE,
+        proc = subprocess.Popen(["node", str(BIBLIOTECA / "render_blocos.mjs"), str(pedido)], cwd=projeto, stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
         cauda: list[str] = []
         for linha in proc.stdout:

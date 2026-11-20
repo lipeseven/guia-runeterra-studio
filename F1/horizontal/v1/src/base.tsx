@@ -1,4 +1,4 @@
-// Base do horizontal (estilo das referências, F1/docs/folha_horizontal.md): tempo, cor do vídeo, cena com fundo fixo,
+// Base do horizontal (estilo das referências, F1/horizontal/docs/folha_horizontal.md): tempo, cor do vídeo, cena com fundo fixo,
 // carregamento dos .glb (uma vez por aba) e o 3D desenhado num canvas 2D, com borrão de movimento opcional.
 import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { continueRender, delayRender, staticFile, useCurrentFrame, useVideoConfig } from "remotion";

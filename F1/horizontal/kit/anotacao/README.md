@@ -84,7 +84,7 @@ de 13,7 px do traço. A ondulação é de 1,5%, o desenho é monotônico e termi
 Todos os acentos PT-BR têm glifo, e o riscado do "323" foi encurtado antes do "km/h".
 
 `.venv\Scripts\python.exe F1\horizontal\testes\anotacao\rodar.py`: renderiza a cena nos dois motores em PNG quadro a
-quadro (Remotion 4.0.539 pelo `node_modules` de `F1/horizontal/remotion` se houver, senão por uma junção local em `remotion/anotacao/node_modules` para `F1/video/node_modules`; HyperFrames 0.9.20 por `npx`, sem instalar nada global) e mede
+quadro (Remotion 4.0.539 pelo `node_modules` único da raiz; HyperFrames 0.9.20 por `npx`, sem instalar nada global) e mede
 nos **pixels**:
 
 | | Remotion | HyperFrames |

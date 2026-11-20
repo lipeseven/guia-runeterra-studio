@@ -9,7 +9,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 // O leitor deixa o carro de pé, com 5,4 m, e separa as 4 rodas (peças de pneu/cubo/disco juntas no arquivo) pela posição.
 const W = 1920;
 const H = 1080;
-import { preparar, type Roda } from "./horizontal/carro";
+import { preparar, type Roda } from "./carro";
 export { preparar };
 type Mundo = { r: THREE.WebGLRenderer; cena: THREE.Scene; cam: THREE.PerspectiveCamera; carro: THREE.Group; rodas: Roda[]; raio: number; frenteZ: number };
 

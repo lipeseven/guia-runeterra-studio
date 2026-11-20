@@ -29,6 +29,7 @@ PT-BR, vídeos longos ~20 min). Usuário: Felipe. Converse em **português**.
   (inventário, busca CLIP, tomadas de clipes, etiquetas), `capa.py` (detecta ícones na capa), `direcao/variacao.py`
   (editor de variedade), `prototipo/preparar.py`.
 - `app/video/` — Remotion (React/TS): cenas em `src/cenas/`, efeitos em `src/efeitos.tsx`.
+- **Motor de vídeo único (2026-11-20)**: `package.json` e `node_modules` ÚNICOS na raiz (`npm install` na raiz: Remotion 4.0.539, React, three); pastas de canal só têm código e resolvem os pacotes subindo até a raiz. F1: biblioteca comum em `F1/comum/remotion`, projetos `F1/vertical/video` e `F1/horizontal/v1`. `app/video` (Runeterra) ainda tem `node_modules` próprio: apagar (885 MB) depois de validar o Runeterra com o da raiz.
   `npx remotion studio` para visualizar; `npx remotion render <Composição> saida.mp4`.
 - `dados/` (fora do Git) — `acervo.db` (SQLite: `midias`, `tomadas`), miniaturas, índices CLIP, análises, renders.
 

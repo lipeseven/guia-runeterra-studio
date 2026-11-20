@@ -2,7 +2,7 @@
 
 ## 1. O que é e no que difere
 - **Runeterra:** catálogo sequencial. Clipes do acervo montados na ordem, quase automático.
-- **Horizontal v1 (Remotion, `F1/video/src/horizontal/`):** diretor com vocabulário fixo de cenas; a direção roda no `claude -p` do painel.
+- **Horizontal v1 (Remotion, `F1/horizontal/v1/src/`):** diretor com vocabulário fixo de cenas; a direção roda no `claude -p` do painel.
 - **Motor documental (este):** primeiro a HISTÓRIA, depois as cenas. Cada vídeo tem direção própria (livre) sobre um KIT fixo de componentes testados. Visual guiado por dados reais (OpenF1), 3D (carros e pista), imagens reais da corrida e motion graphics. Verificação por sequência de quadros, não por foto solta.
 
 ## 2. Estrutura de pastas

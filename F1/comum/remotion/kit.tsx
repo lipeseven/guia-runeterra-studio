@@ -1,4 +1,4 @@
-// Kit dos vídeos verticais (1080×1920), na linguagem de F1/docs/folha_de_estilos.md, com cores e pinturas do canal.
+// Kit dos vídeos verticais (1080×1920), na linguagem de F1/vertical/docs/folha_de_estilos.md, com cores e pinturas do canal.
 import { Easing, interpolate, useCurrentFrame, useVideoConfig } from "remotion";
 
 export type Palavra = { t: string; i: number; f: number };

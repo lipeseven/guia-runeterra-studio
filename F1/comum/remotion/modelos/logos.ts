@@ -1,4 +1,4 @@
-// Logos e texturas de ARQUIVO (2026-11-14): o Felipe põe o arquivo licenciado em F1/arte/logos/ (nome = chave: fia.png =
+// Logos e texturas de ARQUIVO (2026-11-14): o Felipe põe o arquivo licenciado em F1/comum/arte/logos/ (nome = chave: fia.png =
 // "logo:fia"); o Python copia os citados para <trabalho>/logos/ (a pasta pública do render) e passa o mapa nas props
 // (`logos`). O Vertical.tsx chama carregarLogos antes de desenhar. Logo sem arquivo vira um cartão cinza com o nome do
 // arquivo que falta (o diretor também avisa no card qual arquivo colocar).

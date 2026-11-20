@@ -29,7 +29,7 @@ neste trecho, arquibancadas simples, sem piloto no carro) e não o motor.
 3. **Apoio no chão**: a cada quadro, 4 raios verticais (um por roda) numa BVH das malhas de física
    `1road/1kerb/1curb/1grass/1outer/1sand/1pitlane` (34 objetos); altura do centro = média ponderada, arfagem e
    rolagem pelo plano das 4 rodas (zebra levanta o carro de verdade).
-4. **Carro**: `ferrari_sf26.glb` (o mesmo das cenas three.js), preparado como `F1/video/src/horizontal/carro.ts`:
+4. **Carro**: `ferrari_sf26.glb` (o mesmo das cenas three.js), preparado como `F1/horizontal/v1/src/carro.ts`:
    5,4 m, frente pela ponta mais baixa, faces de roda (tyre/rim/disc/hub) separadas por canto com pivô no centro.
    Giro das rodas = ∫v/r (r = 0,35 m medido no modelo), esterço = atan(entre-eixos × curvatura do traçado)
    (máx. 4,9° no S; dianteiras num pivô próprio). Pintura com verniz (coat 1,0, rugosidade 0,03).

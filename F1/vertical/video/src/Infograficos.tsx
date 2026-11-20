@@ -1,9 +1,9 @@
 // Gráficos informativos (2D, por cima da cena 3D): reforçam a fala, um por vez, entrando na palavra.
 // Linguagem fixa: título no alto (branco + subtítulo verde-água), um gráfico no centro, fundo azul-marinho e um só
-// destaque de cor. Os rótulos vêm da fala (o diretor não inventa texto). Ver F1/docs/api_cenas.md.
+// destaque de cor. Os rótulos vêm da fala (o diretor não inventa texto). Ver F1/vertical/docs/api_cenas.md.
 import type { ReactNode } from "react";
-import { FONTE, entra, suave } from "./kit";
-import { ICONES } from "./modelos/icones";
+import { FONTE, entra, suave } from "../../../comum/remotion/kit";
+import { ICONES } from "../../../comum/remotion/modelos/icones";
 import { Dinamicos } from "./InfograficosDinamicos";
 
 export const COR = { fundo: "rgba(9,19,38,.86)", borda: "rgba(46,196,182,.55)", destaque: "#2ec4b6", texto: "#ffffff", suave: "#8fa4bf", alerta: "#ff5a4e", ouro: "#ffc93a" };

@@ -1,6 +1,6 @@
 // Exemplo mínimo Remotion do kit/cartoes: pista estilizada, tag fixa na curva, tag presa a um carro que anda, cartão de
 // pessoa e cartão de capítulo. Render (feito por F1/horizontal/testes/cartoes/rodar.py):
-//   node <F1/video/node_modules>/@remotion/cli/remotion-cli.js render index.tsx ExemploCartoes <pasta> --sequence
+//   node <node_modules (raiz)>/@remotion/cli/remotion-cli.js render index.tsx ExemploCartoes <pasta> --sequence
 import React, { useMemo } from "react";
 import { AbsoluteFill, Composition, registerRoot, useCurrentFrame, useVideoConfig } from "remotion";
 import { ancoraTag, montarCartoes, type CenaCartoes, type Tag } from "../../../kit/cartoes/cartoes.ts";

@@ -1,9 +1,9 @@
 // Gráficos que interagem com a cena (decisão do Felipe, 2026-11-04): cartões empilhados ("etapas") cansam; estes mudam com a
-// fala e com o carro. frase, palavra, ano, linhatempo, minimapa, perfil, torre, relogio, sentido. Ver F1/docs/api_cenas.md.
+// fala e com o carro. frase, palavra, ano, linhatempo, minimapa, perfil, torre, relogio, sentido. Ver F1/vertical/docs/api_cenas.md.
 import type { CSSProperties, ReactNode } from "react";
 import type { GraficoV } from "./Infograficos";
-import { FONTE, entra, suave } from "./kit";
-import CIRCUITOS from "./modelos/geo/circuitos.json";
+import { FONTE, entra, suave } from "../../../comum/remotion/kit";
+import CIRCUITOS from "../../../comum/remotion/modelos/geo/circuitos.json";
 
 const COR = { fundo: "rgba(9,19,38,.86)", borda: "rgba(46,196,182,.55)", destaque: "#2ec4b6", texto: "#ffffff", suave: "#8fa4bf", alerta: "#ff5a4e", ouro: "#ffc93a", subiu: "#2ee59d" };
 const PAINEL: CSSProperties = { borderRadius: 30, background: COR.fundo, border: `2px solid ${COR.borda}`, fontFamily: FONTE, boxShadow: "0 18px 60px rgba(0,0,0,.45)" };

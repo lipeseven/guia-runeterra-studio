@@ -8,8 +8,9 @@ Organização das pastas do F1 (2026-11-20, fase 1): cada formato tem a sua past
 - `F1/dados/`: dados do canal compartilhados (bancos, acervo, projetos, `modelos3d`, `mapas`).
 - O `canal.toml` aponta cada pasta (`[vertical].docs`, `[horizontal].docs`, `[pastas].docs`); `vertical.py`/`horizontal.py` procuram o documento primeiro na pasta do formato e depois na comum.
 
-Fase 2 (pendente): dividir o projeto Remotion `F1/video` (composições Vertical e Horizontal v1 + biblioteca `src/modelos` em comum).
-Hoje o código do vertical continua onde está, para não quebrar o painel e o render:
-- Projeto Remotion: `F1/video/` (composição `Vertical`, `src/Vertical.tsx`, `src/modelos/`, 60 fps).
+Fase 2 (feita, 2026-11-20): o projeto Remotion `F1/video` foi dividido.
+- Projeto Remotion do vertical: `F1/vertical/video/` (composição `Vertical`, `src/Vertical.tsx`, 60 fps). O horizontal v1 ficou em `F1/horizontal/v1/`.
+- Biblioteca comum aos dois formatos: `F1/comum/remotion/` (`modelos/`, `kit.tsx`, `quadros.mjs`, `render_blocos.mjs`).
+- `node_modules` e `package.json` únicos na raiz do repositório (motor compartilhado entre os canais).
 - Diretor: `tools/direcao/vertical.py` e docs em `F1/vertical/docs/` e `F1/comum/docs/` (`regras_de_direcao.md`).
 - Estado: `F1/comum/docs/estado_f1.md`.

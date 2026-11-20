@@ -154,7 +154,7 @@ checa(V._props({**dl, "legenda": estilo}, pal6)["legenda"] == estilo, "estilo da
 b0 = V.blocos(dl, pal6, "f")[0]["impressao"]
 checa(b0 == V.blocos({**dl}, pal6, "f")[0]["impressao"] and b0 != V.blocos({**dl, "legenda": estilo}, pal6, "f")[0]["impressao"],
       "trocar o estilo da legenda refaz os blocos; sem estilo, a impressão é a de antes")
-kit = (V.RAIZ / "F1" / "video" / "src" / "kit.tsx").read_text(encoding="utf-8")
+kit = (V.RAIZ / "F1" / "comum" / "remotion" / "kit.tsx").read_text(encoding="utf-8")
 checa("EstiloLegenda" in kit and "branca" in kit and "opacidade" in kit and "raio" in kit and "margem" in kit, "kit.tsx: Legenda com estilo")
 
 # ------------------------------------------------------------------ 4. logos
@@ -174,16 +174,16 @@ mapa = V.copiar_logos(publico, pl_logo, pasta_logos)
 checa(mapa == {"fia": "logos/fia.png"} and (publico / "logos" / "fia.png").exists(), "logo citado copiado para a pasta pública")
 checa("logos" in V._props(dl, pal6, mapa) and "logos" not in V._props(dl, pal6, {}), "mapa dos logos nas props só quando há logo")
 checa("LOGOS DISPONÍVEIS" in V._docs() and "nao_feitos" in V._lista_logos(), "prompt lista os logos e diz o que fazer se faltar")
-nomes = V._nomes_api(V.RAIZ / "F1" / "video")
+nomes = V._nomes_api(V.RAIZ / "F1" / "vertical" / "video")
 checa({"logo", "aplicarLogo", "criarPainelLogo", "criarLivro"} <= set(nomes), "API do código das cenas tem os logos")
 checa((V.RAIZ / "F1" / "comum" / "arte" / "logos").is_dir(), "pasta F1/comum/arte/logos existe")
 
 # ------------------------------------------------------------------ 5. circuitos
 print("5. circuitos")
-circ = json.loads((V.RAIZ / "F1" / "video" / "src" / "modelos" / "geo" / "circuitos.json").read_text(encoding="utf-8"))
+circ = json.loads((V.RAIZ / "F1" / "comum" / "remotion" / "modelos" / "geo" / "circuitos.json").read_text(encoding="utf-8"))
 checa(circ["silverstone"]["comprimento"] == 5891 and len(circ["silverstone"]["curvas"]) == 18, "silverstone: 5891 m, 18 curvas")
 checa(circ["monaco"]["comprimento"] == 3337 and len(circ["monaco"]["curvas"]) == 19 and "monaco_1984" in circ, "monaco atual (3337 m, 19 curvas) e monaco_1984")
-geo = (V.RAIZ / "F1" / "video" / "src" / "modelos" / "geografia.ts").read_text(encoding="utf-8")
+geo = (V.RAIZ / "F1" / "comum" / "remotion" / "modelos" / "geografia.ts").read_text(encoding="utf-8")
 fs = {c["n"]: c["f"] for c in circ["silverstone"]["curvas"]}
 trechos = dict(re.findall(r'texto: "([A-Z ]+)", f: ([\d.]+)', geo.split("TRECHOS_SILVERSTONE")[1].split("];")[0]))
 checa(float(trechos["ABBEY"]) == fs[1] and float(trechos["COPSE"]) == fs[9] and float(trechos["CHAPEL"]) == fs[14] and float(trechos["STOWE"]) == fs[15],

@@ -1,6 +1,6 @@
 // Exemplo mínimo Remotion do kit/anotacao: a cena de teste (kit/anotacao/exemplo/cena.json) com a peça que anda e gira,
 // os textos e as 7 anotações. Render (feito por F1/horizontal/testes/anotacao/rodar.py):
-//   node <F1/video/node_modules>/@remotion/cli/remotion-cli.js render index.tsx ExemploAnotacao <pasta> --sequence
+//   node <node_modules (raiz)>/@remotion/cli/remotion-cli.js render index.tsx ExemploAnotacao <pasta> --sequence
 import React, { useMemo } from "react";
 import { AbsoluteFill, Composition, registerRoot, useCurrentFrame, useVideoConfig } from "remotion";
 import { ancoraEm, montar, type Cena, type Fonte } from "../../../kit/anotacao/anotacao.ts";

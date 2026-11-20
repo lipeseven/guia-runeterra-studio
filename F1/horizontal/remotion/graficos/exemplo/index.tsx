@@ -1,6 +1,6 @@
 // Exemplo mínimo Remotion do kit/graficos: a cena de teste (kit/graficos/exemplo/cena.json), 5 gráficos em sequência.
 // Render (feito por F1/horizontal/testes/graficos/rodar.py):
-//   node <F1/video/node_modules>/@remotion/cli/remotion-cli.js render index.tsx ExemploGraficos <pasta> --sequence
+//   node <node_modules (raiz)>/@remotion/cli/remotion-cli.js render index.tsx ExemploGraficos <pasta> --sequence
 import React, { useMemo } from "react";
 import { AbsoluteFill, Composition, registerRoot } from "remotion";
 import { montar, TEMAS, type Dados, type Larguras, type Spec } from "../../../kit/graficos/graficos.ts";

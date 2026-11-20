@@ -1,7 +1,7 @@
 """Teste de render do kit/anotacao nos DOIS motores + folhas de sequência a 60 q/s.
 
 Passos:
- 1. regera kit/anotacao/anotacao.global.js (esbuild do F1/video/node_modules) e a checagem geométrica do kit (cli.ts checar);
+ 1. regera kit/anotacao/anotacao.global.js (esbuild do node_modules da raiz) e a checagem geométrica do kit (cli.ts checar);
  2. renderiza a cena de teste em PNG quadro a quadro no Remotion (remotion/anotacao/exemplo) e no HyperFrames
     (hyperframes/anotacao/exemplo, via npx hyperframes@0.9.20, nada global);
  3. mede nos PIXELS de cada quadro: tamanho e margem do oval (deve ficar constante enquanto a peça anda e gira),
@@ -35,12 +35,12 @@ HF_VERSAO = "hyperframes@0.9.20"
 
 
 def node_modules() -> Path:
-    """F1/video/node_modules deste checkout ou, numa worktree, o da pasta principal do repositório."""
+    """node_modules único da raiz do projeto (deste checkout ou, numa worktree, o da pasta principal do repositório)."""
     for base in [RAIZ, *RAIZ.parents]:
-        p = base / "F1" / "video" / "node_modules"
+        p = base / "node_modules"
         if (p / "@remotion" / "cli").is_dir():
             return p
-    raise SystemExit("F1/video/node_modules não encontrado (rode npm install em F1/video na pasta principal)")
+    raise SystemExit("node_modules não encontrado (rode npm install na raiz do projeto)")
 
 
 NM = node_modules()
@@ -69,13 +69,7 @@ def kit_json(cmd: str, *args: str):
 
 # ---------------------------------------------------------------- 2. render
 def render_remotion(dest: Path) -> None:
-    # usa o node_modules do projeto F1/horizontal/remotion (npm install lá) se existir; senão, uma junção LOCAL ao
-    # exemplo (remotion/anotacao/node_modules → F1/video/node_modules). Nunca cria junção em remotion/node_modules:
-    # um npm install ali escreveria dentro do F1/video.
-    if not (HORIZ / "remotion" / "node_modules" / "remotion").is_dir():
-        junc = HORIZ / "remotion" / "anotacao" / "node_modules"
-        if not junc.exists():
-            subprocess.run(["cmd", "/c", "mklink", "/J", str(junc), str(NM)], check=True, capture_output=True)
+    # o node_modules é único, na raiz: o Node o encontra subindo as pastas (sem junção por projeto)
     if dest.exists():
         shutil.rmtree(dest)
     cli = NM / "@remotion" / "cli" / "remotion-cli.js"

@@ -2,7 +2,7 @@
 // (montador/receitas.py) montou a partir dos kits. Nada é decidido aqui: dados, textos, caixas e tempos vêm nas props.
 // Relógio: tau = (quadro - pre) / 60; os `pre` quadros da transição de entrada seguram o quadro 0.
 // Render (feito por montador/segmentos.py):
-//   node <F1/video/node_modules>/@remotion/cli/remotion-cli.js render index.tsx CenaDoc <pasta> --sequence --props=<json>
+//   node <node_modules (raiz)>/@remotion/cli/remotion-cli.js render index.tsx CenaDoc <pasta> --sequence --props=<json>
 //   Lote (várias cenas numa invocação, segmentos.renderizar_lote): composição LoteDoc com props {cenas: Props[]}.
 import React, { useMemo } from "react";
 import { AbsoluteFill, Composition, Freeze, Sequence, registerRoot, useCurrentFrame } from "remotion";

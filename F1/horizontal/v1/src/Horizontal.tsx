@@ -1,5 +1,5 @@
 // Composição do horizontal: plano em JSON (lista de cenas com duração em segundos e entrada) → vídeo 1920×1080.
-// Regras e medidas: F1/docs/folha_horizontal.md. O diretor do horizontal (a fazer) gera este plano preso às palavras.
+// Regras e medidas: F1/horizontal/docs/folha_horizontal.md. O diretor do horizontal (a fazer) gera este plano preso às palavras.
 import { AbsoluteFill, type CalculateMetadataFunction } from "remotion";
 import { Cores, PALETA, type Paleta } from "./base";
 import { Estudio, Pista, type CameraEstudio, type CameraPista, type CarroNaPista } from "./cenas3d";

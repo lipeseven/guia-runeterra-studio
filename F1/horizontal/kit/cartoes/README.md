@@ -82,6 +82,6 @@ Folhas: `testes/cartoes/folha_<motor>_tag_60qs.jpg`, `_pessoa_60qs.jpg` e `_cena
 - A foto do exemplo é sintética. Uma foto real (Wikimedia, P&B) não foi testada, e o crédito da foto fica com quem a
   escolher (FONTES).
 - Texto em várias linhas só existe no título (2 linhas). Nome e função muito longos encolhem e não quebram.
-- O cartão de pessoa não tem a citação palavra a palavra do v1 (`F1/video/src/horizontal/cartoes.tsx`).
+- O cartão de pessoa não tem a citação palavra a palavra do v1 (`F1/horizontal/v1/src/cartoes.tsx`).
 - A tabela de larguras depende da Bahnschrift do Windows. Em outro sistema (Docker/Linux) a fonte muda e é preciso
   regerar a tabela e embutir a fonte.

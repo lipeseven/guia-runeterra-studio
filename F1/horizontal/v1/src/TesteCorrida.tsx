@@ -4,7 +4,7 @@ import * as THREE from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { preparar } from "./TesteEstudio";
-import { criarChao, type Chao } from "./horizontal/chao";
+import { criarChao, type Chao } from "./chao";
 
 // Teste do horizontal: pista real do .glb (só a superfície, no estilo do estúdio: asfalto escuro, zebras, resto apagado),
 // duas Ferraris disputando no S do Senna e a linha na cor de destaque atrás de quem ataca.

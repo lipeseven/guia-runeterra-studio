@@ -23,8 +23,8 @@ import sfx  # noqa: E402
 RAIZ = KIT.parents[3]
 SAIDA = EX / "saida"
 DUR = 20.0
-NODE_MODULES_REMOTION = RAIZ / "F1" / "video" / "node_modules"
-# navegador que o F1/video já baixou (sem isso o Remotion baixa outro de ~280 MB na pasta do exemplo)
+NODE_MODULES_REMOTION = RAIZ / "node_modules"   # único, na raiz (motor compartilhado entre os canais)
+# navegador que o Remotion da raiz já baixou (sem isso o Remotion baixa outro de ~280 MB na pasta do exemplo)
 NAVEGADOR = NODE_MODULES_REMOTION / ".remotion/chrome-headless-shell/win64/chrome-headless-shell-win64/chrome-headless-shell.exe"
 HYPERFRAMES = "hyperframes@0.9.20"  # mesma versão do teste HyperFrames (via npx, nada global)
 
@@ -78,12 +78,8 @@ def comparar(ref: np.ndarray, outro: np.ndarray) -> dict:
 
 def remotion(evs: list[sfx.Evento]) -> Path | None:
     if not NODE_MODULES_REMOTION.is_dir():
-        print("Remotion: F1/video/node_modules não existe; pulei.")
+        print("Remotion: node_modules da raiz não existe; pulei.")
         return None
-    junc = EX / "remotion" / "node_modules"
-    if not junc.exists():
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(junc), str(NODE_MODULES_REMOTION)], check=True,
-                       capture_output=True)
     publico = SAIDA / "remotion_public"          # só os WAVs usados (o bundler copia a pasta inteira)
     for e in evs:
         (publico / e.arquivo).parent.mkdir(parents=True, exist_ok=True)
