@@ -411,9 +411,15 @@ export function carro(p: Pintura): THREE.Group {
   gAsaD.add(lamina(0.21, -2.52, 0.12, p.acento, 0.9, 0.14));
   // asa traseira: plano principal, flap e pilar central
   gAsaT.add(caixa(1.04, 0.035, 0.3, 0, 0.8, 2.38, p.base, 0.3));
-  const flap = caixa(1.04, 0.03, 0.2, 0, 0.93, 2.5, p.acento, 0.3);
-  flap.rotation.x = 0.35;
-  gAsaT.add(flap);
+  // aba móvel (DRS, `drs(carro, k)` em efeitos3d.ts): articula na borda de TRÁS; a borda da frente sobe ao abrir.
+  // Fechada (rotation.x 0,35) fica exatamente onde sempre ficou (centro em y 0,93, z 2,5): nada muda nas cenas antigas.
+  const flap = caixa(1.04, 0.03, 0.2, 0, 0, -0.1, p.acento, 0.3);
+  const abaDrs = new THREE.Group();
+  abaDrs.name = "aba_drs";
+  abaDrs.position.set(0, 0.93 - 0.1 * Math.sin(0.35), 2.5 + 0.1 * Math.cos(0.35));
+  abaDrs.rotation.x = 0.35;
+  abaDrs.add(flap);
+  gAsaT.add(abaDrs);
   gAsaT.add(haste(new THREE.Vector3(0, 0.42, 2.25), new THREE.Vector3(0, 0.8, 2.36), 0.025, preto));
   // estrutura de impacto com a luz de chuva
   gMono.add(caixa(0.12, 0.1, 0.36, 0, 0.34, 2.45, preto));

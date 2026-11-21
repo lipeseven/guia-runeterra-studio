@@ -234,6 +234,12 @@ em frenagem forte (nunca o disco brilhando a volta toda).
   pedal ao capacete): `enquadrar(w, alvoDoCockpit(w, car), [1, 0.35, 0.2], 1.1, 34)`.
   Ex.: `poe(w, 20, 0, 0); const car = w.carros[20]; const p = poePilotoNoCarro(w, car, 0); apertar(p.userData.volante,
   "ot", k); cameraNoCockpit(w, car, "ombro", { k: c.k });`
+- **Polegar até um botão (2026-11-20):** `polegar(p, "ot", k)` (`p` = o piloto de `poePilotoNoCarro` ou `cockpitNaPista`; nomes: ot, boost,
+  aero, pl, n, radio, bb_mais, bb_menos). `k` 0 a 1: de 0 a 0,7 o polegar solta a pegada e vai até o botão (por cima da face, sem
+  atravessar o volante); de 0,7 a 1 afunda e acende o botão (já chama `apertar`: não use os dois). A mão que alcança é a do lado do
+  botão (OT, BOOST, PL, RÁDIO, BB+ = direita; N, AERO, BB− = esquerda); a outra fica na empunhadura. Com k 0 nada muda. Ex.:
+  `const p = cockpitNaPista(w, car, q, v, { semCabeca: true }); polegar(p, "ot", suave(c.t, c.m("aperta"), c.m("aperta") + 0.4));`
+  (o `realcar(vol, "botao_ot", ...)` continua valendo para o brilho). O polegar é mais comprido que o de repouso: é o alcance real.
 - POV do piloto na pista (2026-11-18, "como se nós estivéssemos numa câmera POV"): `poeNoCircuito(...)`, `const p =
   poePilotoNoCarro(w, car, 0); telaDoVolante(p.userData.volante, { marcha: "8" }); cameraNoCockpit(w, car, "piloto",
   { lente: 78, rolar: 0.012 * Math.sin(c.t * 2.1), olhar: [0.25 * Math.sin(c.t * 0.45), 0.45, -5] })` com 2 ou 3 carros
@@ -254,6 +260,10 @@ em frenagem forte (nunca o disco brilhando a volta toda).
   olhos (v8), lente 82; some com a cabeça (`semCabeca`). Vibração de alta velocidade: some `0.004 * Math.sin(c.t * 53)`
   ao `rolar`. Carro rápido na pista: `rodasRapidas(car, v)` depois de `poeNoCircuito` = face da roda vira disco com
   borrão de movimento (a partir de 25 m/s), opt-in, nada muda nos planos que não chamam.
+- **DRS / modo reta na pista (2026-11-20):** `drs(car, k)` abre a ABA MÓVEL da asa traseira do carro (k 0 fechada, 1 aberta, ~29° a
+  mais; articula na borda de trás, a da frente sobe) e volta sozinha no quadro seguinte. Vale para qualquer carro da biblioteca
+  (parado, no circuito, em `perseguir`). Ex.: `const ka = suave(c.t, c.m("abre"), c.m("abre") + 0.3); const kf = suave(c.t, c.m("fecha"), c.m("fecha") + 0.6);
+  drs(w.carros[6], ka * (1 - kf)); realcar(w.carros[6], "asa_traseira", ka * (1 - kf), "#ffd23f");` Só a aba traseira mexe (a dianteira é fixa).
 - `escurecer(w, k)`: escurece a tela INTEIRA por igual (vidro preto na frente da câmera; chame depois da câmera). Para o
   gancho de abertura com `frase`, sem desfocar a cena (o `foco` desfoca).
 

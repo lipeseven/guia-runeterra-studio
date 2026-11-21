@@ -8,7 +8,7 @@ import { criarPiloto, obj, rotulo } from "./extras";
 import { neutro } from "./boneco";
 import { calorNosDiscos, corDoCalor, texFibra } from "./freio";
 import { COCKPIT } from "./Carro3D";
-import { CX, CY, PEGA, S, criarVolante, telaDoVolante } from "./volante";
+import { CX, CY, PEGA, S, apertar, criarVolante, telaDoVolante } from "./volante";
 import { ConvexGeometry } from "three/addons/geometries/ConvexGeometry.js";
 import { Reflector } from "three/addons/objects/Reflector.js";
 import { camera, type Mundo } from "./mundo";
@@ -804,6 +804,8 @@ const junta = (p: THREE.Vector3, r: number, m: THREE.Material) => {
   j.position.copy(p);
   return j;
 };
+const POL_L = [0.028, 0.032, 0.026]; // metacarpo visível, falange proximal, falange distal (as duas últimas somam ~0,055: mão adulta de luva)
+const POL_R = [0.011, 0.0102, 0.009, 0.0085];
 /** Mão `s` (-1 esquerda, 1 direita) no espaço do volante. Devolve o grupo; userData.pulso = posição do pulso.
  *  v12 (Felipe: "é só fazer uma mão normal"): medidas de mão adulta com luva (+10% de espessura): palma ~0,09 x 0,10;
  *  dedos médio 0,088, indicador/anelar ~0,07, mínimo ~0,06 (falanges 4:2,5:2), espessura ~0,02; polegar 0,055 em 2
@@ -874,7 +876,19 @@ function criarMaoNoVolante(s: number, mLuva: THREE.Material, mPunho: THREE.Mater
   // da borda de dentro e abaixo do seletor do canto
   const t1 = new THREE.Vector3(s * (foraX - 0.007), 0.01, Z_PEGA[1] + 0.022);
   const t2 = new THREE.Vector3(s * (foraX - 0.017), 0.01, Z_PEGA[1] + 0.019); // por cima do indicador, abaixo do seletor do canto
-  g.add(segmento(tenar, t1, 0.011, 0.0102, mLuva), junta(t1, 0.0102, mLuva), segmento(t1, t2, 0.0102, 0.009, mLuva), junta(t2, 0.009, mLuva));
+  // (2026-11-20) o polegar de repouso fica num grupo próprio: `polegar(p, "ot", k)` o troca pelo polegar articulado que alcança um botão
+  const polFixo = new THREE.Group();
+  polFixo.name = "polegar_fixo";
+  polFixo.add(segmento(tenar, t1, 0.011, 0.0102, mLuva), junta(t1, 0.0102, mLuva), segmento(t1, t2, 0.0102, 0.009, mLuva), junta(t2, 0.009, mLuva));
+  g.add(polFixo);
+  const polMov = new THREE.Group();
+  polMov.name = "polegar_mov";
+  polMov.visible = false;
+  const polSegs = POL_L.map((_, i) => new THREE.Mesh(new THREE.CylinderGeometry(POL_R[i + 1], POL_R[i], 1, 14, 1, true), mLuva));
+  const polJuntas = POL_R.map((r) => new THREE.Mesh(new THREE.SphereGeometry(r, 14, 10), mLuva));
+  polMov.add(...polSegs, ...polJuntas);
+  g.add(polMov);
+  g.userData.polegar = { fixo: polFixo, mov: polMov, segs: polSegs, juntas: polJuntas, base: tenar.clone(), repouso: t2.clone() };
   // punho do macacão (manga azul com faixa amarela na boca): orientado a cada quadro pelo antebraço
   const punho = new THREE.Group();
   punho.name = "punho";
@@ -888,4 +902,77 @@ function criarMaoNoVolante(s: number, mLuva: THREE.Material, mPunho: THREE.Mater
   g.userData.pulso = [pulso.x, pulso.y, pulso.z];
   g.traverse((o) => (o.castShadow = true));
   return g;
+}
+
+// ------------------------------------------------------------------------------------------------ polegar até um botão
+const suave = (x: number) => {
+  const t = Math.max(0, Math.min(1, x));
+  return t * t * (3 - 2 * t);
+};
+const polegaresAtivos = new Set<{ fixo: THREE.Object3D; mov: THREE.Object3D }>();
+let restauraPolegar = false;
+/** Polegar do piloto até um botão do volante (2026-11-20; pedido: "levar o polegar até o OT"). `p` = o piloto de
+ *  `poePilotoNoCarro` / `cockpitNaPista`; `nome` = ot, boost, aero, pl, n, radio, bb_mais, bb_menos; `k` de 0 a 1: de 0 a 0,7
+ *  o polegar solta a pegada e vai até o botão (arco, sem atravessar o volante); de 0,7 a 1 ele AFUNDA o botão e o acende (já
+ *  chama `apertar`, não use os dois). A mão que alcança é a do lado do botão (OT, BOOST, PL, rádio, BB+ = direita; N, AERO, BB−
+ *  = esquerda), a outra segue na empunhadura. Com k 0 nada muda (polegar de repouso). Volta ao normal no quadro seguinte.
+ *  Ex.: `const p = poePilotoNoCarro(w, car, 0); polegar(p, "ot", c.k); cameraNoCockpit(w, car, "ombro", { k: c.k });` */
+export function polegar(p: THREE.Object3D, nome: string, k = 1) {
+  const vol = p.userData.volante as THREE.Object3D | null | undefined;
+  if (!vol || k <= 0) return;
+  const botao = achar(vol, `botao_${nome}`);
+  if (!botao) return;
+  vol.updateMatrixWorld(true);
+  const centro = vol.worldToLocal(botao.getWorldPosition(new THREE.Vector3()));
+  const caixa = new THREE.Box3().setFromObject(botao);
+  let topo = -Infinity;
+  for (const x of [caixa.min.x, caixa.max.x]) for (const y of [caixa.min.y, caixa.max.y]) for (const z of [caixa.min.z, caixa.max.z])
+    topo = Math.max(topo, vol.worldToLocal(new THREE.Vector3(x, y, z)).z);
+  const mao = vol.getObjectByName(centro.x < 0 ? "mao_E" : "mao_D");
+  const d = mao?.userData.polegar as { fixo: THREE.Object3D; mov: THREE.Object3D; segs: THREE.Mesh[]; juntas: THREE.Mesh[]; base: THREE.Vector3; repouso: THREE.Vector3 } | undefined;
+  if (!mao || !d) return;
+  const a = suave(k / 0.7); // alcance
+  const press = suave((k - 0.7) / 0.3); // afundar
+  const alvo = new THREE.Vector3(centro.x, centro.y, topo + POL_R[3] - 0.0025 * press);
+  const base = d.base.clone();
+  const ponta = d.repouso.clone().lerp(alvo, a);
+  ponta.z += 0.016 * Math.sin(Math.PI * a); // arco: o polegar passa por cima da face, não por dentro dela
+  const esc = 0.3 + 0.7 * a; // o polegar curvado sobre a empunhadura parece curto: estica ao se abrir
+  const L = POL_L.map((x) => x * esc);
+  // FABRIK de 3 ossos: base presa na tenar, ponta no alvo, arco para o piloto (+z) como chute inicial
+  const J = [0, 1, 2, 3].map((i) => base.clone().lerp(ponta, i / 3).add(new THREE.Vector3(0, 0, 0.03 * Math.sin((Math.PI * i) / 3))));
+  for (let it = 0; it < 24; it++) {
+    J[3].copy(ponta);
+    for (let i = 2; i >= 0; i--) {
+      const dir = J[i].clone().sub(J[i + 1]).normalize(); // (calcula a direção ANTES de copiar o vizinho)
+      J[i].copy(J[i + 1]).addScaledVector(dir, L[i]);
+    }
+    J[0].copy(base);
+    for (let i = 1; i <= 3; i++) {
+      const dir = J[i].clone().sub(J[i - 1]).normalize();
+      J[i].copy(J[i - 1]).addScaledVector(dir, L[i - 1]);
+    }
+  }
+  for (let i = 0; i < 3; i++) {
+    const seg = d.segs[i];
+    const v = J[i + 1].clone().sub(J[i]);
+    seg.position.copy(J[i]).addScaledVector(v, 0.5);
+    seg.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), v.clone().normalize());
+    seg.scale.set(1, v.length(), 1);
+  }
+  J.forEach((q, i) => d.juntas[i].position.copy(q));
+  d.fixo.visible = false;
+  d.mov.visible = true;
+  polegaresAtivos.add(d);
+  if (!restauraPolegar) {
+    restauraPolegar = true;
+    aoRestaurar(() => {
+      polegaresAtivos.forEach((x) => {
+        x.fixo.visible = true;
+        x.mov.visible = false;
+      });
+      polegaresAtivos.clear();
+    });
+  }
+  apertar(vol as never, nome, press);
 }
