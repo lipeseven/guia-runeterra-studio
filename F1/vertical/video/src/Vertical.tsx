@@ -14,7 +14,7 @@ import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "../..
 import { ligar } from "../../../comum/remotion/modelos/ligacoes";
 import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "../../../comum/remotion/modelos/pitstop";
 import { filmar, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "../../../comum/remotion/modelos/geografia";
-import { aura, brilho, campoDeVisao, criarCurva, definirTempo, destacar, estercar, naCurva, realcar, rodasRapidas } from "../../../comum/remotion/modelos/efeitos3d";
+import { aura, brilho, campoDeVisao, criarCurva, definirTempo, destacar, estercar, naCurva, realcar, rodasRapidas, drs } from "../../../comum/remotion/modelos/efeitos3d";
 import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
 import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "../../../comum/remotion/modelos/volante";
 import {
@@ -25,7 +25,7 @@ import "../../../comum/remotion/modelos/logo_canal"; // carrega o logo (segura o
 import { aplicarLogo, carregarLogos, criarLivro, criarPainelLogo, logo } from "../../../comum/remotion/modelos/logos"; // logos de arquivo (F1/comum/arte/logos)
 import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar } from "../../../comum/remotion/modelos/boneco";
 import { apertarFreio, criarFreio, girarDisco } from "../../../comum/remotion/modelos/freio";
-import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit, ponteiro, tomadaDeAr, ventilar, cockpitNaPista, marchaDe, espelhoReal } from "../../../comum/remotion/modelos/freio_cena";
+import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, polegar, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit, ponteiro, tomadaDeAr, ventilar, cockpitNaPista, marchaDe, espelhoReal } from "../../../comum/remotion/modelos/freio_cena";
 
 type PlacaV = { texto: string; unidade?: string; i?: number; cor?: string; pos?: string };
 export type PlanoV = {
@@ -412,8 +412,8 @@ export const API = {
   criarPitStop, pitStop, noPit, PAPEIS, rolarRodas,
   criarMapaRegiao, neutro, andar, faseDoPasso, carregar, agachar, abaixar, apontar, acenar, empurrar, maos, olhar,
   criarFreio, girarDisco, apertarFreio, aquecer, noFreio, fluxo, ventilar, criarTermometro, medirTemperatura, criarMedidorTermico, ponteiro,
-  criarPlacaCarbono, criarHibrido, poeHibrido, caminhoDaEnergia, escurecer, tomadaDeAr, poePedais, linhaDoFreio, poePilotoNoCarro, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit,
-  logo, aplicarLogo, criarPainelLogo, criarLivro, realcar, campoDeVisao, cockpitNaPista, marchaDe, espelhoReal, rodasRapidas,
+  criarPlacaCarbono, criarHibrido, poeHibrido, caminhoDaEnergia, escurecer, tomadaDeAr, poePedais, linhaDoFreio, poePilotoNoCarro, polegar, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit,
+  logo, aplicarLogo, criarPainelLogo, criarLivro, realcar, campoDeVisao, cockpitNaPista, marchaDe, espelhoReal, rodasRapidas, drs,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
