@@ -341,6 +341,22 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
   dia em tons de asfalto/terreno, postes de luz dos dois lados da pista, palmeiras e letreiros de neon coloridos (sem texto
   nem marca) fora dos prédios; a Sphere é uma tela escura com o LOGO DO CANAL em disco (recorte circular, aro vermelho) nas
   quatro faces (`modelos/logo_canal.ts`).
+  **Noite em NEON é o padrão de `"circ:lvn"` (2026-11-21, pedido do Felipe: "muito escuro e sem vida")**: basta a mesma linha
+  `obj(w, "circ:lvn", () => criarCircuito("lasvegas", { cenario: true, noite: true }))` com `clima: "noite"` e a cena herda
+  tudo: prédios escuros arroxeados com janelas acesas em grades variadas, arestas em neon (coroa e aro no telhado, quinas
+  das torres, letreiros verticais acesos; magenta/ciano/laranja/violeta), Sphere com LED colorido em volta do logo,
+  roda-gigante magenta e ciano, cones de luz e poça de luz no chão sob cada poste (realce suave; o asfalto é FOSCO, nunca
+  espelho), tubo de neon magenta/ciano no alto do alambrado e na base do muro, traçado em neon rosa nas duas margens com um
+  PULSO de luz percorrendo a volta, céu e névoa roxo-magenta no horizonte. Do alto (câmera acima de ~160 m, até ~1,4 km) o
+  traçado inteiro acende em neon com luz andando e os quarteirões viram contornos de neon (mapa em neon, sem "blocos bege").
+  No render: bloom (só no que é luz) + correção de cor (saturação, contraste, sombras arroxeadas, vinheta leve), e os carros
+  em pista ganham as luzes traseiras de LED de F1 (luz de chuva vermelha no centro da traseira e as fitas de LED na borda
+  de trás das placas da asa traseira, com halo; filete discreto da cor da equipe no assoalho; sem farol, sem seta).
+  Tudo isso só quando esse circuito está visível no plano (`modelos/pos_neon.ts`); as outras cenas e vídeos não mudam.
+  Custo medido (render por blocos, 120 quadros, concorrência 3): ~+8% por quadro nas cenas Las Vegas noturnas
+  (0,158→0,172 s e 0,178→0,191 s); nas outras, nada. `neon: false` no `criarCircuito` volta ao noturno antigo (azul-marinho, sem bloom).
+  O `minimapa` com `circuito: "lasvegas"` também é neon (tubo rosa com halo, luz correndo, trecho em ciano); `neon: false`
+  no gráfico volta ao cinza.
 - **Marcação de chão no código da cena** (faixas, linhas de pátio, sinalização): nunca rente ao piso nem fina demais. Use
   material com `polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4`, ponha a faixa ~3 cm acima do chão e
   com pelo menos 0,5 m de largura quando vista de longe (linha fina de longe "cintila"). Duas superfícies paralelas

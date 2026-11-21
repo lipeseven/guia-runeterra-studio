@@ -12,6 +12,7 @@ import {
 import { PINTURAS, carro, trocarComposto } from "../../../comum/remotion/modelos/Carro3D";
 import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "../../../comum/remotion/modelos/desmonte";
 import { ligar } from "../../../comum/remotion/modelos/ligacoes";
+import { desenhar } from "../../../comum/remotion/modelos/pos_neon";
 import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "../../../comum/remotion/modelos/pitstop";
 import { filmar, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "../../../comum/remotion/modelos/geografia";
 import { aura, brilho, campoDeVisao, criarCurva, definirTempo, destacar, estercar, naCurva, realcar, rodasRapidas, drs } from "../../../comum/remotion/modelos/efeitos3d";
@@ -569,7 +570,7 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
       preparar(w, p.codigo ? "tarde" : clima, tipo.set);
       tipo.cena(ctx(w));
     }
-    w.r.render(w.cena, w.cam);
+    desenhar(w, t); // = w.r.render(cena, cam); Las Vegas noturna em neon ganha bloom e cor (pos_neon.ts)
     continueRender(alca);
   });
   const c = ctx(mundo.current ?? ({} as Mundo));

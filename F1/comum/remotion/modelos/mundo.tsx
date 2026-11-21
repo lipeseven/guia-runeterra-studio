@@ -13,6 +13,8 @@ const CADILLAC: Pintura = { base: "#1a1b20", clara: "#70747e", escura: "#07080a"
 const EQUIPES: Pintura[] = [...PINTURAS, CADILLAC, { base: "#0c7a3d", clara: "#34c477", escura: "#043d1d", faixa: "#f1f1e6", acento: "#ffd21f" }, { base: "#e8e8ec", clara: "#ffffff", escura: "#8a8e98", faixa: "#1553c9", acento: "#d4213c" }];
 const CINZA: Pintura = { base: "#5c5f66", clara: "#83868d", escura: "#2c2e33", faixa: "#44464c", acento: "#44464c" };
 export const iCadillac = PINTURAS.length;
+/** Pintura do carro w.carros[k] (dois carros por equipe, na ordem de EQUIPES). */
+export const pinturaDoCarro = (k: number) => EQUIPES[Math.floor(k / 2) % EQUIPES.length];
 
 type Clima = { ceu: string[]; nevoa: string; sol: string; forca: number; perto?: number; longe?: number };
 export const CLIMAS: Record<string, Clima> = {

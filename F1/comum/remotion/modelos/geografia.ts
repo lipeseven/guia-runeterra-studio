@@ -11,6 +11,7 @@ import { aoRestaurar } from "./desmonte";
 import { obj, rotulo } from "./extras";
 import { estercar, rolarRodas } from "./efeitos3d";
 import { afastarNevoa, camera, poe, type Mundo } from "./mundo";
+import { texturaPulso } from "./neon_vegas";
 
 type Anel = [number, number][];
 const mat = (cor: string, rough = 0.6, extra: THREE.MeshStandardMaterialParameters = {}) =>
@@ -180,7 +181,7 @@ export function marcoNoCircuito(circ: THREE.Object3D, chave: string, altura = 0)
 /** Circuito com o traçado real, em metros (Interlagos: 4,309 km), sentido da corrida = sentido dos pontos (f 0 = linha
  *  de chegada, f 1 = volta completa). Asfalto, linhas brancas, zebras nas curvas fortes, linha de chegada quadriculada,
  *  grama em volta. `rotulos`: [{texto, f}] marcando trechos (ex.: S do Senna). */
-export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulos?: { texto: string; f: number }[]; cenario?: boolean; noite?: boolean } = {}) {
+export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulos?: { texto: string; f: number }[]; cenario?: boolean; noite?: boolean; neon?: boolean } = {}) {
   const dados = (CIRCUITOS as unknown as Record<string, { pontos: [number, number][]; comprimento: number }>)[nome];
   if (!dados) throw new Error(`circuito desconhecido: ${nome}`);
   const lon0 = dados.pontos.reduce((s, p) => s + p[0], 0) / dados.pontos.length;
@@ -275,15 +276,53 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
     g.add(faixa(larg * 0.9, (i) => fora(i) * 0.72, 0.009, (i) => (fora(i) > larg * 2 ? terra : null), 0.7),
       faixa((i) => -dentro(i) * 0.72, -larg * 0.9, 0.009, (i) => (dentro(i) > larg * 2 ? terra : null), 0.7));
   }
+  // Las Vegas à noite em NEON é o padrão (pedido do Felipe, 2026-11-21); `neon: false` volta ao noturno antigo
+  const neon = rua && !!o.cenario && !!o.noite && (o.neon ?? true);
   if (rua && o.cenario && o.noite) {
     // à noite a rua iluminada desenha o traçado: a faixa junto ao muro acende como a luz dos postes
+    // (neon: a faixa vira o traçado em neon rosa; o brilho sobe com a altura da câmera em pos_neon.ts, de perto é só um tom)
     const m = escape.material as THREE.MeshStandardMaterial;
-    m.emissive.set("#ffcf8a");
-    m.emissiveIntensity = 0.75;
+    m.emissive.set(neon ? "#ff2d6f" : "#ffcf8a");
+    m.emissiveIntensity = neon ? 0.15 : 0.75;
+    if (neon) m.color.set("#5a4a66");
   }
   g.add(escape);
   const pista = faixa(-larg / 2, larg / 2, 0.02, () => asfalto, 2);
+  if (neon) (pista.material as THREE.MeshStandardMaterial).color.set("#8e88a6"); // asfalto um pouco mais escuro e frio (fosco, sem reflexo)
   g.add(pista);
+  const pulsos: THREE.MeshBasicMaterial[] = [];
+  if (neon) {
+    // tubo de neon nas duas margens (entre o escape e o muro) e o pulso de luz que percorre a volta por cima dele;
+    // o pulso largo (escape inteiro) só aparece na vista do alto (pos_neon.ts), para o traçado do mapa ter luz andando
+    const borda = larg * fatorEscape;
+    const rosa = new THREE.Color("#ff2d6f");
+    for (const s of [-1, 1]) {
+      const t: THREE.Mesh = faixa(s * (borda - 0.9), s * (borda - 0.25), 0.032, () => rosa, 4);
+      const mt = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -16 });
+      mt.color.setScalar(1.6);
+      t.material = mt;
+      g.add(t);
+    }
+    const fita = (d0: number, d1: number, y: number, forca: number) => {
+      const f: THREE.Mesh = faixa(d0, d1, y, () => rosa, 5);
+      const pos = f.geometry.getAttribute("position");
+      const uv: number[] = [];
+      for (let k = 0; k < pos.count; k++) uv.push(((Math.floor(k / 4) + (k % 4 >= 2 ? 1 : 0)) / N) * 7, k % 2); // 7 pulsos na volta
+      f.geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+      const m = new THREE.MeshBasicMaterial({ map: texturaPulso().clone(), color: "#ffd0ec", transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -10, polygonOffsetUnits: -20 });
+      m.map!.wrapS = THREE.RepeatWrapping;
+      m.map!.needsUpdate = true;
+      m.color.multiplyScalar(forca);
+      f.material = m;
+      f.userData.semSombra = true;
+      g.add(f);
+      pulsos.push(m);
+      return f;
+    };
+    fita(-(borda - 0.9), -(borda - 0.25), 0.036, 2.2);
+    fita(borda - 0.9, borda - 0.25, 0.036, 2.2);
+    fita(-borda, borda, 0.04, 4).name = "pulso_largo";
+  }
   const branco = new THREE.Color("#f2f2f2");
   g.add(faixa(-larg / 2, -larg / 2 + 0.35, 0.03, () => branco, 3), faixa(larg / 2 - 0.35, larg / 2, 0.03, () => branco, 3));
   const zebra = (i: number) => (Math.abs(curvatura[i]) > (o.cenario ? 0.0035 : 0.006) ? (Math.floor(i / 2) % 2 ? new THREE.Color("#d92b2b") : branco) : null);
@@ -314,7 +353,9 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   g.userData.circuito = info;
   g.userData.nome = nome;
   g.userData.curvas = (dados as { curvas?: { n: number; f: number }[] }).curvas ?? []; // numerarCurvas: as curvas DESTE circuito
-  if (o.cenario) vestirCircuito(g, pontos, comp, { ...(CENARIOS[nome] ?? { arquibancadas: [] }), noite: o.noite }, bordas);
+  if (o.cenario) vestirCircuito(g, pontos, comp, { ...(CENARIOS[nome] ?? { arquibancadas: [] }), noite: o.noite, neon }, bordas);
+  // pos_neon.ts acha este circuito visível e liga bloom, cor, névoa roxa e as luzes traseiras dos carros
+  if (neon) g.userData.neon = { escape: escape.material, pulsos, centro: new THREE.Box3().setFromPoints(pontos).getCenter(new THREE.Vector3()) };
   aoRestaurar(() => {
     for (const m of faixas) m.geometry.setDrawRange(0, m.geometry.index?.count ?? 0);
   });

@@ -123,6 +123,30 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
     const [ta, tb] = g.trecho ?? [g.de ?? 0, g.ate ?? 0];
     const m = Math.max(2, Math.ceil((tb - ta) * pts.length) * 2);
     const seg = Array.from({ length: m + 1 }, (_, s) => naVolta(pts, ta + (s / m) * (tb - ta)));
+    if (g.circuito === "lasvegas" && g.neon !== false) {
+      // Las Vegas noturna (2026-11-21): traçado em tubo de neon rosa com halo, luz percorrendo a volta, trecho em ciano
+      const caminho = pts.map((p) => p.join(",")).join(" ");
+      const cabeca = ((t * 0.22) % 1 + 1) % 1; // a luz dá uma volta a cada ~4,5 s
+      const rastro = Array.from({ length: 25 }, (_, s) => naVolta(pts, cabeca - (s / 24) * 0.12));
+      return (
+        <div style={{ ...PAINEL, position: "absolute", right: 32, top: 1500, padding: 14, zIndex: 42, opacity: e, transform: `translateX(${(1 - e) * 60}px)`, background: "rgba(16,8,34,.88)", border: "2px solid rgba(255,45,140,.6)", boxShadow: "0 0 34px rgba(255,43,214,.35), 0 18px 60px rgba(0,0,0,.45)" }}>
+          <svg width={L} height={L}>
+            <defs>
+              <filter id="neonMini" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="5" result="b" />
+                <feMerge><feMergeNode in="b" /><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            <polygon points={caminho} fill="none" stroke="#ff2d6f" strokeWidth={7} strokeLinejoin="round" filter="url(#neonMini)" />
+            <polygon points={caminho} fill="none" stroke="#ffd0e4" strokeWidth={2.2} strokeLinejoin="round" />
+            <polyline points={rastro.map((p) => p.join(",")).join(" ")} fill="none" stroke="#ffffff" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" opacity={0.85} filter="url(#neonMini)" />
+            <polyline points={seg.map((p) => p.join(",")).join(" ")} fill="none" stroke="#22e5ff" strokeWidth={9} strokeLinecap="round" strokeLinejoin="round" filter="url(#neonMini)" />
+            <circle cx={x} cy={y} r={10} fill="#fff" stroke="#ff2bd6" strokeWidth={5} filter="url(#neonMini)" />
+          </svg>
+          {g.texto && <div style={{ marginTop: 4, textAlign: "center", fontSize: 26, fontWeight: 900, letterSpacing: 1, color: COR.texto }}>{g.texto}</div>}
+        </div>
+      );
+    }
     return (
       <div style={{ ...PAINEL, position: "absolute", right: 32, top: 1500, padding: 14, zIndex: 42, opacity: e, transform: `translateX(${(1 - e) * 60}px)` }}>
         <svg width={L} height={L}>
