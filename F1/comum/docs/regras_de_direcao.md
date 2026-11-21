@@ -44,7 +44,8 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
 - **Circuito do PRÓXIMO GP (pedido do Felipe, 2026-11-10; vale mais que as regras pré-setadas).** Cena de pista que não
   depende de um circuito específico (tema geral: aerodinâmica, pneus, curvas, freios...) usa o circuito do próximo GP, agora
   **Las Vegas (GP 2026)**: `criarCircuito("lasvegas", { cenario: true })`, chave `"circ:lv"` (dia, padrão) ou `"circ:lvn"`
-  (noite, só quando a fala/o clima pedir). Nunca o do GP que já passou (Interlagos). Interlagos só quando a fala for sobre ele
+  (noite, só quando a fala/o clima pedir; desde 2026-11-21 a noite é em NEON por padrão, com bloom e luzes traseiras nos
+  carros: ver `api_cenas.md`, "Las Vegas"). Nunca o do GP que já passou (Interlagos). Interlagos só quando a fala for sobre ele
   ou o tema exigir. Escolha a curva real que mostra a fala (curva rápida, grampo, Strip para reta). Rua estreita com muro:
   `filmar` com "lado"/"ladoesq" pode bater no muro; prefira "rasante", "curva", "alto", "heli", "atras" e confira o quadro.
 
