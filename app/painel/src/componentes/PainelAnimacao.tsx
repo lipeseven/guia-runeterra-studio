@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Play } from 'lucide-react'
 import { api, useAoVivo, type Etapa } from '../api'
+import { BotaoMic, EstadoDitado, useDitado } from './Ditado'
 
 type Plano = { id: string; n: number; tipo: string; clima: string | null; inicio: number; trecho: string; extras: string[] }
 type Pedido = { plano: string | null; texto: string; quando: string }
@@ -134,6 +135,7 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
   const [aberto, setAberto] = useState<string | null>(null)
   const [texto, setTexto] = useState('')
   const [geral, setGeral] = useState('')
+  const dit = useDitado(videoId, (novo) => setGeral((atual) => (atual.trim() ? `${atual.trimEnd()} ${novo}` : novo)))
   const [erro, setErro] = useState<string | null>(null)
   const trabalhando = direcao.status === 'andamento' || render.status === 'andamento'
   const limpar = (e: unknown) => String(e).match(/"detail":"([^"]+)"/)?.[1] ?? String(e)
@@ -313,6 +315,7 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
       {planos.length > 0 && (
         <div className="mt-3 flex flex-col gap-2">
           <div className="flex gap-2">
+            <BotaoMic d={dit} rotulo="Pedido geral por voz" pequeno />
             <input
               value={geral}
               onChange={(e) => setGeral(e.target.value)}
@@ -324,6 +327,7 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
               Anotar
             </button>
           </div>
+          <EstadoDitado d={dit} />
           {pedidos.filter((p) => !p.plano).map((p) => (
             <p key={p.quando + p.texto} className="flex items-center gap-2 text-xs text-ouro">
               pedido geral: {p.texto}

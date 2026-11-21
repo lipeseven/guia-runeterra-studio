@@ -6,7 +6,6 @@ import { MenuCard } from '../componentes/MenuCard'
 import { Moldura } from '../componentes/Moldura'
 import { PainelAnimacao } from '../componentes/PainelAnimacao'
 import { PainelCapa } from '../componentes/PainelCapa'
-import { Observacoes } from '../componentes/Observacoes'
 import { PainelDocumental } from '../componentes/PainelDocumental'
 import { PainelGravacao } from '../componentes/PainelGravacao'
 import { PainelPublicacao } from '../componentes/PainelPublicacao'
@@ -178,7 +177,6 @@ export function Video({ id }: { id: number }) {
           </div>
 
           <div className="flex flex-col gap-5">
-            <Observacoes videoId={v.id} paraDiretor={documentario} />
             <Painel titulo="Recursos">
               {rec ? <PainelRecursos rec={rec} /> : <p className="text-sm text-suave">…</p>}
             </Painel>

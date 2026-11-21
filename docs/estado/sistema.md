@@ -42,11 +42,7 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
   Publicação do documentário (`publicacao.gerar_textos_doc`: capítulos da SPEC, miniatura de um quadro do final,
   concorrentes pela YouTube Data API só com `YOUTUBE_API_KEY`), prompt pelo orquestrador. Rótulo da descrição no
   `PainelPublicacao` virou "aviso legal" (vale para os dois canais).
-- **Observações gerais por voz ou texto** (2026-11-13, todos os formatos): painel "Observações gerais" na página do vídeo
-  (`Observacoes.tsx`, coluna da direita), microfone estilo ditado (clicar/clicar ou segurar/soltar) → faster-whisper local
-  em processo à parte (`tools/audio/ditado.py`) → texto editável → salvar; editar/apagar. Banco `observacoes` + espelho
-  `<projeto>/observacoes.json`. No documentário do F1 entram nos prompts da História, SPEC e pedido por cena. Ver
-  `docs/observacoes.md`. Microfone só em localhost/https (pelo IP do Wi-Fi no celular não funciona: digitar ou enviar áudio).
+- **Ditado por voz** (`app/servidor/ditado.py`, `componentes/Ditado.tsx`): faster-whisper local PT-BR em processo à parte (`tools/audio/ditado.py`); microfone no "corrigir por voz" das cenas e no pedido geral da animação. A feature "Observações gerais" foi **removida em 2026-11-20** (decisão do Felipe: no card ele só fala do vídeo; o aprendizado sai dos pedidos, ver `aprendizado.py`). Microfone só em localhost/https.
 - Card no quadro mostra "Aguardando você: <pendência aberta mais recente>" (`/api/quadro` → `aguardando`), exceto enquanto o motor trabalha nele ou ele está na fila (aí mostra "Na fila (Nº): <tarefa>", `/api/motor` → `fila`).
 - Celular pelo Wi-Fi (2026-11-01): servidores em `--host 0.0.0.0` (os .bat); acesso em `http://<IP do PC>:8765`. O painel não tem senha: quem estiver na mesma rede pode mexer nele.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
