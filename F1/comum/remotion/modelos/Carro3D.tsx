@@ -402,24 +402,29 @@ export function carro(p: Pintura): THREE.Group {
     gSusp.add(haste(new THREE.Vector3(s * (qp.x - 0.02), qp.y, -1.45), new THREE.Vector3(s * 0.64, 0.29, -1.52), 0.012, "#17181d"));
     // placas laterais das asas
     gAsaD.add(caixa(0.02, 0.14, 0.4, s * 0.9, 0.17, -2.52, preto));
-    gAsaT.add(caixa(0.02, 0.4, 0.4, s * 0.53, 0.8, 2.42, preto));
-    gAsaT.add(caixa(0.006, 0.16, 0.32, s * 0.542, 0.88, 2.42, p.acento));
+    gAsaT.add(caixa(0.02, 0.46, 0.5, s * 0.53, 0.84, 2.46, preto));
+    gAsaT.add(caixa(0.006, 0.16, 0.36, s * 0.542, 0.92, 2.46, p.acento));
   }
   // asa dianteira: três lâminas, das pontas ao miolo
   gAsaD.add(lamina(0.11, -2.74, 0.14, p.base, 0.9, 0.1));
   gAsaD.add(lamina(0.16, -2.62, 0.1, p.faixa, 0.9, 0.12));
   gAsaD.add(lamina(0.21, -2.52, 0.12, p.acento, 0.9, 0.14));
-  // asa traseira: plano principal, flap e pilar central
-  gAsaT.add(caixa(1.04, 0.035, 0.3, 0, 0.8, 2.38, p.base, 0.3));
-  // aba móvel (DRS, `drs(carro, k)` em efeitos3d.ts): articula na borda de TRÁS; a borda da frente sobe ao abrir.
-  // Fechada (rotation.x 0,35) fica exatamente onde sempre ficou (centro em y 0,93, z 2,5): nada muda nas cenas antigas.
-  const flap = caixa(1.04, 0.03, 0.2, 0, 0, -0.1, p.acento, 0.3);
+  // asa traseira (redesenhada 2026-11-20, referências de F1 real): perfil de ASA, borda da FRENTE (z menor) mais baixa e a de
+  // TRÁS mais alta, os dois elementos inclinados assim = carga aerodinâmica (posição padrão, FECHADA). O carro anda para -z.
+  // Plano principal inclinado ~10°; flap superior (a aba do DRS) ~22° com uma fresta entre os dois. `drs(carro, k)` (efeitos3d.ts)
+  // gira o flap em volta da borda de TRÁS: a da frente sobe e ele fica quase deitado, abrindo a fresta (modo reta).
+  const planoP = caixa(1.04, 0.035, 0.3, 0, 0.8, 2.38, p.base, 0.3);
+  planoP.rotation.x = -0.18;
+  gAsaT.add(planoP);
+  const ANG_FECHADA = -0.38;
+  const flap = caixa(1.04, 0.03, 0.2, 0, 0, -0.1, p.acento, 0.3); // borda de trás na origem do pivô (z +0,1 do centro)
   const abaDrs = new THREE.Group();
   abaDrs.name = "aba_drs";
-  abaDrs.position.set(0, 0.93 - 0.1 * Math.sin(0.35), 2.5 + 0.1 * Math.cos(0.35));
-  abaDrs.rotation.x = 0.35;
+  abaDrs.position.set(0, 0.95 - 0.1 * Math.sin(ANG_FECHADA), 2.58 + 0.1 * Math.cos(ANG_FECHADA)); // flap centrado em y 0,95, z 2,58: a borda da frente fica atrás e acima do plano principal (fresta)
+  abaDrs.rotation.x = ANG_FECHADA;
   abaDrs.add(flap);
   gAsaT.add(abaDrs);
+  // pilar central
   gAsaT.add(haste(new THREE.Vector3(0, 0.42, 2.25), new THREE.Vector3(0, 0.8, 2.36), 0.025, preto));
   // estrutura de impacto com a luz de chuva
   gMono.add(caixa(0.12, 0.1, 0.36, 0, 0.34, 2.45, preto));

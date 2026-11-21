@@ -436,10 +436,10 @@ export function campoDeVisao(w: Mundo, chave: string, origem: THREE.Vector3, par
 }
 
 /** DRS / modo reta: a aba móvel da asa traseira abre (a borda da frente sobe, articulando na de trás) e volta sozinha no
- *  quadro seguinte. `k` 0 fechada, 1 aberta (~29° a mais; o carro andando usa o mesmo carro de `poeNoCircuito`). Combine com
- *  `brilho`/`aura` na peça "asa_traseira" para destacar. Não faz nada em carro sem a aba. */
+ *  quadro seguinte. `k` 0 fechada (padrão: inclinada para carga aerodinâmica), 1 aberta (~24° a mais: o flap quase deita e abre a
+ *  fresta). Combine com `brilho`/`aura` na peça "asa_traseira" para destacar. Não faz nada em carro sem a aba. */
 export function drs(car: THREE.Object3D, k: number) {
   const aba = car.getObjectByName("aba_drs");
   if (!aba || k <= 0) return;
-  girarPecaEixo(aba, "x", 0.5 * Math.min(1, k));
+  girarPecaEixo(aba, "x", 0.42 * Math.min(1, k));
 }
