@@ -260,8 +260,9 @@ em frenagem forte (nunca o disco brilhando a volta toda).
   olhos (v8), lente 82; some com a cabeça (`semCabeca`). Vibração de alta velocidade: some `0.004 * Math.sin(c.t * 53)`
   ao `rolar`. Carro rápido na pista: `rodasRapidas(car, v)` depois de `poeNoCircuito` = face da roda vira disco com
   borrão de movimento (a partir de 25 m/s), opt-in, nada muda nos planos que não chamam.
-- **DRS / modo reta na pista (2026-11-20):** `drs(car, k)` abre a ABA MÓVEL da asa traseira do carro (k 0 fechada, 1 aberta, ~29° a
-  mais; articula na borda de trás, a da frente sobe) e volta sozinha no quadro seguinte. Vale para qualquer carro da biblioteca
+- **DRS / modo reta na pista (2026-11-20):** `drs(car, k)` abre a ABA MÓVEL da asa traseira do carro. A asa vem FECHADA por padrão (flap inclinado, borda de trás mais alta, carga
+  aerodinâmica; redesenhada em 2026-11-20): só abra nos modos que pedem (k 0 fechada, 1 aberta, ~24° a mais, flap quase deitado e a fresta
+  aberta; articula na borda de trás, a da frente sobe) e volta sozinha no quadro seguinte. Vale para qualquer carro da biblioteca
   (parado, no circuito, em `perseguir`). Ex.: `const ka = suave(c.t, c.m("abre"), c.m("abre") + 0.3); const kf = suave(c.t, c.m("fecha"), c.m("fecha") + 0.6);
   drs(w.carros[6], ka * (1 - kf)); realcar(w.carros[6], "asa_traseira", ka * (1 - kf), "#ffd23f");` Só a aba traseira mexe (a dianteira é fixa).
 - `escurecer(w, k)`: escurece a tela INTEIRA por igual (vidro preto na frente da câmera; chame depois da câmera). Para o
