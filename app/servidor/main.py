@@ -58,9 +58,9 @@ from . import horizontal_doc  # noqa: E402  (card documentário: só age nos car
 
 app.include_router(horizontal_doc.rota)
 
-from . import observacoes  # noqa: E402  (observações gerais do card, por voz ou texto: todos os formatos)
+from . import ditado  # noqa: E402  (ditado por voz local: faster-whisper PT-BR)
 
-app.include_router(observacoes.rota)
+app.include_router(ditado.rota)
 
 
 @app.get("/api/aprendizado")

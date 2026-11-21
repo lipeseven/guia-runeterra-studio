@@ -71,8 +71,7 @@ def _base(slug: str) -> dict:
                                                                    ("gravacao", "tempos_voz.json")) if (p / "direcao" / a).exists()),
                               ("guia", p / "direcao" / "tempos_guia.json"))
     return {"pasta": str(p / "horizontal"), "slug": slug, "roteiro": str(p / "direcao" / "roteiro.txt"),
-            "palavras": str(palavras), "narracao": narracao,
-            "observacoes": str(p / "observacoes.json")}   # observações gerais do Felipe (observacoes.py)
+            "palavras": str(palavras), "narracao": narracao}
 
 
 # ---------------------------------------------------------------- estado.json → banco
@@ -360,7 +359,7 @@ def aprovar_cena(vid: int, cid: str):
 
 class PedidoCena(BaseModel):
     texto: str
-    origem: str = "texto"   # "voz" = ditado (transcrito pelo /observacoes/transcrever e corrigido pelo Felipe)
+    origem: str = "texto"   # "voz" = ditado (transcrito pelo /ditado/transcrever e corrigido pelo Felipe)
 
 
 @rota.post("/api/videos/{vid}/doc/cena/{cid}/pedido")

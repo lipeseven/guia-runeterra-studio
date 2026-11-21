@@ -65,7 +65,7 @@ falado em frases** com o tempo, o objetivo e o texto na tela.
   minimapa do gráfico). Só as cenas cujo trecho mudou (hash da receita) renderizam de novo; trocar SFX não renderiza
   nada (só o áudio muda). Histórico em `horizontal/ajustes_diretos.json` (para o aprendizado).
 - **Pedido por cena** (texto OU voz): microfone dentro de cada cena ("Corrigir a cena N por voz", o mesmo ditado local
-  das Observações, `componentes/Ditado.tsx` + `/api/videos/{id}/observacoes/transcrever`); o texto transcrito aparece
+  das cenas, `componentes/Ditado.tsx` + `/api/videos/{id}/ditado/transcrever`); o texto transcrito aparece
   no campo para corrigir e só então "Enviar". Vira pedido da cena na SPEC (marcado "ditado por voz") + o prompt SÓ
   daquela cena (`spec.prompt_pedido`) e a pendência para o orquestrador, numa chamada (`painel.pedido_cena`).
 
@@ -186,10 +186,8 @@ Etapas do card: … Gravação → Ressincronização → **Render final** → P
   9908), "NÃO conferidas" e o aviso de nenhum conferido. O card 20 real não foi mexido: o roteiro dele continua com `**`
   até ser reenviado, e ele segue no fluxo antigo (`voz_ia`).
 
-## Observações gerais do Felipe
-O painel "Observações gerais" do card (voz ou texto, `docs/observacoes.md` na raiz) grava `<projeto>/observacoes.json`;
-a ponte (`sincronizar_observacoes`, em `resumo`/`passo`) copia para `horizontal/observacoes.txt`, e `comum.observacoes`
-põe o texto nos prompts da História, da SPEC e do pedido por cena (`{{observacoes}}`).
+## Observações gerais
+Feature removida em 2026-11-20 (o Felipe fala só pelos pedidos do card; o diretor não lê mais `observacoes.txt`).
 
 ## Testes
 - Fase 7c: `testar_api.py` agora 163 checagens (132 + 31 da 7c): Render final no card, ressincronização sem cenas ★ só

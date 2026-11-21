@@ -2,7 +2,7 @@ import { Loader2, Mic, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api'
 
-/** Ditado local (faster-whisper PT-BR no servidor, processo à parte): o mesmo das Observações gerais, reaproveitado no
+/** Ditado local (faster-whisper PT-BR no servidor, processo à parte): usado no
  *  "corrigir por voz" de cada cena do storyboard. Clicar para gravar e clicar para parar, ou segurar e soltar.
  *  O texto transcrito vai para `aoTexto` (o campo da tela), para o Felipe corrigir ANTES de salvar/enviar. */
 
@@ -46,7 +46,7 @@ export function useDitado(videoId: number, aoTexto: (novo: string) => void) {
     try {
       const corpo = new FormData()
       corpo.append('arquivo', audio, nome)
-      const r = await fetch(`/api/videos/${videoId}/observacoes/transcrever`, { method: 'POST', body: corpo })
+      const r = await fetch(`/api/videos/${videoId}/ditado/transcrever`, { method: 'POST', body: corpo })
       if (!r.ok) throw new Error(`${r.status} ${await r.text()}`)
       const { tarefa } = (await r.json()) as { tarefa: string }
       for (;;) {
