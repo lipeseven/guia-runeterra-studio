@@ -32,7 +32,16 @@ def achar_dados():
 
 
 DADOS = achar_dados()
-CARRO_GLB = os.path.join(DADOS, "modelos3d", "ferrari_sf26.glb")
+def _achar_modelo(nome):
+    """Acha o .glb em modelos3d ou em qualquer subpasta (carros/, pistas/...)."""
+    raiz = os.path.join(DADOS, "modelos3d")
+    for pasta, _, arqs in os.walk(raiz):
+        if nome in arqs:
+            return os.path.join(pasta, nome)
+    return os.path.join(raiz, nome)
+
+
+CARRO_GLB = _achar_modelo("ferrari_sf26.glb")
 
 FPS = 60
 T0 = 2.0            # tempo de volta no quadro 1 (s depois da linha de chegada: reta dos boxes, antes da freada)

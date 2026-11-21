@@ -461,7 +461,7 @@ def props(direcao: dict, palavras: list[dict]) -> dict:
 def _modelos_na_pasta(trabalho: Path) -> None:
     """Os .glb do acervo 3D entram na pasta pública do render como links (nada é copiado nem alterado)."""
     origem = RAIZ / CFG.get("modelos", "F1/dados/modelos3d")
-    for arq in origem.glob("*"):
+    for arq in origem.rglob("*"):   # subpastas (carros/, pistas/...) também
         if arq.suffix.lower() in (".glb", ".json"):
             destino = trabalho / arq.name
             if not destino.exists():

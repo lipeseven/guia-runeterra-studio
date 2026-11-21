@@ -42,9 +42,14 @@ def _ts(s):
 def _achar_glb(nome):
     """F1/dados/modelos3d fica fora do Git: procura subindo as pastas (funciona também numa worktree)."""
     for base in AQUI.parents:
-        c = base / "F1" / "dados" / "modelos3d" / nome
+        pasta = base / "F1" / "dados" / "modelos3d"
+        c = pasta / nome
         if c.exists():
             return c
+        if pasta.is_dir():   # o Felipe organiza em subpastas (carros/, pistas/, pneus/)
+            achado = next(iter(sorted(pasta.rglob(Path(nome).name), key=lambda p: len(p.parts))), None)
+            if achado:
+                return achado
     return None
 
 

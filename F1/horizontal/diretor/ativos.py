@@ -40,6 +40,15 @@ def _um(padrao: str) -> Path | None:
     return Path(achados[0]) if len(achados) == 1 else None
 
 
+def _achar(pasta: Path, nome: str) -> Path:
+    """Acha `nome` em `pasta` ou em qualquer subpasta (o Felipe organiza F1/dados/modelos3d em carros/, pistas/, pneus/...).
+    Não achando, devolve o caminho direto (quem chama confere `.exists()`)."""
+    direto = Path(pasta) / nome
+    if direto.exists():
+        return direto
+    return next(iter(sorted(Path(pasta).rglob(Path(nome).name), key=lambda p: len(p.parts))), direto)
+
+
 def _alinhamento(glb: str) -> Path | None:
     for p in sorted((KIT / "gps" / "pista").glob("*alinhamento*.json")):
         d = ler_json(p, {}) or {}
@@ -93,7 +102,7 @@ class Resolvedor:
                              "status": "pronto" if arq.exists() else "falta", "arquivo": str(arq) if arq.exists() else None,
                              **({} if arq.exists() else {"comando": f"cd F1/horizontal/kit/gps && {Path(PY).name} py/preparar_volta.py <sessao> <piloto> <volta> --modo plana"})})
             return
-        modelo = dados_f1() / "modelos3d" / glb
+        modelo = _achar(dados_f1() / "modelos3d", glb)
         ali = _alinhamento(glb)
         ok = modelo.exists() and ali is not None
         ev = [f"modelo {'existe' if modelo.exists() else 'NÃO existe'}: {modelo}",
@@ -171,7 +180,7 @@ class Resolvedor:
                                  "comando": f"{Path(PY).name} F1/horizontal/kit/sfx/gerar.py  (banco fica fora do Git)"})
 
     def arquivo(self, cena: str, tipo: str, caminho: str, descricao: str) -> None:
-        cands = [Path(caminho), self.pasta / "ativos" / caminho, dados_f1() / "modelos3d" / caminho]
+        cands = [Path(caminho), self.pasta / "ativos" / caminho, _achar(dados_f1() / "modelos3d", caminho)]
         achado = next((c for c in cands if c.is_absolute() and c.exists() or c.exists()), None)
         self._add(cena, {"id": f"{tipo}:{caminho}", "tipo": tipo, "descricao": descricao,
                          "status": "pronto" if achado else "falta", "arquivo": str(achado) if achado else None,

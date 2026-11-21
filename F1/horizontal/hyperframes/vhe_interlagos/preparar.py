@@ -99,7 +99,7 @@ def main():
     A.mkdir(exist_ok=True)
     modelos = next(b / "F1" / "dados" / "modelos3d" for b in AQUI.parents if (b / "F1" / "dados" / "modelos3d").exists())
     for f in (cfg["pista"], cfg["carro"]):
-        de, para = modelos / f, A / f
+        de, para = next(iter(sorted(modelos.rglob(f), key=lambda q: len(q.parts))), modelos / f), A / f
         if para.exists() and para.stat().st_size == de.stat().st_size and para.stat().st_mtime >= de.stat().st_mtime:
             continue
         if para.exists():

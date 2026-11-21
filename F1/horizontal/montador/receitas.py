@@ -56,6 +56,15 @@ def dados_f1() -> Path:
     return HORIZ.parent / "dados"
 
 
+def _achar(pasta: Path, nome: str) -> Path:
+    """Acha `nome` em `pasta` ou em qualquer subpasta (o Felipe organiza F1/dados/modelos3d em carros/, pistas/, pneus/...).
+    Não achando, devolve o caminho direto (quem chama confere `.exists()`)."""
+    direto = Path(pasta) / nome
+    if direto.exists():
+        return direto
+    return next(iter(sorted(Path(pasta).rglob(Path(nome).name), key=lambda p: len(p.parts))), direto)
+
+
 TEXTO_CODIGO = {".py", ".js", ".mjs", ".ts", ".tsx", ".html", ".json", ".txt", ".md"}
 _MEMO_HASH = Path(tempfile.gettempdir()) / "f1_horizontal_hash_arquivos.json"   # o storyboard planeja a cada leitura
 
@@ -286,18 +295,18 @@ def _gps(cena: dict, p: dict, dur: float, palavras: list[dict] | None = None) ->
         v = json.loads(arq.read_text(encoding="utf-8"))
         voltas_json.append(v)
         modelo = CARROS.get(v.get("equipe"))
-        if not modelo or not (d / modelo).exists():
+        if not modelo or not _achar(d, modelo).exists():
             raise FaltaAtivo(f"modelo 3D do carro da equipe {v.get('equipe')!r} (F1/dados/modelos3d; montador/receitas.py CARROS)")
         voltas.append({"arquivo": f"voltas/{nome}", "carro": modelo})
         assets[f"voltas/{nome}"] = arq
-        assets[modelo] = d / modelo
-        arquivos += [arq, d / modelo]
+        assets[modelo] = _achar(d, modelo)
+        arquivos += [arq, _achar(d, modelo)]
         pista = v.get("pista")
     if str(pista).endswith(".glb"):
-        if not (d / pista).exists():
+        if not _achar(d, pista).exists():
             raise FaltaAtivo(f"modelo da pista {pista} (F1/dados/modelos3d)")
         cfg_pista = {"glb": pista}
-        assets[pista] = d / pista
+        assets[pista] = _achar(d, pista)
         arquivos.append(d / pista)
     else:
         pp = KIT / "gps" / "pista" / str(pista)

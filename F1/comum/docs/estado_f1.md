@@ -120,3 +120,5 @@ v12 (2026-11-19): `criarMaoNoVolante` refeita em medidas anatômicas (Felipe: "�
 param na frente da haste; palma em casca convexa no lado de fora indo até o pulso ~0,09 à frente; polegar 2 falanges
 por cima do indicador; faixa amarela só no punho (a do dorso saiu). Sem polegar na fresta: a luva branca aparecia pela
 janela como bolinha ao lado dos botões. `trabalho/v12/`.
+
+**Acervo 3D em subpastas (2026-11-20):** `F1/dados/modelos3d/` é organizado pelo Felipe em `carros/`, `pistas/` e `pneus/` (e vai receber referências baixadas à mão). Tudo que lê essa pasta (montador `receitas.py`, `kit/gps/py/pista.py`, `diretor/ativos.py`, `tools/direcao/horizontal.py`, `remotion/preparar.mjs`, `hyperframes/preparar.mjs`, `blender/senna.py`, `hyperframes/vhe_interlagos/preparar.py`) procura o arquivo pelo **nome**, em qualquer subpasta. Nomes de arquivo devem ser únicos entre as subpastas; não mover arquivo exige nada no código.
