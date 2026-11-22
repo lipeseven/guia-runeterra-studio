@@ -34,7 +34,8 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
   alerta da perda de posições). Sem isso, não leva som: efeito em toda cena vira "goteira" e não destaca nada. O efeito bate numa
   palavra-chave falada, nunca numa pausa. No máximo uma lista por vídeo com um efeito por item; ~9 efeitos em 2 min 20 s é a medida.
 - **O autódromo fica na cidade**, não numa floresta nem numa rodovia: muros, arquibancadas e prédios em volta da pista, poucas árvores só no miolo.
-- **Câmera transita.** Plano com carro usa `filmar` com 2 ou 3 posições, nunca uma posição só do começo ao fim.
+- **Câmera transita.** Plano com carro usa `filmar` com 2 ou 3 posições, nunca uma posição só do começo ao fim (exceção:
+  `drone`, `grua` e `passagem`, que já se movem sozinhas no trecho; `filmarVariado` cuida disso).
 - **Velocidade do carro é constante no plano e parecida entre planos** (~0,015 da volta por segundo; reta rápida ~0,021).
 - **O próprio cenário é o infográfico (aprovado, "Por que a chuva vira um problema em Interlagos?", 2026-11-08).** Em vez de
   cartão/seletor `etapas` por cima da imagem, cada palavra da lista marca algo DENTRO da cena, entrando seca na palavra:
@@ -53,6 +54,24 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
   carros: ver `api_cenas.md`, "Las Vegas"). Nunca o do GP que já passou (Interlagos). Interlagos só quando a fala for sobre ele
   ou o tema exigir. Escolha a curva real que mostra a fala (curva rápida, grampo, Strip para reta). Rua estreita com muro:
   `filmar` com "lado"/"ladoesq" pode bater no muro; prefira "rasante", "curva", "alto", "heli", "atras" e confira o quadro.
+
+## Velocidade, tráfego e câmeras (Felipe, GP de Las Vegas, 2026-11-21)
+- **Carro de F1 tem que PARECER a 300 km/h em toda cena de pista** ("reclamo há muitos vídeos"). O sistema de velocidade da
+  biblioteca liga sozinho (postes e painéis passando, asfalto com juntas, borrão de movimento, lente e tremor): não desligue sem
+  motivo. Para parecer rápido: câmera BAIXA e PERTO (rasante, roda, rodaFrente, travelling, nariz, halo, passagem); câmera alta
+  e longe (alto, heli, helicoptero) mostra o pelotão e o lugar, mas não velocidade: use-a só quando a fala pede o lugar/a corrida
+  inteira. Velocidade de pista sempre a real (~0,014 da volta/s em Las Vegas = 87 m/s).
+- **Carro só freia, e o freio só acende (`aquecer`), quando a fala é sobre frenagem/freio/curva lenta.** Fala genérica sobre a
+  corrida ("correr aqui não é tão simples", "corrida", "pista") = carro a toda, sem freio incandescente. (Aos 5 s do GP de Las Vegas
+  o carro desacelerava com luz saindo da roda: "é corrida de F1, tem que estar correndo".)
+- **Mais carro na pista: a F1 tem 22.** Cena de corrida usa `pelotao` com 6 a 12 carros (22 na largada/visão do pelotão inteiro);
+  carro sozinho só quando a fala é sobre UM piloto/carro (volta rápida, explicação de peça). Duelo = `forma: "duelo"`.
+- **Câmera variada: no máximo 2 cenas seguidas com a mesma família de câmera** (`TIPO_CAMERA`: atras, baixa, lateral, frente,
+  alto, heli, roda, onboard, orbita, grua, fixa) e nunca o vai-e-vem alto → atrás → alto → atrás. Padrão das cenas de pista sem
+  enquadramento pedido pela fala: `filmarVariado(w, circ, f, c.k, c.n, { dur: c.fim })` (nunca repete a família no plano seguinte).
+  Repertório (linguagem de TV de F1 e de jogo): câmera fixa de beira de pista que gira com o carro passando (`passagem`), roda e
+  asfalto (`rodaFrente`), 3/4 frontal baixa, travelling lateral, nariz, sobre o ombro (`halo`), drone orbitando, grua subindo,
+  helicóptero seguindo o pelotão.
 
 ## Ajustes do Felipe (GP de Las Vegas, 2026-11-21)
 - **Mapa dos EUA: `criarMapaEUA` + `zoomNoMapa`, nunca chapa lisa** ("uma chapa azul sem detalhe. Cadê os estados? Se der

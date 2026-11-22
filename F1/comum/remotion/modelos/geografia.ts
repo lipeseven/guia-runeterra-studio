@@ -9,9 +9,10 @@ import { carro, type Pintura } from "./Carro3D";
 import { vestirCircuito, type Cenario, type CidadeReal } from "./cenario";
 import { aoRestaurar } from "./desmonte";
 import { obj, rotulo } from "./extras";
-import { estercar, rolarRodas } from "./efeitos3d";
+import { estercar, rodasRapidas, rolarRodas, tempoDoVideo } from "./efeitos3d";
 import { afastarNevoa, camera, poe, type Mundo } from "./mundo";
 import { texturaPulso } from "./neon_vegas";
+import { marcarCamera, marcarCarro, velocidadeMarcada } from "./velocidade";
 
 type Anel = [number, number][];
 const mat = (cor: string, rough = 0.6, extra: THREE.MeshStandardMaterialParameters = {}) =>
@@ -353,6 +354,7 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   g.userData.circuito = info;
   g.userData.nome = nome;
   g.userData.curvas = (dados as { curvas?: { n: number; f: number }[] }).curvas ?? []; // numerarCurvas: as curvas DESTE circuito
+  g.userData.vestido = { larg, bordas: o.cenario ? bordas : null }; // velocidade.ts (postes e painéis junto ao muro) e pelotao/filmar
   if (o.cenario) vestirCircuito(g, pontos, comp, { ...(CENARIOS[nome] ?? { arquibancadas: [] }), noite: o.noite, neon }, bordas);
   // pos_neon.ts acha este circuito visível e liga bloom, cor, névoa roxa e as luzes traseiras dos carros
   if (neon) g.userData.neon = { escape: escape.material, pulsos, centro: new THREE.Box3().setFromPoints(pontos).getCenter(new THREE.Vector3()) };
@@ -402,17 +404,18 @@ const metrosNaVolta = (circ: THREE.Object3D, f: number) => f * infoDe(circ).comp
 
 /** Carro na volta do circuito: esterço das dianteiras E as 4 rodas rolando com a distância (f a f). `v` = velocidade real
  *  em m/s (só para limitar o giro visto; padrão 80). `escala` > 1 só para vista de longe (senão o carro some). */
-export function poeNoCircuito(w: Mundo, k: number, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number } = {}) {
+export function poeNoCircuito(w: Mundo, k: number, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number; velocidade?: boolean } = {}) {
   const q = noCircuito(circ, f, o.lado ?? 0);
   poe(w, k, q.x, q.z, q.giro);
   w.carros[k].scale.setScalar(o.escala ?? 1);
   estercar(w.carros[k], q.esterco);
   rolarRodas(w.carros[k], metrosNaVolta(circ, f), o.v ?? 80);
+  if (o.velocidade !== false) marcarCarro(circ, o.v ?? 80, o.escala ?? 1); // sistema de velocidade (velocidade.ts)
   return q;
 }
 
 /** Carro com pintura própria na volta (ex.: as cores de um carro antigo). A chave guarda o modelo. */
-export function poePinturaNoCircuito(w: Mundo, chave: string, pintura: Pintura, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number } = {}) {
+export function poePinturaNoCircuito(w: Mundo, chave: string, pintura: Pintura, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number; velocidade?: boolean } = {}) {
   const c = obj(w, `carro:${chave}`, () => carro(pintura));
   const q = noCircuito(circ, f, o.lado ?? 0);
   c.position.set(q.x, 0, q.z);
@@ -420,16 +423,21 @@ export function poePinturaNoCircuito(w: Mundo, chave: string, pintura: Pintura, 
   c.scale.setScalar(o.escala ?? 1);
   estercar(c, q.esterco);
   rolarRodas(c, metrosNaVolta(circ, f), o.v ?? 80);
+  if (o.velocidade !== false) marcarCarro(circ, o.v ?? 80, o.escala ?? 1);
   return q;
 }
 
 /** Câmera atrás do carro na fração f, olhando a pista à frente: a curva aparece antes de o carro virar. Usa pontos da
  *  própria linha do traçado, sem tremer. `atras`, `alto` e `frente` em metros. */
-export function perseguir(w: Mundo, circ: THREE.Object3D, f: number, o: { atras?: number; alto?: number; frente?: number; lente?: number; rolar?: number } = {}) {
+export function perseguir(w: Mundo, circ: THREE.Object3D, f: number, o: { atras?: number; alto?: number; frente?: number; lente?: number; rolar?: number; velocidade?: boolean } = {}) {
   const { comprimento } = infoDe(circ);
   const a = noCircuito(circ, f - (o.atras ?? 15) / comprimento);
   const b = noCircuito(circ, f + (o.frente ?? 22) / comprimento);
   camera(w, [a.x, o.alto ?? 5.5, a.z], [b.x, 0.5, b.z], o.lente ?? 46, o.rolar ?? 0);
+  if (o.velocidade !== false) {
+    const c = noCircuito(circ, f);
+    marcarCamera(circ, c.x, c.z);
+  }
 }
 
 /** Posições de câmera em volta do carro (metros, no referencial dele): `tras` atrás (negativo = à frente do carro), `lado`
@@ -444,13 +452,50 @@ export const CAMERAS = {
   alto: { tras: 24, lado: -6, alto: 20, olha: 2, lente: 44 },
   heli: { tras: 46, lado: 30, alto: 46, olha: 2, lente: 40 },
   roda: { tras: 2.6, lado: 2.1, alto: 0.45, olha: 8, lente: 56 },
+  // repertório novo (2026-11-21, pedido do Felipe: "câmera do alto → atrás → alto → atrás o vídeo todo cansa"): linguagem de
+  // TV de F1 e de jogo de corrida. Câmera BAIXA e perto = mais velocidade (câmera de zebra/meio-fio da TV; câmera aberta e
+  // longe faz o carro parecer lento).
+  /** câmera baixa ao lado da roda dianteira, olhando para a frente: o pneu e o asfalto correndo */
+  rodaFrente: { tras: -0.9, lado: 1.85, alto: 0.32, olha: 10, lente: 64 },
+  /** 3/4 frontal baixa: o carro vindo na direção da lente, de lado */
+  tresQuartos: { tras: -9, lado: 4.2, alto: 0.75, olha: -1, lente: 44 },
+  /** travelling lateral: a câmera corre junto, de lado e baixa, a uns 5 m */
+  travelling: { tras: 0.4, lado: 5.4, alto: 1, olha: 1.5, lente: 50 },
+  /** câmera no nariz (bico) olhando para a frente: a pista vindo por baixo */
+  nariz: { tras: -0.6, lado: 0, alto: 1.02, olha: 26, lente: 72 },
+  /** sobre o ombro / acima do halo (T-cam): halo e bico no quadro, a pista à frente */
+  halo: { tras: 1.25, lado: 0.42, alto: 1.42, olha: 24, lente: 64 },
+  /** helicóptero alto e longe, lente fechada, acompanhando o pelotão de lado */
+  helicoptero: { tras: 75, lado: 38, alto: 58, olha: 28, lente: 26 },
 };
-type Rig = (typeof CAMERAS)["atras"];
-type NomeCamera = keyof typeof CAMERAS;
+export type Rig = { tras: number; lado: number; alto: number; olha: number; lente: number; fixa?: number };
+export type NomeCamera = keyof typeof CAMERAS;
+/** Tomadas que mudam ao longo do próprio trecho (u local 0 a 1): drone orbitando o carro e grua que sobe. */
+const DINAMICAS = {
+  drone: (u: number): Rig => {
+    // acima do alambrado (7 m): mais baixo, o drone passava rente ao muro e ao tubo de neon
+    const a = 0.45 + u * 1.9;
+    return { tras: 12 * Math.cos(a), lado: 12 * Math.sin(a), alto: 9.5 + 2 * u, olha: 0, lente: 44 };
+  },
+  grua: (u: number): Rig => {
+    const s = u * u * (3 - 2 * u);
+    return { tras: 9 + 6 * s, lado: 2.6, alto: 0.8 + 17 * s, olha: 8 + 10 * s, lente: 46 - 8 * s };
+  },
+};
+export type NomeTomada = NomeCamera | keyof typeof DINAMICAS | "passagem";
+/** Família de cada tomada (para não repetir a mesma linguagem em cenas seguidas). */
+export const TIPO_CAMERA: Record<NomeTomada, string> = {
+  atras: "atras", curva: "atras", rasante: "baixa", lado: "lateral", ladoesq: "lateral", travelling: "lateral", frente: "frente",
+  tresQuartos: "frente", alto: "alto", heli: "heli", helicoptero: "heli", roda: "roda", rodaFrente: "roda", nariz: "onboard",
+  halo: "onboard", drone: "orbita", grua: "grua", passagem: "fixa",
+};
 
 /** Câmera que transita entre posições ao longo do plano, sempre em movimento e sem tranco. `u` = 0 a 1 no plano (c.k);
- *  `lista` = posições em ordem. Referencial = direção da pista suavizada em ~50 m, então a câmera não sacode nas curvas. */
-export function filmar(w: Mundo, circ: THREE.Object3D, f: number, u: number, lista: (NomeCamera | Rig)[], o: { lado?: number } = {}) {
+ *  `lista` = posições em ordem. Referencial = direção da pista suavizada em ~50 m, então a câmera não sacode nas curvas.
+ *  "passagem" = câmera FIXA na beira da pista (pan-by): o carro vem de longe (lente fechada), passa colado e vai embora,
+ *  com a câmera girando atrás dele; o carro passa por ela no meio do trecho dela (`dur` = c.fim e `v` em m/s acertam o
+ *  ponto; sem eles, 3 s e a velocidade do carro posto no quadro). `espelho` troca o lado das tomadas laterais. */
+export function filmar(w: Mundo, circ: THREE.Object3D, f: number, u: number, lista: (NomeTomada | Rig)[], o: { lado?: number; dur?: number; v?: number; espelho?: boolean; velocidade?: boolean } = {}) {
   const { comprimento } = infoDe(circ);
   const n = lista.length;
   const pos = Math.max(0, Math.min(0.9999, u)) * n;
@@ -459,17 +504,29 @@ export function filmar(w: Mundo, circ: THREE.Object3D, f: number, u: number, lis
   // cada posição fica um tempo e a passagem para a próxima ocupa o último 45% do trecho, com leve deriva durante a parada
   const mix = Math.max(0, (local - 0.55) / 0.45);
   const m = mix * mix * (3 - 2 * mix);
-  const rig = (x: NomeCamera | Rig) => (typeof x === "string" ? CAMERAS[x] : x);
-  const a = rig(lista[seg]), b = rig(lista[Math.min(n - 1, seg + 1)]);
-  const v = (k: keyof Rig) => a[k] + (b[k] - a[k]) * m;
-  const deriva = 1 + 0.1 * (u - 0.5);
   const c = noCircuito(circ, f, o.lado ?? 0);
   const p0 = noCircuito(circ, f - 25 / comprimento), p1 = noCircuito(circ, f + 25 / comprimento);
   const L = Math.hypot(p1.x - p0.x, p1.z - p0.z) || 1;
   const tx = (p1.x - p0.x) / L, tz = (p1.z - p0.z) / L;
   const dir = { x: -tz, z: tx };
+  const esp = o.espelho ? -1 : 1;
+  const rig = (x: NomeTomada | Rig, l: number): Rig => {
+    if (typeof x !== "string") return x;
+    if (x === "passagem") return passagem(circ, f, c, tx, tz, dir, (0.5 - l) * ((o.dur ?? 3) / n) * (o.v ?? velocidadeMarcada() ?? 85), esp);
+    const r = x in DINAMICAS ? DINAMICAS[x as keyof typeof DINAMICAS](l) : CAMERAS[x as NomeCamera];
+    return { ...r, lado: r.lado * esp };
+  };
+  const a = rig(lista[seg], local), b = rig(lista[Math.min(n - 1, seg + 1)], seg + 1 < n ? 0 : local);
+  const v = (k: "tras" | "lado" | "alto" | "olha" | "lente") => a[k] + (b[k] - a[k]) * m;
+  const fixa = (a.fixa ?? 0) + ((b.fixa ?? 0) - (a.fixa ?? 0)) * m; // 1 = câmera presa ao chão (sem deriva nem puxada)
+  const deriva = 1 + 0.1 * (u - 0.5) * (1 - fixa);
   let px = c.x - tx * v("tras") * deriva + dir.x * v("lado") * deriva;
   let pz = c.z - tz * v("tras") * deriva + dir.z * v("lado") * deriva;
+  // no caminho entre duas posições baixas a câmera não atravessa o carro (rodaFrente → nariz passava dentro do pneu):
+  // em cima da planta do carro ela fica pelo menos a 1 m do chão (acima das rodas)
+  let alto = v("alto");
+  const T = v("tras") * deriva, Lt = v("lado") * deriva;
+  if (fixa < 0.5 && T > -3.1 && T < 3 && Math.abs(Lt) < 1.3) alto = Math.max(alto, 1);
   // abaixo do alto do alambrado, a câmera não sai da pista: o muro fica a 19 m do centro e não pode passar na frente do carro
   const { pontos } = infoDe(circ);
   // distância da câmera ao traçado contínua (segmentos inteiros): pontos de 2 em 2 a partir do ponto do carro mudavam
@@ -482,17 +539,146 @@ export function filmar(w: Mundo, circ: THREE.Object3D, f: number, u: number, lis
     const h = Math.max(0, Math.min(1, ((px - q.x) * sx + (pz - q.z) * sz) / L2));
     d = Math.min(d, Math.hypot(q.x + sx * h - px, q.z + sz * h - pz));
   }
-  const baixa = Math.max(0, Math.min(1, (9 - v("alto")) / 2));
+  const baixa = Math.max(0, Math.min(1, (9 - alto) / 2)) * (1 - fixa);
   const puxa = 1 + (Math.min(1, 14 / Math.max(d, 0.01)) - 1) * baixa;
   px = c.x + (px - c.x) * puxa;
   pz = c.z + (pz - c.z) * puxa;
-  camera(w, [px, v("alto"), pz], [c.x + tx * v("olha"), 0.55, c.z + tz * v("olha")], v("lente"));
+  camera(w, [px, alto, pz], [c.x + tx * v("olha"), 0.55, c.z + tz * v("olha")], v("lente"));
+  if (o.velocidade !== false) marcarCamera(circ, c.x, c.z);
+}
+
+/** Pan-by: câmera fixa na beira da pista, logo por dentro do muro, a 2,9 m do chão; `dist` = metros que o carro ainda anda até
+ *  passar por ela (negativo = já passou). Devolve a posição como Rig no referencial do carro (para misturar com as outras).
+ *  Lente fecha com a distância (carro longe = teleobjetiva, colado = grande-angular), como o cinegrafista de pista. */
+function passagem(circ: THREE.Object3D, f: number, c: { x: number; z: number }, tx: number, tz: number, dir: { x: number; z: number }, dist: number, esp: number): Rig {
+  const info = infoDe(circ);
+  const fa = f + dist / info.comprimento;
+  const a = noCircuito(circ, fa);
+  const ves = circ.userData.vestido as { larg: number; bordas: { fora: (i: number) => number; dentro: (i: number) => number } | null } | undefined;
+  const i = Math.floor((((fa % 1) + 1) % 1) * info.pontos.length);
+  const muro = ves?.bordas ? (esp > 0 ? ves.bordas.fora(i) : ves.bordas.dentro(i)) + 3 : (ves?.larg ?? 13) / 2 + 5;
+  // logo por dentro do muro e acima dele (2,9 m), como a câmera de pista atrás do alambrado: mais baixa, a zebra enchia o quadro
+  const lado = (muro - 0.7) * esp;
+  // normal da pista no ponto da câmera (a mesma convenção de filmar: posição = ponto + dir * lado)
+  const b = noCircuito(circ, fa + 4 / info.comprimento), q = noCircuito(circ, fa - 4 / info.comprimento);
+  const Lq = Math.hypot(b.x - q.x, b.z - q.z) || 1;
+  const nx = -(b.z - q.z) / Lq, nz = (b.x - q.x) / Lq;
+  const X = a.x + nx * lado, Z = a.z + nz * lado;
+  const rx = X - c.x, rz = Z - c.z;
+  const d = Math.hypot(rx, rz);
+  const k = Math.max(0, Math.min(1, 1 - (d - 8) / 110));
+  return { tras: -(rx * tx + rz * tz), lado: rx * dir.x + rz * dir.z, alto: 2.9, olha: 0, lente: 16 + 32 * k * k, fixa: 1 };
 }
 
 /** Vários carros andando na volta. `v` em frações de volta por segundo. */
-export function transito(w: Mundo, circ: THREE.Object3D, t: number, ks: number[], o: { v?: number; escala?: number; ini?: number } = {}) {
+export function transito(w: Mundo, circ: THREE.Object3D, t: number, ks: number[], o: { v?: number; escala?: number; ini?: number; velocidade?: boolean } = {}) {
   const vm = (o.v ?? 0.014) * infoDe(circ).comprimento;
-  ks.forEach((k, i) => poeNoCircuito(w, k, circ, (o.ini ?? 0) + i / ks.length + t * (o.v ?? 0.014), { escala: o.escala ?? 3, lado: i % 2 ? 2 : -2, v: vm }));
+  ks.forEach((k, i) => poeNoCircuito(w, k, circ, (o.ini ?? 0) + i / ks.length + t * (o.v ?? 0.014), { escala: o.escala ?? 3, lado: i % 2 ? 2 : -2, v: vm, velocidade: o.velocidade }));
+}
+
+const acaso = (n: number) => {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
+
+/** Pelotão: `n` carros (até 22, 11 equipes × 2, pintura de cada equipe) andando juntos na volta, sem se sobrepor. O carro
+ *  `foco` (padrão 0) fica em f, na faixa `lado`; os outros em volta dele conforme `forma`:
+ *  "pelotao" (padrão: grupos de 2 a 4 carros colados, com buracos entre os grupos), "fila" (um atrás do outro),
+ *  "duelo" (pares lado a lado) ou "espalhado" (longe uns dos outros). `posicao`: "meio" (padrão: ~40% à frente do foco, o
+ *  resto atrás; a câmera de trás vê carros à frente), "lider" (foco na frente) ou "fim" (foco por último).
+ *  `v` = m/s de todos (padrão 85, ~300 km/h); as distâncias "respiram" devagar com o tempo (aproximam e afastam, sem
+ *  ultrapassar). `carros` = quais carros usar (padrão: os 22 numa ordem tirada da `semente`, sem o foco). Já põe as rodas
+ *  rápidas (borrão) em todos. Devolve [{k, f, lado}] na ordem da pista (o primeiro é o da frente). Custo medido: ver
+ *  api_cenas.md ("Pelotão"). */
+export function pelotao(w: Mundo, circ: THREE.Object3D, f: number, n = 8, o: { foco?: number; lado?: number; carros?: number[]; v?: number; forma?: "pelotao" | "fila" | "duelo" | "espalhado"; posicao?: "meio" | "lider" | "fim"; semente?: number; t?: number; escala?: number; velocidade?: boolean } = {}) {
+  const info = infoDe(circ);
+  const foco = o.foco ?? 0;
+  const sem = o.semente ?? 1;
+  const r = (j: number) => acaso(sem * 97 + j * 13.7);
+  const v = o.v ?? 85;
+  const ves = circ.userData.vestido as { larg: number } | undefined;
+  const maxLado = (ves?.larg ?? 13) / 2 - 1.4;
+  const outros = (o.carros ?? Array.from({ length: 22 }, (_, k) => k).sort((a, b) => acaso(sem + a * 3.1) - acaso(sem + b * 3.1))).filter((k) => k !== foco);
+  const total = Math.max(1, Math.min(22, n, outros.length + 1));
+  // vagas: distância (m) a partir do primeiro carro (0, -d1, -d2...) e faixa
+  const forma = o.forma ?? "pelotao";
+  const vagas: { d: number; lado: number }[] = [];
+  let d = 0, grupo = 0, tamGrupo = 2 + Math.floor(r(0) * 3);
+  for (let j = 0; j < total; j++) {
+    let lado = (r(j + 50) - 0.5) * 2 * maxLado * 0.8;
+    if (j > 0) {
+      if (forma === "fila") {
+        d -= 10 + 6 * r(j);
+        lado = (j % 2 ? 1 : -1) * (0.4 + 0.8 * r(j + 9));
+      } else if (forma === "duelo") {
+        const par = j % 2 === 1;
+        d -= par ? 1.5 * r(j) : 12 + 10 * r(j);
+        lado = (par ? 1 : -1) * Math.min(maxLado, 2.5);
+      } else if (forma === "espalhado") d -= 22 + 30 * r(j);
+      else {
+        grupo++;
+        if (grupo >= tamGrupo) {
+          grupo = 0;
+          tamGrupo = 2 + Math.floor(r(j + 30) * 3);
+          d -= 16 + 18 * r(j); // buracos curtos: de perto e do alto o pelotão aparece junto no quadro
+        } else d -= 8 + 4 * r(j);
+      }
+    } else if (forma === "duelo") lado = -Math.min(maxLado, 2.5);
+    vagas.push({ d, lado });
+  }
+  const iFoco = o.posicao === "lider" ? 0 : o.posicao === "fim" ? total - 1 : Math.floor(total * 0.4);
+  const base = vagas[iFoco];
+  const t = o.t ?? tempoDoVideo();
+  const lista = vagas.map((g, j) => {
+    const eFoco = j === iFoco;
+    const k = eFoco ? foco : outros[j < iFoco ? j : j - 1];
+    const off = g.d - base.d + (eFoco ? 0 : 2.2 * Math.sin(0.5 * t + 1.9 * j));
+    const lado = eFoco ? (o.lado ?? 0) : Math.max(-maxLado, Math.min(maxLado, g.lado + 0.5 * Math.sin(0.37 * t + j)));
+    return { k, off, lado, eFoco };
+  });
+  // ninguém em cima de ninguém: na mesma faixa (menos de 2,3 m de lado), pelo menos 7,5 m entre os centros
+  lista.sort((a, b) => b.off - a.off);
+  for (let j = 1; j < lista.length; j++) {
+    for (let i = 0; i < j; i++) {
+      const a = lista[i], b = lista[j];
+      if (Math.abs(a.lado - b.lado) < 2.3 && a.off - b.off < 7.5) {
+        if (b.eFoco) a.off = b.off + 7.5; // o foco não sai do lugar: quem anda é o outro
+        else b.off = a.off - 7.5;
+      }
+    }
+  }
+  return lista.map((q) => {
+    const fq = f + q.off / info.comprimento;
+    poeNoCircuito(w, q.k, circ, fq, { lado: q.lado, v, escala: o.escala, velocidade: o.velocidade });
+    rodasRapidas(w.carros[q.k], v);
+    return { k: q.k, f: fq, lado: q.lado };
+  });
+}
+
+/** Combinações de tomadas para `filmarVariado`: duas seguidas nunca têm família de câmera em comum. */
+const REPERTORIO: NomeTomada[][] = [
+  ["passagem"], ["rodaFrente", "rasante"], ["drone"], ["tresQuartos", "travelling"], ["grua", "helicoptero"],
+  ["nariz", "halo"], ["travelling", "roda"], ["rasante", "drone"], ["halo", "tresQuartos"], ["helicoptero", "curva"],
+];
+
+/** Câmera de pista escolhida do repertório pela `semente` (use o número do plano, `c.n`): planos seguidos (n, n+1) NUNCA
+ *  repetem a família de câmera, e cada um varia ângulo, distância e lente (±12%) e o lado. `evitar`: famílias que não
+ *  servem nesta cena (ex.: ["onboard"] com dois carros lado a lado). Devolve as tomadas usadas. */
+export function filmarVariado(w: Mundo, circ: THREE.Object3D, f: number, k: number, semente: number | string, o: { lado?: number; dur?: number; v?: number; evitar?: string[]; velocidade?: boolean } = {}) {
+  const s = typeof semente === "number" ? Math.round(semente) : [...semente].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 100003, 7);
+  const L = REPERTORIO.length;
+  let idx = ((s % L) + L) % L;
+  for (let i = 0; i < L && REPERTORIO[idx].some((x) => o.evitar?.includes(TIPO_CAMERA[x])); i++) idx = (idx + 1) % L;
+  const combo = REPERTORIO[idx];
+  const r = (j: number) => acaso(s * 7.3 + j);
+  const varia = (x: NomeTomada, j: number): NomeTomada | Rig => {
+    if (!(x in CAMERAS)) return x;
+    const c = CAMERAS[x as NomeCamera];
+    const e = (q: number) => 0.88 + 0.24 * r(j * 5 + q);
+    return { tras: c.tras * e(1), lado: c.lado * e(2), alto: Math.max(0.3, c.alto * e(3)), olha: c.olha * e(4), lente: c.lente * e(5) };
+  };
+  filmar(w, circ, f, k, combo.map(varia), { lado: o.lado, dur: o.dur, v: o.v, espelho: r(99) < 0.5, velocidade: o.velocidade });
+  return combo;
 }
 
 /** Câmera panorâmica: a pista inteira em diagonal, como de um helicóptero. `az` = azimute em radianos, `alto` = 0 (rasante) a 1 (de cima). */
