@@ -225,6 +225,7 @@ def textos_na_tela(p: dict) -> list[str]:
         t += [str(x) for x in g.get("itens") or []]
         t += [str(x.get("t", "")) for x in g.get("palavras") or [] if isinstance(x, dict)]
         t += [f"{x.get('rotulo', '')} {x.get('nome', '')}" for x in g.get("marcos") or [] if isinstance(x, dict)]
+        t += [str(g.get("titulo", ""))] + [str(x.get("nome", "")) for x in g.get("linhas") or [] if isinstance(x, dict)]  # classificação (posições ficam de fora)
         t += [str(x.get("texto", "")) for x in g.get("horas") or [] if isinstance(x, dict)]
     if isinstance(p.get("codigo"), str):
         t += [m.group(2) for m in _TEXTO_COD.finditer(p["codigo"])]
@@ -671,7 +672,10 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
               "pede na tela fica liberado na checagem. NUNCA ignore um pedido em silêncio: cada pedido que você não "
               "fizer por inteiro por falta REAL de capacidade (falta modelo na API, falta o arquivo do logo ou do som, "
               "falta informação) vai em \"nao_feitos\": [{\"id\": id do plano ou \"geral\", \"motivo\": \"curto: o que "
-              "faltou; se for arquivo, o caminho exato que o Felipe precisa colocar\"}]. Estilo da legenda do vídeo "
+              "faltou; se for arquivo, o caminho exato que o Felipe precisa colocar\", \"capacidade\": true quando o que "
+              "falta é CAPACIDADE NOVA no motor (função/modelo/efeito que a API não tem, ou julgamento visual que só "
+              "olhando os quadros resolve) — esse pedido vai para o orquestrador, que edita a biblioteca; false quando "
+              "falta só um arquivo ou uma informação do Felipe}]. Estilo da legenda do vídeo "
               "inteiro: \"legenda\": {...} na raiz da resposta. Fato marcado PESQUISADO NA INTERNET vale como confirmado.")
     aviso("o diretor aplica os seus pedidos")
     r = chamar_json(prompt, sistema(), modelo="opus", etiqueta="vertical-revisao", imagens=imagens)
@@ -704,10 +708,17 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
             brutos.append(n or q)
         brutos += depois.get(q["id"], [])
     planos, avisos = resolver(brutos, palavras)
+    pesados = []   # falta REAL de capacidade (`capacidade: true`): o pedido vai para o orquestrador (pedidos_pesados.py)
     for nf in (r.get("nao_feitos") or []) if isinstance(r, dict) else []:
         if isinstance(nf, dict) and nf.get("motivo"):
             onde = f"cena {numero[nf['id']]}" if nf.get("id") in numero else "pedido geral"
-            avisos.append(f"pedido não feito ({onde}): {nf['motivo']}")
+            casados = [p for p in pedidos_orig if (p.get("plano") == nf.get("id") if nf.get("id") in numero
+                                                   else p.get("plano") not in numero)] if nf.get("capacidade") is True else []
+            if casados:
+                pesados += [{"pedido": p, "motivo": str(nf["motivo"])} for p in casados
+                            if not any(x["pedido"] is p for x in pesados)]
+            else:
+                avisos.append(f"pedido não feito ({onde}): {nf['motivo']}")
     avisos += notas
     nova = {**direcao, "planos": planos, "avisos": avisos, "criado_em": time.strftime("%Y-%m-%dT%H:%M:%S")}
     # número escrito pelo Felipe num pedido (inclusive a resposta a um "pedido não feito") fica liberado na tela
@@ -724,10 +735,11 @@ def revisar(direcao: dict, pedidos: list[dict], palavras: list[dict], briefing: 
             json.dumps({"pedidos": pedidos_orig, "enviados": pedidos, "resposta": r, "mudou": sorted(mudou)}, ensure_ascii=False, indent=1), encoding="utf-8")
     if not mudou:
         nao_da = [str(x) for x in (r.get("nao_da") or []) if x] if isinstance(r, dict) else []
-        motivo = "; ".join(nao_da + [a for a in avisos if a.startswith("pedido não feito")] + notas)
-        return {**direcao, "sem_mudanca": motivo or "o diretor não mudou nenhum plano"}
+        motivo = "; ".join(nao_da + [a for a in avisos if a.startswith("pedido não feito")] + notas
+                           + [f"enviado ao orquestrador: {x['motivo']}" for x in pesados])
+        return {**direcao, "sem_mudanca": motivo or "o diretor não mudou nenhum plano", "pesados": pesados}
     aviso(f"o diretor mudou {len(mudou)} cena(s)")
-    return conferir(nova, palavras, briefing, trabalho if mudou else None, aviso, mudou)
+    return {**conferir(nova, palavras, briefing, trabalho if mudou else None, aviso, mudou), "pesados": pesados}
 
 # ------------------------------------------------------------------------------------------------ render
 BIBLIOTECA = RAIZ / CFG.get("biblioteca", "F1/comum/remotion")  # modelos 3D, kit e scripts de render compartilhados pelos formatos do canal

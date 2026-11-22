@@ -28,6 +28,7 @@ type Cena = {
   removida: boolean
   comentario: string | null
   comentario_aplicado: boolean
+  comentario_pesado?: string | null
   motivo: string | null
   ajustada: boolean
   pendente: boolean // mexida depois que o último rascunho começou
@@ -136,6 +137,12 @@ export function Storyboard({ id }: { id: number }) {
     const t = setTimeout(() => setAviso(null), 2600)
     return () => clearTimeout(t)
   }, [aviso])
+  const aoOrquestrador = async (cid: string, texto: string) => {
+    await api(`/videos/${id}/storyboard/${encodeURIComponent(cid)}/orquestrador`, { method: 'POST', body: JSON.stringify({ texto }) })
+    await carregar()
+    const numero = sb?.cenas.find((c) => c.id === cid)?.numero ?? ''
+    setAviso({ cid, n: Date.now(), texto: `Cena ${numero}: pedido enviado ao orquestrador` })
+  }
   const irPara = (s: number | null) => {
     if (s == null || !player.current) return
     player.current.currentTime = s
@@ -304,7 +311,7 @@ export function Storyboard({ id }: { id: number }) {
           {/* lista de cenas */}
           <div className="flex flex-col gap-3">
             {sb?.cenas.map((c) => (
-              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} capa={sb.capa} estilo={sb.estilo ?? 1} ativa={atual?.id === c.id} ajustar={ajustar} irPara={irPara} piscar={aviso?.cid === c.id ? aviso.n : 0} />
+              <CartaoCena key={c.id} cena={c} tipos={sb.tipos} capa={sb.capa} estilo={sb.estilo ?? 1} ativa={atual?.id === c.id} ajustar={ajustar} aoOrquestrador={aoOrquestrador} irPara={irPara} piscar={aviso?.cid === c.id ? aviso.n : 0} />
             ))}
           </div>
         </div>
@@ -326,6 +333,7 @@ function CartaoCena({
   piscar,
   ativa,
   ajustar,
+  aoOrquestrador,
   irPara,
 }: {
   cena: Cena
@@ -335,6 +343,7 @@ function CartaoCena({
   piscar: number
   ativa: boolean
   ajustar: (cid: string, acao: Record<string, unknown>) => Promise<void>
+  aoOrquestrador: (cid: string, texto: string) => Promise<void>
   irPara: (s: number | null) => void
 }) {
   const [aba, setAba] = useState<'nada' | 'trocar' | 'pedir' | 'itens' | 'metade' | 'enquadrar'>('nada')
@@ -467,8 +476,8 @@ function CartaoCena({
               </span>
             )}
             {c.comentario && (
-              <span className={`text-[11px] ${c.comentario_aplicado ? 'text-ok' : 'text-andamento'}`}>
-                {c.comentario_aplicado ? 'pedido atendido' : 'pedido ao diretor pendente'}
+              <span className={`text-[11px] ${c.comentario_aplicado ? 'text-ok' : c.comentario_pesado ? 'text-atencao' : 'text-andamento'}`}>
+                {c.comentario_aplicado ? 'pedido atendido' : c.comentario_pesado ? 'aguardando o orquestrador' : 'pedido ao diretor pendente'}
               </span>
             )}
             {c.ajustada && !c.removida && !c.comentario && <span className="text-[11px] text-andamento">ajustada</span>}
@@ -789,7 +798,20 @@ function CartaoCena({
             placeholder="Ex.: aqui é metáfora, quero algo de destruição · use um clipe da cinemática · troque por um meme de choque"
             className="h-20 w-full resize-y rounded-md border border-borda bg-painel-2 p-2 text-sm outline-none focus:border-suave"
           />
-          <div className="mt-2 flex justify-end">
+          <div className="mt-2 flex justify-end gap-2">
+            {!c.comentario_pesado && (
+              <button
+                onClick={async () => {
+                  await aoOrquestrador(c.id, pedido)
+                  setAba('nada')
+                }}
+                disabled={!pedido.trim()}
+                title="Pedido pesado: capacidade nova ou julgamento visual. Vai para o orquestrador (o chat), não para o diretor"
+                className="rounded-md border border-atencao/60 px-3 py-1.5 text-xs text-atencao hover:bg-atencao/10 disabled:opacity-40"
+              >
+                Enviar ao orquestrador
+              </button>
+            )}
             <button
               onClick={async () => {
                 await ajustar(c.id, { acao: 'comentario', texto: pedido })

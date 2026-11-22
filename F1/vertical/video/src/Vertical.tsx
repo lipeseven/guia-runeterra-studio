@@ -12,6 +12,8 @@ import {
 import { PINTURAS, carro, trocarComposto } from "../../../comum/remotion/modelos/Carro3D";
 import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "../../../comum/remotion/modelos/desmonte";
 import { ligar } from "../../../comum/remotion/modelos/ligacoes";
+import { criarMapaEUA, zoomNoMapa } from "../../../comum/remotion/modelos/eua"; // mapa dos EUA com os estados (2026-11-21)
+import { conferirRotulos, criarCaesarsPalace, criarEstacionamentoCaesars, revelarEstacionamento, rotuloEm } from "../../../comum/remotion/modelos/caesars"; // Caesars Palace, estacionamento 1981 e rótulo ancorado
 import { desenhar } from "../../../comum/remotion/modelos/pos_neon";
 import { borrarMovimento, prepararVelocidade, semVelocidade, velocidade } from "../../../comum/remotion/modelos/velocidade";
 import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "../../../comum/remotion/modelos/pitstop";
@@ -418,6 +420,7 @@ export const API = {
   criarPlacaCarbono, criarHibrido, poeHibrido, caminhoDaEnergia, escurecer, tomadaDeAr, poePedais, linhaDoFreio, poePilotoNoCarro, polegar, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit,
   logo, aplicarLogo, criarPainelLogo, criarLivro, realcar, campoDeVisao, cockpitNaPista, marchaDe, espelhoReal, rodasRapidas, drs,
   pelotao, filmarVariado, semVelocidade, velocidade,
+  criarMapaEUA, zoomNoMapa, criarCaesarsPalace, criarEstacionamentoCaesars, revelarEstacionamento, rotuloEm,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
@@ -575,6 +578,7 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
         preparar(w, p.codigo ? "tarde" : clima, tipo.set);
         tipo.cena(ctx(w, tq));
       }
+      if (tq === t) conferirRotulos(w); // rótulo ancorado (rotuloEm) longe do centro do alvo: ERRO_ROTULO no console
       // cena de pista: pistas visuais, lente e tremor (velocidade.ts); fora de pista não faz nada
       const vel = prepararVelocidade(w);
       desenhar(w, tq); // = w.r.render(cena, cam); Las Vegas noturna em neon ganha bloom e cor (pos_neon.ts)

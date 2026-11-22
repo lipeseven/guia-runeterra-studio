@@ -221,6 +221,42 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
     );
   }
 
+  if (g.tipo === "classificacao") {
+    // tabela de classificação com os nomes reais (pedido do Felipe, 2026-11-21: "não precisa de seta; é só a tabela e o nome
+    // na posição"): as linhas entram de cima para baixo e a do piloto citado (`destaque`) acende em dourado. Sem seta.
+    const linhas = g.linhas ?? [];
+    const alvo = g.destaque ?? linhas.length;
+    const ALT = 92;
+    const acende = a + 0.2; // acende junto com a entrada (o plano costuma ser curto: a palavra "quinto" fica perto do fim)
+    const ka = suave(t, acende, acende + 0.3);
+    return centro(
+      <div style={{ ...PAINEL, width: 980, padding: "26px 28px 22px", display: "flex", flexDirection: "column", gap: 10 }}>
+        {g.titulo && <div style={{ textAlign: "center", fontSize: 34, fontWeight: 900, letterSpacing: 4, color: COR.destaque, marginBottom: 6 }}>{g.titulo}</div>}
+        {linhas.map((l, s) => {
+          const pos = l.pos ?? s + 1;
+          const el = entra(t, a + s * 0.05, 0.22);
+          const eh = pos === alvo;
+          const kk = eh ? ka : 0;
+          return (
+            <div key={s} style={{
+              height: ALT, borderRadius: 16, display: "flex", alignItems: "center", gap: 22, padding: "0 24px",
+              opacity: el, transform: `translateX(${(1 - el) * -40}px) scale(${1 + 0.03 * kk})`,
+              background: kk > 0 ? `rgba(255,201,58,${0.12 + 0.88 * kk})` : "#1c2a42",
+              boxShadow: kk > 0 ? `0 0 ${40 * kk}px rgba(255,201,58,${0.6 * kk})` : "none",
+            }}>
+              <div style={{ width: 86, fontSize: 52, fontWeight: 900, textAlign: "center", color: kk > 0.5 ? "#16306b" : COR.ouro }}>{pos}º</div>
+              <div style={{ width: 6, height: 54, borderRadius: 3, background: kk > 0.5 ? "#16306b" : "rgba(255,255,255,.22)" }} />
+              <div style={{ flex: 1, fontSize: 44, fontWeight: 900, letterSpacing: 1, color: kk > 0.5 ? "#0b1830" : COR.texto, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{l.nome}</div>
+              {l.equipe && <div style={{ fontSize: 27, fontWeight: 800, letterSpacing: 1, color: kk > 0.5 ? "#16306b" : COR.suave, whiteSpace: "nowrap" }}>{l.equipe}</div>}
+            </div>
+          );
+        })}
+        {g.texto && <Rotulo texto={g.texto} tam={34} />}
+      </div>,
+      1240,
+    );
+  }
+
   if (g.tipo === "relogio") {
     // relógio de ponteiros que gira até a hora falada; cada hora vem com o nome da sessão
     const horas = g.horas ?? [];

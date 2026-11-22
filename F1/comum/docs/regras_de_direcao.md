@@ -7,6 +7,11 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
   (número fora da fala, teto de efeitos, estilo de legenda, cor). Regra pré-setada nunca é motivo de recusa. Só vai para
   `nao_feitos` o que falta de verdade no motor (modelo que não existe, arquivo de logo/som que não está na pasta,
   informação que ninguém deu), e o motivo diz exatamente o que falta (ex.: "falta o arquivo F1/comum/arte/logos/fia.png").
+- **Pedido pesado (2026-11-21)**: cada item de `nao_feitos` leva `"capacidade": true` quando o que falta é CAPACIDADE
+  NOVA no motor — função/peça/efeito que a API das cenas não tem, ou julgamento visual que só olhando os quadros se
+  resolve — e `false` quando falta só um arquivo ou uma informação do Felipe. Com `true` o pedido vai sozinho para o
+  ORQUESTRADOR (o chat, que edita a biblioteca): não tente "quase fazer" nem ignore; diga no `motivo`, em uma frase,
+  qual capacidade falta (ex.: "a API não tem partículas de faísca saindo do assoalho").
 - **Número na tela fora da fala**: liberado só quando o Felipe pede. Ele declara na seção do briefing
   `NÚMEROS NA TELA (pedido do Felipe)` (uma linha por texto, ex.: `- 6,201 km`) ou escreve o número num pedido do card
   (inclusive respondendo a um "pedido não feito"). O texto vai para a tela exatamente como ele escreveu; os outros números
@@ -67,6 +72,22 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
   Repertório (linguagem de TV de F1 e de jogo): câmera fixa de beira de pista que gira com o carro passando (`passagem`), roda e
   asfalto (`rodaFrente`), 3/4 frontal baixa, travelling lateral, nariz, sobre o ombro (`halo`), drone orbitando, grua subindo,
   helicóptero seguindo o pelotão.
+
+## Ajustes do Felipe (GP de Las Vegas, 2026-11-21)
+- **Mapa dos EUA: `criarMapaEUA` + `zoomNoMapa`, nunca chapa lisa** ("uma chapa azul sem detalhe. Cadê os estados? Se der
+  zoom, cadê o mapa?"). Nunca `criarMapaRegiao`/`criarMapa("USA")` para falar de uma cidade ou estado americano: o país vira
+  uma mancha só. O zoom vai do país ao estado e à cidade com `zoomNoMapa(w, mapa, k)`; o alfinete escala com a largura que a
+  função devolve. Brasil: `criarMapaBrasil` (mesma ideia).
+- **Rótulo 3D de um lugar ou objeto: `rotuloEm(w, chave, texto, alvo, { em })`, nunca `rotulo(...)` com `position.set` à
+  mão.** O rótulo "ESTACIONAMENTO" saiu "totalmente descentralizado" porque a posição foi escrita no mundo e o objeto estava
+  num grupo escalado; `rotuloEm` ancora no centro do alvo (já com a escala do grupo) e confere sozinho, a cada quadro, que o
+  centro projetado do rótulo está a menos de 6% da largura do centro do alvo (senão `ERRO_ROTULO` nos quadros de conferência).
+- **Prédio famoso é modelo com a cara dele, nunca bloco bege.** Caesars Palace: `criarCaesarsPalace({ epoca })` ("1981" =
+  torre curva original; "atual" = torres com frontão, colunata, fontes e letreiro). O circuito de 1981/82 no estacionamento:
+  `criarEstacionamentoCaesars()`. Outro prédio citado pela fala sem modelo: vai para `nao_feitos` pedindo a referência.
+- **Posição numa corrida: `classificacao` (tabela com os nomes reais do 1º ao Nº e a linha do piloto acesa), sem seta.** "Não
+  precisa de seta: é só a tabela e o nome na posição." Os nomes vêm do resultado oficial (briefing/conferência); sem o
+  resultado conferido, não invente nomes. `torre` (com seta e troca de lugar) só quando a fala é sobre GANHAR ou PERDER posições.
 
 ## Aprendizados aprovados pelo Felipe (retrospectivas automáticas)
 - Lista de nomes de lugares (curvas, trechos) na abertura vira tipografia grande sobre o mapa da pista, com o lugar citado aceso na palavra; nunca carro de perto, que não mostra onde o lugar fica. _(vídeo: História das Curvas no Autódromo de Interlagos)_

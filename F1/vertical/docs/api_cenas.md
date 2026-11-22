@@ -52,7 +52,8 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
     `linhatempo` {marcos: [{rotulo: "1974", nome: "EMERSON FITTIPALDI", cor, em}, ...]}: linha que avança, marco atual em destaque.
     `minimapa` {de, ate, trecho: [a, b], texto, circuito}: traçado real no canto (norte para cima), trecho aceso e ponto do carro. `circuito`: "interlagos" (padrão) ou "lasvegas". `de`/`ate` = as MESMAS frações da volta que o carro percorre no plano (`f = de + (ate - de) * c.k`).
     `perfil` {de, ate, texto}: altitude real da volta de Interlagos, com o ponto andando.
-    `torre` {n: 6, de: 1, ate: 4, texto, em}: torre de posições sem nomes; a linha acesa cai (vermelha) ou sobe (verde) e troca de lugar com as outras.
+    `torre` {n: 6, de: 1, ate: 4, texto, em}: torre de posições sem nomes; a linha acesa cai (vermelha) ou sobe (verde) e troca de lugar com as outras. Só para GANHAR/PERDER posições.
+    `classificacao` {titulo: "GP CAESARS PALACE 1981", linhas: [{nome: "ALAN JONES", equipe: "WILLIAMS"}, ...], destaque: 5, pos: "meio", em}: tabela do 1º ao Nº com os NOMES REAIS (resultado oficial) e a linha do piloto citado acesa em dourado; SEM seta (2026-11-21, Felipe: "é só a tabela e o nome na posição"). `pos` de cada linha é opcional (padrão: a ordem). Ex. (Piquet 5º, campeão de 1981): `{"tipo": "classificacao", "titulo": "GP CAESARS PALACE 1981", "destaque": 5, "pos": "meio", "em": "quinto lugar", "linhas": [{"nome": "ALAN JONES", "equipe": "WILLIAMS"}, {"nome": "ALAIN PROST", "equipe": "RENAULT"}, {"nome": "BRUNO GIACOMELLI", "equipe": "ALFA ROMEO"}, {"nome": "NIGEL MANSELL", "equipe": "LOTUS"}, {"nome": "NELSON PIQUET", "equipe": "BRABHAM"}]}`.
     `relogio` {texto: "SEXTA", horas: [{h: 12, m: 30, texto: "TREINO LIVRE 1", em}, ...]}: ponteiros giram até cada hora falada.
     `sentido` {texto: "ANTI-HORÁRIO", em}: seta circular girando no sentido da volta.
     **`etapas` (cartões/seletor empilhados): NUNCA (Felipe, 2026-11-18: "já pedi mil vezes pra não aparecer").** `foco` é tempero.
@@ -137,7 +138,43 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
   `{ centro: [18, -52], largura: 150, tamanho: 40 }`, Europa `{ centro: [47, 8], largura: 34, tamanho: 30 }`.
   `pontoNoMapa` funciona nele; rotas e alfinetes por cima. Ícones (avião, navio, caminhão) grandes o bastante para ler.
 - `criarAlfinete("BOLONHA", cor)`: alfinete com rótulo; `.position.copy(pontoNoMapa(mapa, 44.49, 11.34))`.
-- `rotulo("TEXTO", { altura, cor, fundo })`: placa 3D que olha para a câmera (dentro de `obj`).
+- **Mapa dos EUA (2026-11-21; Felipe: "uma chapa azul sem detalhe. Cadê os estados?")**: `obj(w, "mapa:eua", () =>
+  criarMapaEUA({ tamanho: 30, estado: "32", cidade: "lasvegas" }))`: 48 estados + DC (us-atlas/US Census, domínio
+  público; `modelos/geo/eua.json`) em projeção de Albers, cores sóbrias (vizinhos nunca iguais), bordas finas, o `estado`
+  (FIPS: "32" Nevada, "06" Califórnia, "04" Arizona, "49" Utah...) destacado em verde-água, mais alto e com contorno branco
+  e os condados de Nevada; nomes de Nevada e vizinhos (`nomes: ["32", "06", ...]`), "ESTADOS UNIDOS", Canadá, México e
+  Oceano Pacífico; cidades (Las Vegas em amarelo com halo; Reno, Carson City, Los Angeles, Phoenix, Salt Lake City com
+  ponto e nome; `cidades: ["lasvegas", "reno"]` limita). `noite: true` = paleta azul-noite. Zoom: `zoomNoMapa(w, mapa, k,
+  niveis = ["pais", "estado", "cidade"], { de, lente, folga })` leva a câmera do país ao estado e à cidade com `k` de 0 a 1
+  (zoom constante, sem pulo) e devolve a largura no quadro; o alfinete escala com ela. Nível "cidade" = sul de Nevada com
+  Califórnia/Arizona em volta (o mapa continua mapa no zoom). Exemplo (fala "Em 1981 e 1982" no mapa):
+  `const m = obj(w, "mapa:eua", () => criarMapaEUA({ estado: "32", cidade: "lasvegas" })); const larg = zoomNoMapa(w, m,
+  suave(c.t, c.ini + 0.45, c.ini + c.fim - 0.2)); const pino = obj(w, "pino:vegas", () => criarAlfinete("LAS VEGAS",
+  "#ffd23f")); pino.position.copy(pontoNoMapa(m, 36.1716, -115.1391)); pino.scale.setScalar(larg * 0.07);`
+  **Nunca** `criarMapaRegiao`/`criarMapa("USA")` para cidade ou estado americano (vira chapa lisa).
+- **Caesars Palace (`modelos/caesars.ts`, 2026-11-21; Felipe: "um bloco bege horrível, sem detalhe")**:
+  `obj(w, "caesars", () => criarCaesarsPalace({ epoca: "atual" }))`: a cara real conferida em fotos (Wikimedia Commons):
+  torres creme com pilastras, frontão triangular com medalhão dourado e "CAESARS PALACE" em vermelho com filete dourado,
+  prédio da frente com colunata (colunas brancas, capitel dourado) e frontão, lago turquesa com fontes redondas, ciprestes,
+  estátua de César e o letreiro-pilar da esquina da Strip. `epoca: "1981"` = o hotel da época do GP (torre original CURVA de
+  14 andares com janelas em arco, alas em arcada, alameda de fontes e ciprestes; sem as torres de 1997+). `noite: true` =
+  janelas acesas. Frente para +z, metros (~190 m de largura). `userData.topo`/`frente` = pontos (locais) para rótulo e câmera.
+  Close: `orbitar(w, h, [0.3, 0.42, 1], -0.2 + 0.4 * c.k, 1.05, 38)`.
+- **Circuito no estacionamento do Caesars (GP 1981/82)**: `const g = obj(w, "estac:caesars", () =>
+  criarEstacionamentoCaesars()); g.scale.setScalar(0.3); g.updateMatrixWorld(); revelarEstacionamento(g, k)` (pista e
+  muretas se desenham até k; devolve a cabeça, local). Hotel (época 1981) a oeste, de frente para o estacionamento.
+  `g.userData.alvos` = { estacionamento (meio do traçado), pista, hotel (pórtico) }, pontos LOCAIS para `rotuloEm`.
+  Traçado = o mesmo do vídeo de Las Vegas (o modelo de referência do Felipe, quando chegar em `F1/dados/modelos3d`, vira o
+  traçado/terreno daqui).
+- **`rotuloEm(w, chave, texto, alvo, { em, acima, altura, cor, fundo, margem })`: rótulo 3D ANCORADO** (use no lugar de
+  `rotulo` + `position.set` à mão). `alvo` = objeto (centro da caixa) ou ponto local de `em` (grupo, já com a escala dele).
+  Base do rótulo centralizada `acima` metros sobre o alvo. A cada quadro o motor confere que o centro projetado do rótulo
+  está a menos de `margem` (padrão 6% da largura) do centro do alvo e dentro do quadro; senão escreve `ERRO_ROTULO` nos
+  quadros de conferência. Ex.: `rotuloEm(w, "estac", "ESTACIONAMENTO", g.userData.alvos.estacionamento, { em: g, acima: 3,
+  altura: 2.6, cor: "#16306b", fundo: "#ffd23f" })`. Causa do bug de 2026-11-21: `rotulo` em (25, 3, 6) no MUNDO com o
+  estacionamento num grupo escalado a 0,3 (centro real ≈ (-1, 0, 2)): o rótulo ficou na beira, não no meio.
+- `rotulo("TEXTO", { altura, cor, fundo })`: placa 3D que olha para a câmera (dentro de `obj`). Para nomear um lugar ou
+  objeto da cena, prefira `rotuloEm`.
 - Também prontos no mundo: `w.trofeu` (troféu dourado: `.visible = true` e posição), `w.sc` (Safety Car; `rolarRodas(w.sc, metros, v)` gira as rodas dele: aro e raios, desde 2026-11-16).
 
 ## Logos e texturas de arquivo (2026-11-14; `modelos/logos.ts`)

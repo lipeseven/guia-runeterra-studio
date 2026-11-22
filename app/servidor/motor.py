@@ -926,8 +926,41 @@ def _diretor(vid: int):
 
 
 def pedidos_animacao(dirc: Path) -> list[dict]:
+    """Todos os pedidos do card (inclusive os pesados, com `pesado: id`, que aguardam o orquestrador)."""
     arq = dirc / "pedidos_vertical.json"
     return json.loads(arq.read_text(encoding="utf-8")) if arq.exists() else []
+
+
+def pedidos_do_diretor(dirc: Path) -> list[dict]:
+    """Os pedidos que o diretor recebe: os pesados ficam com o orquestrador (tools/direcao/pedidos_pesados.py)."""
+    return [p for p in pedidos_animacao(dirc) if not p.get("pesado")]
+
+
+def _manter_so_pesados(dirc: Path) -> None:
+    """Depois de o diretor aplicar a fila: só os pedidos pesados (ainda com o orquestrador) continuam nela."""
+    arq = dirc / "pedidos_vertical.json"
+    resto = [p for p in pedidos_animacao(dirc) if p.get("pesado")]
+    if resto:
+        arq.write_text(json.dumps(resto, ensure_ascii=False, indent=1), encoding="utf-8")
+    else:
+        arq.unlink(missing_ok=True)
+
+
+def _promover_pesados(vid: int, slug: str, pasta: Path, direcao: dict, pedidos: list[dict]) -> list[dict]:
+    """`nao_feitos` com `capacidade: true` → pedidos pesados para o orquestrador (pendência `orq_pedido_pesado`).
+    Devolve os pedidos que continuam com o diretor."""
+    pesados = direcao.pop("pesados", None) or []
+    if not pesados:
+        return pedidos
+    import pedidos_pesados as PP
+
+    with conectar() as con:
+        titulo = con.execute("SELECT titulo FROM videos WHERE id=?", (vid,)).fetchone()["titulo"]
+        promovidos = PP.promover_nao_feitos(con, vid, pasta, pesados, titulo)
+        con.commit()
+    chave = lambda p: (p.get("plano"), p.get("texto"), p.get("quando"))  # noqa: E731
+    fora = {chave(p) for p in promovidos}
+    return [p for p in pedidos if chave(p) not in fora]
 
 
 def guardar_pedidos_vertical(dirc: Path, pedidos: list[dict], direcao: dict) -> None:
@@ -961,7 +994,7 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
     dirc, trab, saida = pasta / "direcao", pasta / "trabalho", pasta / "saida"
     palavras = json.loads((dirc / "tempos_voz.json").read_text(encoding="utf-8"))
     arq = dirc / "vertical.json"
-    pedidos = pedidos_animacao(dirc) if revisar else []
+    pedidos = pedidos_do_diretor(dirc) if revisar else []
 
     def etapa(chave: str, status: str, resumo: str, detalhe: str, dados: dict | None = None) -> None:
         with conectar() as con:
@@ -975,8 +1008,12 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
         definir_progresso("Animação", "1/2 · o diretor aplica os seus pedidos")
         etapa("direcao", "andamento", "aplicando os seus pedidos…", f"{len(pedidos)} pedido(s)")
         direcao = vertical.revisar(json.loads(arq.read_text(encoding="utf-8")), pedidos, palavras, para_o_diretor(dirc), trab, passo)
+        pedidos = _promover_pesados(vid, slug, pasta, direcao, pedidos)  # falta de capacidade: vai para o orquestrador
         if direcao.get("sem_mudanca"):  # nada mudou: não renderiza à toa e os pedidos voltam para a fila
-            _sem_mudanca(vid, slug, saida, direcao["sem_mudanca"], pedidos)
+            if pedidos:
+                _sem_mudanca(vid, slug, saida, direcao["sem_mudanca"], pedidos)
+            else:
+                _so_pesados(vid, slug, saida)
             return
     elif revisar and arq.exists():
         direcao = json.loads(arq.read_text(encoding="utf-8"))
@@ -989,8 +1026,9 @@ def tarefa_animacao(vid: int, revisar: bool = False) -> None:
         versoes.mkdir(exist_ok=True)
         arq.replace(versoes / f"vertical_{time.strftime('%Y%m%d-%H%M%S')}.json")
     arq.write_text(json.dumps(direcao, ensure_ascii=False, indent=1), encoding="utf-8")
+    direcao.pop("pesados", None)
     guardar_pedidos_vertical(dirc, pedidos, direcao)  # o aprendizado lê o histórico na publicação
-    (dirc / "pedidos_vertical.json").unlink(missing_ok=True)
+    _manter_so_pesados(dirc)  # os pesados continuam na fila, com o orquestrador
     etapa("direcao", "concluido", f"{len(direcao['planos'])} planos", "; ".join(direcao["avisos"])[:200] or "todos os trechos encontrados")
     with conectar() as con:
         for a in direcao["avisos"]:
@@ -1038,6 +1076,18 @@ def _sem_mudanca(vid: int, slug: str, saida: Path, motivo: str, pedidos: list[di
         abrir_pendencia(con, vid, "sem_mudanca", "direcao", "O diretor não aplicou o pedido",
                         f"Nenhuma cena mudou ({motivo}). Os pedidos continuam na fila: reescreva com mais detalhe ou descarte.{dica}")
         registrar(con, vid, f"Diretor não mudou nada: {motivo}", "alerta")
+        con.commit()
+
+
+def _so_pesados(vid: int, slug: str, saida: Path) -> None:
+    """Todos os pedidos da rodada foram para o orquestrador: o vídeo atual continua, sem pendência de "não aplicou"."""
+    ultimo = _ultimo_final(saida)
+    with conectar() as con:
+        atualizar_etapa(con, vid, "direcao", "concluido", "aguardando o orquestrador", "pedido(s) pesado(s): capacidade nova")
+        if ultimo:
+            n = int(ultimo.stem[7:])
+            atualizar_etapa(con, vid, "render", "atencao", f"v{n} (sem mudança)", "pedidos com o orquestrador",
+                            {"video": caminho_rel(slug, "saida", ultimo.name), "versao": n})
         con.commit()
 
 

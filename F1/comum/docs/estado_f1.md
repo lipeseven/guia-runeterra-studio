@@ -7,6 +7,17 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
 - **Pit stop coreografado ✅ (2026-11-09)**: `F1/comum/remotion/modelos/pitstop.ts` (`criarPitStop`, `pitStop`, `noPit`, `PAPEIS`; API em `api_cenas.md` "Pit stop"), coreografia e IK portados do teste livre do Blender (`C:\Users\Felipe\opus-livre-teste\pit-stop\scripts\cena.py`). Motivo: sem modelo na API o Opus tentava desenhar 22 mecânicos à mão e a direção passava de 15 min. Ajustes do Felipe no v2 (2026-11-09, v3): painel de luzes pendurado num braço preso à parede do box (sem poste no chão; some no estúdio); faixa do ombro e tronco dividiam a face de cima (z-fighting + sombra = cor "piscando"): tronco termina dentro da faixa; `foco` deixa os outros translúcidos (material fantasma único, sem profundidade nem sombra, para não piscar) ou `outros: "some"`; rodas do carro rolam na chegada (`rolarRodas`). v5 (2026-11-09): "rodas ao contrário" era serrilhado (wagon-wheel), não sinal: o sentido estava certo em câmera lenta, mas a 30 q/s o pneu girava 60–80° por quadro e o desenho lia como ré; o giro visto agora fica limitado a ~4,5 m/s (`rolagem` no `pitStop`, `rolarRodas(carro, metros, velocidade)`); efeito sonoro com `"obrigatorio": true` passa por fora do teto de 1 a cada 12 s (`vertical.sons`).
 - **Rodas: giro + esterço juntos (2026-11-11)**: causa de "dianteiras não giram / não esterçam": `rolarRodas` e `estercar` usavam `girarPeca` (absoluto, os 3 eixos) no MESMO grupo da roda, então a última chamada apagava a outra (o `AND` dos planos fazia poeNoCircuito→rolarRodas→estercar: dianteiras só esterçavam; quem rolava depois do poeNoCircuito perdia o esterço). Agora `girarPecaEixo` (desmonte.ts) mexe num eixo só e a roda tem `rotation.order = "YXZ"` (esterço no carro, rolagem no eixo virado); `rolarRodas`/`V_RODA` moram em efeitos3d.ts (pitstop.ts reexporta). `poeNoCircuito`/`poePinturaNoCircuito`/`transito` já rolam as 4 rodas pela distância de f (`v` real em m/s, padrão 80). Esterço de `noCircuito` refeito: curvatura média em ~28 m, 4 m à frente, Ackermann com curva de visibilidade (lenta ~20-25°, rápida 5-10°, reta 0, sem tremer). "Calota não gira com a borracha" era serrilhado: 10 raios = 36°, e a ~37°/quadro (V_RODA 4,5 com `v` menor que a real) os raios pareciam parados; `V_RODA` = 2,5 m/s (13°/quadro).
 - **Boneco articulado e mapa por região (2026-11-12, v2 do "transporte dos carros")**: Felipe reprovou bonecos "pedaço de pau" deslizando e continente cinza. `criarPiloto` ganhou coluna/pescoço/pulso/tornozelo (em repouso igual ao antigo; `userData.juntas`, `userData.corpo` = raiz girada, o kart continua igual); poses em `modelos/boneco.ts` (andar com `faseDoPasso`, carregar, agachar, abaixar, apontar, acenar, empurrar, `maos`, `olhar`). `criarMapaRegiao` (extras.ts) = países com cor e fronteira, oceano azul. Tudo na API do Vertical.tsx e em `api_cenas.md`.
+- **Mapa dos EUA, Caesars Palace, rótulo ancorado e tabela de classificação (2026-11-21, feedback do Felipe no "GP de Las
+  Vegas 2026", branch f1-mapa-eua-caesars-tabela)**: `modelos/eua.ts` (`criarMapaEUA`, `zoomNoMapa`; dados us-atlas 3.0.1 =
+  Census Bureau, domínio público, em `geo/eua.json` gerado por `geo/preparar_eua.py`: 48 estados + DC em Albers, 4 cores
+  sóbrias por vizinhança, condados de Nevada, nomes, cidades). `modelos/caesars.ts` (`criarCaesarsPalace` "atual"/"1981",
+  conferido em fotos do Commons e na Wikipedia; `criarEstacionamentoCaesars` + `revelarEstacionamento` = o circuito do
+  plano do vídeo levado para a biblioteca; `rotuloEm` + `conferirRotulos` = rótulo ancorado com checagem automática
+  `ERRO_ROTULO`, chamada no Vertical antes de desenhar). Gráfico `classificacao` (InfograficosDinamicos, sem seta).
+  Causa da tag "ESTACIONAMENTO" fora do centro: posição escrita à mão no MUNDO (25, 3, 6) com o estacionamento num grupo
+  escalado a 0,3 (centro ≈ (-1, 0, 2)). Pendente: modelo de referência do estacionamento do Felipe (nenhum arquivo em
+  `F1/dados/modelos3d` nem `F1/dados/mapas` com caesars/estacionamento/parking/1981/1982 em 2026-11-21); o traçado do
+  estacionamento ainda é o do plano (não o oficial de 1981, que é um zigue-zague anti-horário de 14 curvas, 3,65 km).
 - **Las Vegas noturna em NEON (2026-11-21, pedido do Felipe: v1 do "GP de Las Vegas 2026" "muito escuro e sem vida")**:
   padrão de `criarCircuito("lasvegas", { cenario: true, noite: true })` (`neon: false` volta ao antigo). Peças fixas em
   `modelos/neon_vegas.ts` (arestas/aro/quinas/letreiros de neon nos prédios do OSM, 4 grades de janelas, Sphere de LED,
@@ -55,6 +66,11 @@ juntos (0,33 m), mãos nas empunhaduras por IK, volante real na coluna (`poeVola
 `cameraNoCockpit` (piloto, ombro, rosto, lado, cima) e `alvoDoCockpit`. Medidas em `COCKPIT` (Carro3D.tsx). Capacete do
 `criarPiloto` de 0,28 x 0,33 x 0,30 m para 0,26 x 0,30 x 0,28 m. O exterior do carro e as câmeras externas não mudaram
 (quadros conferidos antes/depois).
+
+## Pedido pesado → orquestrador (2026-11-21, branch f1-pedido-pesado)
+Pedido que exige capacidade nova ou julgamento visual vai para o chat (orquestrador) em vez de o diretor tentar e falhar:
+botão "Ao orquestrador"/"enviar ao orquestrador" no painel Animação, ou sozinho quando `revisar` recebe `nao_feitos` com
+`capacidade: true`. Detalhes, arquivos e comandos em `docs/estado/sistema.md` (Pedidos pesados).
 
 ## Capacidades do vertical pedidas pelo Felipe (2026-11-14, branch f1-capacidades-vertical)
 O diretor devolvia "pedidos não feitos" por falta de capacidade ou por regra. Agora (testes em `tools/direcao/testar_vertical.py`):
