@@ -296,6 +296,21 @@ function ProximoPasso({ c, direcao }: { c: TVideo['condicoes_direcao']; direcao:
 /** Botão de cada pendência: algumas têm ação própria (ex.: aprovar roteiro); o resto é "Está ok". */
 function AcaoPendencia({ chave, id, videoId, aoMudar, conferindo }: { chave: string | null; id: number; videoId: number; aoMudar: () => void; conferindo: boolean }) {
   const estilo = 'shrink-0 rounded-md border border-borda-forte px-3 py-1.5 text-xs hover:border-ok hover:text-ok'
+  if (chave === 'orq_pedido_pesado')
+    // pedido pesado: quem fecha é o orquestrador (tools/direcao/pedidos_pesados.py resolver); aqui só à mão, todos de uma vez
+    return (
+      <button
+        className={estilo}
+        title="Marca TODOS os pedidos pesados deste card como resolvidos (normalmente o orquestrador fecha cada um sozinho)"
+        onClick={async () => {
+          if (!confirm('Marcar todos os pedidos pesados deste card como resolvidos?')) return
+          await api(`/pendencias/${id}/resolver`, { method: 'POST' })
+          aoMudar()
+        }}
+      >
+        Já resolvido
+      </button>
+    )
   if (chave?.startsWith('orq_'))
     return (
       <button

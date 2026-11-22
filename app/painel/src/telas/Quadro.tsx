@@ -33,6 +33,7 @@ const NOME_TAREFA: Record<string, string> = {
 export function Quadro() {
   const { dados, recarregar, setDados } = useAoVivo<DadosQuadro>('/quadro', 5000)
   const { dados: motor } = useAoVivo<Motor>('/motor', 2000)
+  const { dados: pesados } = useAoVivo<{ abertos: number; pedidos: { id: string; video: number; titulo: string; n: number | null; texto: string }[] }>('/pedidos-pesados', 10000)
   const [arrastando, setArrastando] = useState<VideoResumo | null>(null)
   const sensores = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
 
@@ -61,6 +62,15 @@ export function Quadro() {
         <p className="mt-1 font-mono text-xs text-suave">
           {dados ? `${dados.videos.length} vídeos · arraste os cards entre as colunas` : 'carregando…'}
         </p>
+        {pesados && pesados.abertos > 0 && (
+          <p
+            className="mt-2 inline-block rounded-md border border-atencao/50 px-2 py-1 text-xs text-atencao"
+            title={pesados.pedidos.map((p) => `[${p.id}] ${p.titulo} · ${p.n ? 'cena ' + p.n : 'geral'}: ${p.texto}`).join('\n')}
+          >
+            {pesados.abertos} pedido{pesados.abertos === 1 ? '' : 's'} pesado{pesados.abertos === 1 ? '' : 's'} aguardando o orquestrador
+            <span className="ml-2 font-mono text-[11px] text-apagado">tools/direcao/pedidos_pesados.py listar</span>
+          </p>
+        )}
       </div>
       <DndContext
         sensors={sensores}

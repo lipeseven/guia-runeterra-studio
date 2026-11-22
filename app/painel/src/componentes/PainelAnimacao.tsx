@@ -4,9 +4,34 @@ import { api, useAoVivo, type Etapa } from '../api'
 import { BotaoMic, EstadoDitado, useDitado } from './Ditado'
 
 type Plano = { id: string; n: number; tipo: string; clima: string | null; inicio: number; trecho: string; extras: string[] }
-type Pedido = { plano: string | null; texto: string; quando: string }
+type Pedido = { plano: string | null; texto: string; quando: string; pesado?: string }
 type Aviso = { texto: string; resposta: boolean; plano: string | null }
-type Dados = { planos: Plano[]; pedidos: Pedido[]; avisos: Aviso[] }
+type Pesado = { id: string; motivo: string; origem: string; arquivo: string }
+type Dados = { planos: Plano[]; pedidos: Pedido[]; avisos: Aviso[]; pesados?: Pesado[] }
+
+/** Marca do pedido que está com o orquestrador (pedido pesado), ou o botão que o manda para lá. */
+function MarcaPesado({ p, pesados, enviar }: { p: Pedido & { n: number }; pesados: Pesado[]; enviar: (n: number) => void }) {
+  if (p.pesado) {
+    const info = pesados.find((x) => x.id === p.pesado)
+    return (
+      <span
+        title={`${info?.origem === 'diretor' ? 'O diretor não tem capacidade: ' + info.motivo : 'Você mandou ao orquestrador'} · ${info?.arquivo ?? ''}`}
+        className="rounded border border-atencao/50 px-1.5 text-[10px] text-atencao"
+      >
+        aguardando o orquestrador{info?.origem === 'diretor' ? ' (diretor sem capacidade)' : ''}
+      </span>
+    )
+  }
+  return (
+    <button
+      onClick={() => enviar(p.n)}
+      title="Pedido pesado (capacidade nova ou julgamento visual): vai para o orquestrador, não para o diretor"
+      className="text-apagado hover:text-atencao"
+    >
+      enviar ao orquestrador
+    </button>
+  )
+}
 
 /** Toca a Prévia a partir do segundo do plano (o player fica ao lado, na página do vídeo). */
 const tocar = (s: number) => {
@@ -140,11 +165,11 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
   const trabalhando = direcao.status === 'andamento' || render.status === 'andamento'
   const limpar = (e: unknown) => String(e).match(/"detail":"([^"]+)"/)?.[1] ?? String(e)
 
-  const pedir = async (plano: string | null, t: string) => {
+  const pedir = async (plano: string | null, t: string, pesado = false) => {
     if (!t.trim()) return
     setErro(null)
     try {
-      await api(`/videos/${videoId}/animacao/pedido`, { method: 'POST', body: JSON.stringify({ plano, texto: t }) })
+      await api(`/videos/${videoId}/animacao/pedido`, { method: 'POST', body: JSON.stringify({ plano, texto: t, pesado }) })
     } catch (e) {
       return setErro(limpar(e))
     }
@@ -184,6 +209,16 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
     await api(`/videos/${videoId}/animacao/pedido/${n}`, { method: 'DELETE' })
     recarregar()
   }
+  const enviar = async (n: number) => {
+    setErro(null)
+    try {
+      await api(`/videos/${videoId}/animacao/pedido/${n}/orquestrador`, { method: 'POST' })
+    } catch (e) {
+      return setErro(limpar(e))
+    }
+    recarregar()
+    aoMudar()
+  }
   const refazer = async (do_zero: boolean, so_render = false) => {
     if (do_zero && !confirm('O diretor vai escolher todas as cenas de novo (os pedidos na fila são descartados). Continuar?')) return
     setErro(null)
@@ -198,6 +233,8 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
 
   const planos = dados?.planos ?? []
   const pedidos = dados?.pedidos ?? []
+  const pesados = dados?.pesados ?? []
+  const doDiretor = pedidos.filter((p) => !p.pesado).length // os pesados ficam com o orquestrador
   const doPlano = (id: string) => pedidos.map((p, n) => ({ ...p, n })).filter((p) => p.plano === id)
 
   return (
@@ -267,8 +304,9 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
                       {p.n}. {p.tipo.replace('_', ' ')}{p.clima ? ` · ${p.clima}` : ''}{p.extras.length ? ` · ${p.extras.join(', ')}` : ''}
                     </p>
                     {meus.map((m) => (
-                      <p key={m.n} className="mt-1 flex items-center gap-2 text-xs text-ouro">
+                      <p key={m.n} className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ouro">
                         pedido: {m.texto}
+                        <MarcaPesado p={m} pesados={pesados} enviar={enviar} />
                         <button onClick={() => tirar(m.n)} className="text-apagado hover:text-atencao">descartar</button>
                       </p>
                     ))}
@@ -287,6 +325,13 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
                         />
                         <button onClick={() => pedir(p.id, texto)} className="rounded-md border border-ouro/60 px-3 py-1.5 text-xs text-ouro hover:bg-ouro/10">
                           Anotar
+                        </button>
+                        <button
+                          onClick={() => pedir(p.id, texto, true)}
+                          title="Pedido pesado (capacidade nova ou julgamento visual): vai para o orquestrador, não para o diretor"
+                          className="rounded-md border border-atencao/60 px-3 py-1.5 text-xs text-atencao hover:bg-atencao/10"
+                        >
+                          Ao orquestrador
                         </button>
                         <button onClick={fechar} title="Fecha sem anotar (Esc)" className="rounded-md border border-borda px-3 py-1.5 text-xs text-suave hover:border-borda-forte hover:text-texto">
                           Cancelar
@@ -326,21 +371,29 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
             <button onClick={() => pedir(null, geral)} className="rounded-md border border-borda px-3 py-1.5 text-xs hover:border-borda-forte">
               Anotar
             </button>
+            <button
+              onClick={() => pedir(null, geral, true)}
+              title="Pedido pesado (capacidade nova ou julgamento visual): vai para o orquestrador, não para o diretor"
+              className="rounded-md border border-atencao/60 px-3 py-1.5 text-xs text-atencao hover:bg-atencao/10"
+            >
+              Ao orquestrador
+            </button>
           </div>
           <EstadoDitado d={dit} />
-          {pedidos.filter((p) => !p.plano).map((p) => (
-            <p key={p.quando + p.texto} className="flex items-center gap-2 text-xs text-ouro">
+          {pedidos.map((p, n) => ({ ...p, n })).filter((p) => !p.plano).map((p) => (
+            <p key={p.quando + p.texto} className="flex flex-wrap items-center gap-2 text-xs text-ouro">
               pedido geral: {p.texto}
+              <MarcaPesado p={p} pesados={pesados} enviar={enviar} />
               <button onClick={() => tirar(pedidos.indexOf(p))} className="text-apagado hover:text-atencao">descartar</button>
             </p>
           ))}
           <div className="flex flex-wrap items-center gap-2">
             <button
-              disabled={trabalhando || pedidos.length === 0}
+              disabled={trabalhando || doDiretor === 0}
               onClick={() => refazer(false)}
               className="rounded-md bg-ouro px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110 disabled:opacity-40"
             >
-              Refazer com os pedidos ({pedidos.length})
+              Refazer com os pedidos ({doDiretor})
             </button>
             <button
               disabled={trabalhando}
@@ -350,13 +403,18 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
               Refazer do zero
             </button>
             <button
-              disabled={trabalhando || pedidos.length > 0}
+              disabled={trabalhando || doDiretor > 0}
               onClick={() => refazer(false, true)}
               title="Sem Claude: renderiza de novo a mesma direção (ex.: depois de melhorar um modelo 3D)"
               className="rounded-md border border-borda px-3 py-1.5 text-xs text-suave hover:border-borda-forte hover:text-texto disabled:opacity-40"
             >
               Só renderizar de novo
             </button>
+            {pesados.length > 0 && (
+              <span className="text-xs text-atencao">
+                {pesados.length} pedido(s) pesado(s) aguardando o orquestrador
+              </span>
+            )}
             {trabalhando && <span className="text-xs text-andamento">o motor está trabalhando nesta animação…</span>}
           </div>
         </div>
