@@ -120,7 +120,7 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
   à frente com as duas mãos, "empurrar" = braços esticados e tronco inclinado); `faseDoPasso(m)` sincroniza o passo com a
   distância (pé não escorrega: mova o boneco em velocidade constante); `carregar(p, k)` parado segurando;
   `agachar(p, k)` (de cócoras, mexendo em roda/chão); `abaixar(p, k, comCaixa)` (curva o tronco para pegar no chão);
-  `apontar(p, "esq" | "dir", k, altura)`; `acenar(p, c.t, "esq" | "dir", k)`; `empurrar(p, k)` parado; `neutro(p)` de pé;
+  `apontar(p, "esq" | "dir", k, altura)`; `acenar(p, c.t, "esq" | "dir", k)`; `empurrar(p, k)` parado; `sentar(p, k)` (2026-11-22: sentado, quadril ~0,5 m do chão e 0,43 m ATRÁS dos pés, na direção em que ele olha: ponha a cadeira ali; chame DEPOIS de neutro/apontar/olhar, os braços vão à mesa só se ainda estiverem em repouso); `neutro(p)` de pé;
   `olhar(p, giro, inclinacao)` por cima de qualquer pose; `maos(p)` = ponto no mundo entre as mãos (ponha ali a caixa:
   `cx.position.copy(maos(p)); cx.position.y -= metadeDaAltura; cx.rotation.y = p.rotation.y`). Gente em cena sempre faz
   alguma coisa (anda, carrega, agacha, aponta); nunca desliza parada. `bracos()` continua valendo.

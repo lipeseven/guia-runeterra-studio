@@ -27,7 +27,7 @@ import {
 } from "../../../comum/remotion/modelos/extras";
 import "../../../comum/remotion/modelos/logo_canal"; // carrega o logo (segura o render até decodificar)
 import { aplicarLogo, carregarLogos, criarLivro, criarPainelLogo, logo } from "../../../comum/remotion/modelos/logos"; // logos de arquivo (F1/comum/arte/logos)
-import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar } from "../../../comum/remotion/modelos/boneco";
+import { abaixar, acenar, agachar, andar, apontar, carregar, empurrar, faseDoPasso, maos, neutro, olhar, sentar } from "../../../comum/remotion/modelos/boneco";
 import { apertarFreio, criarFreio, girarDisco } from "../../../comum/remotion/modelos/freio";
 import { aquecer, caminhoDaEnergia, criarHibrido, criarMedidorTermico, criarPlacaCarbono, criarTermometro, escurecer, fluxo, linhaDoFreio, medirTemperatura, noFreio, poeHibrido, poePedais, poePilotoNoCarro, polegar, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit, ponteiro, tomadaDeAr, ventilar, cockpitNaPista, marchaDe, espelhoReal } from "../../../comum/remotion/modelos/freio_cena";
 
@@ -415,7 +415,7 @@ export const API = {
   criarEscada, degrau, criarMapa, pontoNoMapa, criarAlfinete, rotulo, numeroNoCarro, carro, PINTURAS, pneus,
   explodir, isolar, raioX, cortar, nomesDasPecas, ligar, destacar, brilho, aura, criarCurva, naCurva, estercar, embaralhar, criarMapaBrasil, areaNoMapa, criarCircuito, noCircuito, pontoNoCircuito, revelarCircuito, poeNoCircuito, poePinturaNoCircuito, perseguir, filmar, panorama, transito, nomearTrechos, marcoNoCircuito, destacarTrecho, numerarCurvas, criarVolante, apertar, girar, puxar, luzesDeTroca, telaDoVolante,
   criarPitStop, pitStop, noPit, PAPEIS, rolarRodas,
-  criarMapaRegiao, neutro, andar, faseDoPasso, carregar, agachar, abaixar, apontar, acenar, empurrar, maos, olhar,
+  criarMapaRegiao, neutro, andar, faseDoPasso, carregar, agachar, abaixar, apontar, acenar, empurrar, maos, olhar, sentar,
   criarFreio, girarDisco, apertarFreio, aquecer, noFreio, fluxo, ventilar, criarTermometro, medirTemperatura, criarMedidorTermico, ponteiro,
   criarPlacaCarbono, criarHibrido, poeHibrido, caminhoDaEnergia, escurecer, tomadaDeAr, poePedais, linhaDoFreio, poePilotoNoCarro, polegar, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit,
   logo, aplicarLogo, criarPainelLogo, criarLivro, realcar, campoDeVisao, cockpitNaPista, marchaDe, espelhoReal, rodasRapidas, drs,
