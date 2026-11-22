@@ -92,7 +92,7 @@ function luzesTraseiras(k: number) {
   const g = new THREE.Group();
   g.name = "luzes_neon";
   const vermelho = new THREE.MeshBasicMaterial({ color: "#ff2414" });
-  vermelho.color.multiplyScalar(7);
+  vermelho.color.multiplyScalar(2.2); // era 7: o bloom devorava a traseira (Felipe: 'luzes muito iluminadas, tomando conta')
   const caixa = (l: number, a: number, p: number, x: number, y: number, z: number, m: THREE.Material) => {
     const b = new THREE.Mesh(new THREE.BoxGeometry(l, a, p), m);
     b.position.set(x, y, z);
@@ -108,11 +108,11 @@ function luzesTraseiras(k: number) {
   };
   // luz de chuva: quadrado de LED na ponta da estrutura de impacto (no eixo, ~34 cm do chão)
   caixa(0.11, 0.07, 0.012, 0, 0.34, 2.656, vermelho);
-  brilho(0, 0.34, 2.68, 0.75, 0.75);
+  brilho(0, 0.34, 2.68, 0.26, 0.28);
   // LEDs das placas da asa traseira: fita vertical na borda de trás de cada placa
   for (const s of [-1, 1]) {
     caixa(0.026, 0.22, 0.012, s * 0.53, 0.92, 2.717, vermelho);
-    brilho(s * 0.53, 0.92, 2.74, 0.5, 0.6);
+    brilho(s * 0.53, 0.92, 2.74, 0.18, 0.2);
   }
   // filete da cor da equipe na borda do assoalho (discreto, acende pouco)
   const p = pinturaDoCarro(k);
