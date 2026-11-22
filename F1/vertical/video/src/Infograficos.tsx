@@ -10,7 +10,10 @@ export const COR = { fundo: "rgba(9,19,38,.86)", borda: "rgba(46,196,182,.55)", 
 
 export type TituloV = { texto: string; sub?: string; i?: number };
 export type GraficoV = {
-  tipo: "icone" | "regua" | "bateria" | "seletor" | "numero" | "etapas" | "alerta" | "frase" | "palavra" | "ano" | "linhatempo" | "minimapa" | "perfil" | "torre" | "relogio" | "sentido";
+  tipo: "icone" | "regua" | "bateria" | "seletor" | "numero" | "etapas" | "alerta" | "frase" | "palavra" | "ano" | "linhatempo" | "minimapa" | "perfil" | "torre" | "classificacao" | "relogio" | "sentido";
+  linhas?: { pos?: number; nome: string; equipe?: string; cor?: string }[]; // classificação: 1º ao Nº com nome (e equipe)
+  destaque?: number; // classificação: posição do piloto citado (linha acesa)
+  titulo?: string; // classificação: corrida (ex.: "GP CAESARS PALACE 1981")
   palavras?: { t: string; i?: number; brasil?: boolean }[]; // frase: cada palavra entra na sua hora
   marcos?: { rotulo: string; nome?: string; cor?: string; i?: number }[]; // linha do tempo
   trecho?: [number, number]; // minimapa: trecho aceso (fração da volta)

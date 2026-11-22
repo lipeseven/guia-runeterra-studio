@@ -213,5 +213,22 @@ checa(bool(pl7["bbbb2222"].get("placas")) and "48/62" in json.dumps(pl7["bbbb222
       "placa 48/62 continua depois da revisão geral que não a devolveu")
 checa(bool(pl7["bbbb2222"].get("grafico")), "gráfico da cena também continua")
 
+# ------------------------------------------------------------------ 7. mapa dos EUA, Caesars, rótulo ancorado e classificação
+print("7. mapa dos EUA, Caesars Palace, rotuloEm, classificacao (GP de Las Vegas, 2026-11-21)")
+eua = json.loads((V.RAIZ / "F1" / "comum" / "remotion" / "modelos" / "geo" / "eua.json").read_text(encoding="utf-8"))
+checa(len(eua["estados"]) == 49 and "02" not in eua["estados"] and eua["estados"]["32"]["nome"] == "Nevada", "eua.json: 48 estados contíguos + DC, sem Alasca")
+checa(len(eua["condados_nv"]) == 17 and "32003" in eua["condados_nv"], "eua.json: 17 condados de Nevada (Clark = 32003)")
+checa(all(len(a) >= 4 for e in eua["estados"].values() for a in e["aneis"]) and all(e["aneis"] for e in eua["estados"].values()), "todo estado tem contorno")
+nomes = set(V._nomes_api(V.RAIZ / "F1" / "vertical" / "video"))
+checa({"criarMapaEUA", "zoomNoMapa", "criarCaesarsPalace", "criarEstacionamentoCaesars", "revelarEstacionamento", "rotuloEm"} <= nomes, "API das cenas tem mapa dos EUA, Caesars e rotuloEm")
+vtsx = (V.RAIZ / "F1" / "vertical" / "video" / "src" / "Vertical.tsx").read_text(encoding="utf-8")
+checa("conferirRotulos(w)" in vtsx, "Vertical confere os rótulos ancorados antes de desenhar")
+dina = (V.RAIZ / "F1" / "vertical" / "video" / "src" / "InfograficosDinamicos.tsx").read_text(encoding="utf-8")
+bloco = dina.split('g.tipo === "classificacao"')[1].split("if (g.tipo ===")[0]
+checa("▼" not in bloco and "▲" not in bloco, "classificacao não tem seta")
+tc = V.textos_na_tela({"grafico": {"tipo": "classificacao", "titulo": "GP 1981", "linhas": [{"nome": "NELSON PIQUET"}]}})
+checa("NELSON PIQUET" in tc and "GP 1981" in tc, f"textos da classificação entram na conferência: {tc}")
+checa("criarMapaEUA" in api and "rotuloEm" in api and "classificacao" in api and "criarCaesarsPalace" in api, "api_cenas.md documenta o que é novo")
+
 print(f"\n{OK} ok, {len(FALHAS)} falha(s)")
 sys.exit(1 if FALHAS else 0)
