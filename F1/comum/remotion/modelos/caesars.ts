@@ -11,6 +11,7 @@
 // O circuito do estacionamento segue o mesmo desenho do plano do vídeo (o Felipe vai trazer um modelo de referência:
 // quando o arquivo chegar em F1/dados/modelos3d, ele substitui o traçado/terreno aqui, pela regra "material vira peça").
 import * as THREE from "three";
+import CIRCUITOS from "./geo/circuitos.json";
 import { obj, rotulo } from "./extras";
 import type { Mundo } from "./mundo";
 
@@ -388,8 +389,16 @@ export function criarEstacionamentoCaesars(o: { epocaHotel?: "1981" | "atual" } 
   for (let z = -72; z <= 72; z += 12) for (let x = -120; x <= 120; x += 3.2) { M.makeTranslation(x, 0.03, z); st.setMatrixAt(n++, M); }
   st.count = n;
   G.add(st);
-  const pts = [[-75, 45], [50, 45], [63, 32.5], [50, 20], [-50, 20], [-63, 7.5], [-50, -5], [50, -5], [63, -17.5], [50, -30], [-75, -30]].map((p) => new THREE.Vector3(p[0], 0, p[1]));
-  const cur = new THREE.CatmullRomCurve3(pts, false, "centripetal");
+  // traçado REAL de 1981 (14 curvas, desenho do Felipe: geo/circuitos.json 'caesars_1981'; f 0 = linha de chegada): cabe no estacionamento
+  const real = (CIRCUITOS as unknown as Record<string, { pontos: [number, number][] }>).caesars_1981.pontos.slice(0, -1);
+  const lat0 = real.reduce((a, q) => a + q[1], 0) / real.length, lon0 = real.reduce((a, q) => a + q[0], 0) / real.length;
+  const kx = 111320 * Math.cos((lat0 * Math.PI) / 180);
+  const xy = real.map((q) => [(q[0] - lon0) * kx, -(q[1] - lat0) * 110540]);  // x leste, z sul
+  const xs = xy.map((q) => q[0]), zs = xy.map((q) => q[1]);
+  const esc = Math.min(215 / (Math.max(...xs) - Math.min(...xs)), 150 / (Math.max(...zs) - Math.min(...zs)));
+  const cx = (Math.max(...xs) + Math.min(...xs)) / 2, cz = (Math.max(...zs) + Math.min(...zs)) / 2;
+  const pts = xy.filter((_, i) => i % 2 === 0).map((q) => new THREE.Vector3((q[0] - cx) * esc, 0, (q[1] - cz) * esc));
+  const cur = new THREE.CatmullRomCurve3(pts, true, "centripetal");
   const N = 420;
   const pos: number[] = [], idx: number[] = [];
   for (let i = 0; i <= N; i++) {
