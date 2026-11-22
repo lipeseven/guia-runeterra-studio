@@ -13,8 +13,9 @@ import { PINTURAS, carro, trocarComposto } from "../../../comum/remotion/modelos
 import { cortar, explodir, isolar, nomesDasPecas, raioX, restaurar } from "../../../comum/remotion/modelos/desmonte";
 import { ligar } from "../../../comum/remotion/modelos/ligacoes";
 import { desenhar } from "../../../comum/remotion/modelos/pos_neon";
+import { borrarMovimento, prepararVelocidade, semVelocidade, velocidade } from "../../../comum/remotion/modelos/velocidade";
 import { PAPEIS, criarPitStop, noPit, pitStop, rolarRodas } from "../../../comum/remotion/modelos/pitstop";
-import { filmar, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "../../../comum/remotion/modelos/geografia";
+import { filmar, filmarVariado, pelotao, nomearTrechos, marcoNoCircuito, areaNoMapa, criarCircuito, criarMapaBrasil, destacarTrecho, noCircuito, numerarCurvas, panorama, perseguir, poeNoCircuito, poePinturaNoCircuito, pontoNoCircuito, revelarCircuito, transito } from "../../../comum/remotion/modelos/geografia";
 import { aura, brilho, campoDeVisao, criarCurva, definirTempo, destacar, estercar, naCurva, realcar, rodasRapidas, drs } from "../../../comum/remotion/modelos/efeitos3d";
 import { Grafico, Titulo, type GraficoV, type TituloV } from "./Infograficos";
 import { apertar, criarVolante, embaralhar, girar, luzesDeTroca, puxar, telaDoVolante } from "../../../comum/remotion/modelos/volante";
@@ -47,6 +48,7 @@ export type PropsVertical = {
 
 export type CV = {
   w: Mundo; p: PlanoV; t: number; s: number; k: number; fim: number; ini: number; m: (nome: string, frac?: number) => number;
+  n: number; // número do plano no vídeo (0, 1, 2...): semente de filmarVariado (planos seguidos nunca repetem a câmera)
   tipo: (nome: string, extra?: Partial<PlanoV>) => void;
 };
 
@@ -415,6 +417,7 @@ export const API = {
   criarFreio, girarDisco, apertarFreio, aquecer, noFreio, fluxo, ventilar, criarTermometro, medirTemperatura, criarMedidorTermico, ponteiro,
   criarPlacaCarbono, criarHibrido, poeHibrido, caminhoDaEnergia, escurecer, tomadaDeAr, poePedais, linhaDoFreio, poePilotoNoCarro, polegar, poeVolanteNoCarro, cameraNoCockpit, alvoDoCockpit,
   logo, aplicarLogo, criarPainelLogo, criarLivro, realcar, campoDeVisao, cockpitNaPista, marchaDe, espelhoReal, rodasRapidas, drs,
+  pelotao, filmarVariado, semVelocidade, velocidade,
 };
 // API:fim
 const NOMES_API = Object.keys(API);
@@ -528,9 +531,10 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
   const ini = inicios[ip];
   const fim = (inicios[ip + 1] ?? durationInFrames / fps) - ini;
   const cenas = useMemo(() => Object.fromEntries(planos.filter((x) => x.codigo).map((x) => [x.id, compilar(x)])), [planos]);
-  const ctx = (w: Mundo): CV => {
+  // `tq` = instante desenhado (o borrão de movimento redesenha o plano em instantes um pouco antes de t)
+  const ctx = (w: Mundo, tq = t): CV => {
     const c: CV = {
-      w, p, t, s: t - ini, k: (t - ini) / fim, fim, ini,
+      w, p, t: tq, s: tq - ini, k: (tq - ini) / fim, fim, ini, n: ip,
       m: (nome, frac = 0.5) => (p.marcas?.[nome] !== undefined ? tempo(p.marcas[nome]) : ini + fim * frac),
       tipo: (nome, extra = {}) => {
         const pronta = TIPOS[nome];
@@ -551,26 +555,34 @@ export const Vertical: React.FC<PropsVertical> = ({ palavras, planos, audio, cha
   useLayoutEffect(() => {
     if (!logosOk) return; // o render continua segurado (alca) até os logos chegarem
     const w = mundo.current ?? (mundo.current = montar(ref.current!));
-    esconderExtras(w);
-    restaurar(); // desmonte do quadro anterior (explodir, isolar, raio-X, corte) não vaza para este
-    definirTempo(t); // giro das rodas dos carros rápidos (efeitos3d.rolarRodas) vem do tempo do vídeo
     const cena = p.codigo ? cenas[p.id] : null;
-    let feito = false;
-    if (cena) {
-      preparar(w, clima, p.set ?? "pista");
-      try {
-        cena(API, ctx(w));
-        feito = true;
-      } catch (e) {
-        console.error(`ERRO_CENA ${p.id}: ${(e as Error).message}`);
-        esconderExtras(w);
+    const quadroEm = (tq: number) => {
+      esconderExtras(w);
+      restaurar(); // desmonte do quadro anterior (explodir, isolar, raio-X, corte) não vaza para este
+      definirTempo(tq); // giro das rodas dos carros rápidos (efeitos3d.rolarRodas) vem do tempo do vídeo
+      let feito = false;
+      if (cena) {
+        preparar(w, clima, p.set ?? "pista");
+        try {
+          cena(API, ctx(w, tq));
+          feito = true;
+        } catch (e) {
+          console.error(`ERRO_CENA ${p.id}: ${(e as Error).message}`);
+          esconderExtras(w);
+        }
       }
-    }
-    if (!feito) {
-      preparar(w, p.codigo ? "tarde" : clima, tipo.set);
-      tipo.cena(ctx(w));
-    }
-    desenhar(w, t); // = w.r.render(cena, cam); Las Vegas noturna em neon ganha bloom e cor (pos_neon.ts)
+      if (!feito) {
+        preparar(w, p.codigo ? "tarde" : clima, tipo.set);
+        tipo.cena(ctx(w, tq));
+      }
+      // cena de pista: pistas visuais, lente e tremor (velocidade.ts); fora de pista não faz nada
+      const vel = prepararVelocidade(w);
+      desenhar(w, tq); // = w.r.render(cena, cam); Las Vegas noturna em neon ganha bloom e cor (pos_neon.ts)
+      return vel;
+    };
+    const vel = quadroEm(t);
+    // borrão de movimento (cena de pista com carro rápido): o plano redesenhado em instantes um pouco antes (obturador)
+    if (vel.amostras > 1) borrarMovimento(w, vel.amostras, (i) => quadroEm(Math.max(ini, t - (i / vel.amostras) * (vel.obturador / fps))));
     continueRender(alca);
   });
   const c = ctx(mundo.current ?? ({} as Mundo));

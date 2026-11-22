@@ -65,7 +65,7 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
 
 ## O que o código recebe
 `c`: `c.w` (mundo), `c.t` (segundo do vídeo), `c.s` (segundos desde o início do plano), `c.k` (0 a 1 ao longo do plano),
-`c.fim` (duração do plano), `c.ini` (segundo em que o plano começa), `c.m(nome, frac)` (segundo de uma marca; sem a marca,
+`c.fim` (duração do plano), `c.ini` (segundo em que o plano começa), `c.n` (número do plano no vídeo: semente de `filmarVariado`), `c.m(nome, frac)` (segundo de uma marca; sem a marca,
 `c.ini + c.fim * frac`), `c.tipo(nome, {parâmetros})` (desenha uma cena pronta do catálogo; chame primeiro, depois acrescente).
 Para animar: `suave(t, a, b)` (0→1 suave entre os segundos a e b), `entra(t, a, dur)` (0→1 com leve passada).
 
@@ -199,7 +199,9 @@ em frenagem forte (nunca o disco brilhando a volta toda).
 - `aquecer(modelo, graus, w?, quais?, halo = 1)`: incandescência por temperatura (°C), só neste quadro: nada até ~450,
   vermelho escuro ~550, cereja ~750, laranja ~900, laranja-amarelo ~1.000, amarelo-claro >1.150. Só discos (pastilha um
   pouco; a pinça nunca). `modelo` = freio solto ou carro (as 4 rodas; `quais` = ["freio_dianteiro_esquerdo", ...]).
-  Com `w` põe também o halo de luz em volta de cada disco. Escuro/noite faz o brilho aparecer.
+  Com `w` põe também o halo de luz em volta de cada disco. Escuro/noite faz o brilho aparecer. **Só quando a fala é sobre
+  freio/frenagem** (2026-11-21: aos 5 s do GP de Las Vegas o plano "mas correr aqui não é tão simples" freava o carro e acendia
+  o disco; o Felipe viu "luz saindo de dentro do pneu": "é corrida de F1, tem que estar correndo").
 - `ventilar(w, freio, c.t, k)`: ar entrando pela tomada, descendo o duto e saindo pela borda do disco (freio solto).
 - `fluxo(w, "chave", [pontos no mundo], c.t, k, { n, cor, tam, vel, espalha })`: partículas correndo por um caminho
   (ar no duto do carro, linhas de túnel de vento, energia). Até 300 por chave; não usa as 140 de `solta`.
@@ -313,8 +315,44 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
   mesmo ritmo, sem saltos); abaixo, da distância real (2026-11-13). O giro do carro na pista é interpolado entre os pontos
   do traçado (antes andava em degraus e a câmera presa ao carro dava tranco).
 - `poePinturaNoCircuito(w, "chave", { base, clara, escura, faixa, acento }, circ, f, { escala, v })`: carro com pintura própria (só cores conferidas), com esterço e rodas rolando.
-- **`filmar(w, circ, f, c.k, ["curva", "lado", "atras"], { lado })`: câmera padrão de carro na volta.** Transita pelas posições ao longo do plano, sem tranco: atras, curva, rasante, lado, ladoesq, frente, alto, heli, roda. Use 2 ou 3 posições; com dois carros: alto, atras, frente ou heli (lado corta o outro).
+- **`filmar(w, circ, f, c.k, ["curva", "lado", "atras"], { lado })`: câmera padrão de carro na volta.** Transita pelas posições ao longo do plano, sem tranco: atras, curva, rasante, lado, ladoesq, frente, alto, heli, roda (e as novas abaixo: rodaFrente, tresQuartos, travelling, nariz, halo, helicoptero, drone, grua, passagem). Use 2 ou 3 posições; com dois carros: alto, atras, frente ou heli (lado corta o outro).
 - `perseguir(w, circ, f, { atras, alto, frente, lente })`: câmera atrás do carro olhando a pista à frente; a curva aparece antes de ele virar. Curva: atras 17, alto 6,5, frente 30, lente 50. Reta rápida: atras 11, alto 2,3, frente 30, lente 62. Velocidade real: ~0,016 da volta por segundo.
+- **Câmeras novas de `filmar` (2026-11-21, pedido do Felipe: "alto → atrás → alto → atrás o vídeo todo cansa").** Além de
+  atras, curva, rasante, lado, ladoesq, frente, alto, heli e roda: `rodaFrente` (baixa, colada na roda dianteira, olhando para a
+  frente: pneu e asfalto correndo), `tresQuartos` (3/4 frontal baixa, o carro vindo na direção da lente), `travelling` (corre
+  junto, de lado e baixa, a ~5 m), `nariz` (no bico, olhando para a frente), `halo` (sobre o ombro / acima do halo, T-cam),
+  `helicoptero` (alto e longe, lente 26, de lado: bom para o pelotão), e as que mudam no próprio trecho: `drone` (orbita o
+  carro ~110°), `grua` (sobe do chão a ~18 m) e `passagem` (pan-by: câmera FIXA na beira da pista, o carro vem de longe com lente
+  fechada, passa colado e vai embora com a câmera girando atrás dele; passe `{ dur: c.fim }` para ele passar no meio do trecho).
+  `{ espelho: true }` troca o lado das tomadas laterais. Famílias (`TIPO_CAMERA`): atras (atras, curva), baixa (rasante),
+  lateral (lado, ladoesq, travelling), frente (frente, tresQuartos), alto, heli (heli, helicoptero), roda (roda, rodaFrente),
+  onboard (nariz, halo), orbita (drone), grua, fixa (passagem).
+- **`filmarVariado(w, circ, f, c.k, c.n, { dur: c.fim, evitar })`: câmera de pista escolhida do repertório pelo número do
+  plano (`c.n`).** Planos seguidos nunca repetem a família de câmera; cada um varia ângulo, distância e lente (±12%) e o lado.
+  `evitar: ["onboard"]` tira famílias que não servem na cena. Devolve as tomadas usadas. Use-a como padrão nas cenas de pista
+  em que a fala não pede um enquadramento específico.
+- **`pelotao(w, circ, f, n, { foco, v, forma, posicao, carros, semente })`: n carros (até 22, as 11 equipes × 2 com a pintura
+  de cada uma) andando juntos, sem sobreposição.** O carro `foco` (padrão 0) fica em f; `forma`: "pelotao" (padrão: grupos de
+  2 a 4 colados e buracos entre eles), "fila", "duelo" (pares lado a lado) ou "espalhado"; `posicao`: "meio" (padrão, carros à
+  frente e atrás do foco), "lider" ou "fim"; `v` em m/s (padrão 85). As distâncias respiram devagar (aproximam e afastam). Já
+  chama `rodasRapidas` em todos. Devolve [{k, f, lado}]. Não ponha outro carro com `poeNoCircuito` no mesmo número: passe
+  `carros` sem ele. Custo medido: ver "Velocidade" abaixo. Ex.: `const f = 0.70 + 0.014 * c.s; pelotao(w, circ, f, 10, { foco: 0, v: 87 });
+  filmarVariado(w, circ, f, c.k, c.n, { dur: c.fim });`
+- **Velocidade (2026-11-21, Felipe: "o carro parece que está a 30 km/h quando devia estar a 300"; `modelos/velocidade.ts`).**
+  Liga SOZINHO em todo plano que põe carro na pista (`poeNoCircuito`, `poePinturaNoCircuito`, `transito`, `pelotao`) ou usa câmera
+  de pista (`filmar`, `perseguir`, `filmarVariado`), com a câmera a menos de ~90 m do chão (circuito visto do alto não muda):
+  postes do alambrado a cada 3 m, painéis vermelho/branco de 2 m no pé do muro (sem cenário: balizas a cada 8 m), juntas e
+  remendos no asfalto; lente que abre até +7° e tremor leve proporcionais à velocidade (só com a câmera perto do carro); e
+  borrão de movimento (o quadro é a média de 4 subquadros num obturador de 180°). Carro com `escala` > 1,5 (vista de longe)
+  não liga. Desligar no plano: `semVelocidade(w)` (carro parado, box, explicação calma) ou `{ velocidade: false }` na função.
+  Ajuste: `velocidade(w, { borrao: 6, obturador: 0.75, tremor: 0, lente: 0, pistas: false })` (borrao = nº de subquadros,
+  false = sem).
+  Medido no GP de Las Vegas (fluxo óptico em 12 quadros seguidos, px/quadro numa tela de 1080, só onde há desenho): antes, a
+  perseguição a 87 m/s tinha 0,5-0,8 e a POV (a cena que o Felipe achou mais rápida) 1,2. Depois: perseguição 2,3, rasante/frente
+  4-5, POV 2,1. Alvo para 300 km/h com câmera perto: ≥ 2. Câmera alta/heli continua ~1 (não mostra velocidade, mostra o
+  lugar). Custo por quadro (render por blocos, concorrência 3, 48 quadros): perseguição 0,239 → 0,247 s com o borrão
+  (diferença dentro do ruído da medida, ~±10%); 22 carros 0,282 s contra 0,246 s com 1 carro (+15%); 22 carros + borrão 0,338 s.
+  Estúdio, mapas e circuito visto do alto: diff de pixels 0 e mesmo tempo.
 - `panorama(w, circ, azimute, alto, folga)`: a pista inteira em diagonal (alto 0 rasante, 1 de cima; folga 0,86 cabe na tela).
 - `transito(w, circ, c.t, [carros], { escala, v })`: carros andando pela volta. `nomearTrechos(w, circ, k)`: nomes reais dos trechos sobre a pista.
 - Vista panorâmica acompanhando o carro: `camera(w, [q.x + 330 * sin(az), 400, q.z + 330 * cos(az)], [q.x, 0, q.z], 38)` com carro em escala 7.

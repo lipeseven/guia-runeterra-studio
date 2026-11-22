@@ -135,6 +135,8 @@ let tempoAtual: number | null = null;
 export const definirTempo = (t: number | null) => {
   tempoAtual = t;
 };
+/** Segundo do vídeo deste quadro (0 fora do vertical): tremor de câmera do sistema de velocidade (velocidade.ts). */
+export const tempoDoVideo = () => tempoAtual ?? 0;
 const R_RODA = 0.36;
 const NOMES_RODAS = ["roda_dianteira_esquerda", "roda_dianteira_direita", "roda_traseira_esquerda", "roda_traseira_direita"];
 
