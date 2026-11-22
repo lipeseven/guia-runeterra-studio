@@ -378,7 +378,7 @@ export type EstacionamentoCaesars = THREE.Group & {
  *  1981, frente virada para o estacionamento). Medidas no grupo: chão 260 × 180; escale o grupo (o plano usa 0,3).
  *  `revelarEstacionamento(g, k)` desenha pista e muretas até a fração k. `userData.alvos` (local) = centros para
  *  câmera e rótulo: `estacionamento` (meio do traçado, no chão), `pista`, `hotel` (pórtico da frente). Use com `rotuloEm`. */
-export function criarEstacionamentoCaesars(o: { epocaHotel?: "1981" | "atual" } = {}): EstacionamentoCaesars {
+export function criarEstacionamentoCaesars(o: { epocaHotel?: "1981" | "atual"; entorno?: boolean } = {}): EstacionamentoCaesars {
   const G = new THREE.Group() as EstacionamentoCaesars;
   const chao = new THREE.Mesh(new THREE.PlaneGeometry(260, 180), new THREE.MeshStandardMaterial({ color: "#5a5d63", roughness: 0.95 }));
   chao.rotation.x = -Math.PI / 2;
@@ -437,11 +437,110 @@ export function criarEstacionamentoCaesars(o: { epocaHotel?: "1981" | "atual" } 
   G.add(hotel);
   hotel.updateMatrix();
   const frenteHotel = hotel.userData.frente.clone().applyMatrix4(hotel.matrix);
+  if (o.entorno !== false) entornoDoEstacionamento(G);
   // centro do traçado (caixa dos pontos da curva): é aqui que o rótulo "ESTACIONAMENTO" se ancora
   const bb = new THREE.Box3().setFromPoints(cur.getSpacedPoints(200));
   const meio = bb.getCenter(new THREE.Vector3());
   G.userData = { cur, pista, bar, NB, N, hotel, alvos: { estacionamento: new THREE.Vector3(meio.x, 0, meio.z), pista: meio.clone(), hotel: frenteHotel } };
   return G;
+}
+
+
+/** Entorno do estacionamento (2026-11-21, Felipe: "o Caesars está jogado no meio do nada"): terreno de deserto até o
+ *  horizonte, calçada e meio-fio, cerca, carros estacionados nas bordas, a Strip (avenida de 6 faixas com carros) ao sul,
+ *  prédios vizinhos de Las Vegas ao norte/leste (janelas acesas, aresta de neon), palmeiras, montanhas ao fundo. Tudo em
+ *  coordenadas do grupo (chão 260 × 180); instanciado para ser leve. `entorno: false` volta ao chão solto de antes. */
+function entornoDoEstacionamento(G: THREE.Group) {
+  let sem = 7;
+  const rnd = () => ((sem = (sem * 16807) % 2147483647) / 2147483647);
+  // deserto até o horizonte (por baixo do chão do estacionamento)
+  const deserto = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), mat("#7f6e55", { roughness: 1 }));
+  deserto.rotation.x = -Math.PI / 2;
+  deserto.position.y = -0.15;
+  G.add(deserto);
+  // calçada e meio-fio em volta do estacionamento
+  const cal = mat("#b9b5aa");
+  G.add(caixa(272, 0.5, 6, cal, 0, 0.1, -93), caixa(272, 0.5, 6, cal, 0, 0.1, 93), caixa(6, 0.5, 186, cal, 133, 0.1, 0));
+  // cerca baixa de tela ao norte e a leste
+  const cerca = mat("#7c8088", { metalness: 0.5 });
+  for (const [x, z, l, r] of [[0, -97, 262, 0], [136, 0, 190, Math.PI / 2]] as const) {
+    const f = caixa(l, 3.2, 0.2, cerca, x, 1.7, z); f.rotation.y = r; G.add(f);
+  }
+  // Strip: avenida a sul (z 118..160) com faixas e carros em movimento parado no quadro
+  const av = mat("#25272c", { roughness: 0.9 });
+  G.add(caixa(1800, 0.1, 44, av, 0, 0.0, 128));
+  const marca = mat("#e9e4cf");
+  for (let x = -880; x < 880; x += 12) for (const zz of [117, 122.5, 128, 133.5, 139]) G.add(caixa(5, 0.06, 0.35, marca, x, 0.06, zz));
+  const amar = mat("#e0b83a");
+  G.add(caixa(1800, 0.07, 0.4, amar, 0, 0.07, 126.6), caixa(1800, 0.07, 0.4, amar, 0, 0.07, 129.4));
+  // carros: instâncias de uma carroceria simples, em cores variadas (estacionados e na Strip)
+  const cores = ["#c8c8cc", "#1f2430", "#9b1c26", "#2c4f8f", "#e8e4da", "#3b3f46", "#d9a521"];
+  const carro = (n: number) => {
+    const m = new THREE.InstancedMesh(new THREE.BoxGeometry(4.6, 1.3, 1.9), mat("#ffffff", { roughness: 0.4, metalness: 0.3 }), n);
+    const t = new THREE.InstancedMesh(new THREE.BoxGeometry(2.4, 0.9, 1.7), mat("#222a35", { roughness: 0.2 }), n);
+    return { m, t, i: 0 };
+  };
+  const C = carro(260), M = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(1, 1, 1), P = new THREE.Vector3(), E = new THREE.Euler(), cor = new THREE.Color();
+  const poe = (x: number, z: number, ang: number) => {
+    if (C.i >= 260) return;
+    Q.setFromEuler(E.set(0, ang, 0));
+    M.compose(P.set(x, 0.85, z), Q, S); C.m.setMatrixAt(C.i, M);
+    M.compose(P.set(x - Math.cos(ang) * 0.2, 1.75, z + Math.sin(ang) * 0.2), Q, S); C.t.setMatrixAt(C.i, M);
+    C.m.setColorAt(C.i, cor.set(cores[Math.floor(rnd() * cores.length)]));
+    C.i++;
+  };
+  for (let x = -124; x <= 124; x += 3.2) { if (rnd() < 0.62) poe(x, -86 + (rnd() - 0.5), Math.PI / 2); if (rnd() < 0.62) poe(x, 86 + (rnd() - 0.5), Math.PI / 2); }
+  for (let z = -78; z <= 78; z += 6) if (rnd() < 0.7) poe(124.5, z, 0);
+  for (let x = -860; x < 860; x += 17 + rnd() * 20) poe(x, 123 + rnd() * 3.5, rnd() < 0.5 ? 0 : 0);
+  for (let x = -860; x < 860; x += 17 + rnd() * 20) poe(x, 132 + rnd() * 3.5, Math.PI);
+  C.m.count = C.t.count = C.i;
+  G.add(C.m, C.t);
+  // prédios vizinhos (janelas acesas e aresta de neon) ao norte, leste e do outro lado da Strip
+  const jan = (() => {
+    const c = document.createElement("canvas"); c.width = 64; c.height = 128;
+    const x = c.getContext("2d")!; x.fillStyle = "#2a2f3c"; x.fillRect(0, 0, 64, 128);
+    for (let j = 0; j < 16; j++) for (let i = 0; i < 8; i++) { x.fillStyle = rnd() < 0.55 ? (rnd() < 0.5 ? "#ffd98a" : "#9fd0ff") : "#171b25"; x.fillRect(i * 8 + 1, j * 8 + 1, 5, 5); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const neons = ["#ff3d9a", "#35e0ff", "#ffd23f", "#9b5cff"];
+  const predio = (x: number, z: number, l: number, a: number, p: number) => {
+    const t = jan.clone(); t.needsUpdate = true; t.repeat.set(Math.max(1, Math.round(l / 28)), Math.max(1, Math.round(a / 32)));
+    const b = caixa(l, a, p, new THREE.MeshStandardMaterial({ map: t, emissiveMap: t, emissive: "#ffffff", emissiveIntensity: 0.75, roughness: 0.8 }), x, a / 2, z);
+    G.add(b);
+    const ne = new THREE.MeshBasicMaterial({ color: neons[Math.floor(rnd() * neons.length)] });
+    G.add(caixa(l + 0.6, 0.9, p + 0.6, ne, x, a + 0.45, z));
+  };
+  for (let x = -700; x <= 760; x += 70 + rnd() * 50) predio(x, -260 - rnd() * 160, 46 + rnd() * 34, 30 + rnd() * 70, 40 + rnd() * 20);
+  for (let z = -170; z <= 100; z += 60 + rnd() * 40) predio(270 + rnd() * 50, z, 38 + rnd() * 24, 25 + rnd() * 55, 40 + rnd() * 20);
+  for (let x = -760; x <= 760; x += 80 + rnd() * 60) if (Math.abs(x) > 40) predio(x, 215 + rnd() * 40, 50 + rnd() * 30, 25 + rnd() * 60, 44 + rnd() * 20);
+  const tronco = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.45, 0.7, 14, 8), mat("#7a5c3a"), 260);
+  const copa = new THREE.InstancedMesh(new THREE.ConeGeometry(5.2, 3.6, 8), mat("#3c6b34"), 260 * 2);
+  let k = 0;
+  const palmeira = (x: number, z: number) => {
+    if (k >= 260) return;
+    const h = 0.8 + rnd() * 0.4;
+    M.compose(P.set(x, 7 * h, z), Q.identity(), S.set(1, h, 1)); tronco.setMatrixAt(k, M);
+    M.compose(P.set(x, 14.5 * h, z), Q.identity(), S.set(1.1, 1, 1.1)); copa.setMatrixAt(2 * k, M);
+    M.compose(P.set(x, 16 * h, z), Q.identity(), S.set(0.7, 1, 0.7)); copa.setMatrixAt(2 * k + 1, M);
+    S.set(1, 1, 1); k++;
+  };
+  // atrás do hotel (oeste): outros resorts da Strip e uma avenida paralela
+  G.add(caixa(46, 0.1, 1400, av, -420, 0.0, 0));
+  for (let z = -640; z <= 640; z += 14) G.add(caixa(0.35, 0.06, 6, marca, -420, 0.06, z));
+  for (let z = -640; z <= 660; z += 90 + rnd() * 50) { predio(-560 - rnd() * 40, z, 60 + rnd() * 30, 45 + rnd() * 50, 50 + rnd() * 20); predio(-340 - rnd() * 30, z + 40, 40 + rnd() * 20, 18 + rnd() * 30, 40); }
+  for (let z = -640; z <= 640; z += 70) { palmeira(-398, z); palmeira(-442, z); }
+  // palmeiras ao longo das calçadas e da Strip
+  for (let x = -250; x <= 130; x += 24) { palmeira(x, 98 + rnd() * 2); palmeira(x, 106 + rnd() * 2); }
+  for (let x = -840; x <= 840; x += 48) if (x < -250 || x > 130) palmeira(x, 106);
+  tronco.count = k; copa.count = k * 2;
+  G.add(tronco, copa);
+  // montanhas do vale ao fundo (silhuetas baixas, marrom-arroxeadas)
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2, r = 880 + rnd() * 60, h = 90 + rnd() * 120, w = 190 + rnd() * 160;
+    const mt = new THREE.Mesh(new THREE.ConeGeometry(w, h, 5), mat(i % 2 ? "#6b5a52" : "#7b655a", { roughness: 1 }));
+    mt.position.set(Math.cos(a) * r, h / 2 - 2, Math.sin(a) * r);
+    mt.rotation.y = rnd() * 3; G.add(mt);
+  }
 }
 
 /** Desenha a pista e as muretas do estacionamento até a fração `k` (0 a 1) e devolve o ponto (local) da cabeça. */
