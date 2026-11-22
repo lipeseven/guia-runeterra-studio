@@ -68,7 +68,7 @@ def marcar_pendente(pasta: Path, cid: str) -> None:
 
 NOMES_AJUSTE = {
     "candidato": "imagem", "midia": None, "tipo": "tipo de cena", "legenda": "legenda", "removida": "cena removida",
-    "sem_som": "sem efeito sonoro", "conferido": "conferida", "comentario": "pedido ao diretor", "comentario_aplicado": None,
+    "sem_som": "sem efeito sonoro", "conferido": "conferida", "comentario": "pedido ao diretor", "comentario_aplicado": None, "comentario_pesado": None,
     "clipe_inicio": "momento do clipe", "lado": "lado da imagem", "metade2": "outra metade", "juntar": "juntada com a próxima",
     "juntada_em": "juntada na anterior", "sem_fundo": "fundo removido", "fundo_lista": "fundo da lista",
     "fundo_branco": "fundo branco", "vertical": "posição da citação", "legenda_indice": "quando o texto entra", "inicio_indice": "onde a cena começa", "pecas": "itens", "pecas_def": "itens",
@@ -312,6 +312,7 @@ def cenas(pasta: Path) -> list[dict]:
             "escolhido": escolhido, "metade2": metade2, "clipe": clipe, "candidatos": cands, "pecas": pecas, "recusada": nec is not None and not esc.get("escolha"),
             "no_rascunho": m is not None, "removida": bool(aj.get("removida")),
             "comentario": aj.get("comentario"), "comentario_aplicado": bool(aj.get("comentario_aplicado")),
+            "comentario_pesado": aj.get("comentario_pesado"),
             "motivo": esc.get("motivo"), "ajustada": bool(aj), "pendente": cid in pend,
             "som": None if aj.get("sem_som") else (c.get("som") or {}).get("o_que"),
             "som_no_rascunho": cid in sons,
@@ -742,7 +743,8 @@ def aplicar(plano: dict, escolhas: dict, ajustes: dict) -> tuple[dict, dict]:
 
 
 def pendentes_para_o_diretor(ajustes: dict) -> list[str]:
-    return [cid for cid, a in ajustes.items() if a.get("comentario") and not a.get("comentario_aplicado")]
+    # pedido com o orquestrador (`comentario_pesado`, tools/direcao/pedidos_pesados.py) não vai ao diretor
+    return [cid for cid, a in ajustes.items() if a.get("comentario") and not a.get("comentario_aplicado") and not a.get("comentario_pesado")]
 
 
 def _sem_acento(t: str) -> str:

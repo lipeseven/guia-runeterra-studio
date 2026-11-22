@@ -45,6 +45,11 @@ juntos (0,33 m), mãos nas empunhaduras por IK, volante real na coluna (`poeVola
 `criarPiloto` de 0,28 x 0,33 x 0,30 m para 0,26 x 0,30 x 0,28 m. O exterior do carro e as câmeras externas não mudaram
 (quadros conferidos antes/depois).
 
+## Pedido pesado → orquestrador (2026-11-21, branch f1-pedido-pesado)
+Pedido que exige capacidade nova ou julgamento visual vai para o chat (orquestrador) em vez de o diretor tentar e falhar:
+botão "Ao orquestrador"/"enviar ao orquestrador" no painel Animação, ou sozinho quando `revisar` recebe `nao_feitos` com
+`capacidade: true`. Detalhes, arquivos e comandos em `docs/estado/sistema.md` (Pedidos pesados).
+
 ## Capacidades do vertical pedidas pelo Felipe (2026-11-14, branch f1-capacidades-vertical)
 O diretor devolvia "pedidos não feitos" por falta de capacidade ou por regra. Agora (testes em `tools/direcao/testar_vertical.py`):
 - **Pedido do Felipe vence a regra**: `vertical.sistema()`, o prompt de `revisar` e `regras_de_direcao.md` dizem que o pedido

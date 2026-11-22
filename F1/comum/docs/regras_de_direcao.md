@@ -7,6 +7,11 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
   (número fora da fala, teto de efeitos, estilo de legenda, cor). Regra pré-setada nunca é motivo de recusa. Só vai para
   `nao_feitos` o que falta de verdade no motor (modelo que não existe, arquivo de logo/som que não está na pasta,
   informação que ninguém deu), e o motivo diz exatamente o que falta (ex.: "falta o arquivo F1/comum/arte/logos/fia.png").
+- **Pedido pesado (2026-11-21)**: cada item de `nao_feitos` leva `"capacidade": true` quando o que falta é CAPACIDADE
+  NOVA no motor — função/peça/efeito que a API das cenas não tem, ou julgamento visual que só olhando os quadros se
+  resolve — e `false` quando falta só um arquivo ou uma informação do Felipe. Com `true` o pedido vai sozinho para o
+  ORQUESTRADOR (o chat, que edita a biblioteca): não tente "quase fazer" nem ignore; diga no `motivo`, em uma frase,
+  qual capacidade falta (ex.: "a API não tem partículas de faísca saindo do assoalho").
 - **Número na tela fora da fala**: liberado só quando o Felipe pede. Ele declara na seção do briefing
   `NÚMEROS NA TELA (pedido do Felipe)` (uma linha por texto, ex.: `- 6,201 km`) ou escreve o número num pedido do card
   (inclusive respondendo a um "pedido não feito"). O texto vai para a tela exatamente como ele escreveu; os outros números

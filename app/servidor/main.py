@@ -16,6 +16,7 @@ if (_HUB / "models--mobiuslabsgmbh--faster-whisper-large-v3-turbo").exists():
 os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 
 import asyncio
+import contextlib
 import json
 import re
 import shutil
@@ -825,7 +826,7 @@ def animacao(vid: int):
     dirc = _dirc(vid)
     arq, tempos = dirc / "vertical.json", dirc / "tempos_voz.json"
     if not arq.exists() or not tempos.exists():
-        return {"planos": [], "pedidos": motor.pedidos_animacao(dirc), "avisos": []}
+        return {"planos": [], "pedidos": motor.pedidos_animacao(dirc), "avisos": [], "pesados": _pp().abertos(dirc.parent)}
     d = json.loads(arq.read_text(encoding="utf-8"))
     pal = json.loads(tempos.read_text(encoding="utf-8"))
     fora = {"id", "i", "tipo", "em", "marcas", "marcas_texto", "clima", "codigo", "set"}
@@ -835,7 +836,8 @@ def animacao(vid: int):
         planos.append({"id": p["id"], "n": n + 1, "tipo": p.get("tipo") or f"cena própria ({p.get('set', 'pista')})", "clima": p.get("clima"), "inicio": 0 if n == 0 else pal[p["i"]]["i"],
                        "trecho": " ".join(w["t"] for w in pal[p["i"]:fim]),
                        "extras": [k for k in p if k not in fora]})
-    return {"planos": planos, "pedidos": motor.pedidos_animacao(dirc), "avisos": [_aviso(a, d["planos"]) for a in d.get("avisos", [])]}
+    return {"planos": planos, "pedidos": motor.pedidos_animacao(dirc), "avisos": [_aviso(a, d["planos"]) for a in d.get("avisos", [])],
+            "pesados": _pp().abertos(dirc.parent)}  # pedidos com o orquestrador (motivo, origem, arquivo)
 
 
 def _aviso(texto: str, planos: list[dict]) -> dict:
@@ -885,6 +887,20 @@ def aceitar_aviso(vid: int, k: int):
 class PedidoAnimacao(BaseModel):
     texto: str
     plano: str | None = None  # id do plano; sem id = pedido geral
+    pesado: bool = False      # vai direto para o orquestrador (capacidade nova), não para o diretor
+
+
+def _pp():
+    """tools/direcao/pedidos_pesados.py (pedidos que o orquestrador atende no lugar do diretor)."""
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    import pedidos_pesados
+
+    return pedidos_pesados
+
+
+def _titulo(con, vid: int) -> str:
+    r = con.execute("SELECT titulo FROM videos WHERE id=?", (vid,)).fetchone()
+    return r["titulo"] if r else ""
 
 
 @app.post("/api/videos/{vid}/animacao/pedido")
@@ -894,7 +910,23 @@ def pedir_animacao(vid: int, corpo: PedidoAnimacao):
         raise HTTPException(400, "escreva o pedido")
     pedidos = motor.pedidos_animacao(dirc) + [{"plano": corpo.plano, "texto": corpo.texto.strip(), "quando": agora()}]
     (dirc / "pedidos_vertical.json").write_text(json.dumps(pedidos, ensure_ascii=False, indent=1), encoding="utf-8")
+    if corpo.pesado:
+        return enviar_ao_orquestrador(vid, len(pedidos) - 1)
     return {"ok": True, "pedidos": pedidos}
+
+
+@app.post("/api/videos/{vid}/animacao/pedido/{n}/orquestrador")
+def enviar_ao_orquestrador(vid: int, n: int):
+    """Pedido pesado: o pedido nº n sai do diretor e vai para o orquestrador (arquivo + pendência `orq_pedido_pesado`)."""
+    dirc = _dirc(vid)
+    with conectar() as con:
+        try:
+            item = _pp().marcar_pedido_vertical(con, vid, dirc.parent, n, _titulo(con, vid))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+        motor.fechar_pendencia(con, vid, "sem_mudanca")
+        con.commit()
+    return {"ok": True, "pedido_pesado": item, "pedidos": motor.pedidos_animacao(dirc)}
 
 
 @app.delete("/api/videos/{vid}/animacao/pedido/{n}")
@@ -902,9 +934,81 @@ def tirar_pedido(vid: int, n: int):
     dirc = _dirc(vid)
     pedidos = motor.pedidos_animacao(dirc)
     if 0 <= n < len(pedidos):
-        pedidos.pop(n)
+        tirado = pedidos.pop(n)
+        if tirado.get("pesado"):  # pedido com o orquestrador: descartar fecha o pedido pesado também
+            with conectar() as con, contextlib.suppress(KeyError, ValueError):
+                _pp().descartar(con, vid, dirc.parent, tirado["pesado"])
+                con.commit()
+            pedidos = [p for p in motor.pedidos_animacao(dirc) if p.get("pesado") != tirado["pesado"]]
     (dirc / "pedidos_vertical.json").write_text(json.dumps(pedidos, ensure_ascii=False, indent=1), encoding="utf-8")
     return {"ok": True, "pedidos": pedidos}
+
+
+# ---------------------------------------------------------------- pedidos pesados (orquestrador)
+@app.get("/api/pedidos-pesados")
+def pedidos_pesados(todos: bool = False):
+    """Pedidos pesados de todos os cards do canal (abertos; `todos=true` inclui os resolvidos/descartados)."""
+    with conectar() as con:
+        lista = _pp().todos(con, so_abertos=not todos)
+    return {"abertos": sum(p.get("status") == "aberto" for p in lista), "pedidos": lista}
+
+
+class ResolverPesado(BaseModel):
+    nota: str = ""
+    renderizar: bool = False  # sem outro pedido pesado aberto no card: "só renderizar de novo" (Runeterra: novo rascunho)
+
+
+@app.post("/api/pedidos-pesados/{pid}/resolver")
+def resolver_pedido_pesado(pid: str, corpo: ResolverPesado):
+    PP = _pp()
+    with conectar() as con:
+        try:
+            v, projeto, achado = PP.achar(con, pid)
+            item = PP.resolver(con, v["id"], projeto, achado["id"], corpo.nota, "orquestrador")
+        except KeyError as e:
+            raise HTTPException(404, str(e.args[0] if e.args else e))
+        except ValueError as e:
+            raise HTTPException(409, str(e))
+        con.commit()
+    render = None
+    if corpo.renderizar and not item["restantes"]:
+        try:
+            render = (refazer_rascunho(v["id"]) if item["formato"] == "storyboard"
+                      else refazer_animacao(v["id"], RefazerAnimacao(so_render=True)))
+        except HTTPException as e:
+            render = {"ok": False, "erro": e.detail}
+    return {"ok": True, "pedido": item, "render": render}
+
+
+class PesadoStoryboard(BaseModel):
+    texto: str = ""   # vazio = o pedido ao diretor que já está na cena
+
+
+@app.post("/api/videos/{vid}/storyboard/{cid}/orquestrador")
+def storyboard_ao_orquestrador(vid: int, cid: str, corpo: PesadoStoryboard):
+    """Runeterra: o pedido da cena do storyboard vai para o orquestrador no lugar do diretor."""
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+        dados = storyboard.carregar(pasta)
+        aj = dados["ajustes"].get(cid) or {}
+        texto = corpo.texto.strip() or aj.get("comentario") or ""
+        if not texto:
+            raise HTTPException(400, "escreva o pedido")
+        if aj.get("comentario_pesado"):
+            raise HTTPException(400, "este pedido já está com o orquestrador")
+        cena = next((c for c in storyboard.cenas(pasta) if c["id"] == cid), None)
+        if cena is None:
+            raise HTTPException(404, "cena não existe mais: recarregue")
+        ctx = {"n": cena.get("numero"), "fala": cena.get("frase") or "", "tipo": cena.get("tipo"),
+               "codigo": json.dumps({k: cena.get(k) for k in ("tipo", "legenda", "escolhido", "busca", "foco", "movimento", "lado")},
+                                    ensure_ascii=False, indent=1),
+               "extras": {"plano": str(pasta / "direcao" / "plano.json"), "ajustes": str(pasta / "direcao" / "ajustes.json")}}
+        item = _pp().criar(con, vid, pasta, texto, cid, "", "felipe", "storyboard", _titulo(con, vid), ctx)
+        aj.update({"comentario": texto, "comentario_aplicado": False, "comentario_pesado": item["id"]})
+        dados["ajustes"][cid] = aj
+        storyboard.salvar_ajustes(pasta, dados["ajustes"])
+        con.commit()
+    return {"ok": True, "pedido_pesado": item}
 
 
 class Musica(BaseModel):
@@ -997,10 +1101,11 @@ def refazer_animacao(vid: int, corpo: RefazerAnimacao):
     dirc = _dirc(vid)
     if corpo.so_render and not (dirc / "vertical.json").exists():
         raise HTTPException(400, "ainda não há animação para renderizar")
-    if corpo.so_render and motor.pedidos_animacao(dirc):
+    # os pedidos pesados (com o orquestrador) não contam: o diretor não os recebe
+    if corpo.so_render and motor.pedidos_do_diretor(dirc):
         raise HTTPException(400, "há pedidos na fila: use “Refazer com os pedidos” (ou tire os pedidos)")
-    if not corpo.do_zero and not corpo.so_render and not motor.pedidos_animacao(dirc):
-        raise HTTPException(400, "escreva ao menos um pedido, ou peça para refazer do zero")
+    if not corpo.do_zero and not corpo.so_render and not motor.pedidos_do_diretor(dirc):
+        raise HTTPException(400, "escreva ao menos um pedido (os pedidos pesados aguardam o orquestrador), ou peça para refazer do zero")
     with conectar() as con:
         motor.fechar_pendencia(con, vid, "ver_final")
         motor.fechar_pendencia(con, vid, "sem_mudanca")
@@ -1012,7 +1117,7 @@ def refazer_animacao(vid: int, corpo: RefazerAnimacao):
             registrar(con, vid, "Animação: renderizar de novo, sem Claude", "info")
         else:
             atualizar_etapa(con, vid, "render", "andamento", "na fila", "com os seus pedidos")
-            registrar(con, vid, f"Animação: {len(motor.pedidos_animacao(dirc))} pedido(s) enviados ao diretor", "info")
+            registrar(con, vid, f"Animação: {len(motor.pedidos_do_diretor(dirc))} pedido(s) enviados ao diretor", "info")
         con.commit()
     motor.FILA.put((vid, "direcao" if corpo.do_zero else "rascunho"))
     return {"ok": True}
@@ -1197,6 +1302,11 @@ def resolver(pid: int):
             motor.tentar_de_novo(con, p["video_id"], p["chave"][5:])
             con.commit()
             return {"ok": True}
+        if p["chave"] == "orq_pedido_pesado":  # resolvido à mão no painel: todos os pedidos pesados do card fecham
+            v = con.execute("SELECT slug FROM videos WHERE id=?", (p["video_id"],)).fetchone()
+            PP = _pp()
+            for item in PP.abertos(motor.PASTA_PROJETOS / v["slug"]):
+                PP.resolver(con, p["video_id"], motor.PASTA_PROJETOS / v["slug"], item["id"], "marcado como resolvido no painel", "orquestrador")
         if p["chave"] == "ver_final":  # vídeo aprovado: prepara a publicação sozinho
             motor.ao_aprovar_final(con, p["video_id"])
             con.commit()

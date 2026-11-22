@@ -43,6 +43,27 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
   concorrentes pela YouTube Data API só com `YOUTUBE_API_KEY`), prompt pelo orquestrador. Rótulo da descrição no
   `PainelPublicacao` virou "aviso legal" (vale para os dois canais).
 - **Ditado por voz** (`app/servidor/ditado.py`, `componentes/Ditado.tsx`): faster-whisper local PT-BR em processo à parte (`tools/audio/ditado.py`); microfone no "corrigir por voz" das cenas e no pedido geral da animação. A feature "Observações gerais" foi **removida em 2026-11-20** (decisão do Felipe: no card ele só fala do vídeo; o aprendizado sai dos pedidos, ver `aprendizado.py`). Microfone só em localhost/https.
+- **Pedidos pesados → orquestrador (2026-11-21)**: pedido de cena que exige capacidade nova ou julgamento visual não vai
+  ao diretor (`claude -p`), vai ao ORQUESTRADOR (o chat no Claude Code, que lê o código, edita a biblioteca e olha os
+  quadros). Núcleo e CLI em `tools/direcao/pedidos_pesados.py` (testes: `tools/direcao/testar_pedidos_pesados.py`, F1 e
+  Runeterra com dados fictícios). Como entra: painel Animação (vertical/horizontal animado) → "Ao orquestrador" ao anotar,
+  ou "enviar ao orquestrador" num pedido da fila (por cena ou geral); AUTOMÁTICO no vertical: `vertical.revisar` casa cada
+  `nao_feitos` com `"capacidade": true` ao pedido do Felipe e o motor (`motor._promover_pesados`) o promove — sem aviso
+  "pedido não feito"; se só sobraram pedidos pesados, não abre "O diretor não aplicou o pedido". Runeterra: no storyboard,
+  aba "Pedir ao diretor" → "Enviar ao orquestrador" (ajuste ganha `comentario_pesado`; `storyboard.pendentes_para_o_diretor`
+  o ignora). Cada pedido: `<projeto>/orquestrador/pedido_pesado_<id>.md` (texto, cena e fala, código da cena — Runeterra:
+  campos da cena —, motivo do diretor, cópia do quadro de conferência, caminho do vertical.json) + fila
+  `orquestrador/pedidos_pesados.json` + UMA pendência `orq_pedido_pesado` por card ("Aguardando o orquestrador: N pedido(s)
+  pesado(s)"; botão "Já resolvido" fecha todos). Na fila do diretor (`pedidos_vertical.json`) o pedido fica com
+  `pesado: <id>` e NÃO conta para "Refazer com os pedidos" nem trava "Só renderizar de novo" (`motor.pedidos_do_diretor`).
+  Resolver (CLI ou `POST /api/pedidos-pesados/{id}/resolver {nota, renderizar}`): sai da fila, vai para
+  `historico_pedidos_vertical.json` com `via: "orquestrador"` e a nota, pendência atualizada/fechada; `renderizar` só dispara
+  quando não sobra pedido pesado aberto no card (vertical: "Só renderizar de novo"; Runeterra: novo rascunho). Descartar no
+  painel fecha o pedido como "descartado" (sem histórico). `GET /api/pedidos-pesados` (todos os cards; `?todos=true` inclui
+  os fechados); o quadro mostra "N pedidos pesados aguardando o orquestrador". Uso pelo orquestrador
+  (`$env:GRS_CANAL='f1'`, ou runeterra):
+  `.venv\Scripts\python.exe tools\direcao\pedidos_pesados.py listar` · `mostrar <id>` ·
+  `resolver <id> --nota "o que foi feito" [--renderizar] [--porta 8766]`.
 - Card no quadro mostra "Aguardando você: <pendência aberta mais recente>" (`/api/quadro` → `aguardando`), exceto enquanto o motor trabalha nele ou ele está na fila (aí mostra "Na fila (Nº): <tarefa>", `/api/motor` → `fila`).
 - Celular pelo Wi-Fi (2026-11-01): servidores em `--host 0.0.0.0` (os .bat); acesso em `http://<IP do PC>:8765`. O painel não tem senha: quem estiver na mesma rede pode mexer nele.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
