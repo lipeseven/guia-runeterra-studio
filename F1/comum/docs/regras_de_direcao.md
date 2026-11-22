@@ -54,6 +54,22 @@ Este arquivo entra no prompt do diretor. Todo ajuste fino do Felipe entra aqui.
   ou o tema exigir. Escolha a curva real que mostra a fala (curva rápida, grampo, Strip para reta). Rua estreita com muro:
   `filmar` com "lado"/"ladoesq" pode bater no muro; prefira "rasante", "curva", "alto", "heli", "atras" e confira o quadro.
 
+## Ajustes do Felipe (GP de Las Vegas, 2026-11-21)
+- **Mapa dos EUA: `criarMapaEUA` + `zoomNoMapa`, nunca chapa lisa** ("uma chapa azul sem detalhe. Cadê os estados? Se der
+  zoom, cadê o mapa?"). Nunca `criarMapaRegiao`/`criarMapa("USA")` para falar de uma cidade ou estado americano: o país vira
+  uma mancha só. O zoom vai do país ao estado e à cidade com `zoomNoMapa(w, mapa, k)`; o alfinete escala com a largura que a
+  função devolve. Brasil: `criarMapaBrasil` (mesma ideia).
+- **Rótulo 3D de um lugar ou objeto: `rotuloEm(w, chave, texto, alvo, { em })`, nunca `rotulo(...)` com `position.set` à
+  mão.** O rótulo "ESTACIONAMENTO" saiu "totalmente descentralizado" porque a posição foi escrita no mundo e o objeto estava
+  num grupo escalado; `rotuloEm` ancora no centro do alvo (já com a escala do grupo) e confere sozinho, a cada quadro, que o
+  centro projetado do rótulo está a menos de 6% da largura do centro do alvo (senão `ERRO_ROTULO` nos quadros de conferência).
+- **Prédio famoso é modelo com a cara dele, nunca bloco bege.** Caesars Palace: `criarCaesarsPalace({ epoca })` ("1981" =
+  torre curva original; "atual" = torres com frontão, colunata, fontes e letreiro). O circuito de 1981/82 no estacionamento:
+  `criarEstacionamentoCaesars()`. Outro prédio citado pela fala sem modelo: vai para `nao_feitos` pedindo a referência.
+- **Posição numa corrida: `classificacao` (tabela com os nomes reais do 1º ao Nº e a linha do piloto acesa), sem seta.** "Não
+  precisa de seta: é só a tabela e o nome na posição." Os nomes vêm do resultado oficial (briefing/conferência); sem o
+  resultado conferido, não invente nomes. `torre` (com seta e troca de lugar) só quando a fala é sobre GANHAR ou PERDER posições.
+
 ## Aprendizados aprovados pelo Felipe (retrospectivas automáticas)
 - Lista de nomes de lugares (curvas, trechos) na abertura vira tipografia grande sobre o mapa da pista, com o lugar citado aceso na palavra; nunca carro de perto, que não mostra onde o lugar fica. _(vídeo: História das Curvas no Autódromo de Interlagos)_
 - Toda cena sobre uma curva ou trecho de circuito leva o minimapa com o trecho aceso (e o ponto do carro), para o espectador se localizar. _(vídeo: História das Curvas no Autódromo de Interlagos)_

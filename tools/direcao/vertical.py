@@ -225,6 +225,7 @@ def textos_na_tela(p: dict) -> list[str]:
         t += [str(x) for x in g.get("itens") or []]
         t += [str(x.get("t", "")) for x in g.get("palavras") or [] if isinstance(x, dict)]
         t += [f"{x.get('rotulo', '')} {x.get('nome', '')}" for x in g.get("marcos") or [] if isinstance(x, dict)]
+        t += [str(g.get("titulo", ""))] + [str(x.get("nome", "")) for x in g.get("linhas") or [] if isinstance(x, dict)]  # classificação (posições ficam de fora)
         t += [str(x.get("texto", "")) for x in g.get("horas") or [] if isinstance(x, dict)]
     if isinstance(p.get("codigo"), str):
         t += [m.group(2) for m in _TEXTO_COD.finditer(p["codigo"])]
