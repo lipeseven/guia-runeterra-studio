@@ -1,0 +1,52 @@
+{
+  "mcpServers": {
+    "vectorcraft": {
+      "type": "stdio",
+      "command": "C:/Program Files/ArtCraft/VectorCraft/vectorcraft-cli.exe",
+      "args": [
+        "mcp",
+        "--automation-read-root",
+        "C:/Users/Felipe/Downloads/exclusive Claude/dados/comum/oficina_craft",
+        "--automation-write-root",
+        "C:/Users/Felipe/Downloads/exclusive Claude/dados/comum/oficina_craft"
+      ],
+      "env": {}
+    },
+    "effectcraft": {
+      "type": "stdio",
+      "command": "C:/Program Files/ArtCraft/EffectCraft/effectcraft-cli.exe",
+      "args": [
+        "mcp",
+        "--automation-read-root",
+        "C:/Users/Felipe/Downloads/exclusive Claude/dados/comum/oficina_craft",
+        "--automation-write-root",
+        "C:/Users/Felipe/Downloads/exclusive Claude/dados/comum/oficina_craft"
+      ],
+      "env": {}
+    },
+    "materialcraft": {
+      "type": "stdio",
+      "command": "C:/Program Files/MaterialCraft/materialcraft-cli.exe",
+      "args": [
+        "mcp",
+        "--read-root",
+        "C:/Users/Felipe/Downloads/exclusive Claude/dados/comum/oficina_craft",
+        "--write-root",
+        "C:/Users/Felipe/Downloads/exclusive Claude/dados/comum/oficina_craft"
+      ],
+      "env": {}
+    },
+    "texturecraft": {
+      "type": "stdio",
+      "command": "C:/Program Files/TextureCraft/texturecraft-cli.exe",
+      "args": [
+        "mcp",
+        "--read-root",
+        "C:/Users/Felipe/Downloads/exclusive Claude/dados/comum/oficina_craft",
+        "--write-root",
+        "C:/Users/Felipe/Downloads/exclusive Claude/dados/comum/oficina_craft"
+      ],
+      "env": {}
+    }
+  }
+}

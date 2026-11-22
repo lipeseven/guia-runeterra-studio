@@ -65,7 +65,7 @@ Realidade: nenhum app resolve sozinho as 15 versões e as 300 alterações, que 
   se o helper roda sem o app aberto, e se projetos de EffectCraft/MaterialCraft são texto que o Claude consiga editar.
 - Segurança: dar pasta própria de trabalho, ler o plano antes de aprovar, texto dentro de arquivos é dado, não instrução.
 
-## Plano de testes (não executado)
+## Plano de testes (Teste 0 executado em 2026-11-20; 1 e 2 pendentes)
 - **Teste 0:** instalar o ArtCraft Launcher, achar os `.exe` de VectorCraft, EffectCraft, MaterialCraft e TextureCraft, registrar só esses quatro e conferir `claude mcp list`.
 - **Teste 1:** uma peça que já temos (disco de freio) por MaterialCraft → TextureCraft → Blender, comparada com a referência real.
 - **Teste 2:** overlay com alfa a 60 fps do EffectCraft dentro do Remotion, comparado ao que fazemos em código.
@@ -92,3 +92,22 @@ Respostas às preocupações levantadas acima. Valem para qualquer sessão que f
 7. **Agentes descartáveis:** o orquestrador **deve encerrar/eliminar os agentes usados**, para não pesar na memória do Claude nem do PC.
 8. **Aprendizado entre vídeos:** deve existir um sistema que, a cada vídeo, registre aprendizados e reduza alterações e tempo nos seguintes (estender o `aprendizado.py` e as regras de direção existentes, não criar outro paralelo).
 9. **A biblioteca não é jaula:** a lib de estilos guia, mas o diretor pode propor algo que não está nela (ex.: transição lateral). Testa-se; se ficar bom, **entra na lib** (iteração bem-sucedida alimenta a biblioteca).
+
+## Instalação e Teste 0 (2026-11-20)
+**Escopo:** apps e motores do Studio valem para TODOS os canais, existentes e futuros. Registro MCP em escopo de projeto na raiz (`.mcp.json`, ainda não commitado); oficina comum em `dados/comum/oficina_craft/` (subpastas `biblioteca`, `f1`, `runeterra`; fora do Git, entra no backup de `dados/`).
+
+**Instalados** para todos os usuários em `C:\Program Files\`: `ArtCraft\VectorCraft\vectorcraft-cli.exe`, `ArtCraft\EffectCraft\effectcraft-cli.exe`, `MaterialCraft\materialcraft-cli.exe`, `TextureCraft\texturecraft-cli.exe`. Registrar a partir da raiz do projeto (rodar em outra pasta grava o `.mcp.json` no lugar errado) e aprovar na primeira sessão (senão fica "Pending approval").
+`claude mcp add --scope project <nome> -- "C:/Program Files/.../<app>-cli.exe" mcp` (Material e Texture com `--read-root` e `--write-root` apontando a oficina).
+
+**Teste 0 passou nos 4** (sessão aberta depois do registro): todos conectam e funcionam **sem o app aberto** (helper headless).
+| Servidor | Ferramentas | Chamada | Estado |
+|---|---|---|---|
+| vectorcraft | 32 | `doc_inspect` | documento vazio, prancheta 612x792 |
+| effectcraft | 27 | `get_state` | v0.24.1, 763 comandos, 308 efeitos, sem GPU (`gpu:false`) |
+| materialcraft | 20 | `session_inspect` | pacote de exemplo em memória |
+| texturecraft | 22 | `session_inspect` | projeto com bola de exemplo |
+
+- Gravação: Material e Texture só em `oficina_craft` (`--read-root`/`--write-root`). Vector e Effect sem limite; aceitam `--automation-read-root` e `--automation-write-root` para prender.
+- Ferramentas de janela (`ui_*`, `screenshot`) devem falhar sem o app em modo de controle (`--control PORT`); não testadas.
+- EffectCraft respondeu `gpu:false` no MCP, mas `effectcraft-cli bench --gpu` (2026-11-20) acha a RTX 4060 via Vulkan, com saída idêntica à da CPU (diferença 0,000%). GPU só compensa em cena 3D pesada (~2,2x a 1080p); em cena 2D simples a CPU é mais rápida (0,05x a 0,76x). O modo "auto" do app escolhe sozinho. Não confirmado se `render` usa GPU: medir no Teste 2.
+- Falta: Teste 1 (disco de freio Material, Texture e Blender) e Teste 2 (overlay com alfa a 60 fps no Remotion).
