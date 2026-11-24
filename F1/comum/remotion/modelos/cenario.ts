@@ -53,12 +53,12 @@ type Local = { x: number; z: number; r: number };
 const LIMITE_AUTODROMO = 105; // metros além da pista onde começa a cidade
 
 // ---- chão: grama no autódromo, cidade em volta, morros só bem longe
-function relevo(pts: THREE.Vector3[], altura: (x: number, z: number) => number, ehCidade: (x: number, z: number) => boolean, coresRua?: string[]) {
+function relevo(pts: THREE.Vector3[], altura: (x: number, z: number) => number, ehCidade: (x: number, z: number) => boolean, coresRua?: string[], coresChao?: string[]) {
   const geo = new THREE.PlaneGeometry(9000, 9000, 180, 180).toNonIndexed();
   geo.rotateX(-Math.PI / 2);
   const pos = geo.getAttribute("position") as THREE.BufferAttribute;
   const cores: number[] = [];
-  const grama = ["#6fae4b", "#64a345", "#5c9c42"].map((c) => new THREE.Color(c));
+  const grama = (coresChao ?? ["#6fae4b", "#64a345", "#5c9c42"]).map((c) => new THREE.Color(c));
   const rua = (coresRua ?? ["#8f8d88", "#9a9892", "#85837f"]).map((c) => new THREE.Color(c));
   for (let i = 0; i < pos.count; i += 3) {
     let cx = 0, cz = 0;
@@ -268,15 +268,66 @@ function lance(largura: number, coberta: boolean) {
   return g;
 }
 
+/** Junta várias caixas (já posicionadas) numa geometria só, para instanciar uma cabeça de holofote com muitas lâmpadas. */
+function juntar(caixas: { l: number; a: number; p: number; x: number; y: number; z: number }[]) {
+  const pos: number[] = [], nor: number[] = [];
+  for (const c of caixas) {
+    const g = new THREE.BoxGeometry(c.l, c.a, c.p).toNonIndexed();
+    g.translate(c.x, c.y, c.z);
+    pos.push(...(g.getAttribute("position").array as Float32Array));
+    nor.push(...(g.getAttribute("normal").array as Float32Array));
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute("normal", new THREE.Float32BufferAttribute(nor, 3));
+  return geo;
+}
+
+/** Tribuna principal de Lusail (fotos do GP, 2026-11-23): prédio de 3 andares escalonados, torcida em cada andar, marquise
+ *  com luz violeta por baixo, pilares acesos, telão de LED no alto e faixas vermelha e amarela na base (lisas, sem texto nem
+ *  marca). De dia: cinza e branco, telão apagado. Frente para +z local. */
+function lanceCatar(largura: number, noite: boolean) {
+  const g = new THREE.Group();
+  const corpo = mat("#a9adb5"), laje = mat("#d6d9de"), escuro = mat("#2c2f36");
+  const violeta = noite ? new THREE.MeshStandardMaterial({ color: "#6a3fd0", emissive: "#8a5cff", emissiveIntensity: 2.4 }) : mat("#8f8aa0");
+  const luz = new THREE.MeshBasicMaterial({ color: noite ? "#b99bff" : "#9a95aa" });
+  const prof = 26;
+  const tx = torcida().clone();
+  tx.repeat.set(largura / 40, 1);
+  tx.needsUpdate = true;
+  g.add(caixa(largura, 28, 1.5, corpo, 0, 14, -prof / 2 - 2)); // parede de trás
+  for (const lado of [-1, 1]) g.add(caixa(1, 28, prof + 4, corpo, (lado * largura) / 2, 14, -2));
+  for (let t = 0; t < 3; t++) {
+    const y0 = 3 + t * 6.5, z0 = 6 - t * 7.5; // piso do andar e borda da frente
+    g.add(caixa(largura, 0.8, 12, laje, 0, y0, z0 - 6));
+    const cr = new THREE.Mesh(new THREE.PlaneGeometry(largura - 1, 4.2), new THREE.MeshStandardMaterial({ map: tx, roughness: 1, side: THREE.DoubleSide }));
+    cr.position.set(0, y0 + 2.7, z0 - 3);
+    cr.rotation.x = -0.35; // fileiras inclinadas para a pista
+    g.add(cr);
+    g.add(caixa(largura, 1.0, 0.25, escuro, 0, y0 + 1.0, z0 + 0.1)); // guarda-corpo
+    g.add(caixa(largura + 2, 0.9, 13, laje, 0, y0 + 6.2, z0 - 5)); // marquise do andar
+    g.add(caixa(largura - 1, 0.35, 2.4, luz, 0, y0 + 5.7, z0 + 0.4)); // luz por baixo da marquise
+    for (let x = -largura / 2 + 3; x <= largura / 2 - 2; x += 10) g.add(caixa(0.9, 6.2, 0.9, violeta, x, y0 + 3.1, z0 + 0.5)); // pilares acesos
+  }
+  // telão de LED no alto e a torre que o segura
+  const led = new THREE.MeshStandardMaterial({ color: noite ? "#e6efff" : "#2a2d33", emissive: noite ? "#cfe0ff" : "#000000", emissiveIntensity: noite ? 1.8 : 0 });
+  const tela = caixa(11, 6.5, 0.5, led, largura * 0.28, 33, -9);
+  tela.rotation.y = -0.18;
+  g.add(tela, caixa(0.8, 9, 0.8, corpo, largura * 0.28, 28.5, -9.4));
+  // faixas da base (vermelha e amarela, sem texto)
+  g.add(caixa(largura, 1.5, 0.3, mat("#c8102e", { roughness: 0.6 }), 0, 1.3, 7.2), caixa(largura, 1.2, 0.3, mat("#ffcc1f", { roughness: 0.6 }), 0, 2.8, 7.2));
+  return g;
+}
+
 /** Arquibancadas seguindo o traçado de f0 a f1, a `dist` metros (com sinal), de frente para a pista. */
-function arquibancadas(pts: THREE.Vector3[], f0: number, f1: number, dist: number, coberta: boolean, comprimento: number) {
+function arquibancadas(pts: THREE.Vector3[], f0: number, f1: number, dist: number, coberta: boolean, comprimento: number, catar?: { noite: boolean }) {
   const g = new THREE.Group();
   const passos = Math.max(1, Math.round(((f1 - f0) * comprimento) / 64));
   for (let k = 0; k < passos; k++) {
     const f = f0 + ((k + 0.5) / passos) * (f1 - f0);
     const q = aoLado(pts, f, dist);
     const a = aoLado(pts, f, 0);
-    const l = lance(58, coberta);
+    const l = catar ? lanceCatar(58, catar.noite) : lance(58, coberta);
     l.position.set(q.x, 0, q.z);
     l.rotation.y = Math.atan2(a.x - q.x, a.z - q.z); // +z local olha para a pista
     g.add(l);
@@ -285,7 +336,7 @@ function arquibancadas(pts: THREE.Vector3[], f0: number, f1: number, dist: numbe
 }
 
 // ---- boxes e paddock: prédio comprido ao lado da pista, garagens coloridas, torre de controle, motorhomes e caminhões
-function boxes(pts: THREE.Vector3[], f0: number, f1: number, dist: number) {
+function boxes(pts: THREE.Vector3[], f0: number, f1: number, dist: number, acesos = false) {
   const g = new THREE.Group();
   const a = aoLado(pts, f0, dist), b = aoLado(pts, f1, dist);
   const comp = Math.hypot(b.x - a.x, b.z - a.z);
@@ -301,6 +352,7 @@ function boxes(pts: THREE.Vector3[], f0: number, f1: number, dist: number) {
   piso.position.set(0, 0.004, sinal * 47);
   g.add(piso);
   g.add(caixa(comp, 11, 24, mat("#c6c9cf"), 0, 5.5, sinal * 12), caixa(comp + 3, 1, 28, mat("#8d9097"), 0, 11.5, sinal * 12));
+  if (acesos) g.add(caixa(comp - 6, 2.4, 0.3, new THREE.MeshStandardMaterial({ color: "#fff4dc", emissive: "#ffe2ae", emissiveIntensity: 1.6 }), 0, 8, sinal * -0.4)); // janelas do prédio dos boxes acesas
   const n = Math.floor(comp / 13);
   for (let i = 0; i < n; i++) g.add(caixa(10, 5.5, 0.5, mat(coresEq[Math.floor((i / n) * coresEq.length)]), -comp / 2 + (i + 0.5) * (comp / n), 2.75, sinal * -0.2));
   g.add(caixa(14, 12, 14, mat("#8d9097"), 0, 18, sinal * 12), caixa(18, 6, 18, mat("#3a4a5e", { roughness: 0.3 }), 0, 27, sinal * 12));
@@ -622,7 +674,72 @@ export type Cenario = {
   /** noite em neon (só com `noite`): arestas e letreiros acesos, janelas em grade variada, Sphere de LED colorido, cones
    *  de luz nos postes, névoa roxa no horizonte (neon_vegas.ts) */
   neon?: boolean;
+  /** autódromo no deserto (Lusail): chão de areia, sem cidade, árvores nem lagos; com `noite`, holofotes em volta da pista */
+  deserto?: boolean;
 };
+
+let texPocaHolofote: THREE.CanvasTexture | null = null;
+/** Noite de autódromo no deserto (Lusail, 2026-11-23: "à noite mas não psicodélico como Las Vegas"): postes de holofote
+ *  dos dois lados, a cada ~70 m, cabeça de lâmpadas acesa e uma poça de luz branca-quente sobre a pista debaixo de cada par.
+ *  Sem neon, sem letreiros, sem cor: a luz vem só dos holofotes. Instanciado. */
+function holofotes(pts: THREE.Vector3[], bordas: { fora: (i: number) => number; dentro: (i: number) => number }) {
+  const g = new THREE.Group();
+  const N = pts.length;
+  const comp = pts.reduce((s, p, i) => s + p.distanceTo(pts[(i + 1) % N]), 0);
+  const passo = Math.max(1, Math.round((N * 70) / comp));
+  const postes: { x: number; z: number; giro: number }[] = [];
+  const centros: { x: number; z: number }[] = [];
+  for (let i = 0, k = 0; i < N; i += passo, k++) {
+    const a = pts[i], t = pts[(i + 3) % N].clone().sub(a).normalize();
+    const lado = k % 2 ? 1 : -1; // alterna esquerda e direita
+    const d = lado > 0 ? bordas.fora(i) + 12 : -(bordas.dentro(i) + 12);
+    postes.push({ x: a.x - t.z * d, z: a.z + t.x * d, giro: Math.atan2(-t.z * lado, t.x * lado) });
+    centros.push({ x: a.x, z: a.z });
+  }
+  const ferro = mat("#59606b", { flatShading: false, metalness: 0.5, roughness: 0.45 });
+  const inst = (geo: THREE.BufferGeometry, m: THREE.Material, y: number, giro = false) => {
+    const im = new THREE.InstancedMesh(geo, m, postes.length);
+    const o = new THREE.Object3D();
+    postes.forEach((p, k) => {
+      o.position.set(p.x, y, p.z);
+      o.rotation.set(0, giro ? p.giro : 0, 0);
+      o.updateMatrix();
+      im.setMatrixAt(k, o.matrix);
+    });
+    return im;
+  };
+  g.add(inst(new THREE.CylinderGeometry(0.32, 0.5, 24, 8), ferro, 12));
+  g.add(inst(new THREE.BoxGeometry(1.2, 0.6, 7.4), ferro, 23.2, true)); // barra do alto do poste
+  // painel de lâmpadas: 2 fileiras x 4 colunas, acesas (a luz branca e forte do alto dos postes, como nas fotos)
+  const lampadas = [];
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) lampadas.push({ l: 0.5, a: 0.9, p: 1.3, x: 0.7, y: 0.9 + r * 1.2, z: -2.7 + c * 1.8 });
+  g.add(inst(juntar(lampadas), new THREE.MeshStandardMaterial({ color: "#ffffff", emissive: "#fff4de", emissiveIntensity: 4 }), 23.6, true));
+  if (!texPocaHolofote) {
+    const c = document.createElement("canvas");
+    c.width = c.height = 128;
+    const x = c.getContext("2d")!;
+    const r = x.createRadialGradient(64, 64, 2, 64, 64, 64);
+    r.addColorStop(0, "rgba(255,255,255,1)");
+    r.addColorStop(0.5, "rgba(255,255,255,.4)");
+    r.addColorStop(1, "rgba(255,255,255,0)");
+    x.fillStyle = r;
+    x.fillRect(0, 0, 128, 128);
+    texPocaHolofote = new THREE.CanvasTexture(c);
+  }
+  const poca = new THREE.PlaneGeometry(64, 64);
+  poca.rotateX(-Math.PI / 2);
+  const mp = new THREE.MeshBasicMaterial({ map: texPocaHolofote, color: "#fff1d6", transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -8 });
+  const pocas = new THREE.InstancedMesh(poca, mp, centros.length);
+  const o = new THREE.Object3D();
+  centros.forEach((c, k) => {
+    o.position.set(c.x, 0.07, c.z);
+    o.updateMatrix();
+    pocas.setMatrixAt(k, o.matrix);
+  });
+  pocas.userData.semSombra = true;
+  g.add(pocas);
+  return g;
+}
 
 /** Veste o circuito: tudo entra marcado como fora do enquadramento (enquadrar() só olha a pista). `bordas` = até onde vão as
  *  áreas de escape em cada ponto da volta, para o muro ficar depois delas. */
@@ -653,11 +770,13 @@ export function vestirCircuito(g: THREE.Group, pts: THREE.Vector3[], comprimento
     g.add(fora(tudo));
     return;
   }
-  tudo.add(relevo(pts, altura, ehCidade));
-  for (const l of lagos) tudo.add(lago(l.x, l.z, l.r));
+  const deserto = !!o.deserto;
+  const areia = o.noite ? ["#3a3225", "#40372a", "#352e22"] : ["#d9bf8e", "#cfb482", "#c8aa77"];
+  tudo.add(relevo(pts, altura, deserto ? () => false : ehCidade, undefined, deserto ? areia : undefined));
+  if (!deserto) for (const l of lagos) tudo.add(lago(l.x, l.z, l.r));
   const grupo = new THREE.Group();
-  for (const a of o.arquibancadas) grupo.add(arquibancadas(pts, a.f0, a.f1, a.dist, a.coberta ?? false, comprimento));
-  if (o.boxes) grupo.add(boxes(pts, o.boxes.f0, o.boxes.f1, o.boxes.dist));
+  for (const a of o.arquibancadas) grupo.add(arquibancadas(pts, a.f0, a.f1, a.dist, a.coberta ?? false, comprimento, deserto && a.coberta ? { noite: !!o.noite } : undefined));
+  if (o.boxes) grupo.add(boxes(pts, o.boxes.f0, o.boxes.f1, o.boxes.dist, deserto && !!o.noite));
   tudo.add(grupo);
   grupo.updateMatrixWorld(true);
   const blocos: THREE.Box3[] = [];
@@ -668,8 +787,10 @@ export function vestirCircuito(g: THREE.Group, pts: THREE.Vector3[], comprimento
     return blocos.some((b) => b.containsPoint(p));
   };
   tudo.add(muros(pts, bordas, dist, dentro));
-  tudo.add(cidade(altura, ehCidade, (x, z) => !reservado(x, z), meio));
-  tudo.add(arvores(pts, reservado, dentro));
+  if (!deserto) {
+    tudo.add(cidade(altura, ehCidade, (x, z) => !reservado(x, z), meio));
+    tudo.add(arvores(pts, reservado, dentro));
+  } else if (o.noite) tudo.add(holofotes(pts, bordas));
   g.add(fora(tudo));
 }
 

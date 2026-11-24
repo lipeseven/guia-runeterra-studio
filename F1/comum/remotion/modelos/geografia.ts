@@ -129,6 +129,16 @@ const CENARIOS: Record<string, Cenario> = {
     ],
     real: LASVEGAS as unknown as CidadeReal,
   },
+  // Lusail (Catar), sentido horário: direita = por dentro (boxes à direita da reta), arquibancadas por fora (à esquerda). Deserto sem
+  // cidade; à noite, holofotes (sem neon). Posições aproximadas (sem planta oficial): reta dos boxes, T1, T16 e o miolo.
+  lusail: {
+    deserto: true,
+    arquibancadas: [
+      { f0: 0.935, f1: 1.07, coberta: true, dist: -62 }, { f0: 0.108, f1: 0.14, dist: -84 }, { f0: 0.86, f1: 0.9, dist: -78 },
+      { f0: 0.27, f1: 0.34, dist: -80 }, { f0: 0.64, f1: 0.73, dist: -84 },
+    ],
+    boxes: { f0: 0.975, f1: 1.04, dist: 44 },
+  },
 };
 
 /** Circuitos de rua: muro colado na pista (sem caixa de brita), escape estreito. */
@@ -251,9 +261,11 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   const asfalto = new THREE.Color("#4a4f59");
   // área de escape clara em volta do asfalto: deixa o traçado legível visto do alto (a pista sozinha some a 1 km)
   const rua = DE_RUA.has(nome);
+  const deserto = !!CENARIOS[nome]?.deserto;
+  const holofote = deserto && !!o.cenario && !!o.noite; // noite de autódromo no deserto: pista acesa pelos holofotes, sem neon
   let bordas = { fora: (_: number) => larg, dentro: (_: number) => larg };
   const fatorEscape = rua && o.cenario ? 0.62 : o.cenario ? 0.95 : 1.6;
-  const escape = faixa(-larg * fatorEscape, larg * fatorEscape, 0.012, () => new THREE.Color(rua && o.cenario ? (o.noite ? "#3b3f48" : "#b3b6bb") : o.cenario ? "#9aa0a6" : "#c9ccd2"), 1);
+  const escape = faixa(-larg * fatorEscape, larg * fatorEscape, 0.012, () => new THREE.Color(rua && o.cenario ? (o.noite ? "#3b3f48" : "#b3b6bb") : holofote ? "#555b65" : o.cenario ? "#9aa0a6" : "#c9ccd2"), 1);
   if (o.cenario && rua) {
     // rua: muro de concreto logo depois do escape estreito (o muro fica a bordas + 3 m do centro)
     bordas = { fora: () => larg * fatorEscape - 3 + 0.6, dentro: () => larg * fatorEscape - 3 + 0.6 };
@@ -269,7 +281,7 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
       const c = suavizada[i] * sinal;
       return c > 0 ? Math.min(62, larg + c * 4200) : larg;
     };
-    const areia = new THREE.Color("#d8bd8a"), terra = new THREE.Color("#a98559");
+    const areia = new THREE.Color(holofote ? "#7a6a4c" : "#d8bd8a"), terra = new THREE.Color(holofote ? "#5e4a33" : "#a98559");
     // vira à esquerda (curvatura positiva) = o lado de fora é a direita = distância positiva
     const fora = (i: number) => largura(i, 1), dentro = (i: number) => largura(i, -1);
     bordas = { fora, dentro };
@@ -287,8 +299,35 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
     m.emissiveIntensity = neon ? 0.15 : 0.75;
     if (neon) m.color.set("#5a4a66");
   }
+  if (holofote) {
+    // escape e pista claros sob os holofotes (acesos por dentro, como a faixa da rua iluminada): o traçado se lê à noite
+    const m = escape.material as THREE.MeshStandardMaterial;
+    m.color.set("#3b3f47");
+    m.emissive.set("#ffe9c4");
+    m.emissiveIntensity = 0.12;
+  }
   g.add(escape);
   const pista = faixa(-larg / 2, larg / 2, 0.02, () => asfalto, 2);
+  if (holofote) {
+    const m = pista.material as THREE.MeshStandardMaterial;
+    m.color.set("#2f333a"); // asfalto escuro, como nas fotos do GP à noite (a luz dos holofotes é que o clareia)
+    m.emissive.set("#fff0d6");
+    m.emissiveIntensity = 0.07;
+    // fios de luz ciano nas duas margens (o traçado aceso visto do alto, como nas fotos do GP) e, na reta dos boxes, a faixa
+    // azul com borda vermelha da pit lane/grid (lado de dentro = direita no sentido horário)
+    const ciano = new THREE.Color("#5ff0e0");
+    for (const sg of [-1, 1]) {
+      const t: THREE.Mesh = faixa(sg * (larg * 0.95 - 0.8), sg * (larg * 0.95 - 0.25), 0.034, () => ciano, 4);
+      const mt = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -16 });
+      mt.color.setScalar(0.9);
+      t.material = mt;
+      g.add(t);
+    }
+    const naReta = (i: number) => i / N >= 0.945 || i / N <= 0.075;
+    const azul = new THREE.Color("#2f5fc4"), vermelho = new THREE.Color("#d8404f");
+    const e0 = larg * 0.95 + 0.4;
+    g.add(faixa(e0, e0 + 11, 0.03, (i) => (naReta(i) ? azul : null), 2), faixa(e0, e0 + 1.8, 0.035, (i) => (naReta(i) ? vermelho : null), 3));
+  }
   if (neon) (pista.material as THREE.MeshStandardMaterial).color.set("#8e88a6"); // asfalto um pouco mais escuro e frio (fosco, sem reflexo)
   g.add(pista);
   const pulsos: THREE.MeshBasicMaterial[] = [];
