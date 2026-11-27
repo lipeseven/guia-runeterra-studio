@@ -661,7 +661,8 @@ def tarefa_remontar_gravacao(vid: int) -> None:
         d = json.loads(con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='gravacao'", (vid,)).fetchone()["dados"] or "{}")
     pasta = PASTA_PROJETOS / v["slug"]
     original = RAIZ / d["original"]
-    decisoes = json.loads((pasta / "trabalho" / "gravacao" / "decisoes.json").read_text(encoding="utf-8"))
+    dec_arq = pasta / "trabalho" / "gravacao" / "decisoes.json"  # só existe depois da 1ª escolha na linha do tempo
+    decisoes = json.loads(dec_arq.read_text(encoding="utf-8")) if dec_arq.exists() else {}
     with conectar() as con:  # painel mostra "trabalhando" até o áudio novo sair
         con.execute("UPDATE etapas SET status='andamento' WHERE video_id=? AND chave='gravacao'", (vid,))
         con.commit()
@@ -958,6 +959,8 @@ def _promover_pesados(vid: int, slug: str, pasta: Path, direcao: dict, pedidos: 
         titulo = con.execute("SELECT titulo FROM videos WHERE id=?", (vid,)).fetchone()["titulo"]
         promovidos = PP.promover_nao_feitos(con, vid, pasta, pesados, titulo)
         con.commit()
+    if promovidos:
+        acordar_orquestrador(vid)
     chave = lambda p: (p.get("plano"), p.get("texto"), p.get("quando"))  # noqa: E731
     fora = {chave(p) for p in promovidos}
     return [p for p in pedidos if chave(p) not in fora]
@@ -1544,6 +1547,71 @@ def pedir_acervo() -> None:
         FILA.put((0, "acervo"))
 
 
+# ---------------------------------------------------------------- orquestrador automático (pedidos pesados)
+MODELO_ORQUESTRADOR = "claude-opus-5-5"
+FERRAMENTAS_ORQUESTRADOR = "Read,Edit,Write,Glob,Grep,Bash(.venv/Scripts/python.exe:*),Bash(node:*),Bash(npx tsc:*)"
+
+
+def acordar_orquestrador(vid: int) -> None:
+    """Pedido pesado novo (o diretor devolveu "sem capacidade" ou o Felipe mandou ao orquestrador): o orquestrador
+    automático entra na fila. Como a fila é uma só, ele roda DEPOIS da tarefa em andamento (p. ex. a direção que devolveu
+    o pedido, que ainda reescreve o vertical.json). Desligável com `orquestrador_auto = false` no canal.toml."""
+    if CANAL.get("orquestrador_auto", True):
+        FILA.put((vid, "orquestrador"))
+
+
+def tarefa_orquestrador(vid: int) -> None:
+    """Claude Code em modo automático (`claude -p`) atende os pedidos pesados abertos do card, um por vez, seguindo
+    docs/orquestrador_auto.md: acha a causa (biblioteca ou cena), confere olhando o quadro e fecha o pedido com
+    `pedidos_pesados.py resolver` (que pede o render). Se não resolver, o pedido continua aberto para o chat."""
+    import subprocess
+
+    sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+    import pedidos_pesados as PP
+    from claude_cli import EXE
+
+    with conectar() as con:
+        slug = con.execute("SELECT slug FROM videos WHERE id=?", (vid,)).fetchone()["slug"]
+    projeto = PASTA_PROJETOS / slug
+    tentados: set[str] = set()
+    while True:
+        abertos = [p for p in PP.abertos(projeto) if p.get("formato") != "storyboard" and p["id"] not in tentados]
+        if not abertos:
+            return
+        p = abertos[0]
+        tentados.add(p["id"])
+        onde = f"cena {p['n']}" if p.get("n") else "pedido geral"
+        definir_progresso("Orquestrador", f"{onde}: {p['texto'][:70]}")
+        with conectar() as con:
+            registrar(con, vid, f"Orquestrador automático começou o pedido [{p['id']}] ({onde})", "info")
+            con.commit()
+        prompt = (f"Você é o orquestrador automático do Studio (canal {CANAL['chave']}). Atenda o pedido pesado {p['id']} "
+                  f"do card {vid} (\"{p['titulo']}\"). Antes de tudo leia docs/orquestrador_auto.md e siga à risca. "
+                  f"GRS_CANAL={CANAL['chave']} já está no seu ambiente: não o escreva nos comandos.")
+        log = PP.pasta_orq(projeto) / f"auto_{p['id']}.log"
+        log.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            r = subprocess.run([str(EXE), "-p", prompt, "--model", MODELO_ORQUESTRADOR, "--effort", "medium",
+                                "--permission-mode", "acceptEdits", "--allowedTools", FERRAMENTAS_ORQUESTRADOR],
+                               cwd=str(RAIZ), capture_output=True, text=True, encoding="utf-8", errors="replace",
+                               env={**os.environ, "GRS_CANAL": CANAL["chave"], "PYTHONIOENCODING": "utf-8"}, timeout=45 * 60)
+            log.write_text((r.stdout or "") + "\n--- stderr ---\n" + (r.stderr or ""), encoding="utf-8")
+            erro = None if r.returncode == 0 else ((r.stderr or r.stdout or "").strip().splitlines() or ["falhou"])[-1][:200]
+        except subprocess.TimeoutExpired:
+            erro = "passou de 45 min"
+        resolvido = p["id"] not in {x["id"] for x in PP.abertos(projeto)}
+        with conectar() as con:
+            if resolvido:
+                registrar(con, vid, f"Orquestrador automático resolveu o pedido [{p['id']}]", "ok")
+            else:
+                registrar(con, vid, f"Orquestrador automático NÃO resolveu o pedido [{p['id']}]"
+                          + (f": {erro}" if erro else "") + " — fica aberto para o chat (veja auto_" + p["id"] + ".log)", "alerta")
+            con.commit()
+        if not resolvido and erro:
+            return  # cota/erro: não insiste nos outros pedidos
+
+
+
 TAREFAS = {"voz_guia": tarefa_voz_guia, "voz_ia": tarefa_voz_ia, "direcao": tarefa_direcao, "rascunho": tarefa_rascunho,
            "gravacao": tarefa_gravacao, "final": tarefa_final, "publicacao": tarefa_publicacao,
            "roteiro": tarefa_roteiro, "acervo": tarefa_acervo,
@@ -1551,7 +1619,7 @@ TAREFAS = {"voz_guia": tarefa_voz_guia, "voz_ia": tarefa_voz_ia, "direcao": tare
            "importar_riot": tarefa_importar_riot, "musica": tarefa_musica,
            "apos_publicar": tarefa_apos_publicar,
            "remontar_gravacao": tarefa_remontar_gravacao, "retrospectiva": tarefa_retrospectiva,
-           "render_doc": tarefa_render_doc}
+           "render_doc": tarefa_render_doc, "orquestrador": tarefa_orquestrador}
 FILA: "queue.Queue[tuple[int, str]]" = queue.Queue()
 
 
@@ -1768,6 +1836,17 @@ def retomar_interrompidas(con) -> None:
 
 def iniciar() -> None:
     threading.Thread(target=_trabalhador, daemon=True, name="motor").start()
+    try:  # todo pedido pesado criado daqui em diante acorda o orquestrador; os que ficaram abertos também
+        sys.path.insert(0, str(RAIZ / "tools" / "direcao"))
+        import pedidos_pesados as PP
+
+        PP.AO_CRIAR = lambda vid, item: acordar_orquestrador(vid) if item.get("formato") != "storyboard" else None
+        with conectar() as con:
+            for v in con.execute("SELECT id, slug FROM videos WHERE coluna != 'publicado'").fetchall():
+                if any(x.get("formato") != "storyboard" for x in PP.abertos(PASTA_PROJETOS / v["slug"])):
+                    acordar_orquestrador(v["id"])
+    except Exception:
+        traceback.print_exc()
     with conectar() as con:
         retomar_interrompidas(con)
         con.commit()

@@ -135,7 +135,7 @@ export const EQUIPES_PILOTO: Record<string, { macacao: string; detalhe: string; 
 
 export type OpcoesPiloto = {
   equipe?: string; macacao?: string; detalhe?: string; faixa?: string; bone?: string; logo?: string; capacete?: string;
-  pele?: string; cabelo?: string; traje?: "capacete" | "bone"; crianca?: boolean; sentado?: boolean;
+  pele?: string; cabelo?: string; traje?: "capacete" | "bone"; crianca?: boolean; sentado?: boolean; fone?: boolean;
 };
 
 const tecido = (cor: string) => new THREE.MeshStandardMaterial({ color: cor, roughness: 0.9, metalness: 0 });
@@ -269,6 +269,23 @@ export function criarPiloto(o: OpcoesPiloto = {}): THREE.Group {
     const orelha = malha(new THREE.SphereGeometry(0.022, 10, 8), pele, lado * 0.093, -0.005, 0.005);
     orelha.scale.set(0.5, 1, 0.8);
     cabeca.add(orelha);
+  }
+  if (o.fone) {
+    // headset de engenheiro (2026-11-22, referência do Felipe): arco sobre a cabeça, dois fones e haste do microfone à esquerda
+    const mF = mat("#15161a", 0.5, 0.3);
+    cabeca.add(malha(new THREE.TorusGeometry(0.122, 0.008, 8, 28, Math.PI), mF, 0, 0.005, 0));
+    for (const lado of [-1, 1]) {
+      const copo = malha(new THREE.CylinderGeometry(0.04, 0.04, 0.026, 18), mF, lado * 0.118, -0.005, 0.005);
+      copo.rotation.z = Math.PI / 2;
+      cabeca.add(copo);
+    }
+    const a = new THREE.Vector3(-0.12, -0.025, -0.01), b = new THREE.Vector3(-0.045, -0.068, -0.098);
+    const dir = b.clone().sub(a);
+    const m = a.clone().add(b).multiplyScalar(0.5);
+    const haste = malha(new THREE.CylinderGeometry(0.0035, 0.0035, dir.length(), 6), mF, m.x, m.y, m.z);
+    haste.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    cabeca.add(haste);
+    cabeca.add(malha(new THREE.SphereGeometry(0.011, 8, 6), mF, b.x, b.y, b.z));
   }
   if (!capacete) {
     // cabelo: topo, lados e nuca (a testa fica livre)

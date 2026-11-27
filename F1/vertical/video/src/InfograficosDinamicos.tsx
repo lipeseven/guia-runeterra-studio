@@ -42,7 +42,12 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
   );
 
   if (g.tipo === "frase") {
-    // a pergunta escrita na tela, palavra por palavra; "Brasil" em verde e amarelo, com um traço que corre embaixo
+    // a pergunta escrita na tela, palavra por palavra; "Brasil" em verde e amarelo, com um traço que corre embaixo.
+    // Palavra comprida não cabe nos 960 px ("DESCLASSIFICAÇÃO?" estourava a borda, 2026-11-26): a frase INTEIRA encolhe
+    // pelo fator da palavra que mais aperta, para ficar uniforme (pedido do Felipe, 2026-11-26); `tam` (0-1) encolhe de propósito.
+    const base = (w: { brasil?: boolean; tam?: number }) => (w.brasil ? 190 : 124) * (w.tam ?? 1);
+    const cabe = (w: { t: string }) => Math.floor(900 / (0.64 * Math.max(1, ...w.t.split(" ").map((x) => x.length))));
+    const fator = Math.min(1, ...(g.palavras ?? []).map((w) => cabe(w) / base(w)));
     return centro(
       <div style={{ width: 960, display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "baseline", textAlign: "center", gap: "6px 30px", fontFamily: FONTE }}>
         {(g.palavras ?? []).map((w, s) => {
@@ -51,7 +56,7 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
           const traco = suave(t, em + 0.1, em + 0.55);
           const brasil: CSSProperties = { backgroundImage: "linear-gradient(100deg, #19c15c 0%, #19c15c 38%, #ffdf00 72%, #ffdf00 100%)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent", filter: "drop-shadow(0 4px 18px rgba(25,193,92,.45))" };
           return (
-            <span key={s} style={{ position: "relative", opacity: t >= em ? ew : 0, transform: `translateY(${(1 - ew) * 26}px)`, fontWeight: 900, fontSize: w.brasil ? 190 : 124, lineHeight: 1.08, textAlign: "center", color: COR.texto, ...(w.brasil ? brasil : { textShadow: "0 4px 22px rgba(0,0,0,.65)" }) }}>
+            <span key={s} style={{ position: "relative", opacity: t >= em ? ew : 0, transform: `translateY(${(1 - ew) * 26}px)`, fontWeight: 900, fontSize: Math.floor(base(w) * fator), lineHeight: 1.08, textAlign: "center", color: COR.texto, ...(w.brasil ? brasil : { textShadow: "0 4px 22px rgba(0,0,0,.65)" }) }}>
               {w.t}
               {w.brasil && <span style={{ position: "absolute", left: 4, bottom: -8, height: 12, borderRadius: 6, width: `${traco * 97}%`, background: "linear-gradient(90deg, #19c15c, #ffdf00)", boxShadow: "0 0 22px rgba(255,223,0,.55)" }} />}
             </span>
@@ -225,18 +230,20 @@ export function Dinamicos({ g, t, tempo, ini, fim, a, k, e, cor }: Args): ReactN
     // tabela de classificação com os nomes reais (pedido do Felipe, 2026-11-21: "não precisa de seta; é só a tabela e o nome
     // na posição"): as linhas entram de cima para baixo e a do piloto citado (`destaque`) acende em dourado. Sem seta.
     const linhas = g.linhas ?? [];
-    const alvo = g.destaque ?? linhas.length;
+    // `destaque` aceita lista (2026-11-26, Felipe: "faltou destacar o nome do Leclerc também"): várias linhas acesas juntas;
+    // a linha com `i` acende na palavra dela e continua acesa
+    const alvos = Array.isArray(g.destaque) ? g.destaque : [g.destaque ?? linhas.length];
     const ALT = 92;
     const acende = a + 0.2; // acende junto com a entrada (o plano costuma ser curto: a palavra "quinto" fica perto do fim)
-    const ka = suave(t, acende, acende + 0.3);
     return centro(
       <div style={{ ...PAINEL, width: 980, padding: "26px 28px 22px", display: "flex", flexDirection: "column", gap: 10 }}>
         {g.titulo && <div style={{ textAlign: "center", fontSize: 34, fontWeight: 900, letterSpacing: 4, color: COR.destaque, marginBottom: 6 }}>{g.titulo}</div>}
         {linhas.map((l, s) => {
           const pos = l.pos ?? s + 1;
           const el = entra(t, a + s * 0.05, 0.22);
-          const eh = pos === alvo;
-          const kk = eh ? ka : 0;
+          const eh = alvos.includes(pos);
+          const ql = l.i !== undefined ? Math.max(acende, tempo(l.i)) : acende;
+          const kk = eh ? suave(t, ql, ql + 0.3) : 0;
           return (
             <div key={s} style={{
               height: ALT, borderRadius: 16, display: "flex", alignItems: "center", gap: 22, padding: "0 24px",

@@ -68,3 +68,12 @@ Saído do CLAUDE.md (2026-11-08). Ao terminar um recurso desta área, registre A
 - Celular pelo Wi-Fi (2026-11-01): servidores em `--host 0.0.0.0` (os .bat); acesso em `http://<IP do PC>:8765`. O painel não tem senha: quem estiver na mesma rede pode mexer nele.
 - **Fluxo completo de ponta a ponta ✅ (2026-10-13).** Próximos: falas PT-BR de um site de fã, Pesquisa (referência → fatos → detector de semelhança), Mídias da internet,
   exportação para Premiere/DaVinci (XML) e After Effects (script).
+
+## Orquestrador automático (2026-11-26)
+Pedido pesado novo (F1 vertical/horizontal animado; o diretor devolveu "sem capacidade" ou o Felipe mandou) acorda sozinho um
+`claude -p` (Opus 5.5, esforço médio) que segue `docs/orquestrador_auto.md`: acha a causa (biblioteca ou cena), confere o quadro
+(`tools/direcao/quadro_da_cena.py`) e fecha com `pedidos_pesados.py resolver … --renderizar`. Código: `motor.tarefa_orquestrador` /
+`acordar_orquestrador` (entra na MESMA fila do motor, depois da direção que devolveu o pedido); gancho `pedidos_pesados.AO_CRIAR`
+ligado em `motor.iniciar`; ao ligar o servidor, pedidos que ficaram abertos também acordam. Desliga com `orquestrador_auto = false`
+no canal.toml. Falhou/cota: o pedido continua aberto para o chat (log em `<projeto>/orquestrador/auto_<id>.log`). Não vale para
+pedidos do storyboard do Runeterra. Testado só em processo isolado (pedido de teste resolvido em 22 s); falta ver pelo servidor.

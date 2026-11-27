@@ -129,6 +129,16 @@ const CENARIOS: Record<string, Cenario> = {
     ],
     real: LASVEGAS as unknown as CidadeReal,
   },
+  // Lusail (Catar), sentido horário: direita = por dentro (boxes à direita da reta), arquibancadas por fora (à esquerda). Deserto sem
+  // cidade; à noite, holofotes (sem neon). Posições aproximadas (sem planta oficial): reta dos boxes, T1, T16 e o miolo.
+  lusail: {
+    deserto: true,
+    arquibancadas: [
+      { f0: 0.935, f1: 1.07, coberta: true, dist: -62 }, { f0: 0.108, f1: 0.14, dist: -84 }, { f0: 0.86, f1: 0.9, dist: -78 },
+      { f0: 0.27, f1: 0.34, dist: -80 }, { f0: 0.64, f1: 0.73, dist: -84 },
+    ],
+    boxes: { f0: 0.975, f1: 1.04, dist: 44 },
+  },
 };
 
 /** Circuitos de rua: muro colado na pista (sem caixa de brita), escape estreito. */
@@ -251,9 +261,11 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
   const asfalto = new THREE.Color("#4a4f59");
   // área de escape clara em volta do asfalto: deixa o traçado legível visto do alto (a pista sozinha some a 1 km)
   const rua = DE_RUA.has(nome);
+  const deserto = !!CENARIOS[nome]?.deserto;
+  const holofote = deserto && !!o.cenario && !!o.noite; // noite de autódromo no deserto: pista acesa pelos holofotes, sem neon
   let bordas = { fora: (_: number) => larg, dentro: (_: number) => larg };
   const fatorEscape = rua && o.cenario ? 0.62 : o.cenario ? 0.95 : 1.6;
-  const escape = faixa(-larg * fatorEscape, larg * fatorEscape, 0.012, () => new THREE.Color(rua && o.cenario ? (o.noite ? "#3b3f48" : "#b3b6bb") : o.cenario ? "#9aa0a6" : "#c9ccd2"), 1);
+  const escape = faixa(-larg * fatorEscape, larg * fatorEscape, 0.012, () => new THREE.Color(rua && o.cenario ? (o.noite ? "#3b3f48" : "#b3b6bb") : holofote ? "#555b65" : o.cenario ? "#9aa0a6" : "#c9ccd2"), 1);
   if (o.cenario && rua) {
     // rua: muro de concreto logo depois do escape estreito (o muro fica a bordas + 3 m do centro)
     bordas = { fora: () => larg * fatorEscape - 3 + 0.6, dentro: () => larg * fatorEscape - 3 + 0.6 };
@@ -269,7 +281,7 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
       const c = suavizada[i] * sinal;
       return c > 0 ? Math.min(62, larg + c * 4200) : larg;
     };
-    const areia = new THREE.Color("#d8bd8a"), terra = new THREE.Color("#a98559");
+    const areia = new THREE.Color(holofote ? "#7a6a4c" : "#d8bd8a"), terra = new THREE.Color(holofote ? "#5e4a33" : "#a98559");
     // vira à esquerda (curvatura positiva) = o lado de fora é a direita = distância positiva
     const fora = (i: number) => largura(i, 1), dentro = (i: number) => largura(i, -1);
     bordas = { fora, dentro };
@@ -287,8 +299,35 @@ export function criarCircuito(nome = "interlagos", o: { largura?: number; rotulo
     m.emissiveIntensity = neon ? 0.15 : 0.75;
     if (neon) m.color.set("#5a4a66");
   }
+  if (holofote) {
+    // escape e pista claros sob os holofotes (acesos por dentro, como a faixa da rua iluminada): o traçado se lê à noite
+    const m = escape.material as THREE.MeshStandardMaterial;
+    m.color.set("#3b3f47");
+    m.emissive.set("#ffe9c4");
+    m.emissiveIntensity = 0.12;
+  }
   g.add(escape);
   const pista = faixa(-larg / 2, larg / 2, 0.02, () => asfalto, 2);
+  if (holofote) {
+    const m = pista.material as THREE.MeshStandardMaterial;
+    m.color.set("#2f333a"); // asfalto escuro, como nas fotos do GP à noite (a luz dos holofotes é que o clareia)
+    m.emissive.set("#fff0d6");
+    m.emissiveIntensity = 0.07;
+    // fios de luz ciano nas duas margens (o traçado aceso visto do alto, como nas fotos do GP) e, na reta dos boxes, a faixa
+    // azul com borda vermelha da pit lane/grid (lado de dentro = direita no sentido horário)
+    const ciano = new THREE.Color("#5ff0e0");
+    for (const sg of [-1, 1]) {
+      const t: THREE.Mesh = faixa(sg * (larg * 0.95 - 0.8), sg * (larg * 0.95 - 0.25), 0.034, () => ciano, 4);
+      const mt = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -8, polygonOffsetUnits: -16 });
+      mt.color.setScalar(0.9);
+      t.material = mt;
+      g.add(t);
+    }
+    const naReta = (i: number) => i / N >= 0.945 || i / N <= 0.075;
+    const azul = new THREE.Color("#2f5fc4"), vermelho = new THREE.Color("#d8404f");
+    const e0 = larg * 0.95 + 0.4;
+    g.add(faixa(e0, e0 + 11, 0.03, (i) => (naReta(i) ? azul : null), 2), faixa(e0, e0 + 1.8, 0.035, (i) => (naReta(i) ? vermelho : null), 3));
+  }
   if (neon) (pista.material as THREE.MeshStandardMaterial).color.set("#8e88a6"); // asfalto um pouco mais escuro e frio (fosco, sem reflexo)
   g.add(pista);
   const pulsos: THREE.MeshBasicMaterial[] = [];
@@ -402,11 +441,15 @@ export function noCircuito(circ: THREE.Object3D, f: number, lado = 0) {
 /** Distância (m) que a fração f da volta representa: para `rolarRodas` de um carro na volta. */
 const metrosNaVolta = (circ: THREE.Object3D, f: number) => f * infoDe(circ).comprimento;
 
+/** Altura do asfalto (m): a pista de `criarCircuito` é um plano a 0,02; o carro assenta nela (antes ficava em 0 e os pneus afundavam 2 cm). */
+const ALTURA_ASFALTO = 0.02;
+
 /** Carro na volta do circuito: esterço das dianteiras E as 4 rodas rolando com a distância (f a f). `v` = velocidade real
  *  em m/s (só para limitar o giro visto; padrão 80). `escala` > 1 só para vista de longe (senão o carro some). */
 export function poeNoCircuito(w: Mundo, k: number, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number; velocidade?: boolean } = {}) {
   const q = noCircuito(circ, f, o.lado ?? 0);
   poe(w, k, q.x, q.z, q.giro);
+  w.carros[k].position.y = ALTURA_ASFALTO; // a pista é um plano a 2 cm do chão: com o carro em y=0 os pneus afundavam nela
   w.carros[k].scale.setScalar(o.escala ?? 1);
   estercar(w.carros[k], q.esterco);
   rolarRodas(w.carros[k], metrosNaVolta(circ, f), o.v ?? 80);
@@ -418,7 +461,7 @@ export function poeNoCircuito(w: Mundo, k: number, circ: THREE.Object3D, f: numb
 export function poePinturaNoCircuito(w: Mundo, chave: string, pintura: Pintura, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number; velocidade?: boolean } = {}) {
   const c = obj(w, `carro:${chave}`, () => carro(pintura));
   const q = noCircuito(circ, f, o.lado ?? 0);
-  c.position.set(q.x, 0, q.z);
+  c.position.set(q.x, ALTURA_ASFALTO, q.z);
   c.rotation.y = q.giro;
   c.scale.setScalar(o.escala ?? 1);
   estercar(c, q.esterco);
@@ -634,19 +677,24 @@ export function pelotao(w: Mundo, circ: THREE.Object3D, f: number, n = 8, o: { f
     const k = eFoco ? foco : outros[j < iFoco ? j : j - 1];
     const off = g.d - base.d + (eFoco ? 0 : 2.2 * Math.sin(0.5 * t + 1.9 * j));
     const lado = eFoco ? (o.lado ?? 0) : Math.max(-maxLado, Math.min(maxLado, g.lado + 0.5 * Math.sin(0.37 * t + j)));
-    return { k, off, lado, eFoco };
+    return { k, off, lado, eFoco, vaga: g.d - base.d };
   });
-  // ninguém em cima de ninguém: na mesma faixa (menos de 2,3 m de lado), pelo menos 7,5 m entre os centros
-  lista.sort((a, b) => b.off - a.off);
+  // ninguém em cima de ninguém: na mesma faixa (menos de 2,3 m de lado), pelo menos 7,5 m entre os centros.
+  // Sem salto (2026-11-26, card 26 cena 21: carro se teletransportava): a ordem vem da vaga fixa (não da "respiração",
+  // que trocava a ordem com o tempo e jogava o carro 15 m de um lado ao outro) e o empurrão entra aos poucos entre 2,6 e
+  // 2,3 m de distância lateral (antes ligava de uma vez ao cruzar 2,3 m e o carro pulava 7 m). Abaixo de 2,3 m: igual a antes.
+  lista.sort((a, b) => b.vaga - a.vaga);
   for (let j = 1; j < lista.length; j++) {
     for (let i = 0; i < j; i++) {
       const a = lista[i], b = lista[j];
-      if (Math.abs(a.lado - b.lado) < 2.3 && a.off - b.off < 7.5) {
-        if (b.eFoco) a.off = b.off + 7.5; // o foco não sai do lugar: quem anda é o outro
-        else b.off = a.off - 7.5;
+      const peso = Math.max(0, Math.min(1, (2.6 - Math.abs(a.lado - b.lado)) / 0.3));
+      if (peso > 0) {
+        if (b.eFoco) a.off += peso * (Math.max(a.off, b.off + 7.5) - a.off); // o foco não sai do lugar: quem anda é o outro
+        else b.off += peso * (Math.min(b.off, a.off - 7.5) - b.off);
       }
     }
   }
+  lista.sort((a, b) => b.off - a.off); // devolve na ordem da pista (o primeiro é o da frente)
   return lista.map((q) => {
     const fq = f + q.off / info.comprimento;
     poeNoCircuito(w, q.k, circ, fq, { lado: q.lado, v, escala: o.escala, velocidade: o.velocidade });

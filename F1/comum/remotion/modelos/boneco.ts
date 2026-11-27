@@ -173,6 +173,26 @@ export function empurrar(p: THREE.Object3D, k = 1) {
   }
 }
 
+/** Sentar (k 0 → 1): coxa na horizontal, canela na vertical, pés no chão no lugar de antes e o corpo recuado (quadril a
+ *  ~0,5 m do chão, 0,43 m atrás dos pés: ponha a cadeira ali). Chame DEPOIS de `neutro`/`apontar`/`acenar`/`olhar`: só mexe
+ *  nas pernas e na posição; os braços vão para a frente (mesa/teclado) SÓ se ainda estiverem em repouso, então um gesto
+ *  chamado antes (apontar) é mantido. Pedido do Felipe (2026-11-22): engenheiros do box sentados diante das telas. */
+export function sentar(p: THREE.Object3D, k = 1) {
+  const j = jt(p);
+  if (!j) return;
+  const u = lim(k);
+  const e = perna(j, "E", 1.5 * u, -1.5 * u);
+  const d = perna(j, "D", 1.5 * u, -1.5 * u);
+  assentar(j, e, d);
+  j.coluna.rotation.x -= 0.06 * u;
+  for (const l of ["E", "D"]) {
+    if (Math.abs(j[`ombro${l}`].rotation.x) < 0.01) {
+      j[`ombro${l}`].rotation.x = 0.7 * u;
+      j[`cotovelo${l}`].rotation.x = 1.0 * u;
+    }
+  }
+}
+
 /** Ponto no mundo entre as duas mãos (para pôr a caixa que ele carrega). */
 export function maos(p: THREE.Object3D): THREE.Vector3 {
   const j = jt(p);

@@ -25,6 +25,10 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
   normalizado como o catálogo (sem silêncio no início, até 6 s, pico -3 dBFS); `volume` 0,02 a 1 (padrão 0,26 ≈ os do
   catálogo), `duracao` em segundos (padrão: o som inteiro). Arquivo que não existe vira aviso no card e o render segue sem ele.
   Use quando o Felipe pedir um som específico ou quando nenhuma descrição acha o som certo; vale o mesmo teto dos outros.
+  **Riser de suspense** (2026-11-26, Felipe: "um swoosh ou aquele que vai subindo e causando um mini suspense"):
+  `{"arquivo": "sfx/riser/riser_swoosh_suspense.wav", "em": "<primeira palavra da pergunta>"}` sobe 2,25 s e fecha num
+  swoosh macio (pico 2,25 s após o início, cauda ~0,8 s). Para pergunta que prepara uma revelação: comece na palavra que fica
+  ~2,25 s antes do corte/palavra do clímax. Não use o "fast cinematic whoosh" do catálogo para isso (o Felipe achou "bem zoado").
 - `sem_legenda`: true tira a legenda do plano (quando a frase já está em letra grande com o gráfico `frase`).
 - `legenda` (2026-11-14): estilo da legenda. `{"fundo": "#0e1118", "opacidade": 0.72, "raio": 22, "margem": 18, "branca":
   true}`: `fundo` = caixa atrás do texto (cor hex ou CSS; sem `fundo` = sem caixa), `opacidade` 0 a 1, `raio` e `margem` em px;
@@ -53,7 +57,7 @@ tempo: o mundo é zerado antes (só aparece o que o código puser). Nada aleató
     `minimapa` {de, ate, trecho: [a, b], texto, circuito}: traçado real no canto (norte para cima), trecho aceso e ponto do carro. `circuito`: "interlagos" (padrão) ou "lasvegas". `de`/`ate` = as MESMAS frações da volta que o carro percorre no plano (`f = de + (ate - de) * c.k`).
     `perfil` {de, ate, texto}: altitude real da volta de Interlagos, com o ponto andando.
     `torre` {n: 6, de: 1, ate: 4, texto, em}: torre de posições sem nomes; a linha acesa cai (vermelha) ou sobe (verde) e troca de lugar com as outras. Só para GANHAR/PERDER posições.
-    `classificacao` {titulo: "GP CAESARS PALACE 1981", linhas: [{nome: "ALAN JONES", equipe: "WILLIAMS"}, ...], destaque: 5, pos: "meio", em}: tabela do 1º ao Nº com os NOMES REAIS (resultado oficial) e a linha do piloto citado acesa em dourado; SEM seta (2026-11-21, Felipe: "é só a tabela e o nome na posição"). `pos` de cada linha é opcional (padrão: a ordem). Ex. (Piquet 5º, campeão de 1981): `{"tipo": "classificacao", "titulo": "GP CAESARS PALACE 1981", "destaque": 5, "pos": "meio", "em": "quinto lugar", "linhas": [{"nome": "ALAN JONES", "equipe": "WILLIAMS"}, {"nome": "ALAIN PROST", "equipe": "RENAULT"}, {"nome": "BRUNO GIACOMELLI", "equipe": "ALFA ROMEO"}, {"nome": "NIGEL MANSELL", "equipe": "LOTUS"}, {"nome": "NELSON PIQUET", "equipe": "BRABHAM"}]}`.
+    `classificacao` {titulo: "GP CAESARS PALACE 1981", linhas: [{nome: "ALAN JONES", equipe: "WILLIAMS"}, ...], destaque: 5, pos: "meio", em}: tabela do 1º ao Nº com os NOMES REAIS (resultado oficial) e a linha do piloto citado acesa em dourado; SEM seta (2026-11-21, Felipe: "é só a tabela e o nome na posição"). `pos` de cada linha é opcional (padrão: a ordem). **Dois ou mais pilotos citados: `destaque` em lista** (`"destaque": [2, 6]`) — as linhas ficam acesas JUNTAS (2026-11-26, Felipe: "faltou destacar o nome do Leclerc também"); NÃO divida o plano para acender uma por vez. A linha com `em` (ex.: `{"nome": "CHARLES LECLERC", "equipe": "FERRARI", "em": "Charles Leclerc"}`) acende na palavra dela e as já acesas continuam; sem `em`, acende na entrada da tabela. Ex. (Piquet 5º, campeão de 1981): `{"tipo": "classificacao", "titulo": "GP CAESARS PALACE 1981", "destaque": 5, "pos": "meio", "em": "quinto lugar", "linhas": [{"nome": "ALAN JONES", "equipe": "WILLIAMS"}, {"nome": "ALAIN PROST", "equipe": "RENAULT"}, {"nome": "BRUNO GIACOMELLI", "equipe": "ALFA ROMEO"}, {"nome": "NIGEL MANSELL", "equipe": "LOTUS"}, {"nome": "NELSON PIQUET", "equipe": "BRABHAM"}]}`.
     `relogio` {texto: "SEXTA", horas: [{h: 12, m: 30, texto: "TREINO LIVRE 1", em}, ...]}: ponteiros giram até cada hora falada.
     `sentido` {texto: "ANTI-HORÁRIO", em}: seta circular girando no sentido da volta.
     **`etapas` (cartões/seletor empilhados): NUNCA (Felipe, 2026-11-18: "já pedi mil vezes pra não aparecer").** `foco` é tempero.
@@ -107,7 +111,7 @@ Pinturas de época CONFERIDAS (tiradas das referências do Felipe em `F1/dados/m
 ## Modelos (criados uma vez por chave; a aparência é fixa na chave)
 `obj(w, chave, () => criarX(...))` cria na primeira vez e mostra o objeto neste quadro; devolve o objeto THREE (posicione
 com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro objeto (ex.: "piloto:kimi:bone").
-- `criarPiloto({ equipe, macacao, detalhe, faixa, bone, logo, capacete, pele, cabelo, traje, crianca, sentado })`:
+- `criarPiloto({ equipe, macacao, detalhe, faixa, bone, logo, capacete, pele, cabelo, traje, crianca, sentado, fone })` (fone: true = headset de engenheiro, arco + fones + microfone; 2026-11-22):
   pessoa (sem olhos e boca) vestindo macacão. `equipe: "mercedes"` usa as cores conferidas da equipe (macacão preto, detalhes
   prata e verde Petronas, boné preto). Outra equipe: passe macacao/detalhe/faixa/bone/logo em hex, SÓ com cores que o
   briefing ou a folha de estilos confirmem. pele: "clara" | "media" | "morena" | "negra"; cabelo: "castanho" | "preto" |
@@ -120,7 +124,7 @@ com `.position.set`, `.rotation.y`, `.scale.setScalar`). Chave diferente = outro
   à frente com as duas mãos, "empurrar" = braços esticados e tronco inclinado); `faseDoPasso(m)` sincroniza o passo com a
   distância (pé não escorrega: mova o boneco em velocidade constante); `carregar(p, k)` parado segurando;
   `agachar(p, k)` (de cócoras, mexendo em roda/chão); `abaixar(p, k, comCaixa)` (curva o tronco para pegar no chão);
-  `apontar(p, "esq" | "dir", k, altura)`; `acenar(p, c.t, "esq" | "dir", k)`; `empurrar(p, k)` parado; `neutro(p)` de pé;
+  `apontar(p, "esq" | "dir", k, altura)`; `acenar(p, c.t, "esq" | "dir", k)`; `empurrar(p, k)` parado; `sentar(p, k)` (2026-11-22: sentado, quadril ~0,5 m do chão e 0,43 m ATRÁS dos pés, na direção em que ele olha: ponha a cadeira ali; chame DEPOIS de neutro/apontar/olhar, os braços vão à mesa só se ainda estiverem em repouso); `neutro(p)` de pé;
   `olhar(p, giro, inclinacao)` por cima de qualquer pose; `maos(p)` = ponto no mundo entre as mãos (ponha ali a caixa:
   `cx.position.copy(maos(p)); cx.position.y -= metadeDaAltura; cx.rotation.y = p.rotation.y`). Gente em cena sempre faz
   alguma coisa (anda, carrega, agacha, aponta); nunca desliza parada. `bracos()` continua valendo.
@@ -432,6 +436,16 @@ embreagem_direita, engate_rapido. Os outros botões da face são só aparência.
   (0,158→0,172 s e 0,178→0,191 s); nas outras, nada. `neon: false` no `criarCircuito` volta ao noturno antigo (azul-marinho, sem bloom).
   O `minimapa` com `circuito: "lasvegas"` também é neon (tubo rosa com halo, luz correndo, trecho em ciano); `neon: false`
   no gráfico volta ao cinza.
+- **Lusail** (GP do Catar, 5,419 km, SENTIDO HORÁRIO, 16 curvas; 2026-11-23, pedido do card Sprint): `obj(w, "circ:lusail", () =>
+  criarCircuito("lusail", { cenario: true }))` de dia; à noite `obj(w, "circ:lusail", () => criarCircuito("lusail", { cenario: true,
+  noite: true }))` com `clima: "noite"`. NOITE POR HOLOFOTES, SEM NEON (não é Las Vegas): deserto de areia escura, sem cidade,
+  árvores nem lago; postes de holofote de 24 m dos dois lados (cabeça de lâmpadas acesa) e poça de luz quente sobre a pista a cada
+  ~70 m; pista e escape claros sob a luz, arquibancadas e boxes. Traçado do bacinger/f1-circuits (qa-2004), conferido no mapa do
+  Felipe (`F1/dados/mapas/lusail2026/`). f 0 = linha de chegada, no meio da reta dos boxes (1,05 km: f 0,91 → 1,105; boxes à direita =
+  por dentro, arquibancadas por fora). Curvas (f): 1 0,120 (direita, fim da reta); 2 0,178; 3 0,216; 4 0,291; 5 0,331; 6 0,384 (grampo); 7 0,463;
+  8 0,499; 9 0,524; 10 0,565; 11 0,594; 12 0,674; 13 0,713; 14 0,753; 15 0,813; 16 0,896 (direita, volta para a reta). Retas:
+  principal 0,91–1,105; 0,594→0,674 (entre T11 e T12). `numerarCurvas` já usa as 16; `nomearTrechos` não tem nomes de Lusail.
+  Horário: a DIREITA do carro é o lado de dentro (a esquerda é o de fora).
 - **Marcação de chão no código da cena** (faixas, linhas de pátio, sinalização): nunca rente ao piso nem fina demais. Use
   material com `polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4`, ponha a faixa ~3 cm acima do chão e
   com pelo menos 0,5 m de largura quando vista de longe (linha fina de longe "cintila"). Duas superfícies paralelas

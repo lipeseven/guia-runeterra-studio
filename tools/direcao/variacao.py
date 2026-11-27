@@ -74,7 +74,9 @@ class Variador:
         """Posições das peças de um mosaico (centro x/y, largura, rotação, lado de entrada) + borda.
         `aspectos` = largura/altura de cada peça. Layout também não repete o anterior."""
         n = len(aspectos)
-        layout = self._escolher("mosaico", {"faixa": 10, "lateral": 8, "espalhado": 10, "grade": 6 if n == 4 else 0})
+        # coluna lateral só até 3 itens: com 4 as imagens ficavam com ~280 px e ilegíveis (vídeo 6, cena 151); 4 itens → grade
+        layout = self._escolher("mosaico", {"faixa": 10 if n <= 3 else 4, "lateral": 8 if n <= 3 else 0,
+                                            "espalhado": 10, "grade": 14 if n == 4 else 0})
         r = self.rng
         pecas = []
         if layout == "faixa":

@@ -8,7 +8,7 @@
 //
 // O sistema liga sozinho quando o plano chama `poeNoCircuito`/`transito`/`pelotao` (carro na pista) ou
 // `filmar`/`perseguir`/`filmarVariado` (câmera de pista), e só com a câmera a menos de ~90 m do chão:
-//  - pistas visuais: postes do alambrado a cada 3 m, painéis vermelho/branco de 2 m no pé do muro, juntas e remendos no
+//  - pistas visuais: postes do alambrado a cada 3 m, painéis vermelho/branco de 2 m no pé do muro, (sem remendos nem juntas desde 2026-11-23) no
 //    asfalto (instanciados: 4 chamadas de desenho para a volta inteira; sem sombra);
 //  - lente que abre um pouco e tremor leve, proporcionais à velocidade, só em câmera perto do carro (filmar/perseguir);
 //  - borrão de movimento por acúmulo de subquadros (o plano é desenhado de novo em instantes um pouco antes; a média é o
@@ -171,29 +171,8 @@ function criarPistas(circ: THREE.Object3D) {
     });
     inst(new THREE.BoxGeometry(0.22, 1.2, 0.22), new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.6 }), balizas);
   }
-  // asfalto: juntas transversais a cada 7 m e remendos (mais escuros e mais claros) a cada ~7 m: é o chão que corre
-  const base = new THREE.Color("#4a4f59").multiply((pista.material as THREE.MeshStandardMaterial).color);
-  // transparentes: somem aos poucos com a câmera subindo (do alto, remendo e trinca parecem rua estragada)
-  const chao = (fator: number, unidades: number) => new THREE.MeshStandardMaterial({ color: "#ffffff", roughness: 0.88, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: fator, polygonOffsetUnits: unidades });
-  const juntas: { x: number; y: number; z: number; giro: number; cor: THREE.Color; sx: number }[] = [];
-  const escura = base.clone().multiplyScalar(0.4);
-  for (let s = 4; s < comprimento; s += 7) {
-    const p = ponto(s, () => 0);
-    juntas.push({ x: p.x, y: 0.022, z: p.z, giro: p.giro, cor: escura, sx: ves.larg - 0.9 });
-  }
-  const remendos: { x: number; y: number; z: number; giro: number; cor: THREE.Color; sx: number; sz: number }[] = [];
-  let k = 0;
-  for (let s = 2; s < comprimento; k++) {
-    const r = (n: number) => { const x = Math.sin((k * 7 + n) * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
-    const larg = 1.2 + r(1) * 3.6, comp = 0.8 + r(2) * 3.2;
-    const lado = (r(3) - 0.5) * Math.max(0, ves.larg - larg - 1.2);
-    const p = ponto(s, () => lado);
-    remendos.push({ x: p.x, y: 0.021, z: p.z, giro: p.giro, cor: cor.copy(base).multiplyScalar(r(4) < 0.5 ? 0.6 + r(5) * 0.1 : 1.35 + r(5) * 0.25).clone(), sx: larg, sz: comp });
-    s += 4 + r(6) * 6;
-  }
-  const plano = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
-  inst(plano, chao(-4.5, -9), remendos, true);
-  inst(new THREE.PlaneGeometry(1, 0.25).rotateX(-Math.PI / 2), chao(-5, -10), juntas, true);
+  // asfalto de F1 é liso e uniforme: SEM remendos nem juntas (pedido do Felipe, 2026-11-23: "parecendo uma cidade de SP");
+  // o chão que corre fica por conta do grão e das faixas de borracha da trajetória, numa película por cima da pista
   // grão do asfalto, selagem de trincas (linhas de betume) e marcas de pneu numa película por cima da pista (a mesma
   // malha da pista com UV ao longo da volta, repetindo a cada 24 m): perto da câmera é isso que "corre" e borra
   const geo = pista.geometry.clone();
@@ -233,35 +212,24 @@ function texturaAsfalto() {
     const e = 2 + r(i + 2) * 4;
     x.fillRect(r(i + 3) * W, r(i + 4) * H, e, e);
   }
-  // manchas de borracha e de óleo (ovais largas e suaves)
-  for (let i = 0; i < 26; i++) {
-    const g = x.createRadialGradient(0, 0, 0, 0, 0, 1);
-    g.addColorStop(0, "rgba(0,0,0,0.32)");
+  // trajetória de borracha: duas faixas largas e suaves, um pouco mais escuras, ao longo de toda a pista (sem manchas soltas)
+  for (const cx of [W * 0.34, W * 0.66]) {
+    const g = x.createLinearGradient(cx - 70, 0, cx + 70, 0);
+    g.addColorStop(0, "rgba(0,0,0,0)");
+    g.addColorStop(0.5, "rgba(0,0,0,0.14)");
     g.addColorStop(1, "rgba(0,0,0,0)");
-    x.save();
-    x.translate(r(i + 900) * W, r(i + 901) * H);
-    x.scale(30 + r(i + 902) * 90, 60 + r(i + 903) * 260);
     x.fillStyle = g;
-    x.beginPath();
-    x.arc(0, 0, 1, 0, Math.PI * 2);
-    x.fill();
-    x.restore();
+    x.fillRect(cx - 70, 0, 140, H);
   }
-  // trincas seladas: linhas pretas tortas, umas ao longo, outras atravessando (as que mais mostram o chão correndo)
+  // fios finos de borracha ao longo da pista (dão a sensação de velocidade sem parecer remendo ou trinca)
   x.lineCap = "round";
-  for (let i = 0; i < 34; i++) {
-    const atravessa = i % 3 === 0;
-    x.strokeStyle = `rgba(8,8,10,${0.35 + r(i + 500) * 0.25})`;
-    x.lineWidth = 2.5 + r(i + 501) * 3.5;
-    let px = r(i + 502) * W, py = r(i + 503) * H;
+  for (let i = 0; i < 14; i++) {
+    x.strokeStyle = `rgba(0,0,0,${0.05 + r(i + 500) * 0.06})`;
+    x.lineWidth = 2 + r(i + 501) * 3;
+    const px = W * (0.12 + r(i + 502) * 0.76);
     x.beginPath();
-    x.moveTo(px, py);
-    const passos = 6 + Math.floor(r(i + 504) * 10);
-    for (let k = 0; k < passos; k++) {
-      px += atravessa ? 18 + r(i * 31 + k) * 30 : (r(i * 31 + k) - 0.5) * 40;
-      py += atravessa ? (r(i * 37 + k) - 0.5) * 30 : 30 + r(i * 37 + k) * 70;
-      x.lineTo(px, py);
-    }
+    x.moveTo(px, 0);
+    x.lineTo(px, H);
     x.stroke();
   }
   texAsfalto = new THREE.CanvasTexture(c);

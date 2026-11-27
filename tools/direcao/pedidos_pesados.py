@@ -41,6 +41,7 @@ from canal import CANAL, RAIZ, caminho  # noqa: E402
 
 CHAVE = "orq_pedido_pesado"   # pendência do card (uma por card, o texto conta quantos estão abertos)
 FILA = "pedidos_pesados.json"
+AO_CRIAR = None              # callback (vid, item): o servidor liga aqui o orquestrador automático (motor.iniciar)
 LINHAS_CODIGO = 120           # trecho do código da cena no .md (o orquestrador lê o vertical.json inteiro se precisar)
 
 
@@ -177,6 +178,11 @@ def criar(con, vid: int, projeto: Path, texto: str, plano: str | None = None, mo
     onde = f"cena {item['n']}" if item.get("n") else ("cena " + plano if plano else "geral")
     _registrar(con, vid, f"Pedido pesado [{pid}] ({onde}) enviado ao orquestrador"
                + (f": o diretor não tem capacidade ({item['motivo'][:120]})" if origem == "diretor" else ""), "alerta" if origem == "diretor" else "info")
+    if AO_CRIAR:
+        try:
+            AO_CRIAR(vid, item)
+        except Exception:  # acordar o orquestrador nunca pode impedir o pedido de existir
+            pass
     return item
 
 

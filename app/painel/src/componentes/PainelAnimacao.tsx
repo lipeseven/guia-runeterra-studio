@@ -389,11 +389,13 @@ export function PainelAnimacao({ videoId, direcao, render, aoMudar }: { videoId:
           ))}
           <div className="flex flex-wrap items-center gap-2">
             <button
-              disabled={trabalhando || doDiretor === 0}
-              onClick={() => refazer(false)}
+              disabled={trabalhando || pedidos.length === 0}
+              onClick={() => (doDiretor > 0 ? refazer(false) : setErro('Todos os pedidos são pesados e já estão com o orquestrador (chat). Avise o chat para resolver; o diretor não tem o que refazer.'))}
+              title={`Cada pedido vai para o seu responsável: ${doDiretor} para o diretor (refaz agora), ${pesados.length} para o orquestrador (chat resolve)`}
               className="rounded-md bg-ouro px-3 py-1.5 text-xs font-semibold text-fundo hover:brightness-110 disabled:opacity-40"
             >
-              Refazer com os pedidos ({doDiretor})
+              Refazer com os pedidos ({pedidos.length}
+              {pesados.length > 0 ? ` · ${doDiretor} diretor, ${pesados.length} orquestrador` : ''})
             </button>
             <button
               disabled={trabalhando}

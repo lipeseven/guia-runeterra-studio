@@ -685,6 +685,33 @@ def buscar_acervo(q: str, n: int = 16, clipes: bool = False):
     return storyboard.buscar_clipes(q, n) if clipes else storyboard.buscar_no_acervo(q, n)
 
 
+@app.post("/api/videos/{vid}/direcao/refazer")
+def refazer_direcao_do_zero(vid: int):
+    """Diretor do Runeterra DO ZERO com as regras atuais (regras_de_direcao.md): apaga o cache de plano/candidatos/escolhas
+    (guarda cópia em direcao/seguranca/…) e dirige tudo de novo, gerando um rascunho novo (a versão anterior fica).
+    Gasta cota do Claude (plano por bloco + escolha de imagens de todas as cenas)."""
+    import shutil
+
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+        status = con.execute("SELECT status FROM etapas WHERE video_id=? AND chave='direcao'", (vid,)).fetchone()["status"]
+        if status == "andamento":
+            raise HTTPException(409, "a direção já está trabalhando")
+        if motor.gravacao_aprovada(vid, con):
+            raise HTTPException(409, "este vídeo já tem gravação aprovada: refazer do zero não vale (use o storyboard)")
+    dirc = pasta / "direcao"
+    motor.copia_de_seguranca(pasta, "refazer do zero")
+    shutil.rmtree(dirc / "plano_secoes", ignore_errors=True)
+    for nome in ("plano.json", "candidatos.json", "escolhas.json"):
+        (dirc / nome).unlink(missing_ok=True)
+    with conectar() as con:
+        atualizar_etapa(con, vid, "direcao", "andamento", "na fila", "do zero, com as regras atuais")
+        registrar(con, vid, "Direção: refazer do zero com as regras atuais", "info")
+        con.commit()
+    motor.FILA.put((vid, "direcao"))
+    return {"ok": True}
+
+
 @app.post("/api/videos/{vid}/rascunho/refazer")
 def refazer_rascunho(vid: int):
     with conectar() as con:
@@ -731,6 +758,25 @@ async def enviar_gravacao(vid: int, arquivo: UploadFile):
     return {"ok": True, "arquivo": destino.name}
 
 
+@app.post("/api/videos/{vid}/gravacao/parte")
+async def enviar_parte_gravacao(vid: int, arquivo: UploadFile):
+    """Um capítulo da gravação (arrastou/escolheu vários arquivos): guarda em entrada/ com o nome original, sem iniciar a
+    limpeza. Depois de enviar todos, o painel chama /gravacao/da-pasta, que junta as partes na ordem natural dos nomes."""
+    nome = Path(arquivo.filename or "").name
+    if Path(nome).suffix.lower() not in motor.EXT_GRAVACAO:
+        raise HTTPException(400, f"formato não aceito ({Path(nome).suffix or 'sem extensão'})")
+    if nome.lower().startswith("gravacao_"):
+        nome = "parte_" + nome  # "gravacao_*" é o nome dos uploads únicos e não entra na junção
+    with conectar() as con:
+        pasta = _pasta(con, vid)
+    entrada = pasta / "entrada"
+    entrada.mkdir(parents=True, exist_ok=True)
+    with (entrada / nome).open("wb") as f:
+        while bloco := await arquivo.read(8 * 1024 * 1024):
+            f.write(bloco)
+    return {"ok": True, "arquivo": nome}
+
+
 def _pasta_gravacao(vid: int) -> Path:
     with conectar() as con:
         return _pasta(con, vid) / "trabalho" / "gravacao"
@@ -745,8 +791,70 @@ def falas_da_gravacao(vid: int):
         return {"falas": [], "decisoes": {}}
     falas = [{k: v for k, v in f.items() if k != "palavras"} | {"inicio_cortado": (f.get("inicio_cortado") or {}).get("texto")}
              for f in json.loads(arq.read_text(encoding="utf-8"))]
-    dec = pasta / "decisoes.json"
-    return {"falas": falas, "decisoes": json.loads(dec.read_text(encoding="utf-8")) if dec.exists() else {}}
+    dec, apl = pasta / "decisoes.json", pasta / "decisoes_aplicadas.json"
+    return {"falas": falas, "decisoes": json.loads(dec.read_text(encoding="utf-8")) if dec.exists() else {},
+            "aplicadas": json.loads(apl.read_text(encoding="utf-8")) if apl.exists() else None}  # None = limpeza antiga
+
+
+@app.get("/api/videos/{vid}/gravacao/onda")
+def onda_da_gravacao(vid: int, de: float, ate: float):
+    """Forma de onda do áudio ORIGINAL entre `de` e `ate` (s) para o mini editor da linha do tempo: um valor 0..1 a cada
+    10 ms (volume em dB, -60..0) e as palavras que o Whisper marcou nesse trecho."""
+    import subprocess
+
+    import numpy as np
+
+    de = max(0.0, de)
+    if not 0 < ate - de <= 60:
+        raise HTTPException(400, "trecho inválido (até 60 s)")
+    with conectar() as con:
+        e = con.execute("SELECT dados FROM etapas WHERE video_id=? AND chave='gravacao'", (vid,)).fetchone()
+    original = json.loads((e["dados"] if e else None) or "{}").get("original")
+    if not original:
+        raise HTTPException(404, "sem gravação")
+    from comum import preparar_ffmpeg
+
+    preparar_ffmpeg()
+    sr = 16000
+    bruto = subprocess.run(["ffmpeg", "-v", "error", "-ss", f"{de:.3f}", "-t", f"{ate - de:.3f}", "-i", str(motor.RAIZ / original),
+                            "-ac", "1", "-ar", str(sr), "-f", "f32le", "-"], capture_output=True, check=True).stdout
+    x = np.frombuffer(bruto, np.float32)
+    n = sr // 100
+    x = x[:len(x) // n * n].reshape(-1, n)
+    db = 20 * np.log10(np.sqrt(np.mean(x ** 2, axis=1)) + 1e-9)
+    picos = np.clip((db + 60) / 60, 0, 1).round(3).tolist()
+    palavras = []
+    arq = _pasta_gravacao(vid) / "falas.json"
+    if arq.exists():
+        for f in json.loads(arq.read_text(encoding="utf-8")):
+            for w in f["palavras"]:
+                if w["f"] >= de and w["i"] <= ate:
+                    palavras.append({"p": w["p"], "i": w["i"], "f": w["f"], "fala": f["id"]})
+    return {"de": de, "picos": picos, "palavras": palavras}
+
+
+class CorteManual(BaseModel):
+    id: int
+    i: float | None = None  # None = remove o corte manual
+    f: float | None = None
+
+
+@app.post("/api/videos/{vid}/gravacao/corte")
+def corte_manual(vid: int, corpo: CorteManual):
+    """Corte à mão (mini editor): a fala passa a ir EXATAMENTE de `i` a `f` (s, no original). Fica em decisoes.json como
+    "m<id>": "i:f" e entra no refazer como qualquer escolha."""
+    pasta = _pasta_gravacao(vid)
+    dec_arq = pasta / "decisoes.json"
+    dec = json.loads(dec_arq.read_text(encoding="utf-8")) if dec_arq.exists() else {}
+    chave = f"m{corpo.id}"
+    if corpo.i is None or corpo.f is None:
+        dec.pop(chave, None)
+    else:
+        if corpo.f - corpo.i < 0.05:
+            raise HTTPException(400, "o corte precisa ter pelo menos 50 ms")
+        dec[chave] = f"{corpo.i:.3f}:{corpo.f:.3f}"
+    dec_arq.write_text(json.dumps(dec, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"decisoes": dec}
 
 
 class DecisaoFala(BaseModel):
