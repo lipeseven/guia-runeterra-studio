@@ -1,298 +1,224 @@
 # PLANEJAMENTO — F1 horizontal
 
-Registro de tudo que for decidido sobre o projeto horizontal. Criado em 2026-11-26.
+Registro de tudo que for decidido sobre o projeto horizontal. Criado em 2026-11-26, reorganizado em 2026-11-27.
 
 Fontes: conversa do Felipe com o orquestrador e prints de uma conversa dele com outra sessão.
 
-## Decisões
+**Como ler:** o que vale está nas seções 1 a 3. A seção 4 é o que ainda falta decidir. A seção 5 é só contexto e histórico.
+A seção 6 reúne informações importantes de trabalhos anteriores (análise das referências e testes de 3D).
 
-- Intenção do Felipe: canal só sobre Fórmula 1, em PT-BR (padrão) e em um segundo idioma estrangeiro.
-- Inglês descartado como segundo idioma (mercado lotado de canais gigantes).
-- Público-alvo: internet e redes sociais (não o público de TV).
-- Formato: documentário, vídeos longos de 9 a 20 minutos.
-- Recursos do vídeo: telemetria; trechos fotorrealistas de carros e peças; imagens 3D; muitos gráficos com motion graphics; HyperFrames e Remotion; transições; blur e foco.
-- Linguagem: transições de cena sem cortes; anotações "à mão", em fonte que parece cursiva.
-- Critério do segundo idioma: maior pagamento, mas só em país que tenha público.
-- Canal de referência para o modelo: Formula Addict (inglês americano). Vale o princípio do projeto: inspiração, não cópia.
-- Localização completa: não só o áudio; os textos na tela também são adaptados por idioma (como em Toy Story).
-- **Segundo idioma: alemão** (decidido em 2026-11-27). Idiomas do projeto: PT-BR e alemão.
-- **São três idiomas: PT-BR, alemão e italiano** (2026-11-27; substitui a decisão anterior de ficar só com dois). Um canal por idioma, no mesmo Gmail dos Shorts.
+**Fase atual: discussão de ideias.** Nada de execução nem de vídeo nesta semana (também pela cota). Não oferecer execução a cada resposta.
 
-### Processo contra "AI slop" (parte 5)
+## 1. Decisões
 
-- Felipe revisa os vídeos praticamente quadro a quadro e refaz cenas à mão depois que a IA entrega o produto completo.
-- Há um **agente diretor de arte** com liberdade para inventar cenas: segue o padrão do canal e também cria novas.
-- A mesma informação ganha roupagem diferente a cada vídeo (ex.: tabela de pilotos desenhada à mão em um, como placa de metal em outro).
+### 1.1 Canal e idiomas
 
-Sugestões da outra sessão (sem OK): manter a identidade (paleta, fonte cursiva, tipo de transição) variando a execução; guardar projetos, rascunhos e versões como evidência do processo.
+- Canal só sobre Fórmula 1, para o público de internet e redes sociais (não o de TV).
+- **Três idiomas: PT-BR, alemão e italiano.** Inglês fora (mercado lotado).
+- Critério: maior pagamento, mas só em país com público.
+- **Um canal por idioma, todos no mesmo Gmail** que já roda os Shorts (sem Gmail novo). O canal atual vira o PT-BR; alemão e italiano são canais novos (Brand Accounts) dentro dele.
+- O PT-BR sai na frente nos inscritos (~800); falta fazer as 4.000 horas. Os outros dois começam do zero.
+- Risco aceito: mesmo Gmail e AdSense; violação grave em um canal pode pesar nos outros.
 
-### Ritmo e contas (parte 6)
+### 1.2 Formato e linguagem
 
-- **Fase atual: só discussão de ideias.** Nada de execução nem de vídeo nesta semana (também por causa da cota). Não oferecer execução a cada resposta.
-- Há outros canais que vão entrar como referência; o Felipe ainda vai mandar.
-- **PT-BR fica no canal que já roda** (Shorts de F1, quase 800 inscritos, "Trust Score" alto).
-- **Um Gmail só, sem Gmail novo** (correção da parte 7): o que já roda os Shorts. O canal atual vira o PT-BR; o alemão (e, na conversa do print, o italiano) entra como **canal novo (Brand Account) dentro dele**. A verificação por telefone já feita vale para eles.
-- Inscritos: o PT-BR sai na frente (~800); depois é fazer as 4.000 horas. Os canais novos começam do zero em inscritos, horas e histórico.
-- Risco aceito até aqui: mesmo Gmail e AdSense; violação grave em um canal pode pesar nos outros.
-- Mesmo vídeo para cada idioma, com os textos adaptados (estilo Toy Story).
+- Documentário, vídeos longos de **9 a 20 minutos**.
+- No fundo é um **motion graphic estilizado e bonito**, com estilo bem definido e fluido.
+- Recursos: telemetria; trechos fotorrealistas de carros e peças; 3D; muitos gráficos; HyperFrames e Remotion; transições; blur e foco.
+- Transições de cena sem cortes; anotações "à mão", em fonte que parece cursiva.
+- Trechos fotorrealistas: **Blender junto com as ferramentas ArtCraft** (ver `docs/hub_ferramentas.md`).
+- Referência de modelo: Formula Addict. Há muitos outros canais de referência (a enviar): juntar o melhor de cada um num estilo próprio e forte. Inspiração, não cópia.
 
-Pontos levantados pela outra sessão (**não verificados aqui**):
+### 1.3 Roteiro
 
-- Para monetizar não bastam 1.000 inscritos: também 4.000 horas de vídeo longo em 12 meses ou 10 milhões de views em Shorts em 90 dias. Conferir na página do Programa de Parcerias.
-- Inscrito de Shorts nem sempre assiste vídeo longo; conferir no YouTube Studio depois do primeiro.
-- "Trust Score" não é métrica oficial; verificação por telefone libera recursos. Para canal novo, preferir conta limpa e verificada às antigas sem verificação.
-- ~~Cuidados com várias contas e novo número~~: não se aplicam, já que não haverá Gmail novo (parte 7).
+- É prioridade. Ordem de importância: **RETENÇÃO > HOOKS/REHOOKS > CONTEÚDO DE ALTA QUALIDADE > FACILIDADE DE TRADUÇÃO.**
+- **Elementos locais são bem-vindos:** gíria, expressão e jeito de falar de cada idioma dão imersão. A tradução pode flutuar, não precisa ser literal.
+- **Nada de apontar tudo para um "grande vilão"** nem de expor situação super arriscada a cada momento. Envolver com a história: fisgar e fazer a pessoa querer, naturalmente, assistir até o fim.
+- Entendimento do orquestrador: a tensão vem de curiosidade, de gente tentando resolver um problema e de respostas aos poucos; risco e conflito só quando os fatos trazem.
 
-Nota sobre o italiano: os prints ainda contam com ele. Nesta conversa o Felipe fechou em dois idiomas (2026-11-27) e avisou que o assunto muda até o final dos prints. Revisar quando chegar a parte final.
+### 1.4 Miniatura
 
-### Texto desacoplado (parte 8)
+- A miniatura **pode ser a mesma nos três, mudando só o idioma** do texto (ex.: "slow", "devagar").
 
-- **Requisito do Felipe:** na construção do vídeo, todo texto inserido fica guardado em separado (desacoplado), para ser traduzido depois. Todo o resto do vídeo, que não depende de tradução, é reaproveitado (Remotion e HyperFrames).
-- Os vídeos longos vão começar no canal PT-BR que já funciona. No print são 3 canais no mesmo Gmail (PT, italiano, alemão).
+### 1.5 Processo de produção
 
-Requisitos propostos pela outra sessão (sem OK):
+1. **Primeiro só o PT-BR**, até ficar 100% arrumado, praticamente pronto para postar.
+2. Depois os outros idiomas, usando o PT-BR como **molde**. Motivo: não encher o disco, não gastar render em três vídeos juntos e garantir versões idênticas ao original.
 
-- um arquivo de textos por idioma, cada texto com nome fixo (nunca pela posição);
-- nada de texto "queimado" em render 3D ou fotorrealista; texto sempre em camada por cima;
-- duração das cenas ligada ao áudio de cada idioma, com marcação de tempo própria;
-- anotação à mão que se adapta ao tamanho do texto (revela o texto medido);
-- números, datas e unidades no formato do idioma; nomes de pilotos e equipes iguais;
-- teste automático de texto estourando a caixa em cada idioma.
+- O vídeo é montado por completo com a **voz guia** (como no Runeterra). As partes 3D entram primeiro como **blocking**: mockup simples, storyboard dentro do storyboard ou slides mostrando como a cena vai se comportar. O 3D de verdade vem depois da voz final.
+- Cenas divididas por **trechos que fazem sentido** (como no Runeterra); cada idioma liga a sua fala ao trecho.
+- O Felipe revisa quase quadro a quadro e refaz cenas à mão.
+- Há um **agente diretor de arte** com liberdade para inventar cenas. A mesma informação ganha roupagem diferente a cada vídeo.
 
-Em aberto por ela: os gráficos de telemetria usam sempre os mesmos dados em todos os idiomas (aposta dela) ou há variação por mercado?
+Termos: **blocking** = ensaio da cena com formas simples; **blockout** = modelo cinza; **previs** = pré-visualização 3D; **animatic** = storyboard em vídeo com tempos e áudio.
 
-Anotações do orquestrador sobre o que já existe:
+### 1.6 Revisão de idioma
 
-- A direção é ancorada em **trechos literais do roteiro em português** (cenas, SFX, ritmo de gráfico). Outro idioma precisa de um mapa dessas âncoras para as palavras traduzidas; `retemporizar` hoje só cobre narração nova no mesmo texto.
-- O `kit/anotacao` já mede o texto e desenha por traço, mas os glifos cobertos foram conferidos para PT-BR; falta conferir ä, ö, ü e ß.
-- O `kit/cartoes` e o `kit/graficos` calculam largura por tabela de caracteres: conferir o alemão neles também.
+- **Um subagente exclusivo por idioma: SUBAGENTE ALEMÃO e SUBAGENTE ITALIANO.**
+- Eles **só conferem**, não fazem mais nada.
 
-### Fluxo de produção e agente de idioma (parte 9)
+### 1.6b Modelos dos agentes
 
-- **Reaproveitar tudo o que puder.**
-- Texto como **camada** por cima da cena 3D (nunca dentro dela), para ser editável.
-- Um projeto, uma versão por idioma, feitas juntas, para o Felipe assistir e aprovar depois (no print, 3 idiomas).
-- Haverá um **agente dedicado à revisão de idioma/dialeto**, já que o Felipe não fala os outros idiomas.
+| Agente | Modelo | Esforço |
+|---|---|---|
+| Todos os que mexem com o vídeo em si: edição, ArtCraft, Blender, Remotion, HyperFrames, FFmpeg e o que mais envolver o vídeo | Opus 5.5 | médio |
+| Conferência de tradução (subagentes alemão e italiano) | Sonnet 5.5 | médio |
 
-Propostas da outra sessão (sem OK):
+### 1.7 Voz
 
-- revisor nativo nos primeiros vídeos para calibrar o agente;
-- glossário fixo por idioma (undercut, dirty air, box, pit stop, parc fermé...);
-- revisar o roteiro traduzido como fala, não só como texto;
-- testar a pronúncia da voz sintetizada com nomes de pilotos e pistas antes do render;
-- idioma padrão (Hochdeutsch; italiano neutro), sem sotaque regional;
-- o PT-BR sai primeiro e é a base de tempo e roteiro.
+- O Felipe sintetiza a própria voz no **VoiceStudio**; ela é usada nos outros idiomas e **vai para o vídeo publicado**. É exceção à regra "voz de IA nunca é publicada", só para a voz dele neste projeto.
+- O card tem **campo para subir o áudio de cada idioma**.
 
-### Montagem com voz guia e blocking 3D (proposta do Felipe, 2026-11-27)
+### 1.8 Reuso e arquivos
 
-- O vídeo é **montado por completo com a voz guia** (como já é no Runeterra).
-- As partes em 3D entram como **mockup bem simples (blocking)**: pode ser um storyboard dentro do storyboard, ou uma sequência de slides que indica como a cena vai se comportar depois de pronta.
-- O 3D de verdade só é feito depois, com a voz final no vídeo.
+- Vídeo **desacoplado**: reaproveitar tudo o que puder.
+- **Os trechos 3D são os mesmos em qualquer idioma.**
+- **Todo texto local fica em camada separada**, guardado à parte para tradução; nunca dentro da cena 3D.
+- Diferença de duração entre idiomas: **medir primeiro**; muitas vezes basta acelerar ou desacelerar um pouco, e isso pode virar recurso de imagem, com aviso na tela ("0,9×").
+- Um novo render **aproveita o que já existe e só complementa**.
+- **Nada é excluído até a publicação dos 3 vídeos.** O card recebe **3 links do YouTube**; os três idiomas ficam na mesma pasta e a limpeza atual (Lixeira) leva tudo de uma vez.
 
-Termos: **blocking** é o ensaio da cena com formas simples (posições, câmera e tempos); **blockout** é o modelo cinza simplificado; **previs** é a pré-visualização em 3D; **animatic** é o storyboard em vídeo, com os tempos e o áudio.
+### 1.9 Música e SFX
 
-### Arquitetura de reuso (Felipe, 2026-11-27)
+- Preocupação importante.
+- Fica bom quando a música acompanha o roteiro ou o diretor trabalha sobre a batida. Música de fundo em alguns momentos; **não é regra**.
+- **Editar em cima da batida é exceção, um "super trunfo"** para momentos especiais.
 
-- Vídeo **desacoplado**, para reusar quase tudo.
-- **Trechos 3D são os mesmos em qualquer idioma.**
-- **Todo texto local** (do idioma) fica em camada separada, para ser traduzido.
-- O vídeo é, no fundo, um **motion graphic estilizado e bonito**, com estilo bem definido e fluido.
+## 2. Testes de viabilidade
 
-Proposta do orquestrador para cumprir isso (sem OK ainda):
+Tudo o que for para testar entra aqui, como casos de teste. **Todos os casos serão testados.**
 
-- A duração das cenas muda com o idioma (o alemão tende a ser mais longo). Renderizar cada plano 3D uma vez, **com sobra no começo e no fim**, e aparar ou segurar conforme a narração.
-- O render 3D exporta, por quadro, a posição na tela dos pontos que recebem rótulo, para o texto de cada idioma acompanhar a peça.
-- O 3D só é refeito se a diferença de tempo for maior que a sobra.
+Status: `pendente`, `passou`, `falhou`.
 
-### Ajuste de duração entre idiomas (Felipe, 2026-11-27)
-
-- Primeiro **medir quanto a duração passa** de um idioma para outro.
-- Conforme o caso, **desacelerar (ou acelerar) um pouco já basta**.
-- Pode virar recurso de imagem, com **aviso na tela** de que o trecho foi acelerado ou desacelerado em X vezes.
-
-Anotações do orquestrador:
-
-- O aviso é texto local: vai na camada traduzível. O `kit/gps` e o montador já escrevem "acelerado N×" no HUD.
-- Vídeo a 60 fps desacelerado repete quadros. Em 3D feito no HyperFrames ou Remotion, renderizar de novo no tempo certo é barato; no Blender (~2,8 s por quadro) vale guardar sobra ou renderizar com mais quadros por segundo.
-- O limite de desaceleração sem parecer travado ainda precisa ser testado.
-
-Complemento de render (2026-11-27): um novo render por idioma **aproveita o que já existe e só complementa**. Para isso: guardar a cena (modelos, câmera, animação) e os quadros em sequência de imagens; a animação precisa dar o mesmo resultado a cada render. Esticar o começo ou o fim renderiza só os quadros novos; mudar o ritmo no meio do plano gera quadros novos daquele trecho (com a mesma cena).
-
-### Retenção de arquivos (Felipe, 2026-11-27)
-
-- **Nada é excluído até o card ser publicado**, e "publicado" quer dizer **os 3 vídeos** no ar. Assim qualquer alteração custa menos.
-
-**Decidido:** o sistema de limpeza atual continua (publicar o card manda a pasta do projeto para a Lixeira). O card horizontal passa a **receber 3 links do YouTube**. Os três idiomas ficam dentro da mesma pasta do projeto, então a limpeza leva tudo de uma vez.
-
-A implementar: três campos de link no card; a limpeza só roda com os três preenchidos.
-
-Idiomas: confirmado em 2026-11-27 que são três (PT-BR, alemão e italiano). Onde este arquivo diz "dois idiomas" ou "italiano fora" em notas anteriores, vale esta decisão. Revisão e voz valem para alemão e italiano.
-
-### Gargalos resolvidos (Felipe, 2026-11-27)
-
-- **Voz:** o Felipe sintetiza a própria voz no **VoiceStudio**, e ela é usada nos outros idiomas e **vai para o vídeo publicado** (exceção à regra "voz de IA nunca é publicada", só para a voz dele sintetizada neste projeto). O card precisa de **campo para subir o áudio de cada idioma**.
-- **Âncoras:** dividir como no Runeterra, quebrando as cenas por **trechos que fazem sentido**; cada idioma liga a sua fala ao trecho.
-- **Ordem de produção:** primeiro **só o PT-BR**, até ficar 100% arrumado, praticamente pronto para postar. Depois os outros idiomas, usando o PT-BR como **molde**. Motivo: não encher o disco, não gastar horas de render em três vídeos juntos e garantir que as versões fiquem idênticas ao original. (Substitui a ideia de produzir os três ao mesmo tempo.)
-- **Trechos fotorrealistas:** feitos no **Blender, junto com as ferramentas ArtCraft** (ver `docs/hub_ferramentas.md`).
-- **Testes:** haverá testes antes (piloto curto pelo caminho inteiro).
-- **Estilo:** o Felipe tem muitos outros canais de referência; a ideia é juntar o melhor de cada um num **estilo próprio e forte** (gráficos, imagens de carros e peças, telemetria etc.).
-- **Roteiro é prioridade:** precisa de hooks, rehooks, stakes e payoffs bons. O Felipe tem um documento sobre roteiro (a enviar).
-
-Anotação do orquestrador sobre o VoiceStudio: o teste local foi encerrado e desinstalado em 2026-11-22 (cerca de 10 min para gerar 1 min de áudio; pesos do OmniVoice com licença não comercial; marca d'água AudioSeal ligada por padrão). Antes de publicar, confirmar a licença do modelo usado, porque os canais serão monetizados. Reinstalar quando for a hora.
-
-### Documento de roteiro e retenção (conferido em 2026-11-27)
-
-Arquivo do Felipe: `C:\Users\Felipe\Downloads\Retenção de Audiência em Vídeos Longos.docx` (compilação com referências quase todas de blogs e ferramentas de IA). Conferência por busca na web; nem tudo foi checado.
-
-**Usar como técnica de roteiro (bom senso de escrita, sem número como prova):** gancho sem cumprimento, entregando o que o título promete; stakes (erro, custo, consequência, promessa); roadmap que não entrega o final; cada seção responde à dúvida que a anterior criou; rehooks; open loops encadeados; payoff fechando todos; sem "em conclusão"; CTA curto para o próximo vídeo; frases curtas; pausas antes de virada e capítulo; imagem mostra o que a voz diz; título e miniatura sem repetir o mesmo texto.
-
-**Errado ou sem base (não usar):**
-
-- "Cérebro processa imagem 60.000 vezes mais rápido que texto": sem fonte científica.
-- Efeito Zeigarnik como memória superior de tarefa inacabada: meta-análise de 2025 (Ghibellini e Meier, DOI 10.1057/s41599-025-05000-w) não achou essa vantagem; achou tendência a retomar a tarefa. Open loop segue como técnica, sem essa justificativa.
-- "Impacto de título no CTR é exponencial": o próprio exemplo é linear (CTR 1,6 vez = cliques 1,6 vez).
-- "Reupar e sobregravar vídeo publicado": o YouTube não deixa trocar o arquivo mantendo o link; só edições como cortar trecho.
-- "Canais bons têm CTR de 8% a 12%" como meta: o YouTube informa que metade dos canais e vídeos fica entre 2% e 10%.
-
-**Não confirmado (tratar como palpite):** números do relatório Retention Rabbit (23,7% de retenção média, 55% de perda no 1º minuto, 68% e +58%, tabela de metas por duração), cujo original não foi achado; +18% de CTR com miniatura de 2 a 3 elementos; interrupção de padrão a cada 15 a 40 s (as fontes vão de 3 a 45 s).
-
-**Não checado:** "35% dos canais" com desalinhamento de nicho, janela de 8 s, 2 a 5 vezes em telas finais, prazos de produção do LEMMiNO, valores de RPM.
-
-Como medir de verdade: usar a curva de retenção do YouTube Studio dos próprios vídeos.
-
-VoiceStudio: o Felipe informa que o teste lento foi com tudo no máximo; o nível padrão não foi testado. Refazer o teste no padrão.
-
-### Tom do roteiro (regra do Felipe, 2026-11-27)
-
-- **Nada de apontar tudo para um "grande vilão".**
-- **Nada de expor uma situação super arriscada a cada momento.**
-- O objetivo é **envolver com a história**: chamar a atenção, fisgar e fazer a pessoa querer, naturalmente, assistir até o fim.
-
-Como o orquestrador entende (vale sobre o "stakes" do documento de retenção): a tensão vem de **curiosidade** (uma pergunta que vale a pena responder, uma peça que não encaixa, um detalhe que muda o que se pensava), de gente tentando resolver um problema e de respostas entregues aos poucos. Risco e conflito só quando os fatos trazem, sem inflar. Evitar a fórmula "a maioria erra → custo oculto → isso te destrói".
-
-### Música e SFX (Felipe, 2026-11-27)
-
-- É preocupação importante.
-- Fica bom quando a **música acompanha o roteiro** ou quando o **diretor trabalha em cima da batida**.
-- Pode haver música de fundo em alguns momentos; **não é regra** ter música o tempo todo.
-- **Editar em cima da batida é exceção, um "super trunfo"**: reservado para momentos especiais (aberturas, viradas, revelações).
-
-Propostas do orquestrador (sem OK):
-
-- Mapa musical por trecho no roteiro: clima, intensidade, onde entra, onde para (silêncio também é escolha).
-- Detectar as batidas da faixa localmente e permitir que cortes, textos e movimentos "encaixem" na batida mais próxima. A voz manda: quem se ajusta é a música e a imagem.
-- Por idioma, os tempos mudam: reencaixar a música por trecho, sem esticar a voz.
-- SFX: o banco do `kit/sfx` já tem 236 sons por categoria, mas ninguém ouviu um a um; fazer uma triagem de ouvido antes.
-- Conferir a licença de cada faixa para canal monetizado (inclusive música gerada localmente).
-
-## Em discussão
-
-- ~~Segundo idioma: alemão ou italiano.~~ Decidido: alemão. O histórico abaixo fica como registro.
-- Parte 1 (superada): a outra sessão recomendava italiano, com base em audiência de TV.
-- Parte 2, com foco no YouTube: PT-BR segue como base; segundo idioma vira quase empate. Palpite dela (confiança baixa a média, sem OK do Felipe): **alemão** se o objetivo é receita por vídeo, **italiano** se é crescimento e engajamento mais rápidos; se fosse um só, alemão.
-- Sugestão técnica dela: cada idioma exige render próprio, então externalizar todos os textos no Remotion desde o início.
-- Parte 3 (com a localização de texto): ela recomenda **alemão** como segundo idioma. Sem OK registrado do Felipe.
-  - Argumento: escolher errado custa pouco se a animação for parametrizada; testar alemão com 3 a 5 vídeos e trocar por italiano se não render.
-- Checklist de localização proposto por ela (sem OK):
-  - todo texto em arquivos de tradução por idioma (JSON), inclusive anotações à mão e rótulos de gráfico;
-  - fonte cursiva com ã, õ, ç, ä, ö, ü, ß e vogais acentuadas do italiano, testada antes de escolher;
-  - folga nas caixas de texto (o alemão ocupa bem mais espaço que o inglês);
-  - um canal separado por idioma (como o texto na tela muda, trilha de áudio extra não resolve).
-- Próximo passo oferecido por ela: documento com números, concorrentes e checklist, ou lista de 10 temas do primeiro lote.
-
-### Três idiomas e voz sintetizada (parte 4)
-
-Ideia levantada pelo Felipe como pergunta, **ainda não decidida**:
-
-- Três idiomas (PT-BR, alemão e italiano), cada um em um canal próprio, todos no mesmo Gmail, reutilizando o mesmo vídeo com idioma e textos trocados.
-- Felipe grava a voz em português; a IA traduz e sintetiza a voz dele nos outros idiomas.
-
-Resposta da outra sessão (pesquisa de regras **não verificada aqui**):
-
-- Até 100 canais por conta Google; cada um com inscritos, monetização e algoritmo próprios.
-- Clonar a própria voz para narração ou dublagem não exige marcar como conteúdo sintético.
-- Vídeo próprio traduzido: não achou regra explícita; leitura dela é que não é "conteúdo reutilizado" (não é garantia).
-- Riscos: conteúdo repetitivo ou de template (variar estrutura e gancho); mesma conta e mesmo AdSense compartilham punição (Gmail separado por canal isola o risco).
-- Custos: revisor nativo para alemão e italiano; testar sotaque e ritmo da voz com nativo; três comunidades; começo lento.
-- Ordem sugerida: vídeo 1 em PT-BR e alemão no mesmo dia, italiano uma semana depois; em 3 a 5 vídeos decidir se corta um canal.
-
-Pontos do projeto que a ideia toca (anotados pelo orquestrador):
-
-- O `CLAUDE.md` diz que voz de IA nunca vai para vídeo publicado (única exceção registrada: verticais do F1). Publicar voz sintetizada no horizontal exige o Felipe registrar nova exceção.
-- O teste de clonagem local (VoiceStudio) foi encerrado e desinstalado em 2026-11-22: lento demais, e os pesos do OmniVoice têm licença não comercial. A ferramenta de voz está em aberto.
-
-### Plano resumido na parte 5
-
-A outra sessão fechou a parte 5 com "PT-BR, alemão e italiano, com a voz clonada e telas traduzidas". O italiano foi descartado depois, nesta conversa (2026-11-27), e a decisão mais recente vale.
-
-## Dúvidas abertas
-
-Parte 4:
-
-- ~~Dois ou três idiomas?~~ Respondida: dois (PT-BR e alemão).
-- A voz em alemão será a voz do Felipe sintetizada? Se sim, é preciso registrar exceção à regra "voz de IA nunca é publicada".
-- Com qual ferramenta a voz seria sintetizada?
-- ~~Um Gmail ou um por canal?~~ Respondida: um só, o que já roda os Shorts.
-- Quem revisa o alemão?
-
-Perguntas feitas pela outra sessão (parte 1):
-
-Perguntas da parte 1:
-
-- ~~Formato: Shorts ou longos?~~ Respondida: longos, 9 a 20 minutos.
-- Idioma: voz gerada com roteiro traduzido, ou alguém que domine o idioma para revisar? (aberta)
-- Objetivo: receita de AdSense, crescimento de inscritos ou os dois? (aberta)
-
-Perguntas da parte 2:
-
-1. ~~Economia por vídeo ou crescimento rápido?~~ Respondida: maior pagamento, com público (alemão).
-2. Quem revisa o roteiro e a narração no outro idioma?
-3. Fazer o teste direto (2 ou 3 temas pesquisados no YouTube em cada idioma) ou um documento com a pesquisa?
-
-## Contexto: pesquisa de audiência (parte 1)
-
-Números relatados pela outra sessão. **Não verificados aqui.**
-
-| | Brasil (PT-BR) | Itália | Alemanha |
+| ID | O que testar | Passa quando | Status |
 |---|---|---|---|
-| TV em 2026 | forte alta | forte alta | estagnada, fragmentada |
-| Herói local | Bortoleto e Rafa Câmara | Antonelli, campeão mundial | nenhum |
-| Acesso | TV aberta (Globo) | Sky + TV8 aberta | quase tudo pago |
-| CPM estimado | US$ 0,80–3 | € 2,50–5,00 | € 5–9,80 |
+| TV-01 | Tradução falsa: esticar os textos para achar estouro de caixa | nenhum texto estoura ou se sobrepõe | pendente |
+| TV-02 | Fonte cursiva, cartões e gráficos com ä, ö, ü, ß e acentos do italiano | todos os caracteres desenhados e dentro das caixas | pendente |
+| TV-03 | VoiceStudio no nível **padrão** (o teste lento foi no máximo): tempo e qualidade | tempo aceitável para 15 min e voz reconhecível como a do Felipe | pendente |
+| TV-04 | Licença do modelo de voz para canal monetizado (e marca d'água) | licença permite uso comercial | pendente |
+| TV-05 | Pronúncia em alemão e italiano de pilotos, pistas e termos técnicos | sem erro apontado na conferência | pendente |
+| TV-06 | Subagentes revisores com erros plantados de propósito | pegam os erros e não "corrigem" o que está certo | pendente |
+| TV-07 | Diferença de duração PT-BR × alemão × italiano no mesmo roteiro | diferença medida por trecho | pendente |
+| TV-08 | Quanto dá para desacelerar ou acelerar a 60 fps | limite sem parecer travado definido | pendente |
+| TV-09 | Cenas por trecho ancorando em outro idioma | cenas, textos e SFX caem no momento certo | pendente |
+| TV-10 | Render complementar de um plano 3D (esticar começo ou fim) | emenda invisível | pendente |
+| TV-11 | Rótulo traduzido seguindo a peça 3D (depende do item aberto A-3) | rótulo acompanha a peça em todos os quadros | pendente |
+| TV-12 | Troca do blocking pelo 3D final | tempos e textos continuam no lugar | pendente |
+| TV-13 | Peça fotorrealista no Blender com as ferramentas ArtCraft | comparável à referência real | pendente |
+| TV-14 | Detectar a batida e encaixar corte ou movimento | efeito percebido no momento escolhido | pendente |
+| TV-15 | Triagem de ouvido do banco de SFX | sons ruins reprovados | pendente |
+| TV-16 | Card com 3 áudios e 3 links; limpeza só com os 3 | não apaga nada antes do terceiro link | pendente |
+| TV-17 | Piloto de 60 a 90 s pelo caminho inteiro nos três idiomas | os três saem sem refazer o visual | pendente |
 
-- **Brasil:** base de 71 milhões de fãs. Alcance de 52,8 milhões entre fevereiro e julho de 2026 (39,3 milhões em toda a temporada de 2025). Câmara na Haas em 2027.
-- **Itália:** Monza com mais de 4,4 milhões de espectadores médios e 39% de share. Sky +27% sobre 2025, direitos até o fim de 2032. Cautela: parte da alta vem do efeito Antonelli.
-- **Alemanha:** RTL com só quatro corridas em TV aberta em 2026; Sky exclusiva até o fim de 2027. Canais locais pequenos (Sky Sport Formel 1 ~266 mil, Motorsport-Magazin ~226 mil, Formel1.de ~82 mil, ams.f1 ~19,7 mil). Uma fonte coloca o RPM em só US$ 2,30.
-- **Concorrência (parte fraca da pesquisa):** PT-BR tem Sprint Race Brasil, Boteco F1, Fórmula Brumnh; italiano tem The Race Italia, Motorsport.com Italia, Formulatok e quase nenhum explicativo curto. Sem números confiáveis de inscritos e views dos canais independentes.
-- **Fontes de CPM:** fluxnote.io e dynamoi.com (estimativas de terceiros).
-- **Próxima rodada proposta:** tendência de buscas, amostra de views dos canais menores por idioma e temas que mais viralizam em cada mercado.
+## 3. Anotações técnicas (do orquestrador)
 
-## Contexto: pesquisa no YouTube (parte 2, nov/2026)
+- A direção atual ancora cenas, SFX e gráficos em **trechos literais do roteiro em português**; outro idioma precisa de um mapa dessas âncoras.
+- `kit/anotacao`, `kit/cartoes` e `kit/graficos` foram conferidos para PT-BR; falta o alemão e o italiano.
+- Números, datas e unidades no formato de cada idioma; nomes de pilotos e equipes iguais.
+- Vídeo a 60 fps desacelerado repete quadros. No HyperFrames ou Remotion, renderizar de novo no tempo certo é barato; no Blender (~2,8 s por quadro) vale guardar sobra.
+- Para o render complementar: guardar cena, quadros em sequência de imagens e animação que dê o mesmo resultado a cada render.
+- VoiceStudio: o teste anterior foi desinstalado em 2026-11-22 (cerca de 10 min por minuto de áudio, no máximo; pesos do OmniVoice não comerciais). Reinstalar quando for testar.
+- A criar no card: 3 campos de link e envio de áudio por idioma.
+- A criar no sistema: arquivo de textos por idioma, com nome fixo para cada texto.
 
-Números relatados pela outra sessão. **Não verificados aqui.**
+## 4. Em aberto
+
+- **A-1** Objetivo principal: receita de AdSense, crescimento de inscritos ou os dois?
+- **A-2** Qual modelo de voz, e se a licença permite (ver TV-03 e TV-04).
+- **A-3** Proposta do orquestrador, sem OK: render 3D com sobra no começo e no fim, exportando a posição na tela das peças que recebem rótulo.
+- **A-4** Telemetria e gráficos: os mesmos dados nos três idiomas ou variação por mercado?
+- **A-5** Temas do primeiro lote de vídeos.
+
+Propostas sem OK (da outra sessão e do orquestrador):
+
+- Glossário fixo por idioma (undercut, dirty air, box, pit stop, parc fermé...).
+- Revisor nativo humano nos primeiros vídeos para calibrar os subagentes.
+- Idioma padrão, sem sotaque regional.
+- Título e descrição próprios por idioma.
+- Mapa musical por trecho no roteiro; a música se ajusta à voz; licença conferida por faixa.
+- Manter identidade (paleta, fonte, transição) variando a execução; guardar projetos e versões como prova do processo.
+
+## 5. Contexto e histórico
+
+Números **não verificados aqui**, salvo a conferência de 5.4.
+
+### 5.1 Como se chegou aos idiomas
+
+A outra sessão começou recomendando italiano (audiência de TV), passou a alemão (receita por view no YouTube). O Felipe escolheu alemão, depois considerou três, voltou a dois e fechou em **três** em 2026-11-27.
+
+### 5.2 Pesquisa de audiência e YouTube
 
 | | PT-BR | Italiano | Alemão |
 |---|---|---|---|
+| CPM estimado | US$ 0,80–3 | € 2,50–5,00 | € 5–9,80 |
 | Buscas por "f1" no país | 519 mil | 53 mil | 112 mil |
-| Receita por 1.000 views, vídeo longo (cálculo dela, a partir do vidIQ) | ~US$ 0,55–0,60 | ~US$ 0,95 | ~US$ 1,55 |
-| Maiores canais independentes | GP EM CASA (210 mil), Clube da F1 (101 mil), Canal Enerto (66 mil) | Alberto Naska (1,17 mi, motorsport em geral), Matteo Bobbi (75 mil), Rastrelli (74 mil) | Motorsport-Magazin (294 mil), FormelFranz (52 mil), Lumi F1 (55 mil) |
-| Maior vídeo longo recente encontrado | 76 mil (GP EM CASA) | 229 mil (Naska, 16 min) | 80 mil (sport auto, 51 min) |
+| Receita por 1.000 views, vídeo longo | ~US$ 0,55–0,60 | ~US$ 0,95 | ~US$ 1,55 |
+| Maiores canais independentes | GP EM CASA (210 mil), Clube da F1 (101 mil), Canal Enerto (66 mil) | Alberto Naska (1,17 mi, motorsport), Matteo Bobbi (75 mil), Rastrelli (74 mil) | Motorsport-Magazin (294 mil), FormelFranz (52 mil), Lumi F1 (55 mil) |
+| Maior vídeo longo recente | 76 mil | 229 mil (16 min) | 80 mil (51 min) |
 
-- **Potencial total (busca × valor por view):** PT-BR em primeiro, alemão com cerca de metade, italiano com cerca de um sexto.
-- **Anúncios no meio do vídeo:** disponíveis a partir de 8 minutos.
-- **Vaga:** não achou, nos três idiomas, canal de F1 com documentário de 9 a 20 min, motion graphics pesado e transições sem corte.
-  - PT-BR: Botequim GP se diz documentário (41 mil, ~3,5 mil views por vídeo).
-  - Italiano: explicativos de engenharia funcionam (138 mil views em vídeo de 12 min sobre o câmbio).
-  - Alemão: canais pequenos de nicho com médias altas (Fahrer Goat ~170 mil, Hungary599 ~131 mil), publicando pouco.
-- **Limites:** unidade do volume de busca do vidIQ não explicitada; "f1" inclui jogo e mods; amostra de ~20 canais por idioma; sem Instagram/TikTok por país; sem Google Trends.
+- TV em 2026: forte alta no Brasil e na Itália; estagnada e paga na Alemanha.
+- Anúncios no meio do vídeo a partir de 8 minutos.
+- Vaga: não foi achado, nos três idiomas, canal de F1 com documentário de 9 a 20 min, motion graphics pesado e transições sem corte.
+- PT-BR já tem concorrente grande (RessacaMotor, 329 mil). Alemão: formato livre; ganchos Audi, Mercedes, Schumacher, Hockenheim. Italiano: quase livre; ganchos Antonelli, Ferrari, Monza.
+- Limites: volumes do vidIQ sem unidade clara; amostra de ~20 canais por idioma; sem Google Trends.
 
-## Contexto: Formula Addict e vaga por idioma (parte 3)
+### 5.3 Formula Addict
 
-Números relatados pela outra sessão. **Não verificados aqui.**
+648 mil inscritos; 23 vídeos longos em um ano, ~780 mil views por vídeo; os que mais rendem têm 10 a 15 min e título em pergunta; temas de regulamento, montadora e "por que isso acontece". Receita estimada ~US$ 3,3 mil/mês (vidIQ). Fora do inglês, esperar cerca de uma ordem de grandeza a menos.
 
-- **Formula Addict:** 648 mil inscritos; 23 vídeos longos em um ano (~2 por mês), 18 milhões de views (~780 mil por vídeo). Receita estimada ~US$ 3,3 mil/mês (vidIQ, pode estar baixa); patrocínio e membros pesariam tanto quanto AdSense.
-- **O que mais rende nele:** 10 a 15 min e título em pergunta ("What's REALLY Changing?" 2,4 mi; "Why Is Lamborghini NOT in F1?" 1,7 mi; "Why is Audi Joining F1?" 1,5 mi). Temas de regulamento, montadora e "por que isso acontece".
-- **Escala esperada fora do inglês:** uma ordem de grandeza menor; melhores canais fazem 60 a 130 mil views de média.
-- **Alemão:** formato não ocupado (só notícia e análise). NaBravoo (história, 7,7 mil). Berlin Channel (história, não F1): 245 mil inscritos, 654 mil views por vídeo. Ganchos: Audi, Mercedes, Schumacher, Hockenheim.
-- **Italiano:** quase não ocupado. Racing Hub (2 mil, +32% em 30 dias). Ganchos: Antonelli, Ferrari, Monza.
-- **PT-BR:** já há concorrente grande. RessacaMotor (329 mil); Cortes do Motor (7,6 mil, +61% em 30 dias).
+### 5.4 Documento de retenção do Felipe (conferido em 2026-11-27)
+
+Arquivo: `Retenção de Audiência em Vídeos Longos.docx` (na pasta Downloads). Referências quase todas de blogs e ferramentas de IA; nem tudo foi checado.
+
+- **Usar como técnica:** gancho sem cumprimento que entrega o título; stakes como "por que isso interessa"; roadmap sem entregar o final; cada seção responde à dúvida anterior; rehooks; open loops; payoff; sem "em conclusão"; CTA curto para o próximo vídeo; frases curtas; pausas antes de virada; imagem mostra o que a voz diz; título e miniatura sem o mesmo texto.
+- **Errado ou sem base:** "imagem 60.000 vezes mais rápida que texto"; Zeigarnik como memória superior (meta-análise de 2025, DOI 10.1057/s41599-025-05000-w); título com efeito "exponencial" no CTR; "reupar" vídeo mantendo o link; CTR de 8 a 12% como meta (YouTube: metade fica entre 2% e 10%).
+- **Não confirmado:** números do Retention Rabbit e metas por duração; +18% de CTR na miniatura; quebra de padrão a cada 15 a 40 s.
+- Medir de verdade pela curva de retenção do YouTube Studio.
+
+### 5.5 Regras do YouTube citadas pela outra sessão (não verificadas)
+
+- Monetização: 1.000 inscritos e mais 4.000 horas em 12 meses ou 10 milhões de views em Shorts em 90 dias.
+- Até 100 canais por conta Google.
+- Clonar a própria voz não exigiria marcar conteúdo sintético; vídeo próprio traduzido não pareceria "conteúdo reutilizado" (sem regra explícita).
+- Risco de "conteúdo repetitivo ou de template": variar estrutura e gancho.
+- "Trust Score" não é métrica oficial.
+
+## 6. INFORMAÇÕES IMPORTANTES
+
+Do trabalho de 2026-11-05 e 06 (antes da reorganização de 20/11), ainda válido.
+
+### 6.1 Análise das referências
+
+- 10 vídeos analisados por inteiro (9 Formula Addict, 1 Documentsui): cortes, fala, som, ~7 mil miniaturas, 144 transições quadro a quadro.
+  Em `F1/horizontal/dados/estilo/referencias_horizontais/` (`analise_horizontal.md`, `transicoes_quadro_a_quadro.md`, `sons_resumo.json`).
+- Formula Addict: quase 100% 3D e motion graphics; palavra gigante atrás do carro (25 a 35 vezes por vídeo, entra com letras
+  embaralhadas); uma cor de destaque por vídeo, a da equipe do tema; modo claro e modo técnico escuro; notas à mão que comentam
+  a fala; respiros de 7 a 40 s sem texto (~35–40% do tempo); 145 a 190 palavras/min; algo muda na tela a cada 2 a 3 s; trilha
+  16 a 26 dB abaixo da voz.
+- Transições medidas (24 fps): só ~36% são corte seco; empurrão sai em 8 quadros com desfoque de até 8% da largura e entra em
+  12; glitch de 4 a 6 quadros; cortina sempre de baixo para cima em 14; fade de 14 a 22; letras embaralhadas a ~0,65 letra por quadro.
+- Documentsui: ~60% filmagem de TV; dele só servem a abertura de capítulo com o traçado, a tabela de pontos e a palavra solta em tela escura.
+
+### 6.2 Decisões do Felipe nessa época
+
+- Mesclar Formula Addict e Documentsui, com regras próprias (nada das regras do Runeterra).
+- Carros sempre oficiais e o mais atuais possível, em `.glb` (base para o Blender).
+- Estúdio alterna dois modos pelo clima do trecho: claro (fundo claro, palavra na cor de destaque) e cor cheia (fundo na cor, palavra branca).
+- Zebras verde/amarela fazem parte da assinatura de Interlagos.
+
+### 6.3 Testes feitos e o que se aprendeu
+
+Código em `F1/horizontal/v1/src/` (`TesteEstudio.tsx`, `TestePista.tsx`, `TesteCorrida.tsx`).
+
+- **Leitor de `.glb` de carro:** ajusta para 5,4 m, acha a frente pela asa traseira (a ponta mais alta é a de trás) e separa as
+  4 rodas pela posição, mesmo quando o arquivo junta as quatro numa peça. Asas, halo e suspensão grudados na carroceria exigem
+  corte por região ou o Blender ("separar por partes soltas").
+- `ferrari_sf26.glb` é uma SF-25 com a pintura de 2026 (carroceria de 2025); `ferrari_sf26_v2.glb` é a F1-75 de 2022.
+- **Pista `.glb` de Interlagos:** está em metros e bate com o traçado real (escala 1, erro mediano ~0,9 m); largura medida
+  13 a 14 m; relevo de 43 m. Só a superfície (`surface_2`) basta; asfalto = `mesh2_7`/`mesh2_11`, zebras verde/amarela/branca =
+  `mesh2_8`/`mesh2_9`, linhas brancas `mesh2_6`, amarelas `mesh2_17`.
+- **Alinhamento:** `F1/dados/modelos3d/pistas/alinhamento_interlagos.json` = trajetória da volta (x, altura, z a cada 3,5 m,
+  f 0 = chegada) recentralizada no asfalto do `.glb`. O nosso traçado estava ~2,5 m fora do centro (até 8 m).
+- **Câmera que segue carro:** usar a direção média da pista em ±25 m e a volta fechada com pontos espaçados por igual; sem isso
+  a imagem treme (a variação entre quadros caiu de 5,15 para 0,41).
+- Estilo que funcionou: asfalto bem escuro, só zebras e faixas com textura original, o resto na cor de fundo e sumindo na névoa.
