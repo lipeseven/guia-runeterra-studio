@@ -30,7 +30,13 @@ A seção 6 reúne informações importantes de trabalhos anteriores (análise d
 - Referência de modelo: Formula Addict. Há muitos outros canais de referência (a enviar): juntar o melhor de cada um num estilo próprio e forte. Inspiração, não cópia.
 - **O 3D entra nos momentos-chave ou de grande impacto.**
 - **60 fps é regra do canal**, daqui para frente (o que já foi feito em 30 fica como está).
-- **O carro precisa fazer o traçado que o piloto fez.** O capricho é visual: erro de ±0,2 s no delta é aceitável. O OpenF1 não mede posição lateral (ver A-9).
+- **O carro precisa fazer o traçado que o piloto fez.** O OpenF1 não mede posição lateral (ver A-9).
+- **NÚMEROS E GRÁFICOS NA TELA NÃO PODEM TER ERRO. Regra inegociável** (Felipe, 2026-11-27). Temos a telemetria oficial; não há espaço para errar. Se a transmissão mostrou 330 km/h, o vídeo não pode mostrar 325. Substitui a tolerância anterior de ±0,2 s no delta.
+- **Tolerância só no visual do carro na pista** (ao replicar uma volta): pequena trepidação ou uns 30 cm para um lado ou outro passam, porque ninguém nota num vídeo visto no celular.
+- Recurso para esconder diferença de traçado: **jogo de câmera**, por exemplo vista lateral, em que não se percebe quanto o carro está para a direita ou esquerda.
+- **Como resolver o traçado lateral** (Felipe, 2026-11-27), conforme o caso:
+  - interpolar com o modelo do **Assetto Corsa**, que tem a linha ideal; ou
+  - olhar a **transmissão oficial** e replicar no Blender o que o piloto fez (a imagem serve de referência, não entra no vídeo).
 - **Movimento sem pulos nem degraus:** temos a malha 3D inteira, é só fazer certo (interpolar os dados e conferir quadro a quadro).
 - **Carro:** vale o exterior. Se o exterior é o carro atual, é ele que se usa; nomes de peça dentro do `.glb` não importam (modders reaproveitam peças de outros carros).
 
@@ -128,12 +134,17 @@ Status: `pendente`, `passou`, `falhou`.
 | TV-16 | Card com 3 áudios e 3 links; limpeza só com os 3 | não apaga nada antes do terceiro link | pendente |
 | TV-17 | Piloto de 60 a 90 s pelo caminho inteiro nos três idiomas | os três saem sem refazer o visual | pendente |
 | TV-18 | Gráficos no horizontal: poucos cartões empilhados e gráfico interagindo com a cena (regra do vertical) | aprovado pelo Felipe | pendente |
+| TV-19 | Movimento do carro sem pulos nem degraus (dados interpolados) | conferido quadro a quadro a 60 fps, sem tranco nem recuo | pendente |
+| TV-20 | Montador com `imagens`, `modelo3d`, `pessoa` e `tag` (ver A-10) | as quatro cenas montam sem erro | pendente |
+| TV-21 | Traçado do piloto: achar fonte para a posição lateral (ver A-9) | traçado conferido contra imagem real da volta, ou cena marcada como inferida | pendente |
+| TV-22 | Todo número e gráfico da tela contra a fonte oficial (tempos, setores, velocidades, delta) | zero divergência; o que não puder ser provado não vai para a tela | pendente |
 
 ## 3. Anotações técnicas (do orquestrador)
 
 - A direção atual ancora cenas, SFX e gráficos em **trechos literais do roteiro em português**; outro idioma precisa de um mapa dessas âncoras.
 - `kit/anotacao`, `kit/cartoes` e `kit/graficos` foram conferidos para PT-BR; falta o alemão e o italiano.
 - Números, datas e unidades no formato de cada idioma; nomes de pilotos e equipes iguais.
+- **Origem do erro de delta visto no teste:** não é a telemetria, é o nosso cálculo. `kit/graficos/py/preparar.py` estima a distância somando a velocidade (amostras de ~4 por segundo) e o delta metro a metro sai daí. Tempos de volta, de setor e speed trap vêm prontos e são exatos. Para cumprir a regra: número na tela só dos dados medidos; o delta contínuo precisa ser refeito e conferido contra os tempos oficiais de setor, ou aparecer sem número.
 - Vídeo a 60 fps desacelerado repete quadros. No HyperFrames ou Remotion, renderizar de novo no tempo certo é barato; no Blender (~2,8 s por quadro) vale guardar sobra.
 - Para o render complementar: guardar cena, quadros em sequência de imagens e animação que dê o mesmo resultado a cada render.
 - VoiceStudio: o teste anterior foi desinstalado em 2026-11-22 (cerca de 10 min por minuto de áudio, no máximo; pesos do OmniVoice não comerciais). Reinstalar quando for testar.
