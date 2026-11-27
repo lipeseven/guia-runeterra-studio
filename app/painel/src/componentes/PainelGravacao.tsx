@@ -45,6 +45,29 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
     xhr.send(corpo)
   }
 
+  // Vários arquivos de uma vez (capítulos 1 - urgot.mp4, 2 - mundo.mp4…): sobem para a pasta entrada e são juntados
+  // na ordem natural dos nomes; um arquivo só segue o envio de sempre.
+  const enviarVarios = async (lista: FileList | File[] | null | undefined) => {
+    const fs = Array.from(lista ?? [])
+    if (fs.length < 2) return enviar(fs[0])
+    setErro(null)
+    try {
+      for (let k = 0; k < fs.length; k++) {
+        setProgresso(Math.round((k / fs.length) * 100))
+        const corpo = new FormData()
+        corpo.append('arquivo', fs[k])
+        const r = await fetch(`/api/videos/${videoId}/gravacao/parte`, { method: 'POST', body: corpo })
+        if (!r.ok) throw new Error(`${fs[k].name}: ${(await r.text()).replace(/[{}"]|detail:/g, '')}`)
+      }
+      await api(`/videos/${videoId}/gravacao/da-pasta`, { method: 'POST' })
+    } catch (e) {
+      setErro(String(e).replace(/^Error: (\d+ )?/, ''))
+    } finally {
+      setProgresso(null)
+      aoMudar()
+    }
+  }
+
   const daPasta = async () => {
     setErro(null)
     try {
@@ -90,7 +113,7 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
           </div>
         )}
       </header>
-      <input ref={seletor} type="file" accept={EXTENSOES} className="hidden" onChange={(e) => enviar(e.target.files?.[0])} />
+      <input ref={seletor} type="file" multiple accept={EXTENSOES} className="hidden" onChange={(e) => enviarVarios(e.target.files)} />
 
       {progresso !== null ? (
         <div className="rounded-lg border border-borda-forte p-4">
@@ -118,7 +141,7 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
             onDrop={(e) => {
               e.preventDefault()
               setArrastando(false)
-              enviar(e.dataTransfer.files[0])
+              enviarVarios(e.dataTransfer.files)
             }}
             onClick={() => seletor.current?.click()}
             className={`flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed px-6 py-8 text-center ${
@@ -127,7 +150,7 @@ export function PainelGravacao({ videoId, etapa, aoMudar }: { videoId: number; e
           >
             <Upload className="size-6 text-suave" />
             <p className="text-sm">
-              Arraste a <b>gravação</b> aqui (áudio ou vídeo) ou <span className="text-ouro underline">clique para escolher</span>
+              Arraste a <b>gravação</b> aqui (áudio ou vídeo; vários capítulos de uma vez são juntados na ordem dos nomes) ou <span className="text-ouro underline">clique para escolher</span>
             </p>
             <p className="text-xs text-apagado">wav, mp3, m4a, flac, ogg, mp4, mkv, mov… Grave lendo o roteiro aprovado; pode errar e repetir à vontade.</p>
           </div>

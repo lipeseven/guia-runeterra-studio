@@ -233,7 +233,7 @@ def testar_vertical() -> None:
     checa(r.status_code == 200 and r.json()["render"] is None and r.json()["pedido"]["restantes"] == 1, "API resolve sem renderizar com outro aberto")
     r = cli.post(f"/api/pedidos-pesados/{resto[1]['id']}/resolver", json={"nota": "feito", "renderizar": True})
     checa(r.status_code == 200 and r.json()["render"] == {"ok": True}, f"último resolvido dispara 'só renderizar': {r.text[:200]}")
-    checa(esvaziar_fila() == [(vid, "rascunho")], "render do card na fila do motor")
+    checa([i for i in esvaziar_fila() if i[1] != "orquestrador"] == [(vid, "rascunho")], "render do card na fila do motor")  # o orquestrador automático também entra na fila
     checa("orq_pedido_pesado" not in pendencias(vid), "sem pedido aberto: pendência fechada")
     checa(cli.get("/api/pedidos-pesados").json()["abertos"] == 0, "GET /api/pedidos-pesados zerado")
     checa(cli.post(f"/api/pedidos-pesados/{resto[1]['id']}/resolver", json={}).status_code == 409, "resolver resolvido pela API = 409")

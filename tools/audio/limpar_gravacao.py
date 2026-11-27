@@ -59,6 +59,60 @@ def nivel_db(a: np.ndarray, t: float, janela: float = 0.02) -> float:
     return -120.0 if len(x) == 0 else 20 * np.log10(np.sqrt(np.mean(x ** 2)) + 1e-12)
 
 
+def piso_apos_corte(a: np.ndarray, fim_cortado: float, ini_fala: float, limiar: float = -35.0) -> float:
+    """Onde a fala pode começar depois de um começo cortado ("1, 2, 3," + "Urgot"): o Whisper marca o fim do "três" ~150 ms
+    cedo, e refinar_bordas (que atravessa silêncios < 120 ms para trás) pegava o "ssss" que sobra dele. Aqui: o 1º ponto,
+    depois do fim marcado, em que o volume fica abaixo de `limiar` por 40 ms seguidos."""
+    t = fim_cortado
+    while t < ini_fala:
+        if all(nivel_db(a, t + k * 0.01) < limiar for k in range(4)):
+            return t
+        t += 0.01
+    return fim_cortado
+
+
+def cauda_abandonada(fs: list[dict], k: int) -> dict | None:
+    """Fala que termina numa frase largada no meio ("…foi levado à presença da Barão Voz, enquanto ela com...") e que o
+    Felipe releu logo depois ("Enquanto ela cortava…"): tira só a frase largada e fica com o que veio antes. O sinal é o
+    Whisper escrever a última palavra truncada ("com...") e as palavras anteriores da cauda repetirem o começo de uma das
+    3 falas seguintes. Devolve a parte tirada (e encurta `fs[k]`)."""
+    f = fs[k]
+    ws = f["palavras"]
+    if len(ws) < 6 or not ws[-1]["p"].endswith(("...", "…")):
+        return None
+    norm = [normalizar(w["p"]) for w in ws]
+    for t in range(2, 7):
+        cauda = norm[-t:]
+        for j in range(k + 1, min(k + 4, len(fs))):
+            if fs[j]["i"] - f["f"] > 4.0:
+                break
+            prox = [normalizar(w["p"]) for w in fs[j]["palavras"][:t]]
+            if len(prox) < t or cauda[:-1] != prox[:-1] or not cauda[-1]:
+                continue
+            if SequenceMatcher(None, cauda[-1], prox[-1][:len(cauda[-1])]).ratio() >= 0.6:
+                tirada = {"palavras": ws[-t:], "i": ws[-t]["i"], "f": f["f"], "texto": " ".join(w["p"] for w in ws[-t:])}
+                f["palavras"] = ws[:-t]
+                f["f"] = f["palavras"][-1]["f"]
+                f["texto"] = " ".join(w["p"] for w in f["palavras"])
+                return tirada
+    return None
+
+
+def inicio_sem_respiracao(a: np.ndarray, ini: float, fim: float, voz: float = -22.0, minimo: float = 0.30,
+                          folga: float = 0.12) -> float:
+    """Respiração antes da fala: o Whisper a cola na 1ª palavra ("De" = 0,8 s) e refinar_bordas a mantém (é som acima de
+    -45 dB). Ela fica entre -45 e ~-30 dB, a fala fica acima de -22. Se do começo da fala até a voz de verdade há `minimo`
+    s ou mais desse som mais baixo, o começo vai para `folga` s antes da voz (sobra para a consoante). Vale a regra do
+    Felipe (2026-11-25): respiração acentuada no começo da frase sai; pausa continua a mesma (ver `montar`)."""
+    t = ini
+    limite = min(ini + 1.2, fim - 0.15)  # a voz tem de estar DENTRO da fala: senão pegava a fala seguinte e o trecho ficava vazio
+    while t < limite:
+        if all(nivel_db(a, t + k * 0.01) > voz for k in range(4)):
+            return t - folga if t - ini >= minimo else ini
+        t += 0.01
+    return ini
+
+
 def refinar_bordas(a: np.ndarray, ini: float, fim: float, limiar: float = -45.0) -> tuple[float, float]:
     """O Whisper erra as bordas em dezenas (às vezes centenas) de ms. Estende até a última voz por perto, ATRAVESSANDO
     silêncios curtos (< 120 ms) dentro da palavra — "DN" = "dê … ene": o Whisper termina no "dê" e a parada
@@ -109,7 +163,33 @@ def trechos_de_fala(a: np.ndarray, pausa: float = 0.30) -> list[tuple[float, flo
 
 
 # ---------------------------------------------------------------- transcrição
-def transcrever(a: np.ndarray) -> list[dict]:
+def nomes_do_roteiro(roteiro: str | None, maximo: int = 60) -> str:
+    """Nomes próprios do roteiro (palavra com maiúscula no meio da frase, ou título de uma palavra só numa linha) como
+    dicas para o Whisper: sem isso "Sion" virava "Ezi, Staio" (vídeo 6, 2026-11-25). Ordem de aparição, sem repetir."""
+    if not roteiro:
+        return ""
+    titulos: list[str] = []
+    achados: list[str] = []
+    for linha in roteiro.splitlines():
+        linha = linha.strip()
+        if re.fullmatch(r"[A-ZÀ-Ý][\w'’.-]+( [A-ZÀ-Ý][\w'’.-]+)?", linha):  # título do capítulo ("Dr. Mundo")
+            titulos.append(linha)
+        achados += re.findall(r"(?<=[a-zà-ÿ,;:] )([A-ZÀ-Ý][\wà-ÿ'’-]{2,})", linha)
+    freq: dict[str, int] = {}
+    forma: dict[str, str] = {}
+    for n in achados:
+        freq[n.lower()] = freq.get(n.lower(), 0) + 1
+        forma.setdefault(n.lower(), n)
+    # títulos sempre; o resto só se aparece 2+ vezes (palavra comum com maiúscula aparece uma vez), mais frequentes antes
+    fortes = [forma[k] for k, c in sorted(freq.items(), key=lambda kv: -kv[1]) if c >= 2]
+    vistos: list[str] = []
+    for n in titulos + fortes:
+        if n.lower() not in (v.lower() for v in vistos):
+            vistos.append(n)
+    return ", ".join(vistos[:maximo])
+
+
+def transcrever(a: np.ndarray, roteiro: str | None = None) -> list[dict]:
     """Transcreve CADA trecho de fala isoladamente. Vendo o áudio inteiro, o Whisper 'corrige' a
     leitura e omite falsos começos; isolado, ele é obrigado a transcrever o que ouviu."""
     for p in (Path(sys.prefix) / "Lib" / "site-packages" / "nvidia").glob("*/bin"):
@@ -118,12 +198,13 @@ def transcrever(a: np.ndarray) -> list[dict]:
     from faster_whisper import WhisperModel
 
     modelo = WhisperModel("large-v3-turbo", device="cuda", compute_type="float16")
+    dicas = ", ".join(x for x in (GLOSSARIO, nomes_do_roteiro(roteiro)) if x)
     a16 = reamostrar_16k(a)
     falas = []
     for ini, fim in trechos_de_fala(a):
         pedaco = a16[int(ini * 16000):int(fim * 16000)]
         segs, _ = modelo.transcribe(pedaco, language="pt", word_timestamps=True, vad_filter=False,
-                                    condition_on_previous_text=False, temperature=0.0, hotwords=GLOSSARIO)
+                                    condition_on_previous_text=False, temperature=0.0, hotwords=dicas)
         palavras = []
         for s in segs:
             if s.no_speech_prob > 0.6 and s.avg_logprob < -1.0:
@@ -155,6 +236,24 @@ def recomeco_interno(fala: dict) -> dict | None:
             fala["texto"] = " ".join(w["p"] for w in fala["palavras"])
             return descartada
     return None
+
+
+def contagem_inicial(fala: dict, roteiro: str | None) -> dict | None:
+    """Contagem de cabeça antes do capítulo ("1, 2, 3, Urgot"; "1, 2, 3, 4" sozinho): tira os números do começo da fala.
+    Só vale se os números aparecem em ordem a partir de 1 (2 ou mais) e o roteiro NÃO tem essa contagem. Devolve a parte
+    tirada; se a fala inteira era contagem, `fala["palavras"]` fica vazia (quem chama descarta a fala)."""
+    ws = fala["palavras"]
+    n = 0
+    while n < len(ws) and normalizar(ws[n]["p"]) == UNIDADES[n + 1 if n + 1 < len(UNIDADES) else 0] and n < 5:
+        n += 1
+    if n < 2 or (roteiro and " ".join(UNIDADES[1:n + 1]) in normalizar(roteiro)):
+        return None
+    tirada = {"palavras": ws[:n], "i": fala["i"], "f": ws[n - 1]["f"], "texto": " ".join(w["p"] for w in ws[:n])}
+    fala["palavras"] = ws[n:]
+    if fala["palavras"]:
+        fala["i"] = fala["palavras"][0]["i"]
+        fala["texto"] = " ".join(w["p"] for w in fala["palavras"])
+    return tirada
 
 
 UNIDADES = "zero um dois tres quatro cinco seis sete oito nove dez onze doze treze quatorze quinze dezesseis dezessete dezoito dezenove".split()
@@ -192,6 +291,8 @@ def e_regravacao(a: str, b: str) -> bool:
         return False
     if b.startswith(a):
         return True
+    if len(a.split()) < 2:
+        return False  # palavra solta ("Urgot" = título do capítulo) nunca é "recomeço" de "O Urgot nasceu…" só por parecer
     return SequenceMatcher(None, a, b[:len(a) + 3]).ratio() >= 0.72
 
 
@@ -286,10 +387,17 @@ def divergencias(lido: str, texto_roteiro: str) -> list[dict]:
     hifen = lambda t: re.sub(r"\s*-\s*", "", t)  # "paralisá -las" (Whisper) == "paralisá-las"
     a = [w for w in (normalizar(x) for x in hifen(texto_roteiro).split()) if w]
     b = [w for w in (normalizar(x) for x in hifen(lido).split()) if w]
+    ops = SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    # Gravação PARCIAL (só uma seção do roteiro): o que ficou antes/depois do trecho lido não é "leitura diferente",
+    # é texto ainda não gravado (vídeo 6, 2026-11-25: 3 blocos de ~1000 palavras "lidos" como "-"). Âncoras = trechos
+    # iguais de 5+ palavras; só se comparam as palavras do roteiro entre a primeira e a última âncora.
+    ancoras = [(i1, i2) for op, i1, i2, j1, j2 in ops if op == "equal" and i2 - i1 >= 5]
+    ini, fim = (ancoras[0][0], ancoras[-1][1]) if ancoras else (0, len(a))
     saida = []
-    for op, i1, i2, j1, j2 in SequenceMatcher(None, a, b, autojunk=False).get_opcodes():
-        if op != "equal":
+    for op, i1, i2, j1, j2 in ops:
+        if op != "equal" and i1 >= ini and i2 <= fim:
             saida.append({"roteiro": " ".join(a[i1:i2]) or "-", "lido": " ".join(b[j1:j2]) or "-"})
+    divergencias.nao_gravado = len(a) - (fim - ini)  # palavras do roteiro fora do trecho gravado
     return saida
 
 
@@ -300,13 +408,22 @@ def montar(a: np.ndarray, fs: list[dict], descartar: set[int]) -> tuple[np.ndarr
     cursor = 0.0
     fade = int(0.01 * SR)
     for k, f in enumerate(mantidas):
-        ini, fim = refinar_bordas(a, f["i"], f["f"])
+        if f.get("manual"):  # corte à mão no mini editor: exatamente o que o Felipe marcou, sem ajuste automático
+            ini, fim = f["i"], f["f"]
+            ini_pausa = ini
+        else:
+            ini, fim = refinar_bordas(a, f["i"], f["f"])
+            ini = max(ini, f.get("piso", 0.0))  # começo cortado: não volta para dentro da palavra cortada
+            if "teto" in f:
+                fim = min(fim, f["teto"])  # fim cortado (frase largada): não avança sobre a respiração/palavra cortada
+            ini_pausa = ini  # a pausa antes da fala termina aqui (antes da respiração, que é cortada)
+            ini = max(ini, inicio_sem_respiracao(a, ini, fim))
         if k > 0:
             ant = mantidas[k - 1]
             fim_frase = ant["texto"].rstrip().endswith((".", "!", "?"))
             houve_regravacao = any(fs[d]["i"] > ant["f"] and fs[d]["f"] < f["i"] for d in descartar)
-            _, fim_ant = refinar_bordas(a, ant["i"], ant["f"])
-            original = max(0.0, ini - fim_ant)
+            fim_ant = ant["f"] if ant.get("manual") else refinar_bordas(a, ant["i"], ant["f"])[1]
+            original = max(0.0, ini_pausa - fim_ant)
             if houve_regravacao:
                 alvo = PAUSA_APOS_REGRAVACAO[0 if fim_frase else 1]
             else:
@@ -314,15 +431,20 @@ def montar(a: np.ndarray, fs: list[dict], descartar: set[int]) -> tuple[np.ndarr
             if original - alvo > 0.05 or houve_regravacao:
                 pausas.append({"em": round(fim_ant, 2), "de": round(original, 2), "para": round(alvo, 2)})
             # usa o FINAL da pausa original (respiração antes da frase), não silêncio artificial
-            p0 = max(fim_ant, ini - alvo)
-            pedacos.append(a[int(p0 * SR):int(ini * SR)])
-            cursor += ini - p0
+            p0 = max(fim_ant, ini_pausa - alvo)
+            pedacos.append(a[int(p0 * SR):int(ini_pausa * SR)])
+            cursor += ini_pausa - p0
+        fim = max(fim, ini + 0.05)  # teto/piso/respiração nunca deixam o trecho vazio
         trecho = a[int(ini * SR):int(fim * SR)].copy()
-        trecho[:fade] *= np.linspace(0, 1, fade)
-        trecho[-fade:] *= np.linspace(1, 0, fade)
+        fd = min(fade, len(trecho) // 2)
+        if fd:
+            trecho[:fd] *= np.linspace(0, 1, fd)
+            trecho[-fd:] *= np.linspace(1, 0, fd)
         pedacos.append(trecho)
         for w in f["palavras"]:
-            mapa.append({"t": w["p"], "i": round(cursor + (w["i"] - ini), 3), "f": round(cursor + (w["f"] - ini), 3)})
+            # palavra que o Whisper começou antes do corte (respiração colada nela): começa no corte, não antes
+            mapa.append({"t": w["p"], "i": round(cursor + max(0.0, w["i"] - ini), 3),
+                         "f": round(cursor + max(0.0, w["f"] - ini), 3)})
         cursor += fim - ini
     info = {"pausas_encurtadas": pausas}
     return np.concatenate(pedacos), mapa, info
@@ -347,27 +469,48 @@ def limpar(gravacao: Path, pasta: Path, roteiro: str | None = None, passa_alta: 
     preparar_ffmpeg()
     pasta.mkdir(parents=True, exist_ok=True)
     a = carregar(gravacao)
-    fs = transcrever(a)
+    fs = transcrever(a, roteiro)
     removidos = []
-    for f in fs:
+    contagens = set()
+    for k, f in enumerate(fs):
+        if d := contagem_inicial(f, roteiro):
+            removidos.append({**d, "motivo": "contagem do capítulo"})
+            f["inicio_cortado"] = d
+            if not f["palavras"]:
+                contagens.add(k)  # a fala era só a contagem: sai inteira
+                f["palavras"], f["texto"] = d["palavras"], d["texto"]
+                f["inicio_cortado"] = None
+                removidos.pop()
+            continue
         if d := recomeco_interno(f):
             removidos.append({**d, "motivo": "recomeço sem pausa"})
             f["inicio_cortado"] = d  # o Felipe pode devolver na linha do tempo
-    descartar = detectar_regravacoes(fs)
-    motivo = {k: "regravação" for k in descartar}
+    for k, f in enumerate(fs):
+        if d := cauda_abandonada(fs, k):
+            removidos.append({**d, "motivo": "frase largada no fim"})
+            f["fim_cortado"] = d
+            f["teto"] = f["f"] + 0.10
+        if f.get("inicio_cortado"):
+            f["piso"] = piso_apos_corte(a, f["inicio_cortado"]["f"], f["i"])
+    descartar = detectar_regravacoes(fs) | contagens
+    motivo = {k: "regravação" for k in descartar} | {k: "contagem do capítulo" for k in contagens}
     if roteiro:
         fora, releitura, nao_era = filtrar_com_roteiro(fs, roteiro, descartar)
         descartar -= nao_era  # "regravação" que era a próxima frase do roteiro
         motivo = {k: m for k, m in motivo.items() if k not in nao_era}
         motivo |= {k: "fora do roteiro" for k in fora} | {k: "releitura (pelo roteiro)" for k in releitura}
-        descartar |= fora | releitura
+        descartar |= fora | releitura | contagens  # contagem nunca é "resgatada" pela posição no roteiro
+        motivo |= {k: "contagem do capítulo" for k in contagens}
     # todas as falas, cortadas ou não: a linha do tempo do painel corta/recupera sem transcrever de novo
     (pasta / "falas.json").write_text(json.dumps(
         [{"id": k, "i": f["i"], "f": f["f"], "texto": f["texto"], "palavras": f["palavras"], "cortada": k in descartar,
-          "motivo": motivo.get(k), "inicio_cortado": f.get("inicio_cortado")} for k, f in enumerate(fs)],
+          "motivo": motivo.get(k), "inicio_cortado": f.get("inicio_cortado"), "fim_cortado": f.get("fim_cortado")}
+         for k, f in enumerate(fs)],
         ensure_ascii=False), encoding="utf-8")
     removidos += [{**fs[k], "motivo": m} for k, m in motivo.items()]
-    return _finalizar(a, fs, descartar, removidos, pasta, roteiro, passa_alta)
+    rel = _finalizar(a, fs, descartar, removidos, pasta, roteiro, passa_alta)
+    (pasta / "decisoes_aplicadas.json").write_text("{}", encoding="utf-8")  # limpeza nova: nenhuma escolha aplicada ainda
+    return rel
 
 
 def remontar(gravacao: Path, pasta: Path, roteiro: str | None, decisoes: dict[str, str],
@@ -381,6 +524,17 @@ def remontar(gravacao: Path, pasta: Path, roteiro: str | None, decisoes: dict[st
     for x in falas:
         f = {"i": x["i"], "f": x["f"], "texto": x["texto"], "palavras": list(x["palavras"])}
         d = decisoes.get(str(x["id"]))
+        if manual := decisoes.get(f"m{x['id']}"):
+            # corte à mão (mini editor): vai EXATAMENTE de i a f; ignora cortes automáticos de começo/fim e as bordas
+            mi, mf = (float(v) for v in manual.split(":"))
+            f["palavras"] = [w for w in (list(x["palavras"]) + list((x.get("inicio_cortado") or {}).get("palavras", []))
+                                         + list((x.get("fim_cortado") or {}).get("palavras", [])))
+                             if mi - 0.02 <= (w["i"] + w["f"]) / 2 <= mf + 0.02]
+            f["palavras"].sort(key=lambda w: w["i"])
+            f["i"], f["f"], f["manual"] = mi, mf, True
+            f["texto"] = " ".join(w["p"] for w in f["palavras"]) or x["texto"]
+            fs.append(f)
+            continue
         if x.get("inicio_cortado"):
             ic = x["inicio_cortado"]
             if d == "inicio":  # devolve o começo que o "recomeço sem pausa" tinha tirado
@@ -389,12 +543,25 @@ def remontar(gravacao: Path, pasta: Path, roteiro: str | None, decisoes: dict[st
                 f["texto"] = " ".join(w["p"] for w in f["palavras"])
             else:
                 removidos.append({**ic, "motivo": "recomeço sem pausa"})
+                f["piso"] = piso_apos_corte(a, ic["f"], f["i"])
+        if x.get("fim_cortado"):
+            fc = x["fim_cortado"]
+            if d == "fim":  # devolve a frase largada no fim
+                f["palavras"] = f["palavras"] + fc["palavras"]
+                f["f"] = fc["f"]
+                f["texto"] = " ".join(w["p"] for w in f["palavras"])
+            else:
+                removidos.append({**fc, "motivo": "frase largada no fim"})
+                f["teto"] = x["f"] + 0.10
         cortada = x["cortada"] if d not in ("manter", "cortar") else d == "cortar"
         if cortada:
             descartar.add(len(fs))
             removidos.append({**f, "motivo": "cortado por você" if d == "cortar" else x.get("motivo") or "cortada"})
         fs.append(f)
-    return _finalizar(a, fs, descartar, removidos, pasta, roteiro, passa_alta)
+    rel = _finalizar(a, fs, descartar, removidos, pasta, roteiro, passa_alta)
+    # o que ESTE áudio já tem aplicado: o painel compara com as escolhas atuais para mostrar só o que está pendente
+    (pasta / "decisoes_aplicadas.json").write_text(json.dumps(decisoes, ensure_ascii=False), encoding="utf-8")
+    return rel
 
 
 def _finalizar(a: np.ndarray, fs: list[dict], descartar: set[int], removidos: list[dict], pasta: Path,
@@ -418,6 +585,7 @@ def _finalizar(a: np.ndarray, fs: list[dict], descartar: set[int], removidos: li
     }
     if roteiro:
         relatorio["divergencias_do_roteiro"] = divergencias(" ".join(relatorio["frases_mantidas"]), roteiro)
+        relatorio["palavras_roteiro_nao_gravadas"] = getattr(divergencias, "nao_gravado", 0)
     (pasta / "relatorio.json").write_text(json.dumps(relatorio, ensure_ascii=False, indent=1), encoding="utf-8")
     (pasta / "palavras.json").write_text(json.dumps(mapa, ensure_ascii=False, indent=1), encoding="utf-8")
     return relatorio

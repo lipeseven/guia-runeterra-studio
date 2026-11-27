@@ -27,6 +27,22 @@ def _norm(w: str) -> str:
     return re.sub(r"[^\wÀ-ú-]", "", w).lower()
 
 
+def fim_do_titulo(roteiro: str, de: int, maximo: int = 12) -> int | None:
+    """Índice (em `roteiro.split()`) da última palavra do TÍTULO que começa na palavra `de`: o título é uma linha curta
+    do roteiro (até `maximo` palavras) que não termina em ponto final — "Veigar", "Jhin - o psicopata do número 4".
+    None se a palavra `de` não abre uma linha assim (aí não há título a respeitar)."""
+    cursor = 0
+    for linha in roteiro.splitlines():
+        n = len(linha.split())
+        if n == 0:
+            continue
+        if cursor <= de < cursor + n:
+            curta = n <= maximo and not linha.rstrip().endswith((".", "!", "?", "…", ":"))
+            return cursor + n - 1 if curta and de == cursor else None
+        cursor += n
+    return None
+
+
 def indice_na_frase(frase: dict, toks: list[str], palavra: str | None) -> int | None:
     if not palavra:
         return None
@@ -614,13 +630,17 @@ def montar(slug: str, roteiro: str, palavras: list[dict], frases: list[dict], pl
                 {"de": de, "midia": midia, "legenda": legenda, "legenda_em": legenda_em,
                  "entrada_img": var.imagem(), "entrada_legenda": var.texto(), "movimento": var.movimento()}]})
 
-    # A capa só aparece durante a leitura do TÍTULO da seção (pedido do Felipe): se a cena seguinte começaria
-    # depois (cenas sem imagem no meio), ela é antecipada para logo após o título.
+    # A capa (e as bolinhas) só aparece durante a leitura do TÍTULO da seção — "Nome" ou "Nome - alcunha" (pedido do
+    # Felipe, 2026-11-26): acaba na última palavra da linha do título, NÃO na frase inteira ("Veigar O Veigar é um dos
+    # yordles mais poderosos da lore." dava 4 s de capa). A cena seguinte é antecipada para logo depois do título.
     for a, b in zip(cenas, cenas[1:]):
-        if a["tipo"] == "hub" and b["tipo"] not in ("hub", "capa") and b["id"] not in manuais:  # início movido à mão (poder de Deus) vence a regra do título
-            titulo = next((f for f in frases if f["de"] <= a["de"] <= f["ate"]), None)
-            if titulo and b["de"] > titulo["ate"] + 1:
-                b["de"] = titulo["ate"] + 1
+        if a["tipo"] in ("hub", "capa") and b["tipo"] not in ("hub", "capa") and b["id"] not in manuais:  # início movido à mão (poder de Deus) vence a regra do título
+            fim_titulo = fim_do_titulo(roteiro, a["de"])
+            if fim_titulo is None and a["tipo"] == "hub":  # sem linha de título reconhecível: a frase do título (regra antiga)
+                titulo = next((f for f in frases if f["de"] <= a["de"] <= f["ate"]), None)
+                fim_titulo = titulo["ate"] if titulo else None
+            if fim_titulo is not None and b["de"] != fim_titulo + 1 and b["de"] > a["de"]:
+                b["de"] = max(a["de"] + 1, fim_titulo + 1)
     for a, b in zip(cenas, cenas[1:]):
         a["ate"] = max(a["de"], b["de"] - 1)
     if cenas:

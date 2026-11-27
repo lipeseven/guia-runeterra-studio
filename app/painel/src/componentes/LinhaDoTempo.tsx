@@ -1,9 +1,10 @@
 import { Loader2, Pause, Play, RotateCcw, Scissors, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { api, arquivo } from '../api'
+import { EditorFala } from './EditorFala'
 
 type Fala = { id: number; i: number; f: number; texto: string; cortada: boolean; motivo: string | null; inicio_cortado: string | null }
-type Dados = { falas: Fala[]; decisoes: Record<string, string> }
+type Dados = { falas: Fala[]; decisoes: Record<string, string>; aplicadas: Record<string, string> | null }
 
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 const PX_POR_SEGUNDO = 7
@@ -17,6 +18,7 @@ export function LinhaDoTempo({ videoId, original, trabalhando, aoRefazer }: { vi
   const [filtro, setFiltro] = useState<'cortadas' | 'todas' | 'escolhas'>('cortadas')
   const [tocando, setTocando] = useState<number | null>(null)
   const [enviando, setEnviando] = useState(false)
+  const [editando, setEditando] = useState<number | null>(null)
   const audio = useRef<HTMLAudioElement>(null)
   const fimRef = useRef<number>(0)
   const trilha = useRef<HTMLDivElement>(null)
@@ -28,9 +30,22 @@ export function LinhaDoTempo({ videoId, original, trabalhando, aoRefazer }: { vi
 
   if (!d || d.falas.length === 0) return null
   const dec = d.decisoes
-  const fica = (x: Fala) => (dec[x.id] === 'manter' || dec[x.id] === 'inicio' ? true : dec[x.id] === 'cortar' ? false : !x.cortada)
+  const manual = (x: Fala) => dec[`m${x.id}`]
+  const fica = (x: Fala) => (manual(x) || dec[x.id] === 'manter' || dec[x.id] === 'inicio' ? true : dec[x.id] === 'cortar' ? false : !x.cortada)
+  const emEdicao = d.falas.find((x) => x.id === editando)
+  const tocarIntervalo = (i: number, f: number) => {
+    const a = audio.current
+    if (!a) return
+    a.currentTime = Math.max(0, i)
+    fimRef.current = f
+    setTocando(-1)
+    a.play()
+  }
   const total = d.falas[d.falas.length - 1].f + 1
   const escolhas = Object.keys(dec).length
+  // pendentes = escolhas que o áudio limpo atual ainda não tem (novas, trocadas ou desfeitas); aplicadas === null = limpeza antiga
+  const apl = d.aplicadas
+  const pendentes = apl === null ? escolhas : [...new Set([...Object.keys(dec), ...Object.keys(apl)])].filter((k) => dec[k] !== apl[k]).length
 
   const ouvir = (x: Fala, comInicio = false) => {
     const a = audio.current
@@ -49,7 +64,7 @@ export function LinhaDoTempo({ videoId, original, trabalhando, aoRefazer }: { vi
   }
   const decidir = async (x: Fala, acao: string) => setD({ ...d, decisoes: (await api<{ decisoes: Record<string, string> }>(`/videos/${videoId}/gravacao/falas`, { method: 'POST', body: JSON.stringify({ id: x.id, acao }) })).decisoes })
 
-  const lista = d.falas.filter((x) => (filtro === 'todas' ? true : filtro === 'cortadas' ? !fica(x) || x.inicio_cortado : dec[x.id]))
+  const lista = d.falas.filter((x) => (filtro === 'todas' ? true : filtro === 'cortadas' ? !fica(x) || x.inicio_cortado : dec[x.id] || manual(x)))
 
   return (
     <div className="rounded-lg border border-borda bg-painel-2 p-3">
@@ -68,7 +83,7 @@ export function LinhaDoTempo({ videoId, original, trabalhando, aoRefazer }: { vi
         <p className="text-sm font-medium">Linha do tempo da gravação</p>
         <span className="text-[11px] text-apagado">verde = entra · vermelho = cortado · contorno dourado = escolha sua · clique para ouvir</span>
         <button
-          disabled={escolhas === 0 || trabalhando || enviando}
+          disabled={pendentes === 0 || trabalhando || enviando}
           onClick={async () => {
             setEnviando(true)
             try {
@@ -81,9 +96,24 @@ export function LinhaDoTempo({ videoId, original, trabalhando, aoRefazer }: { vi
           className="ml-auto flex items-center gap-1.5 rounded-md bg-ouro px-3 py-1.5 text-xs font-semibold text-fundo enabled:hover:brightness-110 disabled:opacity-40"
         >
           {trabalhando || enviando ? <Loader2 className="size-3.5 animate-spin" /> : <RotateCcw className="size-3.5" />}
-          Refazer o áudio limpo{escolhas ? ` (${escolhas} escolha${escolhas > 1 ? 's' : ''})` : ''}
+          {pendentes ? `Refazer o áudio limpo (${pendentes} alteraç${pendentes > 1 ? 'ões' : 'ão'} pendente${pendentes > 1 ? 's' : ''})` : `Áudio em dia (${escolhas} escolha${escolhas === 1 ? '' : 's'} aplicada${escolhas === 1 ? '' : 's'})`}
         </button>
       </div>
+
+      {emEdicao && (
+        <EditorFala
+          key={emEdicao.id}
+          videoId={videoId}
+          id={emEdicao.id}
+          de={emEdicao.i}
+          ate={emEdicao.f}
+          manual={manual(emEdicao)}
+          textoFala={emEdicao.texto}
+          ouvir={tocarIntervalo}
+          aoSalvar={(decisoes) => setD({ ...d, decisoes })}
+          aoFechar={() => setEditando(null)}
+        />
+      )}
 
       {/* trilha: blocos na posição real do áudio original */}
       <div ref={trilha} className="overflow-x-auto pb-2">
@@ -98,8 +128,8 @@ export function LinhaDoTempo({ videoId, original, trabalhando, aoRefazer }: { vi
               key={x.id}
               data-fala={x.id}
               title={`${mmss(x.i)} “${x.texto}”${x.cortada ? ` — ${x.motivo}` : ''}`}
-              onClick={() => ouvir(x)}
-              className={`absolute top-3 h-6 rounded-sm ${fica(x) ? 'bg-ok/70' : 'bg-red-500/70'} ${dec[x.id] ? 'ring-2 ring-ouro' : ''} ${tocando === x.id ? 'brightness-150' : ''}`}
+              onClick={() => setEditando(x.id)}
+              className={`absolute top-3 h-6 rounded-sm ${editando === x.id ? 'outline outline-2 outline-white' : ''} ${fica(x) ? 'bg-ok/70' : 'bg-red-500/70'} ${dec[x.id] ? 'ring-2 ring-ouro' : ''} ${tocando === x.id ? 'brightness-150' : ''}`}
               style={{ left: x.i * PX_POR_SEGUNDO, width: Math.max(2, (x.f - x.i) * PX_POR_SEGUNDO - 1) }}
             />
           ))}
@@ -132,7 +162,10 @@ export function LinhaDoTempo({ videoId, original, trabalhando, aoRefazer }: { vi
                 {x.inicio_cortado && dec[x.id] !== 'inicio' && <span className="text-red-300/80 line-through">{x.inicio_cortado} </span>}
                 “{x.texto}”
               </span>
-              <span className="shrink-0 text-[11px] text-apagado">{dec[x.id] ? 'escolha sua' : x.motivo ?? ''}</span>
+              <span className="shrink-0 text-[11px] text-apagado">{manual(x) ? 'corte à mão' : dec[x.id] ? 'escolha sua' : x.motivo ?? ''}</span>
+              <button onClick={() => setEditando(x.id)} className="shrink-0 rounded border border-borda px-1.5 py-0.5 text-[11px] text-suave hover:text-texto" title="Abre o mini editor desta fala">
+                editar
+              </button>
               {x.inicio_cortado && dec[x.id] !== 'inicio' && (
                 <button onClick={() => decidir(x, 'inicio')} className="shrink-0 rounded border border-borda px-1.5 py-0.5 text-[11px] text-suave hover:text-texto">
                   devolver o começo
