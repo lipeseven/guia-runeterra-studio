@@ -441,11 +441,15 @@ export function noCircuito(circ: THREE.Object3D, f: number, lado = 0) {
 /** Distância (m) que a fração f da volta representa: para `rolarRodas` de um carro na volta. */
 const metrosNaVolta = (circ: THREE.Object3D, f: number) => f * infoDe(circ).comprimento;
 
+/** Altura do asfalto (m): a pista de `criarCircuito` é um plano a 0,02; o carro assenta nela (antes ficava em 0 e os pneus afundavam 2 cm). */
+const ALTURA_ASFALTO = 0.02;
+
 /** Carro na volta do circuito: esterço das dianteiras E as 4 rodas rolando com a distância (f a f). `v` = velocidade real
  *  em m/s (só para limitar o giro visto; padrão 80). `escala` > 1 só para vista de longe (senão o carro some). */
 export function poeNoCircuito(w: Mundo, k: number, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number; velocidade?: boolean } = {}) {
   const q = noCircuito(circ, f, o.lado ?? 0);
   poe(w, k, q.x, q.z, q.giro);
+  w.carros[k].position.y = ALTURA_ASFALTO; // a pista é um plano a 2 cm do chão: com o carro em y=0 os pneus afundavam nela
   w.carros[k].scale.setScalar(o.escala ?? 1);
   estercar(w.carros[k], q.esterco);
   rolarRodas(w.carros[k], metrosNaVolta(circ, f), o.v ?? 80);
@@ -457,7 +461,7 @@ export function poeNoCircuito(w: Mundo, k: number, circ: THREE.Object3D, f: numb
 export function poePinturaNoCircuito(w: Mundo, chave: string, pintura: Pintura, circ: THREE.Object3D, f: number, o: { lado?: number; escala?: number; v?: number; velocidade?: boolean } = {}) {
   const c = obj(w, `carro:${chave}`, () => carro(pintura));
   const q = noCircuito(circ, f, o.lado ?? 0);
-  c.position.set(q.x, 0, q.z);
+  c.position.set(q.x, ALTURA_ASFALTO, q.z);
   c.rotation.y = q.giro;
   c.scale.setScalar(o.escala ?? 1);
   estercar(c, q.esterco);
@@ -673,19 +677,24 @@ export function pelotao(w: Mundo, circ: THREE.Object3D, f: number, n = 8, o: { f
     const k = eFoco ? foco : outros[j < iFoco ? j : j - 1];
     const off = g.d - base.d + (eFoco ? 0 : 2.2 * Math.sin(0.5 * t + 1.9 * j));
     const lado = eFoco ? (o.lado ?? 0) : Math.max(-maxLado, Math.min(maxLado, g.lado + 0.5 * Math.sin(0.37 * t + j)));
-    return { k, off, lado, eFoco };
+    return { k, off, lado, eFoco, vaga: g.d - base.d };
   });
-  // ninguém em cima de ninguém: na mesma faixa (menos de 2,3 m de lado), pelo menos 7,5 m entre os centros
-  lista.sort((a, b) => b.off - a.off);
+  // ninguém em cima de ninguém: na mesma faixa (menos de 2,3 m de lado), pelo menos 7,5 m entre os centros.
+  // Sem salto (2026-11-26, card 26 cena 21: carro se teletransportava): a ordem vem da vaga fixa (não da "respiração",
+  // que trocava a ordem com o tempo e jogava o carro 15 m de um lado ao outro) e o empurrão entra aos poucos entre 2,6 e
+  // 2,3 m de distância lateral (antes ligava de uma vez ao cruzar 2,3 m e o carro pulava 7 m). Abaixo de 2,3 m: igual a antes.
+  lista.sort((a, b) => b.vaga - a.vaga);
   for (let j = 1; j < lista.length; j++) {
     for (let i = 0; i < j; i++) {
       const a = lista[i], b = lista[j];
-      if (Math.abs(a.lado - b.lado) < 2.3 && a.off - b.off < 7.5) {
-        if (b.eFoco) a.off = b.off + 7.5; // o foco não sai do lugar: quem anda é o outro
-        else b.off = a.off - 7.5;
+      const peso = Math.max(0, Math.min(1, (2.6 - Math.abs(a.lado - b.lado)) / 0.3));
+      if (peso > 0) {
+        if (b.eFoco) a.off += peso * (Math.max(a.off, b.off + 7.5) - a.off); // o foco não sai do lugar: quem anda é o outro
+        else b.off += peso * (Math.min(b.off, a.off - 7.5) - b.off);
       }
     }
   }
+  lista.sort((a, b) => b.off - a.off); // devolve na ordem da pista (o primeiro é o da frente)
   return lista.map((q) => {
     const fq = f + q.off / info.comprimento;
     poeNoCircuito(w, q.k, circ, fq, { lado: q.lado, v, escala: o.escala, velocidade: o.velocidade });

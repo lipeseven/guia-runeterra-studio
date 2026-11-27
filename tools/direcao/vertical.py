@@ -350,7 +350,7 @@ def resolver(brutos: list[dict], palavras: list[dict]) -> tuple[list[dict], list
             idx = [localizar(palavras, x, i) for x in p["grafico"].pop("itens_em")]
             if all(j is not None for j in idx):
                 p["grafico"]["itens_i"] = idx
-        for campo in ("palavras", "marcos", "horas"):  # itens de gráfico que entram cada um na sua palavra
+        for campo in ("palavras", "marcos", "horas", "linhas"):  # itens de gráfico que entram (ou acendem) cada um na sua palavra
             for item in (p["grafico"].get(campo) or []) if isinstance(p.get("grafico"), dict) else []:
                 j = localizar(palavras, item.pop("em", None), i)
                 if j is not None:
