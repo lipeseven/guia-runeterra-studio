@@ -7,7 +7,9 @@ Fontes: conversa do Felipe com o orquestrador e prints de uma conversa dele com 
 **Como ler:** o que vale está nas seções 1 a 3. A seção 4 é o que ainda falta decidir. A seção 5 é só contexto e histórico.
 A seção 6 reúne informações importantes de trabalhos anteriores (análise das referências e testes de 3D).
 
-**Fase atual: discussão de ideias.** Nada de execução nem de vídeo nesta semana (também pela cota). Não oferecer execução a cada resposta.
+**Fase atual (2026-11-27): discussão de ideias.** Nada de execução nem de vídeo na semana de 2026-11-27 (também pela cota). Não oferecer execução a cada resposta.
+
+**Sessão nova: leia também a seção 7 antes de agir.**
 
 ## 1. Decisões
 
@@ -155,7 +157,7 @@ Status: `pendente`, `passou`, `falhou`.
 
 - **A-1** Objetivo principal: receita de AdSense, crescimento de inscritos ou os dois?
 - **A-2** Qual modelo de voz, e se a licença permite (ver TV-03 e TV-04).
-- **A-3** Proposta do orquestrador, sem OK: render 3D com sobra no começo e no fim, exportando a posição na tela das peças que recebem rótulo.
+- **A-3** Proposta do orquestrador, sem OK: render 3D com sobra no começo e no fim, exportando a posição na tela das peças que recebem rótulo. Quando a duração mudar: primeiro ajustar a velocidade (com aviso na tela), depois usar a sobra, e só por último renderizar de novo aquele trecho.
 - **A-4** Telemetria e gráficos: os mesmos dados nos três idiomas ou variação por mercado?
 - **A-5** Temas do primeiro lote de vídeos.
 - **A-6** Raio-X: provavelmente será necessário, mas fica para o futuro. Os `.glb` não têm interior (radiador, dutos, motor, câmbio); caminhos: modelos com interior, raio-X estilizado ou corte só na casca.
@@ -268,3 +270,31 @@ Código em `F1/horizontal/v1/src/` (`TesteEstudio.tsx`, `TestePista.tsx`, `Teste
 - **Câmera que segue carro:** usar a direção média da pista em ±25 m e a volta fechada com pontos espaçados por igual; sem isso
   a imagem treme (a variação entre quadros caiu de 5,15 para 0,41).
 - Estilo que funcionou: asfalto bem escuro, só zebras e faixas com textura original, o resto na cor de fundo e sumindo na névoa.
+
+## 7. Para a sessão que continuar
+
+### 7.1 Onde ler
+
+- `F1/horizontal/ARQUITETURA.md`: desenho do motor documental.
+- `F1/horizontal/diretor/README.md`, `docs/painel.md`, `montador/README.md` e `kit/*/README.md`: o que já existe e os limites de cada parte.
+- `F1/horizontal/docs/relatorio_nove_milesimos.md`: como cada tecnologia se saiu no único vídeo completo de teste (83,1/100). O card e a pasta desse vídeo já não existem em `F1/dados`.
+- `F1/horizontal/PLANO.md`: histórico da construção, **desatualizado** (a fase 6 aparece aberta, mas a reorganização foi feita em 2026-11-20).
+- Existem três caminhos no código: animado v1 (`v1/`, 30 fps), documentário (`kit/`, `diretor/`, `montador/`, 60 fps) e testes de motor.
+
+### 7.2 Decisões anteriores que continuam valendo
+
+- Fonte de dados: OpenF1.
+- Voz guia: Fish Audio, como no Runeterra (nunca publicada). A voz publicada é a do Felipe, gravada em PT-BR e sintetizada por ele nos outros idiomas.
+- Sem imagens geradas por IA; arte especial só por código.
+- A edição humana faz parte do processo (cerca de 300 ajustes por vídeo): avaliar ferramentas pelo rascunho e pelo custo de corrigir.
+- Pedido explícito do Felipe vale mais que regra pré-definida.
+- Conversar em português, com respostas curtas. Não alterar o projeto sem autorização.
+
+### 7.3 Conflitos a resolver quando for construir
+
+- `CLAUDE.md` ainda diz que voz de IA só é publicada nos verticais; a exceção deste projeto (1.7) não está lá.
+- `F1/canal.toml` põe o diretor do horizontal animado em `sonnet`; a decisão 1.6b manda Opus 5.5 para tudo que mexe no vídeo.
+- O diretor documental recebe `F1/comum/docs/regras_de_direcao.md` inteiro, e quase tudo ali veio de vídeos verticais.
+- A conferência atual de números não cobre tudo (ver `relatorio_nove_milesimos.md`); a regra de números sem erro exige mais.
+- O repositório no GitHub está **público**, e este arquivo está nele (o `CLAUDE.md` diz que é privado).
+
