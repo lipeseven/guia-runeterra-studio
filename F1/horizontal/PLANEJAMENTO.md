@@ -28,6 +28,11 @@ A seção 6 reúne informações importantes de trabalhos anteriores (análise d
 - Transições de cena sem cortes; anotações "à mão", em fonte que parece cursiva.
 - Trechos fotorrealistas: **Blender junto com as ferramentas ArtCraft** (ver `docs/hub_ferramentas.md`).
 - Referência de modelo: Formula Addict. Há muitos outros canais de referência (a enviar): juntar o melhor de cada um num estilo próprio e forte. Inspiração, não cópia.
+- **O 3D entra nos momentos-chave ou de grande impacto.**
+- **60 fps é regra do canal**, daqui para frente (o que já foi feito em 30 fica como está).
+- **O carro precisa fazer o traçado que o piloto fez.** O capricho é visual: erro de ±0,2 s no delta é aceitável. O OpenF1 não mede posição lateral (ver A-9).
+- **Movimento sem pulos nem degraus:** temos a malha 3D inteira, é só fazer certo (interpolar os dados e conferir quadro a quadro).
+- **Carro:** vale o exterior. Se o exterior é o carro atual, é ele que se usa; nomes de peça dentro do `.glb` não importam (modders reaproveitam peças de outros carros).
 
 ### 1.3 Roteiro
 
@@ -84,6 +89,19 @@ Termos: **blocking** = ensaio da cena com formas simples; **blockout** = modelo 
 - Fica bom quando a música acompanha o roteiro ou o diretor trabalha sobre a batida. Música de fundo em alguns momentos; **não é regra**.
 - **Editar em cima da batida é exceção, um "super trunfo"** para momentos especiais.
 
+### 1.9b Motores e arquivos de teste
+
+- **O Studio trabalha com os dois motores (Remotion e HyperFrames).** O HyperFrames não ganha tempo renderizando em paralelo; aceito.
+- **Vídeos de teste e arquivos `.blend` nossos ficam dentro do projeto.** Antes de uma limpeza, listar por nome o que vai sumir e esperar o OK.
+
+### 1.10 Qualidade antes de mostrar
+
+- Cada cena é avaliada de 0 a 100; **só passa acima de 75**.
+- Conferir todo plano em quadro de tamanho original.
+- Objeto novo e complexo é testado isolado, contra a referência, antes de entrar no vídeo.
+- Manter a lista do que o Felipe mandou tirar e conferir a cada entrega.
+- Mudar só o que foi pedido e provar com diff de pixels.
+
 ## 2. Testes de viabilidade
 
 Tudo o que for para testar entra aqui, como casos de teste. **Todos os casos serão testados.**
@@ -109,6 +127,7 @@ Status: `pendente`, `passou`, `falhou`.
 | TV-15 | Triagem de ouvido do banco de SFX | sons ruins reprovados | pendente |
 | TV-16 | Card com 3 áudios e 3 links; limpeza só com os 3 | não apaga nada antes do terceiro link | pendente |
 | TV-17 | Piloto de 60 a 90 s pelo caminho inteiro nos três idiomas | os três saem sem refazer o visual | pendente |
+| TV-18 | Gráficos no horizontal: poucos cartões empilhados e gráfico interagindo com a cena (regra do vertical) | aprovado pelo Felipe | pendente |
 
 ## 3. Anotações técnicas (do orquestrador)
 
@@ -128,6 +147,11 @@ Status: `pendente`, `passou`, `falhou`.
 - **A-3** Proposta do orquestrador, sem OK: render 3D com sobra no começo e no fim, exportando a posição na tela das peças que recebem rótulo.
 - **A-4** Telemetria e gráficos: os mesmos dados nos três idiomas ou variação por mercado?
 - **A-5** Temas do primeiro lote de vídeos.
+- **A-6** Raio-X: provavelmente será necessário, mas fica para o futuro. Os `.glb` não têm interior (radiador, dutos, motor, câmbio); caminhos: modelos com interior, raio-X estilizado ou corte só na casca.
+- **A-7** SFX: conversar a fundo. Diretriz já aceita: bancos grátis (Freesound CC0, Pixabay, Mixkit, Sonniss) em vez de gerar com IA local.
+- **A-8** Telemetria: comparar depois OpenF1 e FastF1 (o FastF1 retornou 401 porque exige autenticação).
+- **A-9** Fonte para o traçado real do piloto: no teste de 2026-11-14 (`docs/teste_vhe_interlagos.md`), as voltas de pilotos diferentes do OpenF1 caem sobre a mesma linha, então a posição lateral foi inferida (linha ideal do mod do Assetto Corsa, no ritmo do piloto).
+- **A-10** Montador: o código ainda recusa `imagens`, `modelo3d`, `pessoa` e `tag` (`montador/README.md`). O Felipe lembra de um teste com isso funcionando; falta identificar qual.
 
 Propostas sem OK (da outra sessão e do orquestrador):
 
@@ -205,6 +229,17 @@ Do trabalho de 2026-11-05 e 06 (antes da reorganização de 20/11), ainda válid
 - Carros sempre oficiais e o mais atuais possível, em `.glb` (base para o Blender).
 - Estúdio alterna dois modos pelo clima do trecho: claro (fundo claro, palavra na cor de destaque) e cor cheia (fundo na cor, palavra branca).
 - Zebras verde/amarela fazem parte da assinatura de Interlagos.
+
+### 6.2b Feedback do teste Ferrari (Fable + HyperFrames)
+
+- Aprovado: câmera girando no mesmo plano 3D e blur de foco.
+- Reprovado: círculos feitos à mão, texto picotado, continuidade e ritmo. Cuidado ao fazer as anotações "à mão" da seção 1.2.
+
+### 6.2c Onde estão os testes de motor (e o que se perdeu em 2026-11-20)
+
+- Guardado: textos em `docs/testes_hyperframes/`; scripts, dados, `ferrari_fable_v5.mp4` e `hamilton_senna_blender_limpo.mp4` em `dados/arquivo_testes/`.
+- Apagado na limpeza: `sf26_pecas.blend` (mapeamento parcial do SF26), `interlagos_vhe_full.blend` e o vídeo do traçado `hamilton_melhor_volta_vhe.mp4`.
+- O vídeo do traçado pode ser refeito: cena em `hyperframes/vhe_interlagos/`, entradas conferidas no projeto, render ainda não testado. Descrição em `docs/teste_vhe_interlagos.md`.
 
 ### 6.3 Testes feitos e o que se aprendeu
 
